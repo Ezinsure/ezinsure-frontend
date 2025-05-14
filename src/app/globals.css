@@ -1,0 +1,54 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap');
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+  --main-blue: #126BB3;
+  --card-green: #2EBD59;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+body {
+  color: var(--foreground);
+  background: var(--background);
+  font-family: 'Poppins', sans-serif; /* Apply Poppins globally */
+}
+
+
+/* scroll bar styles */
+/* Scrollbar Track */
+::-webkit-scrollbar {
+  width: 10px; /* Width of the scrollbar */
+  height: 10px;
+  margin-top: 2px;
+}
+
+/* Scrollbar Handle */
+::-webkit-scrollbar-thumb {
+  background: #888; /* Color of the scrollbar handle */
+  border-radius: 6px; /* Rounded corners */
+  border: 1.5px solid #f1f1f1; /* Padding around the handle */
+}
+
+/* Scrollbar Handle on hover */
+::-webkit-scrollbar-thumb:hover {
+  background: #555; /* Darker color on hover */
+}
+
+/* Scrollbar Track */
+::-webkit-scrollbar-track {
+  background: #dfdfdfd6; /* Color of the track */
+  border-radius: 6px; /* Rounded corners */
+}
+
+/* Scrollbar Corner */
+::-webkit-scrollbar-corner {
+  background: #f1f1f1; /* Color of the corner */
+}
