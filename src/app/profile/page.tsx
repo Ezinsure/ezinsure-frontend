@@ -96,6 +96,7 @@ export default function ProfilePage() {
       
       setIsLoading(false);
     } catch (error) {
+      console.log(error);
       showToast('Error loading profile data', 'error');
       router.push('/login');
     }
@@ -159,6 +160,7 @@ setErrors(formErrors);
         showToast('Profile updated successfully!', 'success');
         setOriginalProfile(profile);
       } catch (error) {
+        console.log(error);
         showToast('Error updating profile', 'error');
       } finally {
         setIsSaving(false);
@@ -430,7 +432,7 @@ setErrors(formErrors);
               <div className="flex justify-between items-center p-4 border border-gray-200 rounded-lg">
                 <div>
                   <h3 className="font-medium">Active Sessions</h3>
-                  <p className="text-sm text-gray-500">View and manage devices where you're currently logged in</p>
+                  <p className="text-sm text-gray-500">View and manage devices where you&apos;re currently logged in</p>
                 </div>
                 <Button
                   variant="secondary"

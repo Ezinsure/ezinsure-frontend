@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { MainLayout } from '@/components/ui/main-layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -111,6 +111,7 @@ export default function TrackApplicationPage() {
         showToast('No application found with that ID', 'error');
       }
     } catch (error) {
+      console.log(error);
       showToast('Error fetching application', 'error');
     } finally {
       setIsLoading(false);
@@ -206,7 +207,7 @@ export default function TrackApplicationPage() {
           <div className="mt-6 bg-purple-50 p-4 rounded-lg">
             <h4 className="font-medium text-purple-700 mb-2">Payment Under Review</h4>
             <p className="text-sm text-gray-600">
-              Your payment proof has been submitted and is being reviewed. You'll be notified once verified.
+              Your payment proof has been submitted and is being reviewed. You&apos;ll be notified once verified.
             </p>
           </div>
         );

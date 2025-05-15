@@ -107,6 +107,7 @@ export default function LoginPage() {
           showToast('Invalid email or password. Please try again.', 'error');
         }
       } catch (error) {
+        console.log('Error during login:', error);
         showToast('An error occurred. Please try again.', 'error');
       } finally {
         setIsSubmitting(false);

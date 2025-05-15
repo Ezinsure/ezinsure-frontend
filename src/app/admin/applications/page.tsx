@@ -364,7 +364,7 @@ const itemsPerPage = 10;
   const Pagination = ({ currentPage, totalPages, onPageChange }: PaginationProps) => {
   const maxVisiblePages = 5;
   let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
-  let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+  const endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
 
   if (endPage - startPage + 1 < maxVisiblePages) {
     startPage = Math.max(1, endPage - maxVisiblePages + 1);
@@ -644,7 +644,7 @@ const itemsPerPage = 10;
         <div className="fixed inset-0 bg-gray-600/50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md mx-4 fade-in">
             <h3 className="text-lg font-semibold mb-4">Verify Payment</h3>
-            <p className="text-gray-600 mb-4">Review payment proof for {selectedApp.fullName}'s application:</p>
+            <p className="text-gray-600 mb-4">Review payment proof for {selectedApp.fullName}&apos;s application:</p>
             
             <div className="border rounded-lg p-4 mb-4 bg-gray-50">
               <p className="font-medium">Payment Details:</p>
@@ -670,7 +670,7 @@ const itemsPerPage = 10;
         <div className="fixed inset-0 bg-black flex items-center justify-center z-50">
           <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md mx-4 fade-in">
             <h3 className="text-lg font-semibold mb-4">Issue Insurance</h3>
-            <p className="text-gray-600 mb-4">Issue insurance certificate for {selectedApp.fullName}'s {selectedApp.insuranceType} insurance:</p>
+            <p className="text-gray-600 mb-4">Issue insurance certificate for {selectedApp.fullName}&apos;s {selectedApp.insuranceType} insurance:</p>
             
             <div className="border rounded-lg p-4 mb-4 bg-blue-50">
               <p className="font-medium text-[var(--main-blue)]">Application Approved & Payment Verified</p>

@@ -386,7 +386,7 @@ export default function Home() {
                 Why Choose EZINSURE?
               </h2>
               <p className="text-gray-600 mb-8">
-                We've simplified the insurance process to make getting covered
+                We&apos;ve simplified the insurance process to make getting covered
                 easier than ever before, with transparent pricing and quick
                 approvals.
               </p>
@@ -459,7 +459,7 @@ export default function Home() {
               What Our Clients Say
             </h2>
             <p className="text-gray-600 max-w-2xl mx-auto">
-              Don't just take our word for it. Here's what our clients have to
+              Don&apos;t just take our word for it. Here&apos;s what our clients have to
               say about their experience with EZINSURE.
             </p>
           </div>
@@ -498,7 +498,7 @@ export default function Home() {
                     </div>
                   </div>
                 </div>
-                <p className="text-gray-600 italic">"{testimonial.text}"</p>
+                <p className="text-gray-600 italic">&quot;{testimonial.text}&quot;</p>
                 <div className="mt-4 text-[var(--accent-orange)]">
                   {Array(5)
                     .fill(0)
