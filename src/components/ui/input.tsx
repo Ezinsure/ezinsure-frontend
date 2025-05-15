@@ -14,6 +14,8 @@ interface InputProps {
   disabled?: boolean;
   icon?: React.ReactNode;
   className?: string;
+  min?: string;
+  max?: string;
 }
 
 export const Input = ({
@@ -28,6 +30,8 @@ export const Input = ({
   disabled = false,
   icon,
   className = '',
+  min,
+  max,
 }: InputProps) => {
   const [isFocused, setIsFocused] = useState(false);
 
@@ -57,6 +61,8 @@ export const Input = ({
           value={value}
           onChange={onChange}
           disabled={disabled}
+          min={min}
+          max={max}
           onFocus={() => setIsFocused(true)}
           onBlur={() => setIsFocused(false)}
         />

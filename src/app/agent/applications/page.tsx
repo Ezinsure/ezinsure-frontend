@@ -581,7 +581,7 @@ export default function AgentApplicationsPage() {
 
       {/* Modal for submitting payment */}
       {selectedApp && selectedApp.status === 'invoice_sent' && (
-        <div className="fixed inset-0 bg-[var(--main-blue)] bg-opacity-20 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-gray-600/50 bg-opacity-20 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md mx-4 fade-in">
             <h3 className="text-lg font-semibold mb-4">
               Submit Payment Proof for {selectedApp.clientName}
@@ -647,8 +647,8 @@ export default function AgentApplicationsPage() {
 
       {/* Modal for viewing details */}
       {selectedApp && selectedApp.status !== 'invoice_sent' && (
-        <div className="fixed inset-0 bg-[var(--main-blue)] bg-opacity-20 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-2xl mx-4 fade-in">
+        <div className="fixed inset-0 bg-gray-600/50 bg-opacity-20 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-2xl mx-4 fade-in h-[90vh] overflow-y-auto ">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-semibold">Application Details</h3>
               <button
