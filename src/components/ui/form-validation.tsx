@@ -83,6 +83,7 @@ export const validationPatterns = {
   phone: /^(\+\d{1,3})?\s?\d{9,12}$/,
   numbers: /^\d+$/,
   noSpecialChars: /^[a-zA-Z0-9\s]+$/,
+  zipCode: /^\d{5}(-\d{4})?$/,
 };
 
 // Helper to check if form has errors
