@@ -25,6 +25,12 @@ interface Application {
   };
 }
 
+interface PaginationProps {
+  currentPage: number;
+  totalPages: number;
+  onPageChange: (page: number) => void;
+}
+
 export default function AgentApplicationsPage() {
   const { showToast, ToastContainer } = useToast();
   const [applications, setApplications] = useState<Application[]>([]);
@@ -32,6 +38,9 @@ export default function AgentApplicationsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedApp, setSelectedApp] = useState<Application | null>(null);
   const [paymentProof, setPaymentProof] = useState<File | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [activeTab, setActiveTab] = useState<'all' | string>('all');
+  const itemsPerPage = 10;
 
   // Mock data for demo purposes
   useEffect(() => {
@@ -140,17 +149,24 @@ export default function AgentApplicationsPage() {
     }, 1500);
   }, []);
 
-  const filteredApplications = applications.filter(app => 
-    app.clientName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    app.id.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredApplications = applications.filter(
+    (app) =>
+      (app.clientName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      app.id.toLowerCase().includes(searchQuery.toLowerCase())) &&
+      (activeTab === 'all' || app.status === activeTab)
+  );
+
+  const paginatedApplications = filteredApplications.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
   );
 
   const handleSubmitPayment = () => {
     if (!selectedApp || !paymentProof) return;
-    
+
     setIsLoading(true);
     setTimeout(() => {
-      const updatedApplications = applications.map(app => {
+      const updatedApplications = applications.map((app) => {
         if (app.id === selectedApp.id) {
           return {
             ...app,
@@ -163,7 +179,7 @@ export default function AgentApplicationsPage() {
         }
         return app;
       });
-      
+
       setApplications(updatedApplications);
       showToast('Payment proof submitted successfully!', 'success');
       setSelectedApp(null);
@@ -175,19 +191,47 @@ export default function AgentApplicationsPage() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'pending':
-        return <span className="px-2 py-1 rounded-full bg-blue-100 text-blue-700 text-xs font-medium">Pending</span>;
+        return (
+          <span className="px-2 py-1 rounded-full bg-blue-100 text-blue-700 text-xs font-medium">
+            Pending
+          </span>
+        );
       case 'approved':
-        return <span className="px-2 py-1 rounded-full bg-green-100 text-green-700 text-xs font-medium">Approved</span>;
+        return (
+          <span className="px-2 py-1 rounded-full bg-green-100 text-green-700 text-xs font-medium">
+            Approved
+          </span>
+        );
       case 'invoice_sent':
-        return <span className="px-2 py-1 rounded-full bg-indigo-100 text-indigo-700 text-xs font-medium">Invoice Sent</span>;
+        return (
+          <span className="px-2 py-1 rounded-full bg-indigo-100 text-indigo-700 text-xs font-medium">
+            Invoice Sent
+          </span>
+        );
       case 'payment_submitted':
-        return <span className="px-2 py-1 rounded-full bg-purple-100 text-purple-700 text-xs font-medium">Payment Submitted</span>;
+        return (
+          <span className="px-2 py-1 rounded-full bg-purple-100 text-purple-700 text-xs font-medium">
+            Payment Submitted
+          </span>
+        );
       case 'payment_verified':
-        return <span className="px-2 py-1 rounded-full bg-green-100 text-green-700 text-xs font-medium">Payment Verified</span>;
+        return (
+          <span className="px-2 py-1 rounded-full bg-green-100 text-green-700 text-xs font-medium">
+            Payment Verified
+          </span>
+        );
       case 'completed':
-        return <span className="px-2 py-1 rounded-full bg-emerald-100 text-emerald-700 text-xs font-medium">Completed</span>;
+        return (
+          <span className="px-2 py-1 rounded-full bg-emerald-100 text-emerald-700 text-xs font-medium">
+            Completed
+          </span>
+        );
       default:
-        return <span className="px-2 py-1 rounded-full bg-gray-100 text-gray-700 text-xs font-medium">Unknown</span>;
+        return (
+          <span className="px-2 py-1 rounded-full bg-gray-100 text-gray-700 text-xs font-medium">
+            Unknown
+          </span>
+        );
     }
   };
 
@@ -195,17 +239,14 @@ export default function AgentApplicationsPage() {
     switch (app.status) {
       case 'invoice_sent':
         return (
-          <Button 
-            size="sm" 
-            onClick={() => setSelectedApp(app)}
-          >
+          <Button size="sm" onClick={() => setSelectedApp(app)}>
             Submit Payment
           </Button>
         );
       case 'completed':
         return (
-          <Button 
-            size="sm" 
+          <Button
+            size="sm"
             variant="secondary"
             onClick={() => setSelectedApp(app)}
           >
@@ -214,15 +255,142 @@ export default function AgentApplicationsPage() {
         );
       default:
         return (
-          <Button 
-            size="sm" 
-            variant="text" 
-            onClick={() => setSelectedApp(app)}
-          >
+          <Button size="sm" variant="text" onClick={() => setSelectedApp(app)}>
             View Details
           </Button>
         );
     }
+  };
+
+  const Pagination = ({
+    currentPage,
+    totalPages,
+    onPageChange,
+  }: PaginationProps) => {
+    const maxVisiblePages = 5;
+    let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+    let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+
+    if (endPage - startPage + 1 < maxVisiblePages) {
+      startPage = Math.max(1, endPage - maxVisiblePages + 1);
+    }
+
+    const pages = [];
+    for (let i = startPage; i <= endPage; i++) {
+      pages.push(i);
+    }
+
+    return (
+      <div className="flex items-center justify-between mt-6 p-6">
+        <div className="flex-1 flex justify-between sm:hidden">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onPageChange(Math.max(1, currentPage - 1))}
+            disabled={currentPage === 1}
+          >
+            Previous
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
+            disabled={currentPage === totalPages}
+          >
+            Next
+          </Button>
+        </div>
+        <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+          <div>
+            <p className="text-sm text-gray-700">
+              Showing
+              <span className="font-medium p-2">{(currentPage - 1) * 10 + 1}</span>{' '}
+              to
+              <span className="font-medium p-2">
+                {Math.min(currentPage * 10, paginatedApplications.length)}
+              </span>
+              of
+              <span className="font-medium p-2">
+                {filteredApplications.length}
+              </span>{' '}
+              results
+            </p>
+          </div>
+          <div>
+            <nav
+              className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px "
+              aria-label="Pagination"
+            >
+              <Button
+                variant="text"
+                size="sm"
+                onClick={() => onPageChange(1)}
+                disabled={currentPage === 1}
+                className="rounded-l-md"
+              >
+                <span className="sr-only">First</span>«
+              </Button>
+              <Button
+                variant="text"
+                size="sm"
+                onClick={() => onPageChange(Math.max(1, currentPage - 1))}
+                disabled={currentPage === 1}
+              >
+                <span className="sr-only">Previous</span>‹
+              </Button>
+
+              {startPage > 1 && (
+                <span className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700">
+                  ...
+                </span>
+              )}
+
+              {pages.map((page) => (
+                <Button
+                  key={page}
+                  variant={currentPage === page ? 'primary' : 'text'}
+                  size="sm"
+                  onClick={() => onPageChange(page)}
+                  className={
+                    currentPage === page
+                      ? 'z-10 bg-[var(--main-blue)] border-[var(--main-blue)] text-white'
+                      : ''
+                  }
+                >
+                  {page}
+                </Button>
+              ))}
+
+              {endPage < totalPages && (
+                <span className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700">
+                  ...
+                </span>
+              )}
+
+              <Button
+                variant="text"
+                size="sm"
+                onClick={() =>
+                  onPageChange(Math.min(totalPages, currentPage + 1))
+                }
+                disabled={currentPage === totalPages}
+              >
+                <span className="sr-only">Next</span>›
+              </Button>
+              <Button
+                variant="text"
+                size="sm"
+                onClick={() => onPageChange(totalPages)}
+                disabled={currentPage === totalPages}
+                className="rounded-r-md"
+              >
+                <span className="sr-only">Last</span>»
+              </Button>
+            </nav>
+          </div>
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -230,11 +398,15 @@ export default function AgentApplicationsPage() {
       <div className="container mx-auto px-4 py-8">
         <div className="absolute top-0 left-0 w-full h-[10vh] overflow-hidden z-0 bg-gradient-to-br from-[#0A2540] to-[#126BB3]"></div>
         <div className="mb-8 mt-16">
-          <h1 className="text-3xl font-bold mb-2 fade-in">Client Applications</h1>
-          <p className="text-gray-600 slide-up">Track and manage applications for your clients</p>
+          <h1 className="text-3xl font-bold mb-2 fade-in">
+            Client Applications
+          </h1>
+          <p className="text-gray-600 slide-up">
+            Track and manage applications for your clients
+          </p>
         </div>
 
-        {/* Search section */}
+        {/* Search and filter section */}
         <div className="mb-6 bg-white p-4 rounded-lg shadow-sm slide-in-right">
           <div className="flex flex-col md:flex-row justify-between gap-4">
             <div className="w-full md:w-1/3">
@@ -245,17 +417,67 @@ export default function AgentApplicationsPage() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 icon={
-                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
                     <circle cx="11" cy="11" r="8"></circle>
                     <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
                   </svg>
                 }
               />
             </div>
-            <div className="flex items-center">
-              <div className="bg-[var(--accent-orange)] text-white px-4 py-2 rounded-lg font-medium">
-                Total Commission: 41,500 RWF
-              </div>
+            
+            <div className="flex overflow-x-auto pb-2 md:pb-0 gap-2">
+              <Button
+                size="sm"
+                variant={activeTab === 'all' ? 'primary' : 'text'}
+                onClick={() => setActiveTab('all')}
+              >
+                All
+              </Button>
+              <Button
+                size="sm"
+                variant={activeTab === 'pending' ? 'primary' : 'text'}
+                onClick={() => setActiveTab('pending')}
+              >
+                Pending
+              </Button>
+              <Button
+                size="sm"
+                variant={activeTab === 'approved' ? 'primary' : 'text'}
+                onClick={() => setActiveTab('approved')}
+              >
+                Approved
+              </Button>
+              <Button
+                size="sm"
+                variant={activeTab === 'invoice_sent' ? 'primary' : 'text'}
+                onClick={() => setActiveTab('invoice_sent')}
+              >
+                Invoice Sent
+              </Button>
+              <Button
+                size="sm"
+                variant={activeTab === 'payment_submitted' ? 'primary' : 'text'}
+                onClick={() => setActiveTab('payment_submitted')}
+              >
+                Payment Submitted
+              </Button>
+              <Button
+                size="sm"
+                variant={activeTab === 'completed' ? 'primary' : 'text'}
+                onClick={() => setActiveTab('completed')}
+              >
+                Completed
+              </Button>
             </div>
           </div>
         </div>
@@ -269,8 +491,19 @@ export default function AgentApplicationsPage() {
             </div>
           ) : filteredApplications.length === 0 ? (
             <div className="p-8 text-center">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 mx-auto text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-16 w-16 mx-auto text-gray-400"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                />
               </svg>
               <p className="mt-4 text-gray-600">No applications found</p>
             </div>
@@ -279,28 +512,49 @@ export default function AgentApplicationsPage() {
               <table className="w-full">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Client</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Insurance Type</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Commission</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      ID
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Client
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Insurance Type
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Date
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Status
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Actions
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {filteredApplications.map((app) => (
-                    <tr key={app.id} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-[var(--main-blue)]">#{app.id}</td>
+                  {paginatedApplications.map((app) => (
+                    <tr
+                      key={app.id}
+                      className="hover:bg-gray-50 transition-colors"
+                    >
+                      <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-[var(--main-blue)]">
+                        #{app.id}
+                      </td>
                       <td className="px-4 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">{app.clientName}</div>
+                        <div className="text-sm font-medium text-gray-900">
+                          {app.clientName}
+                        </div>
                         <div className="text-sm text-gray-500">{app.phone}</div>
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900 capitalize">{app.insuranceType.replace('_', ' ')}</div>
+                        <div className="text-sm text-gray-900 capitalize">
+                          {app.insuranceType.replace('_', ' ')}
+                        </div>
                       </td>
-                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{app.dateSubmitted}</td>
-                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900 font-medium">{app.commission}</td>
+                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {app.dateSubmitted}
+                      </td>
                       <td className="px-4 py-4 whitespace-nowrap">
                         {getStatusBadge(app.status)}
                       </td>
@@ -313,6 +567,13 @@ export default function AgentApplicationsPage() {
                   ))}
                 </tbody>
               </table>
+              <Pagination
+                currentPage={currentPage}
+                totalPages={Math.ceil(
+                  filteredApplications.length / itemsPerPage
+                )}
+                onPageChange={setCurrentPage}
+              />
             </div>
           )}
         </div>
@@ -322,18 +583,28 @@ export default function AgentApplicationsPage() {
       {selectedApp && selectedApp.status === 'invoice_sent' && (
         <div className="fixed inset-0 bg-[var(--main-blue)] bg-opacity-20 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md mx-4 fade-in">
-            <h3 className="text-lg font-semibold mb-4">Submit Payment Proof for {selectedApp.clientName}</h3>
+            <h3 className="text-lg font-semibold mb-4">
+              Submit Payment Proof for {selectedApp.clientName}
+            </h3>
             <div className="space-y-4">
               <div className="border rounded-lg p-4 bg-gray-50">
                 <p className="font-medium">Invoice Details:</p>
                 <div className="mt-2 space-y-1 text-sm">
-                  <p><span className="text-gray-600">Invoice ID:</span> {selectedApp.payment?.invoiceId}</p>
-                  <p><span className="text-gray-600">Amount:</span> {selectedApp.payment?.amount}</p>
+                  <p>
+                    <span className="text-gray-600">Invoice ID:</span>{' '}
+                    {selectedApp.payment?.invoiceId}
+                  </p>
+                  <p>
+                    <span className="text-gray-600">Amount:</span>{' '}
+                    {selectedApp.payment?.amount}
+                  </p>
                 </div>
               </div>
-              
+
               <div>
-                <label className="block text-sm font-medium mb-1">Upload Payment Proof</label>
+                <label className="block text-sm font-medium mb-1">
+                  Upload Payment Proof
+                </label>
                 <input
                   type="file"
                   onChange={(e) => setPaymentProof(e.target.files?.[0] || null)}
@@ -346,19 +617,24 @@ export default function AgentApplicationsPage() {
                   "
                 />
                 {paymentProof && (
-                  <p className="mt-2 text-sm text-gray-600">Selected: {paymentProof.name}</p>
+                  <p className="mt-2 text-sm text-gray-600">
+                    Selected: {paymentProof.name}
+                  </p>
                 )}
               </div>
-              
+
               <div className="flex justify-end gap-2 mt-6">
-                <Button variant="text" onClick={() => {
-                  setSelectedApp(null);
-                  setPaymentProof(null);
-                }}>
+                <Button
+                  variant="text"
+                  onClick={() => {
+                    setSelectedApp(null);
+                    setPaymentProof(null);
+                  }}
+                >
                   Cancel
                 </Button>
-                <Button 
-                  onClick={handleSubmitPayment} 
+                <Button
+                  onClick={handleSubmitPayment}
                   disabled={!paymentProof || isLoading}
                 >
                   {isLoading ? 'Submitting...' : 'Submit Payment'}
@@ -375,13 +651,27 @@ export default function AgentApplicationsPage() {
           <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-2xl mx-4 fade-in">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-semibold">Application Details</h3>
-              <button onClick={() => setSelectedApp(null)} className="text-gray-400 hover:text-gray-600">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              <button
+                onClick={() => setSelectedApp(null)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-6 w-6"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
                 </svg>
               </button>
             </div>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-4">
                 <div>
@@ -398,10 +688,12 @@ export default function AgentApplicationsPage() {
                 </div>
                 <div>
                   <p className="text-sm text-gray-500">Insurance Type</p>
-                  <p className="font-semibold capitalize">{selectedApp.insuranceType.replace('_', ' ')}</p>
+                  <p className="font-semibold capitalize">
+                    {selectedApp.insuranceType.replace('_', ' ')}
+                  </p>
                 </div>
               </div>
-              
+
               <div className="space-y-4">
                 <div>
                   <p className="text-sm text-gray-500">Date Submitted</p>
@@ -414,19 +706,23 @@ export default function AgentApplicationsPage() {
                   </div>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-500">Your Commission</p>
-                  <p className="font-semibold text-[var(--accent-orange)]">{selectedApp.commission}</p>
+                  <p className="text-sm text-gray-500">Commission</p>
+                  <p className="font-semibold text-[var(--accent-orange)]">
+                    {selectedApp.commission}
+                  </p>
                 </div>
               </div>
             </div>
-            
+
             {selectedApp.payment && (
               <div className="mt-6 bg-gray-50 p-4 rounded-lg">
                 <h4 className="font-medium mb-2">Payment Information</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <p className="text-sm text-gray-500">Invoice ID</p>
-                    <p className="font-medium">{selectedApp.payment.invoiceId}</p>
+                    <p className="font-medium">
+                      {selectedApp.payment.invoiceId}
+                    </p>
                   </div>
                   <div>
                     <p className="text-sm text-gray-500">Amount</p>
@@ -441,23 +737,29 @@ export default function AgentApplicationsPage() {
                 </div>
               </div>
             )}
-            
+
             <div className="mt-6 bg-gray-50 p-4 rounded-lg">
               <h4 className="font-medium mb-2">Documents</h4>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="bg-white p-3 rounded border">
                   <p className="text-sm font-medium">National ID</p>
-                  <p className="text-xs text-gray-500">{selectedApp.documents.nationalId}</p>
+                  <p className="text-xs text-gray-500">
+                    {selectedApp.documents.nationalId}
+                  </p>
                 </div>
                 <div className="bg-white p-3 rounded border">
                   <p className="text-sm font-medium">Yellow Card</p>
-                  <p className="text-xs text-gray-500">{selectedApp.documents.yellowCard}</p>
+                  <p className="text-xs text-gray-500">
+                    {selectedApp.documents.yellowCard}
+                  </p>
                 </div>
               </div>
             </div>
-            
+
             <div className="flex justify-end mt-6">
-              <Button variant="text" onClick={() => setSelectedApp(null)}>Close</Button>
+              <Button variant="text" onClick={() => setSelectedApp(null)}>
+                Close
+              </Button>
             </div>
           </div>
         </div>
