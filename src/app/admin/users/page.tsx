@@ -21,6 +21,12 @@ interface User {
   createdAt: string;
 }
 
+interface PaginationProps {
+  currentPage: number;
+  totalPages: number;
+  onPageChange: (page: number) => void;
+}
+
 export default function AdminUsersPage() {
   const { showToast, ToastContainer } = useToast();
   const [users, setUsers] = useState<User[]>([]);
@@ -242,41 +248,119 @@ export default function AdminUsersPage() {
     }
   };
 
-  const Pagination = () => {
-    const totalPages = Math.ceil(filteredUsers.length / itemsPerPage);
-    
-    return (
-      <div className="flex items-center justify-between mt-6">
+  const Pagination = ({ currentPage, totalPages, onPageChange }: PaginationProps) => {
+  const maxVisiblePages = 5;
+  let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+  const endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+
+  if (endPage - startPage + 1 < maxVisiblePages) {
+    startPage = Math.max(1, endPage - maxVisiblePages + 1);
+  }
+
+  const pages = [];
+  for (let i = startPage; i <= endPage; i++) {
+    pages.push(i);
+  }
+
+  return (
+    <div className="flex items-center justify-between mt-6 p-6">
+      <div className="flex-1 flex justify-between sm:hidden">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => onPageChange(Math.max(1, currentPage - 1))}
+          disabled={currentPage === 1}
+        >
+          Previous
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
+          disabled={currentPage === totalPages}
+        >
+          Next
+        </Button>
+      </div>
+      <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
         <div>
           <p className="text-sm text-gray-700">
-            Showing <span className="font-medium">{(currentPage - 1) * itemsPerPage + 1}</span> to{' '}
-            <span className="font-medium">
-              {Math.min(currentPage * itemsPerPage, filteredUsers.length)}
-            </span>{' '}
-            of <span className="font-medium">{filteredUsers.length}</span> users
+            Showing <span className="font-medium">{(currentPage - 1) * 10 + 1}</span> to{' '}
+            <span className="font-medium">{Math.min(currentPage * 10, paginatedUsers.length)}</span> of{' '}
+            <span className="font-medium">{paginatedUsers.length}</span> results
           </p>
         </div>
-        <div className="flex space-x-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-            disabled={currentPage === 1}
-          >
-            Previous
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-            disabled={currentPage === totalPages || totalPages === 0}
-          >
-            Next
-          </Button>
+        <div>
+          <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px " aria-label="Pagination">
+            <Button
+              variant="text"
+              size="sm"
+              onClick={() => onPageChange(1)}
+              disabled={currentPage === 1}
+              className="rounded-l-md"
+            >
+              <span className="sr-only">First</span>
+              «
+            </Button>
+            <Button
+              variant="text"
+              size="sm"
+              onClick={() => onPageChange(Math.max(1, currentPage - 1))}
+              disabled={currentPage === 1}
+            >
+              <span className="sr-only">Previous</span>
+              ‹
+            </Button>
+            
+            {startPage > 1 && (
+              <span className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700">
+                ...
+              </span>
+            )}
+            
+            {pages.map((page) => (
+              <Button
+                key={page}
+                variant={currentPage === page ? 'primary' : 'text'}
+                size="sm"
+                onClick={() => onPageChange(page)}
+                className={currentPage === page ? 'z-10 bg-[var(--main-blue)] border-[var(--main-blue)] text-white' : ''}
+              >
+                {page}
+              </Button>
+            ))}
+            
+            {endPage < totalPages && (
+              <span className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700">
+                ...
+              </span>
+            )}
+            
+            <Button
+              variant="text"
+              size="sm"
+              onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
+              disabled={currentPage === totalPages}
+            >
+              <span className="sr-only">Next</span>
+              ›
+            </Button>
+            <Button
+              variant="text"
+              size="sm"
+              onClick={() => onPageChange(totalPages)}
+              disabled={currentPage === totalPages}
+              className="rounded-r-md"
+            >
+              <span className="sr-only">Last</span>
+              »
+            </Button>
+          </nav>
         </div>
       </div>
-    );
-  };
+    </div>
+  );
+};
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -452,15 +536,19 @@ export default function AdminUsersPage() {
                   ))}
                 </tbody>
               </table>
-              <Pagination />
+             <Pagination
+  currentPage={currentPage}
+  totalPages={Math.ceil(filteredUsers.length / itemsPerPage)}
+  onPageChange={setCurrentPage}
+/>
             </div>
           )}
         </div>
 
         {/* Create User Modal */}
         {isCreatingUser && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md mx-4">
+          <div className="fixed inset-0 bg-gray-600/50 flex items-center justify-center z-50">
+            <div className="max-h-[90vh] overflow-y-auto bg-white rounded-lg shadow-xl p-6 w-full max-w-md mx-4">
               <h3 className="text-lg font-semibold mb-4">Create New User</h3>
               <div className="space-y-4">
                 <Input
@@ -537,8 +625,8 @@ export default function AdminUsersPage() {
 
         {/* Edit User Modal */}
         {isEditing && selectedUser && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md mx-4">
+          <div className="fixed inset-0 bg-gray-600/50 flex items-center justify-center z-50">
+            <div className="max-h-[90vh] overflow-y-auto bg-white rounded-lg shadow-xl p-6 w-full max-w-md mx-4">
               <h3 className="text-lg font-semibold mb-4">Edit User</h3>
               <div className="space-y-4">
                 <Input

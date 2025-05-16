@@ -611,7 +611,7 @@ const itemsPerPage = 10;
       {/* Modal for sending invoice */}
       {selectedApp && selectedApp.status === ApplicationStatus.APPROVED && (
         <div className="fixed inset-0 bg-gray-600/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md mx-4 fade-in">
+          <div className="max-h-[90vh] overflow-y-auto bg-white rounded-lg shadow-xl p-6 w-full max-w-md mx-4 fade-in">
             <h3 className="text-lg font-semibold mb-4">Send Invoice to {selectedApp.fullName}</h3>
             <p className="text-gray-600 mb-4">Enter the invoice amount for {selectedApp.insuranceType} insurance:</p>
             
@@ -642,7 +642,7 @@ const itemsPerPage = 10;
       {/* Modal for verifying payment */}
       {selectedApp && selectedApp.status === ApplicationStatus.PAYMENT_SUBMITTED && (
         <div className="fixed inset-0 bg-gray-600/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md mx-4 fade-in">
+          <div className="max-h-[90vh] overflow-y-auto bg-white rounded-lg shadow-xl p-6 w-full max-w-md mx-4 fade-in">
             <h3 className="text-lg font-semibold mb-4">Verify Payment</h3>
             <p className="text-gray-600 mb-4">Review payment proof for {selectedApp.fullName}&apos;s application:</p>
             
@@ -667,8 +667,8 @@ const itemsPerPage = 10;
 
       {/* Modal for issuing insurance */}
       {selectedApp && selectedApp.status === ApplicationStatus.PAYMENT_VERIFIED && (
-        <div className="fixed inset-0 bg-black flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md mx-4 fade-in">
+        <div className="fixed inset-0 bg-gray-600/50 flex items-center justify-center z-50">
+          <div className="max-h-[90vh] overflow-y-auto bg-white rounded-lg shadow-xl p-6 w-full max-w-md mx-4 fade-in">
             <h3 className="text-lg font-semibold mb-4">Issue Insurance</h3>
             <p className="text-gray-600 mb-4">Issue insurance certificate for {selectedApp.fullName}&apos;s {selectedApp.insuranceType} insurance:</p>
             
@@ -690,7 +690,7 @@ const itemsPerPage = 10;
       {/* Modal for viewing details */}
       {selectedApp && ![ApplicationStatus.APPROVED, ApplicationStatus.PAYMENT_SUBMITTED, ApplicationStatus.PAYMENT_VERIFIED].includes(selectedApp.status) && (
         <div className="fixed inset-0 bg-gray-600/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-3xl mx-4 fade-in">
+          <div className="max-h-[90vh] overflow-y-auto bg-white rounded-lg shadow-xl p-6 w-full max-w-3xl mx-4 fade-in">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-semibold">Application Details</h3>
               <button onClick={() => setSelectedApp(null)} className="text-gray-400 hover:text-gray-600">

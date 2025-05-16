@@ -14,8 +14,8 @@ interface UserProfile {
   role: string;
   phone?: string;
   address?: string;
-  city?: string;
-  state?: string;
+  province?: string;
+  district?: string;
   zipCode?: string;
   bio?: string;
   profilePicture?: string;
@@ -40,8 +40,8 @@ export default function ProfilePage() {
     role: '',
     phone: '',
     address: '',
-    city: '',
-    state: '',
+    province: '',
+    district: '',
     zipCode: '',
     bio: '',
     profilePicture: '',
@@ -302,20 +302,20 @@ setErrors(formErrors);
                   />
                   
                   <Input
-                    label="City"
-                    name="city"
-                    value={profile.city || ''}
+                    label="Province"
+                    name="province"
+                    value={profile.province || ''}
                     onChange={handleInputChange}
-                    error={errors.city}
+                    error={errors.province}
                   />
                   
                   <div className="grid grid-cols-2 gap-4">
                     <Input
-                      label="State"
-                      name="state"
-                      value={profile.state || ''}
+                      label="District"
+                      name="district"
+                      value={profile.district || ''}
                       onChange={handleInputChange}
-                      error={errors.state}
+                      error={errors.district}
                     />
                     
                     <Input
