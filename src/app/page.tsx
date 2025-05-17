@@ -257,34 +257,26 @@ export default function Home() {
                   </svg>
                 ),
               },
-              {
-                title: 'SME Bundle Coverage',
-                description:
-                  'Comprehensive protection for small and medium businesses against various risks.',
-                icon: (
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="24"
-                    height="24"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <rect
-                      x="2"
-                      y="7"
-                      width="20"
-                      height="14"
-                      rx="2"
-                      ry="2"
-                    ></rect>
-                    <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
-                  </svg>
-                ),
-              },
+{
+  title: 'Fire Insurance Coverage',
+  description:
+    'Protection for your property against fire damage, including coverage for rebuilding costs, smoke damage, and related perils.',
+  icon: (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"></path>
+    </svg>
+  ),
+}
             ].map((service, index) => (
               <div
                 key={index}
@@ -467,17 +459,17 @@ export default function Home() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {[
               {
-                name: 'Sarah Johnson',
+                name: 'Josiane Uwimana',
                 role: 'Business Owner',
                 text: 'The process was incredibly simple. I had my business insured within minutes, and their customer service team was very helpful when I had questions.',
               },
               {
-                name: 'Michael Smith',
+                name: 'Emmanuel Habumugisha',
                 role: 'Car Owner',
                 text: 'I was involved in an accident and was worried about the claims process. EZINSURE settled my claim within days, making a stressful situation much easier.',
               },
               {
-                name: 'Lisa Chen',
+                name: 'Jean Claude Niyonzima',
                 role: 'Frequent Traveler',
                 text: "I travel a lot for work, and EZINSURE's travel insurance has been a lifesaver. Their global coverage and emergency assistance are top-notch.",
               },

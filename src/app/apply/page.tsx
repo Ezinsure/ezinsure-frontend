@@ -15,16 +15,18 @@ import {
 
 export default function ApplyPage() {
   const { showToast, ToastContainer } = useToast();
+  const [formKey, setFormKey] = useState(Date.now()); // Add this for file input reset
 
   const [formState, setFormState] = useState({
     fullName: '',
     email: '',
     phone: '',
     address: '',
+    dateOfBirth: '',
     insuranceType: 'car',
     nationalId: null as File | null,
     yellowCard: null as File | null,
-    additionalDocument: null as File | null,
+    pastInsuranceCertificate: null as File | null,
   });
 
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
@@ -35,6 +37,7 @@ export default function ApplyPage() {
     email: { required: true, pattern: validationPatterns.email },
     phone: { required: true, pattern: validationPatterns.phone },
     address: { required: true, minLength: 5, maxLength: 100 },
+    dateOfBirth: { required: true },
     insuranceType: { required: true },
     nationalId: { required: true },
     yellowCard: { required: true },
@@ -94,11 +97,13 @@ export default function ApplyPage() {
           email: '',
           phone: '',
           address: '',
+          dateOfBirth: '',
           insuranceType: 'car',
           nationalId: null,
           yellowCard: null,
-          additionalDocument: null,
+          pastInsuranceCertificate: null,
         });
+        setFormKey(Date.now()); // This will force file inputs to reset
       }, 1500);
     } else {
       showToast('Please correct the errors in the form.', 'error');
@@ -133,12 +138,12 @@ export default function ApplyPage() {
                 <Input
                   label="Full Name"
                   name="fullName"
-                  placeholder="John Doe"
+                  placeholder="Jean Claude Niyonzima"
                   value={formState.fullName}
                   onChange={handleInputChange}
                   error={errors.fullName}
                   required
-                  className="md:col-span-2"
+                  // className="md:col-span-2"
                 />
 
                 <Input
@@ -194,14 +199,24 @@ export default function ApplyPage() {
                 />
 
                 <Input
+                  label="Date of Birth"
+                  type="date"
+                  name="dateOfBirth"
+                  value={formState.dateOfBirth}
+                  onChange={handleInputChange}
+                  error={errors.dateOfBirth}
+                  required
+                />
+
+                <Input
                   label="Address"
                   name="address"
-                  placeholder="Your residential address"
+                  placeholder="KN 5 RD, Kigali - Rwanda"
                   value={formState.address}
                   onChange={handleInputChange}
                   error={errors.address}
                   required
-                  className="md:col-span-2"
+                  // className="md:col-span-2"
                 />
 
                 <div className="md:col-span-2">
@@ -225,7 +240,7 @@ export default function ApplyPage() {
                     <option value="building">Building Insurance</option>
                     <option value="travel">Travel Insurance</option>
                     <option value="health">Health Insurance</option>
-                    <option value="sme">SME Bundle Coverage</option>
+                    <option value="fire">Fire Insurance Coverage</option>
                   </select>
                   {errors.insuranceType && (
                     <p className="mt-1 text-sm text-[var(--error-red)]">
@@ -240,31 +255,34 @@ export default function ApplyPage() {
                   Required Documents
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <FileInput
-                    label="National ID Card"
-                    name="nationalId"
-                    onChange={handleFileChange('nationalId')}
-                    error={errors.nationalId}
-                    required
-                    accept="image/*,.pdf"
-                  />
+                   <FileInput
+    key={`nationalId-${formKey}`}
+    label="National ID Card"
+    name="nationalId"
+    onChange={handleFileChange('nationalId')}
+    error={errors.nationalId}
+    required
+    accept="image/*,.pdf"
+  />
 
-                  <FileInput
-                    label="Yellow Card"
-                    name="yellowCard"
-                    onChange={handleFileChange('yellowCard')}
-                    error={errors.yellowCard}
-                    required
-                    accept="image/*,.pdf"
-                  />
+  <FileInput
+    key={`yellowCard-${formKey}`}
+    label="Yellow Card"
+    name="yellowCard"
+    onChange={handleFileChange('yellowCard')}
+    error={errors.yellowCard}
+    required
+    accept="image/*,.pdf"
+  />
 
-                  <FileInput
-                    label="Additional Document (Optional)"
-                    name="additionalDocument"
-                    onChange={handleFileChange('additionalDocument')}
-                    accept="image/*,.pdf"
-                    className="md:col-span-2"
-                  />
+  <FileInput
+    key={`pastInsuranceCertificate-${formKey}`}
+    label="Past Insurance Certificate (Optional)"
+    name="pastInsuranceCertificate"
+    onChange={handleFileChange('pastInsuranceCertificate')}
+    accept="image/*,.pdf"
+    className="md:col-span-2"
+  />
                 </div>
               </div>
 
