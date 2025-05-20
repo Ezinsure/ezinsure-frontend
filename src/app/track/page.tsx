@@ -139,7 +139,7 @@ const OTPModal = ({ isOpen, onClose, onVerify, email, phone, isLoading }: OTPMod
           {!isOtpSent ? (
             <div className="space-y-4">
               <p className="text-gray-600 text-center mb-6">
-                Choose how you'd like to receive your verification code:
+                Choose how you&apos;d like to receive your verification code:
               </p>
               
               <div className="space-y-3">
@@ -188,7 +188,7 @@ const OTPModal = ({ isOpen, onClose, onVerify, email, phone, isLoading }: OTPMod
                 </div>
                 <h4 className="text-lg font-semibold mb-2">Enter Verification Code</h4>
                 <p className="text-gray-600 text-sm mb-2">
-                  We've sent a 6-digit code to your {verificationMethod}:
+                  We&apos;ve sent a 6-digit code to your {verificationMethod}:
                 </p>
                 <p className="text-sm font-medium text-blue-600">
                   {verificationMethod === 'email' ? email : phone}

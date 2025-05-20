@@ -8,14 +8,14 @@ import { validateForm, ValidationRules, validationPatterns } from '@/components/
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
-interface LocationData {
-  latitude?: number;
-  longitude?: number;
-  accuracy?: number;
-  address?: string;
+interface GeoLocationData {
+  latitude: number;
+  longitude: number;
+  accuracy: number;
+  address: string;
 }
 
-interface DeviceData {
+interface DeviceInfo {
   userAgent: string;
   platform: string;
   cookieEnabled: boolean;
@@ -23,8 +23,15 @@ interface DeviceData {
   onLine: boolean;
   screenResolution: string;
   timezone: string;
-  deviceMemory?: number;
-  hardwareConcurrency?: number;
+  deviceMemory: number | undefined;
+  hardwareConcurrency: number | undefined;
+}
+
+interface SecurityInfo {
+  location: Partial<GeoLocationData>;
+  device: DeviceInfo;
+  loginTime: string;
+  ipAddress: string;
 }
 
 const DUMMY_USERS = [
@@ -64,21 +71,25 @@ export default function LoginPage() {
     }
   }, [router, showToast]);
 
-  const getDeviceData = useCallback((): DeviceData => {
+  const getDeviceInfo = useCallback((): DeviceInfo => {
+    const navigatorWithMemory = navigator as Navigator & {
+      deviceMemory?: number;
+    };
+
     return {
       userAgent: navigator.userAgent,
       platform: navigator.platform,
       cookieEnabled: navigator.cookieEnabled,
       language: navigator.language,
       onLine: navigator.onLine,
-      screenResolution: `${screen.width}x${screen.height}`,
+      screenResolution: `${window.screen.width}x${window.screen.height}`,
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-      deviceMemory: (navigator as any).deviceMemory,
+      deviceMemory: navigatorWithMemory.deviceMemory,
       hardwareConcurrency: navigator.hardwareConcurrency,
     };
   }, []);
 
-  const getLocationData = useCallback((): Promise<LocationData> => {
+  const getGeoLocation = useCallback((): Promise<Partial<GeoLocationData>> => {
     return new Promise((resolve) => {
       if (!navigator.geolocation) {
         resolve({});
@@ -135,9 +146,9 @@ export default function LoginPage() {
       setIsSubmitting(true);
 
       try {
-        const [location, deviceData] = await Promise.all([
-          getLocationData(),
-          Promise.resolve(getDeviceData()),
+        const [location, deviceInfo] = await Promise.all([
+          getGeoLocation(),
+          Promise.resolve(getDeviceInfo()),
         ]);
 
         const user = DUMMY_USERS.find(
@@ -145,17 +156,19 @@ export default function LoginPage() {
         );
 
         if (user) {
+          const securityInfo: SecurityInfo = {
+            location,
+            device: deviceInfo,
+            loginTime: new Date().toISOString(),
+            ipAddress: 'Demo IP: 192.168.1.100',
+          };
+
           const userData = {
             email: user.email,
             role: user.role,
             name: user.name,
             authToken: 'dummy-token-' + Math.random().toString(36).substring(2, 15),
-            securityInfo: {
-              location,
-              device: deviceData,
-              loginTime: new Date().toISOString(),
-              ipAddress: 'Demo IP: 192.168.1.100',
-            }
+            securityInfo
           };
           
           localStorage.setItem('user', JSON.stringify(userData));
