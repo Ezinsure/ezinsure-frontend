@@ -15,7 +15,7 @@ import {
 
 export default function ApplyPage() {
   const { showToast, ToastContainer } = useToast();
-  const [formKey, setFormKey] = useState(Date.now()); // Add this for file input reset
+  const [formKey, setFormKey] = useState(Date.now());
 
   const [formState, setFormState] = useState({
     fullName: '',
@@ -23,7 +23,9 @@ export default function ApplyPage() {
     phone: '',
     address: '',
     dateOfBirth: '',
-    insuranceType: 'car',
+    insuranceCategory: 'car',
+    insuranceType: 'comprehensive',
+    insuranceDuration: '12',
     nationalId: null as File | null,
     yellowCard: null as File | null,
     pastInsuranceCertificate: null as File | null,
@@ -38,7 +40,9 @@ export default function ApplyPage() {
     phone: { required: true, pattern: validationPatterns.phone },
     address: { required: true, minLength: 5, maxLength: 100 },
     dateOfBirth: { required: true },
+    insuranceCategory: { required: true },
     insuranceType: { required: true },
+    insuranceDuration: { required: true },
     nationalId: { required: true },
     yellowCard: { required: true },
   };
@@ -98,12 +102,14 @@ export default function ApplyPage() {
           phone: '',
           address: '',
           dateOfBirth: '',
-          insuranceType: 'car',
+          insuranceCategory: 'car',
+          insuranceType: 'comprehensive',
+          insuranceDuration: '12',
           nationalId: null,
           yellowCard: null,
           pastInsuranceCertificate: null,
         });
-        setFormKey(Date.now()); // This will force file inputs to reset
+        setFormKey(Date.now());
       }, 1500);
     } else {
       showToast('Please correct the errors in the form.', 'error');
@@ -143,7 +149,6 @@ export default function ApplyPage() {
                   onChange={handleInputChange}
                   error={errors.fullName}
                   required
-                  // className="md:col-span-2"
                 />
 
                 <Input
@@ -216,8 +221,37 @@ export default function ApplyPage() {
                   onChange={handleInputChange}
                   error={errors.address}
                   required
-                  // className="md:col-span-2"
                 />
+
+                <div className="md:col-span-2">
+                  <label
+                    className="block text-sm font-medium mb-1"
+                    htmlFor="insuranceCategory"
+                  >
+                    Insurance Category{' '}
+                    <span className="text-[var(--error-red)] ml-1">*</span>
+                  </label>
+                  <select
+                    id="insuranceCategory"
+                    name="insuranceCategory"
+                    value={formState.insuranceCategory}
+                    onChange={handleInputChange}
+                    className="w-full py-2 px-3 rounded-lg focus:outline-none border border-gray-300 focus:border-[var(--main-blue)]"
+                    required
+                  >
+                    <option value="car">Car Insurance</option>
+                    <option value="motorbike">Motorbike Insurance</option>
+                    <option value="building">Building Insurance</option>
+                    <option value="travel">Travel Insurance</option>
+                    <option value="health">Health Insurance</option>
+                    <option value="fire">Fire Insurance Coverage</option>
+                  </select>
+                  {errors.insuranceCategory && (
+                    <p className="mt-1 text-sm text-[var(--error-red)]">
+                      {errors.insuranceCategory}
+                    </p>
+                  )}
+                </div>
 
                 <div className="md:col-span-2">
                   <label
@@ -235,16 +269,39 @@ export default function ApplyPage() {
                     className="w-full py-2 px-3 rounded-lg focus:outline-none border border-gray-300 focus:border-[var(--main-blue)]"
                     required
                   >
-                    <option value="car">Car Insurance</option>
-                    <option value="motorbike">Motorbike Insurance</option>
-                    <option value="building">Building Insurance</option>
-                    <option value="travel">Travel Insurance</option>
-                    <option value="health">Health Insurance</option>
-                    <option value="fire">Fire Insurance Coverage</option>
+                    <option value="comprehensive">Comprehensive Insurance (covers everything)</option>
+                    <option value="thirdParty">Third Party Insurance (covers partial)</option>
                   </select>
                   {errors.insuranceType && (
                     <p className="mt-1 text-sm text-[var(--error-red)]">
                       {errors.insuranceType}
+                    </p>
+                  )}
+                </div>
+
+                <div className="md:col-span-2">
+                  <label
+                    className="block text-sm font-medium mb-1"
+                    htmlFor="insuranceDuration"
+                  >
+                    Insurance Duration{' '}
+                    <span className="text-[var(--error-red)] ml-1">*</span>
+                  </label>
+                  <select
+                    id="insuranceDuration"
+                    name="insuranceDuration"
+                    value={formState.insuranceDuration}
+                    onChange={handleInputChange}
+                    className="w-full py-2 px-3 rounded-lg focus:outline-none border border-gray-300 focus:border-[var(--main-blue)]"
+                    required
+                  >
+                    <option value="1">1 Month</option>
+                    <option value="6">6 Months</option>
+                    <option value="12">12 Months</option>
+                  </select>
+                  {errors.insuranceDuration && (
+                    <p className="mt-1 text-sm text-[var(--error-red)]">
+                      {errors.insuranceDuration}
                     </p>
                   )}
                 </div>
@@ -255,34 +312,34 @@ export default function ApplyPage() {
                   Required Documents
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                   <FileInput
-    key={`nationalId-${formKey}`}
-    label="National ID Card"
-    name="nationalId"
-    onChange={handleFileChange('nationalId')}
-    error={errors.nationalId}
-    required
-    accept="image/*,.pdf"
-  />
+                  <FileInput
+                    key={`nationalId-${formKey}`}
+                    label="National ID Card"
+                    name="nationalId"
+                    onChange={handleFileChange('nationalId')}
+                    error={errors.nationalId}
+                    required
+                    accept="image/*,.pdf"
+                  />
 
-  <FileInput
-    key={`yellowCard-${formKey}`}
-    label="Yellow Card"
-    name="yellowCard"
-    onChange={handleFileChange('yellowCard')}
-    error={errors.yellowCard}
-    required
-    accept="image/*,.pdf"
-  />
+                  <FileInput
+                    key={`yellowCard-${formKey}`}
+                    label="Yellow Card"
+                    name="yellowCard"
+                    onChange={handleFileChange('yellowCard')}
+                    error={errors.yellowCard}
+                    required
+                    accept="image/*,.pdf"
+                  />
 
-  <FileInput
-    key={`pastInsuranceCertificate-${formKey}`}
-    label="Past Insurance Certificate (Optional)"
-    name="pastInsuranceCertificate"
-    onChange={handleFileChange('pastInsuranceCertificate')}
-    accept="image/*,.pdf"
-    className="md:col-span-2"
-  />
+                  <FileInput
+                    key={`pastInsuranceCertificate-${formKey}`}
+                    label="Past Insurance Certificate (Optional)"
+                    name="pastInsuranceCertificate"
+                    onChange={handleFileChange('pastInsuranceCertificate')}
+                    accept="image/*,.pdf"
+                    className="md:col-span-2"
+                  />
                 </div>
               </div>
 
@@ -303,7 +360,7 @@ export default function ApplyPage() {
           <div className="mt-8 bg-[var(--light-gray)] rounded-lg p-6">
             <h3 className="text-xl font-semibold mb-2">What happens next?</h3>
             <ol className="list-decimal pl-5 space-y-2">
-              <li>Our team will review your application within 24-48 hours.</li>
+              <li>Our team will review your application within the next 30 minutes.</li>
               <li>
                 You will receive a confirmation email with your application
                 number.
@@ -311,10 +368,12 @@ export default function ApplyPage() {
               <li>
                 Use the application number to track your application status.
               </li>
-              <li>Once approved, you will receive an invoice for payment.</li>
+              <li>Once reviewed, you will receive a quotation and invoice.</li>
+              <li>Follow the instructions in the invoice to pay for your insurance.</li>
+              <li>After payment, submit a clear proof of payment (Any for of receipt)</li>
               <li>
                 After payment confirmation, your insurance certificate will be
-                issued.
+                issued and sent to you via Email or direclty on Whatsapp.
               </li>
             </ol>
           </div>
