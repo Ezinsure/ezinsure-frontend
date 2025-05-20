@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/toast';
@@ -8,7 +8,25 @@ import { validateForm, ValidationRules, validationPatterns } from '@/components/
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
-// Dummy users for demonstration purposes
+interface LocationData {
+  latitude?: number;
+  longitude?: number;
+  accuracy?: number;
+  address?: string;
+}
+
+interface DeviceData {
+  userAgent: string;
+  platform: string;
+  cookieEnabled: boolean;
+  language: string;
+  onLine: boolean;
+  screenResolution: string;
+  timezone: string;
+  deviceMemory?: number;
+  hardwareConcurrency?: number;
+}
+
 const DUMMY_USERS = [
   { email: 'admin@ezinsure.com', password: 'Admin@123', role: 'admin', name: 'Admin User' },
   { email: 'agent1@ezinsure.com', password: 'Agent@123', role: 'agent', name: 'John Agent' },
@@ -38,7 +56,50 @@ export default function LoginPage() {
         router.push('/agent/applications');
       }
     }
-  }, [router]);
+
+    // Check for registration success message
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('registered') === 'true') {
+      showToast('Registration successful! Please sign in with your credentials.', 'success');
+    }
+  }, [router, showToast]);
+
+  const getDeviceData = useCallback((): DeviceData => {
+    return {
+      userAgent: navigator.userAgent,
+      platform: navigator.platform,
+      cookieEnabled: navigator.cookieEnabled,
+      language: navigator.language,
+      onLine: navigator.onLine,
+      screenResolution: `${screen.width}x${screen.height}`,
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      deviceMemory: (navigator as any).deviceMemory,
+      hardwareConcurrency: navigator.hardwareConcurrency,
+    };
+  }, []);
+
+  const getLocationData = useCallback((): Promise<LocationData> => {
+    return new Promise((resolve) => {
+      if (!navigator.geolocation) {
+        resolve({});
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude, longitude, accuracy } = position.coords;
+          resolve({
+            latitude,
+            longitude,
+            accuracy,
+            address: `${latitude.toFixed(4)}, ${longitude.toFixed(4)} (Demo Address)`,
+          });
+        },
+        () => resolve({}),
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 }
+      );
+    });
+  }, []);
 
   const validationRules: ValidationRules = {
     email: { 
@@ -55,7 +116,6 @@ export default function LoginPage() {
     const { name, value } = e.target;
     setFormState((prev) => ({ ...prev, [name]: value }));
 
-    // Clear error when typing
     if (errors[name]) {
       setErrors((prev) => {
         const newErrors = { ...prev };
@@ -68,7 +128,6 @@ export default function LoginPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Validate form
     const formErrors = validateForm(formState, validationRules);
     setErrors(formErrors);
 
@@ -76,38 +135,40 @@ export default function LoginPage() {
       setIsSubmitting(true);
 
       try {
-        // Find user in dummy data
+        const [location, deviceData] = await Promise.all([
+          getLocationData(),
+          Promise.resolve(getDeviceData()),
+        ]);
+
         const user = DUMMY_USERS.find(
           (u) => u.email === formState.email && u.password === formState.password
         );
 
         if (user) {
-          // Successful login
           const userData = {
             email: user.email,
             role: user.role,
             name: user.name,
-            authToken: 'dummy-token-' + Math.random().toString(36).substring(2, 15)
+            authToken: 'dummy-token-' + Math.random().toString(36).substring(2, 15),
+            securityInfo: {
+              location,
+              device: deviceData,
+              loginTime: new Date().toISOString(),
+              ipAddress: 'Demo IP: 192.168.1.100',
+            }
           };
           
-          // Store user data in localStorage
           localStorage.setItem('user', JSON.stringify(userData));
-          
           showToast('Login successful! Redirecting...', 'success');
           
-          // Redirect based on role
           setTimeout(() => {
-            if (user.role === 'admin') {
-              router.push('/admin/applications');
-            } else {
-              router.push('/agent/applications');
-            }
+            router.push(user.role === 'admin' ? '/admin/applications' : '/agent/applications');
           }, 1000);
         } else {
           showToast('Invalid email or password. Please try again.', 'error');
         }
       } catch (error) {
-        console.log('Error during login:', error);
+        console.error('Login error:', error);
         showToast('An error occurred. Please try again.', 'error');
       } finally {
         setIsSubmitting(false);
@@ -118,9 +179,9 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#0A2540] to-[#126BB3] flex items-center justify-center px-4 py-12">
+    <div className="min-h-screen bg-gradient-to-br from-blue-900 to-blue-600 flex items-center justify-center px-4 py-12">
       <div className="max-w-md w-full space-y-8 bg-white rounded-xl shadow-xl overflow-hidden">
-        <div className="p-6 bg-gradient-to-r from-[var(--main-blue)] to-[var(--secondary-blue)] text-white text-center">
+        <div className="p-6 bg-gradient-to-r from-blue-600 to-blue-500 text-white text-center">
           <h2 className="text-2xl font-bold">Agent & Admin Login</h2>
           <p className="text-sm opacity-80 mt-1">
             Access your insurance management system
@@ -130,7 +191,7 @@ export default function LoginPage() {
         <div className="p-8">
           <div className="mb-6 text-center">
             <div className="mx-auto w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-4">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-[var(--main-blue)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
               </svg>
             </div>
@@ -200,7 +261,7 @@ export default function LoginPage() {
                   id="remember-me"
                   name="remember-me"
                   type="checkbox"
-                  className="h-4 w-4 text-[var(--main-blue)] focus:ring-[var(--main-blue)] border-gray-300 rounded"
+                  className="h-4 w-4 text-blue-600 focus:ring-blue-600 border-gray-300 rounded"
                 />
                 <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-700">
                   Remember me
@@ -208,7 +269,7 @@ export default function LoginPage() {
               </div>
 
               <div className="text-sm">
-                <a href="#" className="font-medium text-[var(--main-blue)] hover:text-[var(--secondary-blue)]">
+                <a href="#" className="font-medium text-blue-600 hover:text-blue-500">
                   Forgot your password?
                 </a>
               </div>
@@ -224,9 +285,8 @@ export default function LoginPage() {
               {isSubmitting ? 'Authenticating...' : 'Sign In'}
             </Button>
 
-            {/* Demo credentials */}
             <div className="mt-4 p-4 bg-blue-50 rounded-lg">
-              <h4 className="text-sm font-bold text-[var(--main-blue)] mb-2">Demo Credentials</h4>
+              <h4 className="text-sm font-bold text-blue-600 mb-2">Demo Credentials</h4>
               <div className="text-xs space-y-1 text-gray-600">
                 <p><strong>Admin:</strong> admin@ezinsure.com / Admin@123</p>
                 <p><strong>Agent:</strong> agent1@ezinsure.com / Agent@123</p>
@@ -236,12 +296,18 @@ export default function LoginPage() {
 
           <div className="mt-8 text-center">
             <p className="text-sm text-gray-600">
+              Want to become an agent?{' '}
+              <Link href="/register" className="font-medium text-blue-600 hover:text-blue-500">
+                Apply here
+              </Link>
+            </p>
+            <p className="text-sm text-gray-600 mt-2">
               Are you a client looking to apply for insurance?{' '}
-              <Link href="/apply" className="font-medium text-[var(--main-blue)] hover:text-[var(--secondary-blue)]">
+              <Link href="/apply" className="font-medium text-blue-600 hover:text-blue-500">
                 Apply online
               </Link>
               {' '}or{' '}
-              <Link href="/" className="font-medium text-[var(--main-blue)] hover:text-[var(--secondary-blue)]">
+              <Link href="/" className="font-medium text-blue-600 hover:text-blue-500">
                 find an agent
               </Link>
               {' '}near you.

@@ -29,6 +29,7 @@ export const Navigation = () => {
     { href: '/track', label: 'Track Application' },
     { href: '/apply', label: 'Apply Now' },
     { href: '/login', label: 'Login' },
+    { href: '/register', label: 'Become an Agent' },
   ]);
 
   useEffect(() => {
