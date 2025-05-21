@@ -100,11 +100,11 @@ useEffect(() => {
         <h2 className="text-2xl font-semibold mb-4 text-indigo-800">Have questions?</h2>
         <p className="mb-4 text-gray-700">Reach out to our team for more information</p>
         <div className="flex justify-center space-x-4">
-          <a href="mailto:jabes@solektra.co" className="text-indigo-600 hover:text-indigo-800">Email</a>
+          <a href="mailto:info@ezinsure.co" className="text-indigo-600 hover:text-indigo-800">Email: info@ezinsure.co</a>
           <span>•</span>
-          <a href="tel:+250784593206" className="text-indigo-600 hover:text-indigo-800">Phone</a>
+          {/* <a href="tel:+250784593206" className="text-indigo-600 hover:text-indigo-800">Phone</a>
           <span>•</span>
-          <a href="https://wa.me/0784593206" className="text-indigo-600 hover:text-indigo-800">WhatsApp</a>
+          <a href="https://wa.me/0784593206" className="text-indigo-600 hover:text-indigo-800">WhatsApp</a> */}
         </div>
       </motion.div>
 
