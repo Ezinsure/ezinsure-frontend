@@ -393,6 +393,12 @@ export default function AgentApplicationsPage() {
     );
   };
 
+  // Calculate total commission for display
+  const totalCommission = filteredApplications.reduce((total, app) => {
+    const commissionValue = parseInt(app.commission.replace(/[^0-9]/g, ''));
+    return total + commissionValue;
+  }, 0);
+
   return (
     <MainLayout containerClass="p-0" fullWidth>
       <div className="container mx-auto px-4 py-8">
@@ -404,6 +410,34 @@ export default function AgentApplicationsPage() {
           <p className="text-gray-600 slide-up">
             Track and manage applications for your clients
           </p>
+          
+          {/* Commission Summary */}
+          <div className="mt-4 bg-gradient-to-r from-orange-50 to-yellow-50 border border-orange-200 rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Total Commission Earned</p>
+                <p className="text-2xl font-bold text-[var(--accent-orange)]">
+                  {totalCommission.toLocaleString()} RWF
+                </p>
+              </div>
+              <div className="text-orange-500">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-8 w-8"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"
+                  />
+                </svg>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Search and filter section */}
@@ -525,6 +559,9 @@ export default function AgentApplicationsPage() {
                       Date
                     </th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Commission
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Status
                     </th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -554,6 +591,11 @@ export default function AgentApplicationsPage() {
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
                         {app.dateSubmitted}
+                      </td>
+                      <td className="px-4 py-4 whitespace-nowrap">
+                        <div className="text-sm font-semibold text-[var(--accent-orange)]">
+                          {app.commission}
+                        </div>
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap">
                         {getStatusBadge(app.status)}

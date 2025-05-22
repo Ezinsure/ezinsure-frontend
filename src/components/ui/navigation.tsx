@@ -56,6 +56,7 @@ export const Navigation = () => {
       } else if (userData.role === 'agent') {
         setNavLinks([
           { href: '/agent/applications', label: 'My Applications' },
+          { href: '/agent/apply', label: 'New Application' },
           { href: '/agent/dashboard', label: 'Dashboard' },
         ]);
       }
