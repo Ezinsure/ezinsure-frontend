@@ -49,15 +49,15 @@ export const Navigation = () => {
       // Update navigation links based on user role
       if (userData.role === 'admin') {
         setNavLinks([
-          { href: '/admin/applications', label: 'Applications' },
           { href: '/admin/dashboard', label: 'Dashboard' },
+          { href: '/admin/applications', label: 'Applications' },
           { href: '/admin/users', label: 'Manage Users' },
         ]);
       } else if (userData.role === 'agent') {
         setNavLinks([
+          { href: '/agent/dashboard', label: 'Dashboard' },
           { href: '/agent/applications', label: 'My Applications' },
           { href: '/agent/apply', label: 'New Application' },
-          { href: '/agent/dashboard', label: 'Dashboard' },
         ]);
       }
     }

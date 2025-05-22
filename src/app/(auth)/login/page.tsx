@@ -58,9 +58,9 @@ export default function LoginPage() {
     if (user) {
       const userData = JSON.parse(user);
       if (userData.role === 'admin') {
-        router.push('/admin/applications');
+        router.push('/admin/dashboard');
       } else {
-        router.push('/agent/applications');
+        router.push('/agent/dashboard');
       }
     }
 
@@ -175,7 +175,7 @@ export default function LoginPage() {
           showToast('Login successful! Redirecting...', 'success');
           
           setTimeout(() => {
-            router.push(user.role === 'admin' ? '/admin/applications' : '/agent/applications');
+            router.push(user.role === 'admin' ? '/admin/dashboard' : '/agent/dashboard');
           }, 1000);
         } else {
           showToast('Invalid email or password. Please try again.', 'error');
