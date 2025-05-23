@@ -5,14 +5,15 @@ import { MainLayout } from '@/components/ui/main-layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/components/ui/toast';
+import { DocumentViewer } from '@/components/ui/document-viewer';
 
 // Application statuses
 enum ApplicationStatus {
   PENDING = 'pending',
-  APPROVED = 'approved',
-  REJECTED = 'rejected',
+  APPLICATION_APPROVED = 'application_approved',
+  WAITING_FOR_USER_ACTION = 'waiting_for_user_action',
   INVOICE_SENT = 'invoice_sent',
-  PAYMENT_SUBMITTED = 'payment_submitted',
+  REVIEW_PAYMENT = 'review_payment',
   PAYMENT_VERIFIED = 'payment_verified',
   INSURANCE_ISSUED = 'insurance_issued'
 }
@@ -32,6 +33,9 @@ interface Application {
   paymentProof?: string;
   invoiceId?: string;
   insuranceId?: string;
+  transactionId?: string;
+  rejectionComment?: string;
+  invoiceAmount?: string;
 }
 
 interface PaginationProps {
@@ -47,11 +51,18 @@ export default function ManageApplicationsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<ApplicationStatus | 'all'>('all');
   const [isLoading, setIsLoading] = useState(true);
-  const [invoiceAmount, setInvoiceAmount] = useState('');
+  const [invoiceMessage, setInvoiceMessage] = useState('');
+  const [invoiceFile, setInvoiceFile] = useState<File | null>(null);
+  const [rejectionComment, setRejectionComment] = useState('');
+  const [insuranceFile, setInsuranceFile] = useState<File | null>(null);
   const [isSending, setIsSending] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-const itemsPerPage = 10;
+  const [viewingDocument, setViewingDocument] = useState<{
+    name: string;
+    path: string;
+  } | null>(null);
+  const itemsPerPage = 10;
 
   // Mock data for demo purposes
   useEffect(() => {
@@ -75,7 +86,7 @@ const itemsPerPage = 10;
           email: 'jane@example.com',
           phone: '+250782123457',
           insuranceType: 'motorbike',
-          status: ApplicationStatus.APPROVED,
+          status: ApplicationStatus.APPLICATION_APPROVED,
           dateSubmitted: '2025-05-02',
           nationalId: 'ID_002.pdf',
           yellowCard: 'YC_002.pdf',
@@ -92,6 +103,7 @@ const itemsPerPage = 10;
           nationalId: 'ID_003.pdf',
           yellowCard: 'YC_003.pdf',
           invoiceId: 'INV_001',
+          invoiceAmount: '50000'
         },
         {
           id: '004',
@@ -99,12 +111,14 @@ const itemsPerPage = 10;
           email: 'maria@example.com',
           phone: '+250782123459',
           insuranceType: 'travel',
-          status: ApplicationStatus.PAYMENT_SUBMITTED,
+          status: ApplicationStatus.REVIEW_PAYMENT,
           dateSubmitted: '2025-05-04',
           nationalId: 'ID_004.pdf',
           yellowCard: 'YC_004.pdf',
           invoiceId: 'INV_002',
           paymentProof: 'PAY_001.pdf',
+          transactionId: 'TRX_001',
+          invoiceAmount: '75000'
         },
         {
           id: '005',
@@ -118,6 +132,8 @@ const itemsPerPage = 10;
           yellowCard: 'YC_005.pdf',
           invoiceId: 'INV_003',
           paymentProof: 'PAY_002.pdf',
+          transactionId: 'TRX_002',
+          invoiceAmount: '60000'
         },
         {
           id: '006',
@@ -132,6 +148,8 @@ const itemsPerPage = 10;
           invoiceId: 'INV_004',
           paymentProof: 'PAY_003.pdf',
           insuranceId: 'INS_001',
+          transactionId: 'TRX_003',
+          invoiceAmount: '120000'
         },
         {
           id: '007',
@@ -139,10 +157,11 @@ const itemsPerPage = 10;
           email: 'michael@example.com',
           phone: '+250782123462',
           insuranceType: 'car',
-          status: ApplicationStatus.REJECTED,
+          status: ApplicationStatus.WAITING_FOR_USER_ACTION,
           dateSubmitted: '2025-05-07',
           nationalId: 'ID_007.pdf',
           yellowCard: 'YC_007.pdf',
+          rejectionComment: 'Incomplete documentation',
         },
       ];
       setApplications(mockData);
@@ -163,15 +182,15 @@ const itemsPerPage = 10;
   });
 
   const paginatedApplications = filteredApplications.slice(
-  (currentPage - 1) * itemsPerPage,
-  currentPage * itemsPerPage
-);
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
 
   // Send invoice to client
   const handleSendInvoice = () => {
     if (!selectedApp) return;
-    if (!invoiceAmount || isNaN(parseFloat(invoiceAmount))) {
-      showToast('Please enter a valid amount', 'error');
+    if (!invoiceMessage) {
+      showToast('Please enter payment instructions', 'error');
       return;
     }
 
@@ -191,7 +210,8 @@ const itemsPerPage = 10;
       
       setApplications(updatedApplications);
       showToast(`Invoice sent to ${selectedApp.fullName}`, 'success');
-      setInvoiceAmount('');
+      setInvoiceMessage('');
+      setInvoiceFile(null);
       setIsSending(false);
       setSelectedApp(null);
     }, 1500);
@@ -200,6 +220,20 @@ const itemsPerPage = 10;
   // Verify client payment
   const handleVerifyPayment = () => {
     if (!selectedApp) return;
+    
+    // Check if transaction ID has been used before
+    if (selectedApp.transactionId) {
+      const isDuplicate = applications.some(app => 
+        app.transactionId === selectedApp.transactionId && 
+        app.id !== selectedApp.id &&
+        app.status !== ApplicationStatus.WAITING_FOR_USER_ACTION
+      );
+      
+      if (isDuplicate) {
+        showToast('This transaction ID has already been claimed', 'error');
+        return;
+      }
+    }
     
     setIsUpdating(true);
     // Simulate API call
@@ -217,6 +251,32 @@ const itemsPerPage = 10;
       setApplications(updatedApplications);
       showToast(`Payment from ${selectedApp.fullName} verified`, 'success');
       setIsUpdating(false);
+      setSelectedApp(null);
+    }, 1500);
+  };
+
+  // Reject payment
+  const handleRejectPayment = () => {
+    if (!selectedApp || !rejectionComment) return;
+    
+    setIsUpdating(true);
+    // Simulate API call
+    setTimeout(() => {
+      const updatedApplications = applications.map(app => {
+        if (app.id === selectedApp.id) {
+          return {
+            ...app,
+            status: ApplicationStatus.WAITING_FOR_USER_ACTION,
+            rejectionComment: rejectionComment,
+          };
+        }
+        return app;
+      });
+      
+      setApplications(updatedApplications);
+      showToast(`Payment from ${selectedApp.fullName} rejected`, 'error');
+      setIsUpdating(false);
+      setRejectionComment('');
       setSelectedApp(null);
     }, 1500);
   };
@@ -242,6 +302,31 @@ const itemsPerPage = 10;
       setApplications(updatedApplications);
       showToast(`Insurance issued to ${selectedApp.fullName}`, 'success');
       setIsUpdating(false);
+      setInsuranceFile(null);
+      setSelectedApp(null);
+    }, 1500);
+  };
+
+  // Approve application
+  const handleApproveApplication = () => {
+    if (!selectedApp) return;
+    
+    setIsUpdating(true);
+    // Simulate API call
+    setTimeout(() => {
+      const updatedApplications = applications.map(app => {
+        if (app.id === selectedApp.id) {
+          return {
+            ...app,
+            status: ApplicationStatus.APPLICATION_APPROVED,
+          };
+        }
+        return app;
+      });
+      
+      setApplications(updatedApplications);
+      showToast(`Application from ${selectedApp.fullName} approved`, 'success');
+      setIsUpdating(false);
       setSelectedApp(null);
     }, 1500);
   };
@@ -251,14 +336,14 @@ const itemsPerPage = 10;
     switch (status) {
       case ApplicationStatus.PENDING:
         return <span className="px-2 py-1 rounded-full bg-blue-100 text-blue-700 text-xs font-medium">Pending</span>;
-      case ApplicationStatus.APPROVED:
-        return <span className="px-2 py-1 rounded-full bg-green-100 text-green-700 text-xs font-medium">Approved</span>;
-      case ApplicationStatus.REJECTED:
-        return <span className="px-2 py-1 rounded-full bg-red-100 text-red-700 text-xs font-medium">Rejected</span>;
+      case ApplicationStatus.APPLICATION_APPROVED:
+        return <span className="px-2 py-1 rounded-full bg-green-100 text-green-700 text-xs font-medium">Application Approved</span>;
+      case ApplicationStatus.WAITING_FOR_USER_ACTION:
+        return <span className="px-2 py-1 rounded-full bg-orange-100 text-orange-700 text-xs font-medium">Waiting for User Action</span>;
       case ApplicationStatus.INVOICE_SENT:
         return <span className="px-2 py-1 rounded-full bg-indigo-100 text-indigo-700 text-xs font-medium">Invoice Sent</span>;
-      case ApplicationStatus.PAYMENT_SUBMITTED:
-        return <span className="px-2 py-1 rounded-full bg-purple-100 text-purple-700 text-xs font-medium">Payment Submitted</span>;
+      case ApplicationStatus.REVIEW_PAYMENT:
+        return <span className="px-2 py-1 rounded-full bg-purple-100 text-purple-700 text-xs font-medium">Review Payment</span>;
       case ApplicationStatus.PAYMENT_VERIFIED:
         return <span className="px-2 py-1 rounded-full bg-green-100 text-green-700 text-xs font-medium">Payment Verified</span>;
       case ApplicationStatus.INSURANCE_ISSUED:
@@ -273,56 +358,30 @@ const itemsPerPage = 10;
     switch (app.status) {
       case ApplicationStatus.PENDING:
         return (
-          <>
-            <Button 
-              size="sm" 
-              onClick={() => {
-                // Update application status to approved
-                const updatedApplications = applications.map(a => {
-                  if (a.id === app.id) {
-                    return { ...a, status: ApplicationStatus.APPROVED };
-                  }
-                  return a;
-                });
-                setApplications(updatedApplications);
-                showToast(`Application from ${app.fullName} approved`, 'success');
-              }}
-            >
-              Approve
-            </Button>
-            <Button 
-              size="sm" 
-              variant="danger" 
-              onClick={() => {
-                // Update application status to rejected
-                const updatedApplications = applications.map(a => {
-                  if (a.id === app.id) {
-                    return { ...a, status: ApplicationStatus.REJECTED };
-                  }
-                  return a;
-                });
-                setApplications(updatedApplications);
-                showToast(`Application from ${app.fullName} rejected`, 'error');
-              }}
-            >
-              Reject
-            </Button>
-          </>
-        );
-      
-      case ApplicationStatus.APPROVED:
-        return (
           <Button 
             size="sm" 
             onClick={() => {
               setSelectedApp(app);
             }}
           >
+            Review
+          </Button>
+        );
+      
+      case ApplicationStatus.APPLICATION_APPROVED:
+        return (
+          <Button 
+            size="sm" 
+            onClick={() => {
+              setSelectedApp(app);
+              setInvoiceMessage(`Please pay ${app.invoiceAmount || '[amount]'} RWF to:\nBank: Kigali Bank\nAccount: 1234567890\nOr via MOMO: 0782123456`);
+            }}
+          >
             Send Invoice
           </Button>
         );
       
-      case ApplicationStatus.PAYMENT_SUBMITTED:
+      case ApplicationStatus.REVIEW_PAYMENT:
         return (
           <Button 
             size="sm" 
@@ -362,118 +421,118 @@ const itemsPerPage = 10;
   };
 
   const Pagination = ({ currentPage, totalPages, onPageChange }: PaginationProps) => {
-  const maxVisiblePages = 5;
-  let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
-  const endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+    const maxVisiblePages = 5;
+    let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+    const endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
 
-  if (endPage - startPage + 1 < maxVisiblePages) {
-    startPage = Math.max(1, endPage - maxVisiblePages + 1);
-  }
+    if (endPage - startPage + 1 < maxVisiblePages) {
+      startPage = Math.max(1, endPage - maxVisiblePages + 1);
+    }
 
-  const pages = [];
-  for (let i = startPage; i <= endPage; i++) {
-    pages.push(i);
-  }
+    const pages = [];
+    for (let i = startPage; i <= endPage; i++) {
+      pages.push(i);
+    }
 
-  return (
-    <div className="flex items-center justify-between mt-6 p-6">
-      <div className="flex-1 flex justify-between sm:hidden">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => onPageChange(Math.max(1, currentPage - 1))}
-          disabled={currentPage === 1}
-        >
-          Previous
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
-          disabled={currentPage === totalPages}
-        >
-          Next
-        </Button>
-      </div>
-      <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-        <div>
-          <p className="text-sm text-gray-700">
-            Showing <span className="font-medium">{(currentPage - 1) * 10 + 1}</span> to{' '}
-            <span className="font-medium">{Math.min(currentPage * 10, paginatedApplications.length)}</span> of{' '}
-            <span className="font-medium">{paginatedApplications.length}</span> results
-          </p>
+    return (
+      <div className="flex items-center justify-between mt-6 p-6">
+        <div className="flex-1 flex justify-between sm:hidden">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onPageChange(Math.max(1, currentPage - 1))}
+            disabled={currentPage === 1}
+          >
+            Previous
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
+            disabled={currentPage === totalPages}
+          >
+            Next
+          </Button>
         </div>
-        <div>
-          <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px " aria-label="Pagination">
-            <Button
-              variant="text"
-              size="sm"
-              onClick={() => onPageChange(1)}
-              disabled={currentPage === 1}
-              className="rounded-l-md"
-            >
-              <span className="sr-only">First</span>
-              «
-            </Button>
-            <Button
-              variant="text"
-              size="sm"
-              onClick={() => onPageChange(Math.max(1, currentPage - 1))}
-              disabled={currentPage === 1}
-            >
-              <span className="sr-only">Previous</span>
-              ‹
-            </Button>
-            
-            {startPage > 1 && (
-              <span className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700">
-                ...
-              </span>
-            )}
-            
-            {pages.map((page) => (
+        <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+          <div>
+            <p className="text-sm text-gray-700">
+              Showing <span className="font-medium">{(currentPage - 1) * 10 + 1}</span> to{' '}
+              <span className="font-medium">{Math.min(currentPage * 10, filteredApplications.length)}</span> of{' '}
+              <span className="font-medium">{filteredApplications.length}</span> results
+            </p>
+          </div>
+          <div>
+            <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px " aria-label="Pagination">
               <Button
-                key={page}
-                variant={currentPage === page ? 'primary' : 'text'}
+                variant="text"
                 size="sm"
-                onClick={() => onPageChange(page)}
-                className={currentPage === page ? 'z-10 bg-[var(--main-blue)] border-[var(--main-blue)] text-white' : ''}
+                onClick={() => onPageChange(1)}
+                disabled={currentPage === 1}
+                className="rounded-l-md"
               >
-                {page}
+                <span className="sr-only">First</span>
+                «
               </Button>
-            ))}
-            
-            {endPage < totalPages && (
-              <span className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700">
-                ...
-              </span>
-            )}
-            
-            <Button
-              variant="text"
-              size="sm"
-              onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
-              disabled={currentPage === totalPages}
-            >
-              <span className="sr-only">Next</span>
-              ›
-            </Button>
-            <Button
-              variant="text"
-              size="sm"
-              onClick={() => onPageChange(totalPages)}
-              disabled={currentPage === totalPages}
-              className="rounded-r-md"
-            >
-              <span className="sr-only">Last</span>
-              »
-            </Button>
-          </nav>
+              <Button
+                variant="text"
+                size="sm"
+                onClick={() => onPageChange(Math.max(1, currentPage - 1))}
+                disabled={currentPage === 1}
+              >
+                <span className="sr-only">Previous</span>
+                ‹
+              </Button>
+              
+              {startPage > 1 && (
+                <span className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700">
+                  ...
+                </span>
+              )}
+              
+              {pages.map((page) => (
+                <Button
+                  key={page}
+                  variant={currentPage === page ? 'primary' : 'text'}
+                  size="sm"
+                  onClick={() => onPageChange(page)}
+                  className={currentPage === page ? 'z-10 bg-[var(--main-blue)] border-[var(--main-blue)] text-white' : ''}
+                >
+                  {page}
+                </Button>
+              ))}
+              
+              {endPage < totalPages && (
+                <span className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700">
+                  ...
+                </span>
+              )}
+              
+              <Button
+                variant="text"
+                size="sm"
+                onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
+                disabled={currentPage === totalPages}
+              >
+                <span className="sr-only">Next</span>
+                ›
+              </Button>
+              <Button
+                variant="text"
+                size="sm"
+                onClick={() => onPageChange(totalPages)}
+                disabled={currentPage === totalPages}
+                className="rounded-r-md"
+              >
+                <span className="sr-only">Last</span>
+                »
+              </Button>
+            </nav>
+          </div>
         </div>
       </div>
-    </div>
-  );
-};
+    );
+  };
 
   return (
     <MainLayout containerClass="p-0" fullWidth>
@@ -520,10 +579,17 @@ const itemsPerPage = 10;
               </Button>
               <Button
                 size="sm"
-                variant={activeTab === ApplicationStatus.APPROVED ? 'primary' : 'text'}
-                onClick={() => setActiveTab(ApplicationStatus.APPROVED)}
+                variant={activeTab === ApplicationStatus.PAYMENT_VERIFIED ? 'primary' : 'text'}
+                onClick={() => setActiveTab(ApplicationStatus.PAYMENT_VERIFIED)}
               >
-                Approved
+                Payment Verified
+              </Button>
+              <Button
+                size="sm"
+                variant={activeTab === ApplicationStatus.APPLICATION_APPROVED ? 'primary' : 'text'}
+                onClick={() => setActiveTab(ApplicationStatus.APPLICATION_APPROVED)}
+              >
+                Application Approved
               </Button>
               <Button
                 size="sm"
@@ -534,10 +600,17 @@ const itemsPerPage = 10;
               </Button>
               <Button
                 size="sm"
-                variant={activeTab === ApplicationStatus.PAYMENT_SUBMITTED ? 'primary' : 'text'}
-                onClick={() => setActiveTab(ApplicationStatus.PAYMENT_SUBMITTED)}
+                variant={activeTab === ApplicationStatus.REVIEW_PAYMENT ? 'primary' : 'text'}
+                onClick={() => setActiveTab(ApplicationStatus.REVIEW_PAYMENT)}
               >
-                Payment Submitted
+                Review Payment
+              </Button>
+              <Button
+                size="sm"
+                variant={activeTab === ApplicationStatus.WAITING_FOR_USER_ACTION ? 'primary' : 'text'}
+                onClick={() => setActiveTab(ApplicationStatus.WAITING_FOR_USER_ACTION)}
+              >
+                Waiting for User
               </Button>
             </div>
           </div>
@@ -599,39 +672,198 @@ const itemsPerPage = 10;
                 </tbody>
               </table>
               <Pagination
-  currentPage={currentPage}
-  totalPages={Math.ceil(filteredApplications.length / itemsPerPage)}
-  onPageChange={setCurrentPage}
-/>
+                currentPage={currentPage}
+                totalPages={Math.ceil(filteredApplications.length / itemsPerPage)}
+                onPageChange={setCurrentPage}
+              />
             </div>
           )}
         </div>
       </div>
 
-      {/* Modal for sending invoice */}
-      {selectedApp && selectedApp.status === ApplicationStatus.APPROVED && (
+      {/* Modal for reviewing pending application */}
+      {selectedApp && selectedApp.status === ApplicationStatus.PENDING && (
         <div className="fixed inset-0 bg-gray-600/50 flex items-center justify-center z-50">
-          <div className="max-h-[90vh] overflow-y-auto bg-white rounded-lg shadow-xl p-6 w-full max-w-md mx-4 fade-in">
-            <h3 className="text-lg font-semibold mb-4">Send Invoice to {selectedApp.fullName}</h3>
-            <p className="text-gray-600 mb-4">Enter the invoice amount for {selectedApp.insuranceType} insurance:</p>
-            
-            <Input
-              label="Invoice Amount (RWF)"
-              name="invoiceAmount"
-              placeholder="e.g., 50000"
-              value={invoiceAmount}
-              onChange={(e) => setInvoiceAmount(e.target.value)}
-              icon={
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="12" y1="1" x2="12" y2="23"></line>
-                  <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+          <div className="max-h-[90vh] overflow-y-auto bg-white rounded-lg shadow-xl p-6 w-full max-w-3xl mx-4 fade-in">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold">Review Application</h3>
+              <button onClick={() => setSelectedApp(null)} className="text-gray-400 hover:text-gray-600">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
-              }
-            />
+              </button>
+            </div>
+            
+            <div className="bg-[var(--light-gray)] p-4 rounded-lg mb-4">
+              <div className="flex justify-between items-center">
+                <div>
+                  <p className="text-sm text-gray-500">Application ID</p>
+                  <p className="font-semibold">#{selectedApp.id}</p>
+                </div>
+                <div>
+                  {getStatusBadge(selectedApp.status)}
+                </div>
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+              <div>
+                <p className="text-sm text-gray-500">Client Name</p>
+                <p className="font-semibold">{selectedApp.fullName}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-500">Insurance Type</p>
+                <p className="font-semibold capitalize">{selectedApp.insuranceType.replace('_', ' ')}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-500">Email</p>
+                <p className="font-semibold">{selectedApp.email}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-500">Phone</p>
+                <p className="font-semibold">{selectedApp.phone}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-500">Date Submitted</p>
+                <p className="font-semibold">{selectedApp.dateSubmitted}</p>
+              </div>
+            </div>
+            
+            <div className="bg-[var(--light-gray)] p-4 rounded-lg mb-4">
+              <h4 className="font-medium mb-2">Documents</h4>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <button 
+                  className="bg-white p-3 rounded border text-left hover:bg-gray-50"
+                  onClick={() => setViewingDocument({
+                    name: selectedApp.nationalId,
+                    path: '/test_document.pdf'
+                  })}
+                >
+                  <p className="text-sm font-medium">National ID</p>
+                  <p className="text-xs text-gray-500">{selectedApp.nationalId}</p>
+                </button>
+                <button 
+                  className="bg-white p-3 rounded border text-left hover:bg-gray-50"
+                  onClick={() => setViewingDocument({
+                    name: selectedApp.yellowCard,
+                    path: '/test_document.pdf'
+                  })}
+                >
+                  <p className="text-sm font-medium">Yellow Card</p>
+                  <p className="text-xs text-gray-500">{selectedApp.yellowCard}</p>
+                </button>
+                {selectedApp.additionalDocument && (
+                  <button 
+                    className="bg-white p-3 rounded border text-left hover:bg-gray-50"
+                    onClick={() => setViewingDocument({
+                      name: selectedApp.additionalDocument || 'Additional_Document.pdf',
+                      path: '/test_document.pdf'
+                    })}
+                  >
+                    <p className="text-sm font-medium">Additional Document</p>
+                    <p className="text-xs text-gray-500">{selectedApp.additionalDocument}</p>
+                  </button>
+                )}
+              </div>
+            </div>
+            
+            <div className="mt-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Rejection Reason (if rejecting)</label>
+              <textarea
+                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[var(--main-blue)] focus:border-[var(--main-blue)] sm:text-sm"
+                rows={4}
+                value={rejectionComment}
+                onChange={(e) => setRejectionComment(e.target.value)}
+                placeholder="Enter reason for rejecting this application..."
+              />
+            </div>
             
             <div className="flex justify-end gap-2 mt-6">
               <Button variant="text" onClick={() => setSelectedApp(null)}>Cancel</Button>
-              <Button onClick={handleSendInvoice} disabled={isSending}>
+              <Button 
+                variant="danger" 
+                onClick={() => {
+                  if (!rejectionComment) {
+                    showToast('Please enter rejection reason', 'error');
+                    return;
+                  }
+                  const updatedApplications = applications.map(app => {
+                    if (app.id === selectedApp.id) {
+                      return {
+                        ...app,
+                        status: ApplicationStatus.WAITING_FOR_USER_ACTION,
+                        rejectionComment: rejectionComment,
+                      };
+                    }
+                    return app;
+                  });
+                  setApplications(updatedApplications);
+                  showToast(`Application from ${selectedApp.fullName} rejected`, 'error');
+                  setSelectedApp(null);
+                  setRejectionComment('');
+                }}
+                disabled={!rejectionComment}
+              >
+                Reject Application
+              </Button>
+              <Button 
+                onClick={handleApproveApplication}
+                disabled={isUpdating}
+              >
+                {isUpdating ? 'Approving...' : 'Approve Application'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal for sending invoice */}
+      {selectedApp && selectedApp.status === ApplicationStatus.APPLICATION_APPROVED && (
+        <div className="fixed inset-0 bg-gray-600/50 flex items-center justify-center z-50">
+          <div className="max-h-[90vh] overflow-y-auto bg-white rounded-lg shadow-xl p-6 w-full max-w-md mx-4 fade-in">
+            <h3 className="text-lg font-semibold mb-4">Send Invoice to {selectedApp.fullName}</h3>
+            <p className="text-gray-600 mb-4">Enter the invoice details for {selectedApp.insuranceType} insurance:</p>
+            
+            <div className="mt-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Payment Instructions</label>
+              <textarea
+                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[var(--main-blue)] focus:border-[var(--main-blue)] sm:text-sm"
+                rows={4}
+                value={invoiceMessage}
+                onChange={(e) => setInvoiceMessage(e.target.value)}
+                placeholder="Enter payment instructions..."
+              />
+            </div>
+            
+            <div className="mt-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Invoice Attachment (Optional)</label>
+              <input
+                type="file"
+                onChange={(e) => setInvoiceFile(e.target.files?.[0] || null)}
+                className="block w-full text-sm text-gray-500
+                  file:mr-4 file:py-2 file:px-4
+                  file:rounded-md file:border-0
+                  file:text-sm file:font-semibold
+                  file:bg-[var(--main-blue)] file:text-white
+                  hover:file:bg-[var(--secondary-blue)]
+                "
+              />
+              {invoiceFile && (
+                <button 
+                  className="mt-2 text-sm text-[var(--main-blue)] hover:underline"
+                  onClick={() => setViewingDocument({
+                    name: invoiceFile.name,
+                    path: URL.createObjectURL(invoiceFile)
+                  })}
+                >
+                  View: {invoiceFile.name}
+                </button>
+              )}
+            </div>
+            
+            <div className="flex justify-end gap-2 mt-6">
+              <Button variant="text" onClick={() => setSelectedApp(null)}>Cancel</Button>
+              <Button onClick={handleSendInvoice} disabled={isSending || !invoiceMessage}>
                 {isSending ? 'Sending...' : 'Send Invoice'}
               </Button>
             </div>
@@ -640,7 +872,7 @@ const itemsPerPage = 10;
       )}
 
       {/* Modal for verifying payment */}
-      {selectedApp && selectedApp.status === ApplicationStatus.PAYMENT_SUBMITTED && (
+      {selectedApp && selectedApp.status === ApplicationStatus.REVIEW_PAYMENT && (
         <div className="fixed inset-0 bg-gray-600/50 flex items-center justify-center z-50">
           <div className="max-h-[90vh] overflow-y-auto bg-white rounded-lg shadow-xl p-6 w-full max-w-md mx-4 fade-in">
             <h3 className="text-lg font-semibold mb-4">Verify Payment</h3>
@@ -650,15 +882,105 @@ const itemsPerPage = 10;
               <p className="font-medium">Payment Details:</p>
               <ul className="mt-2 space-y-1 text-sm">
                 <li><span className="text-gray-600">Invoice ID:</span> {selectedApp.invoiceId}</li>
-                <li><span className="text-gray-600">Payment Proof:</span> {selectedApp.paymentProof}</li>
+                <li><span className="text-gray-600">Amount Expected:</span> {selectedApp.invoiceAmount || 'N/A'} RWF</li>
+                <li><span className="text-gray-600">Transaction ID:</span> {selectedApp.transactionId || 'Not provided'}</li>
+                <li><span className="text-gray-600">Payment Proof:</span> 
+                  <button 
+                    className="text-[var(--main-blue)] hover:underline ml-1"
+                    onClick={() => setViewingDocument({
+                      name: selectedApp.paymentProof || 'Payment_Proof.pdf',
+                      path: '/test_document.pdf'
+                    })}
+                  >
+                    {selectedApp.paymentProof}
+                  </button>
+                </li>
                 <li><span className="text-gray-600">Date Submitted:</span> {selectedApp.dateSubmitted}</li>
               </ul>
             </div>
             
+            <div className="border rounded-lg p-4 mb-4 bg-blue-50">
+              <p className="font-medium text-[var(--main-blue)]">Invoice:</p>
+              <button 
+                className="text-[var(--main-blue)] hover:underline mt-1"
+                onClick={() => setViewingDocument({
+                  name: `Invoice_${selectedApp.invoiceId}.pdf`,
+                  path: '/test_document.pdf'
+                })}
+              >
+                View Invoice
+              </button>
+            </div>
+            
             <div className="flex justify-end gap-2 mt-6">
-              <Button variant="text" onClick={() => setSelectedApp(null)}>Cancel</Button>
-              <Button onClick={handleVerifyPayment} disabled={isUpdating}>
+              <Button 
+                variant="danger" 
+                onClick={() => {
+                  setRejectionComment('');
+                  setSelectedApp({...selectedApp, status: ApplicationStatus.WAITING_FOR_USER_ACTION});
+                }}
+                disabled={isUpdating}
+              > Confirm Rejection
+              </Button>
+                             <Button onClick={handleVerifyPayment} disabled={isUpdating}>
                 {isUpdating ? 'Verifying...' : 'Verify Payment'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal for rejecting payment */}
+      {selectedApp && selectedApp.status === ApplicationStatus.WAITING_FOR_USER_ACTION && (
+        <div className="fixed inset-0 bg-gray-600/50 flex items-center justify-center z-50">
+          <div className="max-h-[90vh] overflow-y-auto bg-white rounded-lg shadow-xl p-6 w-full max-w-md mx-4 fade-in">
+            <h3 className="text-lg font-semibold mb-4">Reject Payment</h3>
+            <p className="text-gray-600 mb-4">Please provide a reason for rejecting this payment:</p>
+            
+            <div className="border rounded-lg p-4 mb-4 bg-gray-50">
+              <p className="font-medium">Payment Details:</p>
+              <ul className="mt-2 space-y-1 text-sm">
+                <li><span className="text-gray-600">Invoice ID:</span> {selectedApp.invoiceId}</li>
+                <li><span className="text-gray-600">Amount Expected:</span> {selectedApp.invoiceAmount || 'N/A'} RWF</li>
+                <li><span className="text-gray-600">Transaction ID:</span> {selectedApp.transactionId || 'Not provided'}</li>
+                <li><span className="text-gray-600">Payment Proof:</span> 
+                  <button 
+                    className="text-[var(--main-blue)] hover:underline ml-1"
+                    onClick={() => setViewingDocument({
+                      name: selectedApp.paymentProof || 'Payment_Proof.pdf',
+                      path: '/test_document.pdf'
+                    })}
+                  >
+                    {selectedApp.paymentProof}
+                  </button>
+                </li>
+              </ul>
+            </div>
+            
+            <div className="mt-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Rejection Reason</label>
+              <textarea
+                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[var(--main-blue)] focus:border-[var(--main-blue)] sm:text-sm"
+                rows={4}
+                value={rejectionComment}
+                onChange={(e) => setRejectionComment(e.target.value)}
+                placeholder="Enter reason for rejecting this payment..."
+              />
+            </div>
+            
+            <div className="flex justify-end gap-2 mt-6">
+              <Button 
+                variant="text" 
+                onClick={() => setSelectedApp({...selectedApp, status: ApplicationStatus.REVIEW_PAYMENT})}
+              >
+                Back
+              </Button>
+              <Button 
+                variant="danger" 
+                onClick={handleRejectPayment} 
+                disabled={!rejectionComment || isUpdating}
+              >
+                {isUpdating ? 'Rejecting...' : 'Confirm Rejection'}
               </Button>
             </div>
           </div>
@@ -675,11 +997,47 @@ const itemsPerPage = 10;
             <div className="border rounded-lg p-4 mb-4 bg-blue-50">
               <p className="font-medium text-[var(--main-blue)]">Application Approved & Payment Verified</p>
               <p className="mt-2 text-sm text-gray-600">The application has been reviewed and the payment has been verified. You can now issue the insurance certificate.</p>
+              <div className="mt-2 grid grid-cols-2 gap-2 text-sm">
+                <div>
+                  <p className="text-gray-600">Invoice Amount:</p>
+                  <p className="font-medium">{selectedApp.invoiceAmount || 'N/A'} RWF</p>
+                </div>
+                <div>
+                  <p className="text-gray-600">Transaction ID:</p>
+                  <p className="font-medium">{selectedApp.transactionId || 'N/A'}</p>
+                </div>
+              </div>
+            </div>
+            
+            <div className="mt-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Insurance Certificate</label>
+              <input
+                type="file"
+                onChange={(e) => setInsuranceFile(e.target.files?.[0] || null)}
+                className="block w-full text-sm text-gray-500
+                  file:mr-4 file:py-2 file:px-4
+                  file:rounded-md file:border-0
+                  file:text-sm file:font-semibold
+                  file:bg-[var(--main-blue)] file:text-white
+                  hover:file:bg-[var(--secondary-blue)]
+                "
+              />
+              {insuranceFile && (
+                <button 
+                  className="mt-2 text-sm text-[var(--main-blue)] hover:underline"
+                  onClick={() => setViewingDocument({
+                    name: insuranceFile.name,
+                    path: URL.createObjectURL(insuranceFile)
+                  })}
+                >
+                  View: {insuranceFile.name}
+                </button>
+              )}
             </div>
             
             <div className="flex justify-end gap-2 mt-6">
               <Button variant="text" onClick={() => setSelectedApp(null)}>Cancel</Button>
-              <Button onClick={handleIssueInsurance} disabled={isUpdating}>
+              <Button onClick={handleIssueInsurance} disabled={!insuranceFile || isUpdating}>
                 {isUpdating ? 'Issuing...' : 'Issue Insurance Certificate'}
               </Button>
             </div>
@@ -688,7 +1046,7 @@ const itemsPerPage = 10;
       )}
 
       {/* Modal for viewing details */}
-      {selectedApp && ![ApplicationStatus.APPROVED, ApplicationStatus.PAYMENT_SUBMITTED, ApplicationStatus.PAYMENT_VERIFIED].includes(selectedApp.status) && (
+      {selectedApp && ![ApplicationStatus.PENDING, ApplicationStatus.APPLICATION_APPROVED, ApplicationStatus.REVIEW_PAYMENT, ApplicationStatus.PAYMENT_VERIFIED].includes(selectedApp.status) && (
         <div className="fixed inset-0 bg-gray-600/50 flex items-center justify-center z-50">
           <div className="max-h-[90vh] overflow-y-auto bg-white rounded-lg shadow-xl p-6 w-full max-w-3xl mx-4 fade-in">
             <div className="flex justify-between items-center mb-4">
@@ -739,24 +1097,72 @@ const itemsPerPage = 10;
                   <p className="font-semibold">{selectedApp.insuranceId}</p>
                 </div>
               )}
+              {selectedApp.rejectionComment && (
+                <div className="md:col-span-2">
+                  <p className="text-sm text-gray-500">Rejection Reason</p>
+                  <p className="font-semibold">{selectedApp.rejectionComment}</p>
+                </div>
+              )}
             </div>
             
             <div className="bg-[var(--light-gray)] p-4 rounded-lg mb-4">
               <h4 className="font-medium mb-2">Documents</h4>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="bg-white p-3 rounded border">
+                <button 
+                  className="bg-white p-3 rounded border text-left hover:bg-gray-50"
+                  onClick={() => setViewingDocument({
+                    name: selectedApp.nationalId,
+                    path: '/test_document.pdf'
+                  })}
+                >
                   <p className="text-sm font-medium">National ID</p>
                   <p className="text-xs text-gray-500">{selectedApp.nationalId}</p>
-                </div>
-                <div className="bg-white p-3 rounded border">
+                </button>
+                <button 
+                  className="bg-white p-3 rounded border text-left hover:bg-gray-50"
+                  onClick={() => setViewingDocument({
+                    name: selectedApp.yellowCard,
+                    path: '/test_document.pdf'
+                  })}
+                >
                   <p className="text-sm font-medium">Yellow Card</p>
                   <p className="text-xs text-gray-500">{selectedApp.yellowCard}</p>
-                </div>
+                </button>
                 {selectedApp.additionalDocument && (
-                  <div className="bg-white p-3 rounded border">
+                  <button 
+                    className="bg-white p-3 rounded border text-left hover:bg-gray-50"
+                    onClick={() => setViewingDocument({
+                      name: selectedApp.additionalDocument || 'Additional_Document.pdf',
+                      path: '/test_document.pdf'
+                    })}
+                  >
                     <p className="text-sm font-medium">Additional Document</p>
                     <p className="text-xs text-gray-500">{selectedApp.additionalDocument}</p>
-                  </div>
+                  </button>
+                )}
+                {selectedApp.paymentProof && (
+                  <button 
+                    className="bg-white p-3 rounded border text-left hover:bg-gray-50"
+                    onClick={() => setViewingDocument({
+                      name: selectedApp.paymentProof || 'Payment_Proof.pdf',
+                      path: '/test_document.pdf'
+                    })}
+                  >
+                    <p className="text-sm font-medium">Payment Proof</p>
+                    <p className="text-xs text-gray-500">{selectedApp.paymentProof}</p>
+                  </button>
+                )}
+                {selectedApp.insuranceId && (
+                  <button 
+                    className="bg-white p-3 rounded border text-left hover:bg-gray-50"
+                    onClick={() => setViewingDocument({
+                      name: `Insurance_${selectedApp.insuranceId}.pdf`,
+                      path: '/test_document.pdf'
+                    })}
+                  >
+                    <p className="text-sm font-medium">Insurance Certificate</p>
+                    <p className="text-xs text-gray-500">{selectedApp.insuranceId}</p>
+                  </button>
                 )}
               </div>
             </div>
@@ -769,10 +1175,14 @@ const itemsPerPage = 10;
                     <p className="text-sm font-medium">Invoice ID</p>
                     <p className="text-xs text-gray-500">{selectedApp.invoiceId}</p>
                   </div>
-                  {selectedApp.paymentProof && (
+                  <div className="bg-white p-3 rounded border">
+                    <p className="text-sm font-medium">Amount</p>
+                    <p className="text-xs text-gray-500">{selectedApp.invoiceAmount || 'N/A'} RWF</p>
+                  </div>
+                  {selectedApp.transactionId && (
                     <div className="bg-white p-3 rounded border">
-                      <p className="text-sm font-medium">Payment Proof</p>
-                      <p className="text-xs text-gray-500">{selectedApp.paymentProof}</p>
+                      <p className="text-sm font-medium">Transaction ID</p>
+                      <p className="text-xs text-gray-500">{selectedApp.transactionId}</p>
                     </div>
                   )}
                 </div>
@@ -784,6 +1194,15 @@ const itemsPerPage = 10;
             </div>
           </div>
         </div>
+      )}
+
+      {/* Document viewer modal */}
+      {viewingDocument && (
+        <DocumentViewer
+          documentName={viewingDocument.name}
+          documentPath={viewingDocument.path}
+          onClose={() => setViewingDocument(null)}
+        />
       )}
 
       <ToastContainer />

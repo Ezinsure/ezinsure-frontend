@@ -5,6 +5,7 @@ import { MainLayout } from '@/components/ui/main-layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/components/ui/toast';
+import { DocumentViewer } from '@/components/ui/document-viewer';
 
 interface Application {
   id: string;
@@ -22,6 +23,7 @@ interface Application {
     invoiceId?: string;
     amount?: string;
     proof?: string;
+    transactionId?: string;
   };
 }
 
@@ -38,8 +40,13 @@ export default function AgentApplicationsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedApp, setSelectedApp] = useState<Application | null>(null);
   const [paymentProof, setPaymentProof] = useState<File | null>(null);
+  const [transactionId, setTransactionId] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [activeTab, setActiveTab] = useState<'all' | string>('all');
+  const [viewingDocument, setViewingDocument] = useState<{
+    name: string;
+    path: string;
+  } | null>(null);
   const itemsPerPage = 10;
 
   // Mock data for demo purposes
@@ -105,6 +112,7 @@ export default function AgentApplicationsPage() {
             invoiceId: 'INV_002',
             amount: '25,000 RWF',
             proof: 'PAY_001.pdf',
+            transactionId: 'TRX_001',
           },
         },
         {
@@ -123,6 +131,7 @@ export default function AgentApplicationsPage() {
             invoiceId: 'INV_003',
             amount: '40,000 RWF',
             proof: 'PAY_002.pdf',
+            transactionId: 'TRX_002',
           },
         },
         {
@@ -141,6 +150,7 @@ export default function AgentApplicationsPage() {
             invoiceId: 'INV_004',
             amount: '150,000 RWF',
             proof: 'PAY_003.pdf',
+            transactionId: 'TRX_003',
           },
         },
       ];
@@ -162,7 +172,7 @@ export default function AgentApplicationsPage() {
   );
 
   const handleSubmitPayment = () => {
-    if (!selectedApp || !paymentProof) return;
+    if (!selectedApp || !paymentProof || !transactionId) return;
 
     setIsLoading(true);
     setTimeout(() => {
@@ -174,6 +184,7 @@ export default function AgentApplicationsPage() {
             payment: {
               ...app.payment,
               proof: paymentProof.name,
+              transactionId: transactionId,
             },
           };
         }
@@ -184,6 +195,7 @@ export default function AgentApplicationsPage() {
       showToast('Payment proof submitted successfully!', 'success');
       setSelectedApp(null);
       setPaymentProof(null);
+      setTransactionId('');
       setIsLoading(false);
     }, 1000);
   };
@@ -640,7 +652,31 @@ export default function AgentApplicationsPage() {
                     <span className="text-gray-600">Amount:</span>{' '}
                     {selectedApp.payment?.amount}
                   </p>
+                  {selectedApp.payment?.invoiceId && (
+                    <button 
+                      className="text-[var(--main-blue)] hover:underline mt-2"
+                      onClick={() => setViewingDocument({
+                        name: `Invoice_${selectedApp.payment?.invoiceId}.pdf`,
+                        path: '/test_document.pdf'
+                      })}
+                    >
+                      View Invoice
+                    </button>
+                  )}
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">
+                  Transaction ID
+                </label>
+                <input
+                  type="text"
+                  value={transactionId}
+                  onChange={(e) => setTransactionId(e.target.value)}
+                  className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[var(--main-blue)] focus:border-[var(--main-blue)] sm:text-sm"
+                  placeholder="Enter transaction ID"
+                />
               </div>
 
               <div>
@@ -671,13 +707,14 @@ export default function AgentApplicationsPage() {
                   onClick={() => {
                     setSelectedApp(null);
                     setPaymentProof(null);
+                    setTransactionId('');
                   }}
                 >
                   Cancel
                 </Button>
                 <Button
                   onClick={handleSubmitPayment}
-                  disabled={!paymentProof || isLoading}
+                  disabled={!paymentProof || !transactionId || isLoading}
                 >
                   {isLoading ? 'Submitting...' : 'Submit Payment'}
                 </Button>
@@ -690,7 +727,7 @@ export default function AgentApplicationsPage() {
       {/* Modal for viewing details */}
       {selectedApp && selectedApp.status !== 'invoice_sent' && (
         <div className="fixed inset-0 bg-gray-600/50 bg-opacity-20 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-2xl mx-4 fade-in h-[90vh] overflow-y-auto ">
+          <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-2xl mx-4 fade-in h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-semibold">Application Details</h3>
               <button
@@ -776,6 +813,12 @@ export default function AgentApplicationsPage() {
                       <p className="font-medium">{selectedApp.payment.proof}</p>
                     </div>
                   )}
+                  {selectedApp.payment.transactionId && (
+                    <div>
+                      <p className="text-sm text-gray-500">Transaction ID</p>
+                      <p className="font-medium">{selectedApp.payment.transactionId}</p>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -783,18 +826,30 @@ export default function AgentApplicationsPage() {
             <div className="mt-6 bg-gray-50 p-4 rounded-lg">
               <h4 className="font-medium mb-2">Documents</h4>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="bg-white p-3 rounded border">
+                <button 
+                  className="bg-white p-3 rounded border text-left hover:bg-gray-50"
+                  onClick={() => setViewingDocument({
+                    name: selectedApp.documents.nationalId,
+                    path: '/test_document.pdf'
+                  })}
+                >
                   <p className="text-sm font-medium">National ID</p>
                   <p className="text-xs text-gray-500">
                     {selectedApp.documents.nationalId}
                   </p>
-                </div>
-                <div className="bg-white p-3 rounded border">
+                </button>
+                <button 
+                  className="bg-white p-3 rounded border text-left hover:bg-gray-50"
+                  onClick={() => setViewingDocument({
+                    name: selectedApp.documents.yellowCard,
+                    path: '/test_document.pdf'
+                  })}
+                >
                   <p className="text-sm font-medium">Yellow Card</p>
                   <p className="text-xs text-gray-500">
                     {selectedApp.documents.yellowCard}
                   </p>
-                </div>
+                </button>
               </div>
             </div>
 
@@ -805,6 +860,15 @@ export default function AgentApplicationsPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Document viewer modal */}
+      {viewingDocument && (
+        <DocumentViewer
+          documentName={viewingDocument.name}
+          documentPath={viewingDocument.path}
+          onClose={() => setViewingDocument(null)}
+        />
       )}
 
       <ToastContainer />

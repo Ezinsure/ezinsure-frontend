@@ -19,7 +19,7 @@ export const Footer = () => {
               and complete purchases in minutes—all online or via mobile.
             </p>
             <p className="text-gray-300 mb-4 text-sm font-semibold">
-              EZINSURE is an initiative of SOLEKTRA in partnership with SONARWA
+              EZINSURE is an initiative of SOLEKTRA in partnership with a local insurance company
               to provide easy access to insurance services in Rwanda.
             </p>
             <div className="flex space-x-4">

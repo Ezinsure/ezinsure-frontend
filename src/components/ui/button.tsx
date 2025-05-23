@@ -12,6 +12,11 @@ interface ButtonProps {
   disabled?: boolean;
   className?: string;
   icon?: React.ReactNode;
+  as?: 'button' | 'a';
+  href?: string;
+  download?: string;
+  target?: string;
+  rel?: string;
 }
 
 export const Button = ({
@@ -23,8 +28,14 @@ export const Button = ({
   fullWidth = false,
   disabled = false,
   className = '',
-  icon
-}: ButtonProps) => {
+  icon,
+  as = 'button',
+  href,
+  download,
+  target,
+  rel,
+  ...props
+}: ButtonProps & React.ButtonHTMLAttributes<HTMLButtonElement> & React.AnchorHTMLAttributes<HTMLAnchorElement>) => {
   const baseClasses = 'rounded-lg font-medium transition-all duration-200 flex items-center justify-center';
   
   const variantClasses = {
@@ -44,12 +55,31 @@ export const Button = ({
   const disabledClasses = disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer';
   const widthClass = fullWidth ? 'w-full' : '';
   
+  const allClasses = `${baseClasses} ${variantClasses[variant]} ${sizeClasses[size]} ${disabledClasses} ${widthClass} ${className}`;
+
+  if (as === 'a' && href) {
+    return (
+      <a
+        href={href}
+        download={download}
+        target={target}
+        rel={rel}
+        className={allClasses}
+        {...props}
+      >
+        {icon && <span className="mr-2">{icon}</span>}
+        {children}
+      </a>
+    );
+  }
+
   return (
     <button
       type={type}
       onClick={onClick}
       disabled={disabled}
-      className={`${baseClasses} ${variantClasses[variant]} ${sizeClasses[size]} ${disabledClasses} ${widthClass} ${className}`}
+      className={allClasses}
+      {...props}
     >
       {icon && <span className="mr-2">{icon}</span>}
       {children}
