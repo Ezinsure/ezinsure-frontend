@@ -1,48 +1,18 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/toast';
 import { validateForm, ValidationRules, validationPatterns } from '@/components/ui/form-validation';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-
-interface GeoLocationData {
-  latitude: number;
-  longitude: number;
-  accuracy: number;
-  address: string;
-}
-
-interface DeviceInfo {
-  userAgent: string;
-  platform: string;
-  cookieEnabled: boolean;
-  language: string;
-  onLine: boolean;
-  screenResolution: string;
-  timezone: string;
-  deviceMemory: number | undefined;
-  hardwareConcurrency: number | undefined;
-}
-
-interface SecurityInfo {
-  location: Partial<GeoLocationData>;
-  device: DeviceInfo;
-  loginTime: string;
-  ipAddress: string;
-}
-
-const DUMMY_USERS = [
-  { email: 'admin@ezinsure.com', password: 'Admin@123', role: 'admin', name: 'Admin User' },
-  { email: 'agent1@ezinsure.com', password: 'Agent@123', role: 'agent', name: 'John Agent' },
-  { email: 'agent2@ezinsure.com', password: 'Agent@123', role: 'agent', name: 'Jane Agent' },
-];
+// import { useRouter } from 'next/navigation';
+import { useAuth } from '@/context/AuthContext';
 
 export default function LoginPage() {
-  const router = useRouter();
+  // const router = useRouter();
   const { showToast, ToastContainer } = useToast();
+  const { login } = useAuth();
 
   const [formState, setFormState] = useState({
     email: '',
@@ -51,66 +21,6 @@ export default function LoginPage() {
 
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  // Check if user is already logged in
-  useEffect(() => {
-    const user = localStorage.getItem('user');
-    if (user) {
-      const userData = JSON.parse(user);
-      if (userData.role === 'admin') {
-        router.push('/admin/dashboard');
-      } else {
-        router.push('/agent/dashboard');
-      }
-    }
-
-    // Check for registration success message
-    const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get('registered') === 'true') {
-      showToast('Registration successful! Please sign in with your credentials.', 'success');
-    }
-  }, [router, showToast]);
-
-  const getDeviceInfo = useCallback((): DeviceInfo => {
-    const navigatorWithMemory = navigator as Navigator & {
-      deviceMemory?: number;
-    };
-
-    return {
-      userAgent: navigator.userAgent,
-      platform: navigator.platform,
-      cookieEnabled: navigator.cookieEnabled,
-      language: navigator.language,
-      onLine: navigator.onLine,
-      screenResolution: `${window.screen.width}x${window.screen.height}`,
-      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-      deviceMemory: navigatorWithMemory.deviceMemory,
-      hardwareConcurrency: navigator.hardwareConcurrency,
-    };
-  }, []);
-
-  const getGeoLocation = useCallback((): Promise<Partial<GeoLocationData>> => {
-    return new Promise((resolve) => {
-      if (!navigator.geolocation) {
-        resolve({});
-        return;
-      }
-
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const { latitude, longitude, accuracy } = position.coords;
-          resolve({
-            latitude,
-            longitude,
-            accuracy,
-            address: `${latitude.toFixed(4)}, ${longitude.toFixed(4)} (Demo Address)`,
-          });
-        },
-        () => resolve({}),
-        { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 }
-      );
-    });
-  }, []);
 
   const validationRules: ValidationRules = {
     email: { 
@@ -144,45 +54,12 @@ export default function LoginPage() {
 
     if (Object.keys(formErrors).length === 0) {
       setIsSubmitting(true);
-
       try {
-        const [location, deviceInfo] = await Promise.all([
-          getGeoLocation(),
-          Promise.resolve(getDeviceInfo()),
-        ]);
-
-        const user = DUMMY_USERS.find(
-          (u) => u.email === formState.email && u.password === formState.password
-        );
-
-        if (user) {
-          const securityInfo: SecurityInfo = {
-            location,
-            device: deviceInfo,
-            loginTime: new Date().toISOString(),
-            ipAddress: 'Demo IP: 192.168.1.100',
-          };
-
-          const userData = {
-            email: user.email,
-            role: user.role,
-            name: user.name,
-            authToken: 'dummy-token-' + Math.random().toString(36).substring(2, 15),
-            securityInfo
-          };
-          
-          localStorage.setItem('user', JSON.stringify(userData));
-          showToast('Login successful! Redirecting...', 'success');
-          
-          setTimeout(() => {
-            router.push(user.role === 'admin' ? '/admin/dashboard' : '/agent/dashboard');
-          }, 1000);
-        } else {
-          showToast('Invalid email or password. Please try again.', 'error');
-        }
+        await login(formState.email, formState.password);
+        showToast('Login successful! Redirecting...', 'success');
       } catch (error) {
         console.error('Login error:', error);
-        showToast('An error occurred. Please try again.', 'error');
+        showToast('Invalid email or password. Please try again.', 'error');
       } finally {
         setIsSubmitting(false);
       }

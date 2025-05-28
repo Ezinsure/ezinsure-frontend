@@ -3,24 +3,18 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useAuth } from '@/context/AuthContext';
 
 interface NavLink {
   href: string;
   label: string;
 }
 
-interface User {
-  email: string;
-  role: string;
-  name: string;
-  authToken: string;
-}
-
 export const Navigation = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
-  const [user, setUser] = useState<User | null>(null);
+  const { user, logout } = useAuth();
   const pathname = usePathname();
 
   // Default navigation links for non-logged in users
@@ -40,32 +34,29 @@ export const Navigation = () => {
 
     window.addEventListener('scroll', handleScroll);
     
-    // Check if user is logged in
-    const storedUser = localStorage.getItem('user');
-    if (storedUser) {
-      const userData: User = JSON.parse(storedUser);
-      setUser(userData);
-      
-      // Update navigation links based on user role
-      if (userData.role === 'admin') {
-        setNavLinks([
-          { href: '/admin/dashboard', label: 'Dashboard' },
-          { href: '/admin/applications', label: 'Applications' },
-          { href: '/admin/users', label: 'Manage Users' },
-        ]);
-      } else if (userData.role === 'agent') {
-        setNavLinks([
-          { href: '/agent/dashboard', label: 'Dashboard' },
-          { href: '/agent/applications', label: 'My Applications' },
-          { href: '/agent/apply', label: 'New Application' },
-        ]);
+    // Update navigation links based on user role
+    if (user) {
+      const rolePrefix = `/${user.role.toLowerCase()}`;
+      const newLinks = [
+        { href: `${rolePrefix}/dashboard`, label: 'Dashboard' },
+        { href: `${rolePrefix}/applications`, label: user.role === 'ADMIN' ? 'Applications' : 'My Applications' },
+      ];
+
+      if (user.role === 'ADMIN') {
+        newLinks.push({ href: `${rolePrefix}/users`, label: 'Manage Users' });
+      } else {
+        newLinks.push({ href: `${rolePrefix}/apply`, label: 'New Application' });
       }
+
+      newLinks.push({ href: `${rolePrefix}/profile`, label: 'Profile' });
+
+      setNavLinks(newLinks);
     }
 
     return () => {
       window.removeEventListener('scroll', handleScroll);
     };
-  }, []);
+  }, [user]);
 
   const toggleMobileMenu = () => {
     setIsMobileMenuOpen(!isMobileMenuOpen);
@@ -78,16 +69,15 @@ export const Navigation = () => {
   };
 
   const handleLogout = () => {
-    // Clear user data from local storage
-    localStorage.removeItem('user');
+    logout();
     // Redirect to home page
     window.location.href = '/';
   };
 
   // Function to get user initials
   const getUserInitials = () => {
-    if (!user || !user.name) return '?';
-    return user.name.split(' ').map(name => name[0]).join('').toUpperCase();
+    if (!user || !user.fullName) return '?';
+    return user.fullName.split(' ').map(fullName => fullName[0]).join('').toUpperCase();
   };
 
   return (
@@ -142,11 +132,11 @@ export const Navigation = () => {
                 {isProfileDropdownOpen && (
                   <div className="absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 py-1">
                     <div className="px-4 py-2 text-sm text-gray-700 border-b">
-                      <p className="font-medium">{user.name}</p>
+                      <p className="font-medium">{user.fullName}</p>
                       <p className="text-xs text-gray-500">{user.email}</p>
                     </div>
                     <Link 
-                      href="/profile" 
+                      href={`/${user.role.toLowerCase()}/profile`}
                       className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                       onClick={() => setIsProfileDropdownOpen(false)}
                     >
@@ -231,7 +221,7 @@ export const Navigation = () => {
           ) : (
             <>
               <Link
-                href="/profile"
+                href={`/${user.role.toLowerCase()}/profile`}
                 onClick={() => setIsMobileMenuOpen(false)}
                 className="block py-2 font-medium text-sm text-gray-600"
               >

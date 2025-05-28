@@ -1,14 +1,10 @@
 import type { Metadata } from 'next';
 import './globals.css';
+import { AuthProvider } from '@/context/AuthContext';
 
 export const metadata: Metadata = {
   title: 'Ezinsure',
   description: 'Insurance made easy',
-  // icons: {
-  //   icon: "/favicon.ico",
-  //   shortcut: "/favicon.ico",
-  //   apple: "/apple-touch-icon.png",
-  // },
 };
 
 export default function RootLayout({
@@ -18,7 +14,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        <AuthProvider>
+          {children}
+        </AuthProvider>
+      </body>
     </html>
   );
 }
