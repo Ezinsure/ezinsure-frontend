@@ -10,34 +10,60 @@ export default function ComingSoonPage() {
   const [error, setError] = useState('');
   const router = useRouter();
 
-// Add this helper function at the top of your file
-const setTesterCookie = () => {
-  const expirationDate = new Date();
-  expirationDate.setDate(expirationDate.getDate() + 1);
-  document.cookie = `ezinsure-tester=solektraRwanda@2025; expires=${expirationDate.toUTCString()}; path=/`;
-};
+  // Helper function to set tester cookie
+  const setTesterCookie = () => {
+    const expirationDate = new Date();
+    expirationDate.setDate(expirationDate.getDate() + 1);
+    document.cookie = `ezinsure-tester=solektraRwanda@2025; expires=${expirationDate.toUTCString()}; path=/; SameSite=Lax`;
+  };
 
-// Modify your handleSubmit function:
-const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
-  setError('');
-  
-  if (secretKey === 'solektraRwanda@2025') {
-    setTesterCookie();
-    window.location.href = '/'; // Full refresh to trigger middleware
-  } else {
-    setError('Invalid access key');
-    setSecretKey('');
-  }
-};
+  // Handle form submission
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    
+    if (secretKey === 'solektraRwanda@2025') {
+      setTesterCookie();
+      // Use window.location instead of router to ensure middleware runs
+      window.location.href = '/';
+    } else {
+      setError('Invalid access key');
+      setSecretKey('');
+    }
+  };
 
-// Add this useEffect to check cookie on load
-useEffect(() => {
-  const cookies = document.cookie.split(';').find(c => c.trim().startsWith('ezinsure-tester='));
-  if (cookies && cookies.includes('solektraRwanda@2025')) {
-    router.push('/');
-  }
-}, [router]);
+  // Improved cookie checking
+  useEffect(() => {
+    if (showAuthModal) return; // Skip if modal is open
+
+    // Parse cookies more reliably
+    const cookies = document.cookie.split(';').reduce((acc, cookie) => {
+      const [key, value] = cookie.trim().split('=');
+      return { ...acc, [key]: value };
+    }, {} as Record<string, string>);
+
+    // 1. Check if user is logged in
+    if (cookies['ezinsure_token'] && cookies['ezinsure_user']) {
+      try {
+        const userData = JSON.parse(cookies['ezinsure_user'].split('=')[1]);
+        router.push(`/${userData.role.toLowerCase()}/dashboard`);
+        return;
+      } catch (error) {
+        console.error('Error parsing user data:', error);
+        // Clear invalid cookies
+        document.cookie = 'ezinsure_token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT';
+        document.cookie = 'ezinsure_user=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT';
+      }
+    }
+
+    // 2. Check if tester cookie exists
+    if (cookies['ezinsure-tester'] === 'solektraRwanda@2025') {
+      router.push('/');
+      return;
+    }
+
+    // If neither logged in nor tester, stay on coming-soon page
+  }, [router, showAuthModal]); // Added showAuthModal to dependencies
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex flex-col items-center justify-center p-4">

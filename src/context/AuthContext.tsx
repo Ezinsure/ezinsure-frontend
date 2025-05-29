@@ -58,68 +58,99 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [isLoading, pathname, user, token]);
 
-  const handleRouteProtection = () => {
-    const publicRoutes = ['/', '/apply', '/login', '/register', '/track', '/coming-soon'];
-    
-    // If user is authenticated and trying to access public routes, redirect to dashboard
-    if (token && user && publicRoutes.includes(pathname)) {
-      const userDashboard = `/${user.role.toLowerCase()}/dashboard`;
+  // Update the handleRouteProtection function:
+const handleRouteProtection = () => {
+  const POST_TESTER_PUBLIC_ROUTES = ['/', '/apply', '/login', '/register', '/track'];
+  
+  // Skip if still loading
+  if (isLoading) return;
+
+  // Check for tester cookie (client-side)
+  const isTester = document.cookie.includes('ezinsure-tester=solektraRwanda@2025');
+
+  // **1. If logged in (has token & user)**
+  if (token && user) {
+    const userDashboard = `/${user.role.toLowerCase()}/dashboard`;
+
+    // Redirect to dashboard if trying to access public routes
+    if (POST_TESTER_PUBLIC_ROUTES.includes(pathname) || pathname === '/coming-soon') {
       router.push(userDashboard);
       return;
     }
 
-    // Skip protection for public routes when not authenticated
-    if (publicRoutes.includes(pathname)) return;
-
-    // If not authenticated, redirect to login
-    if (!token) {
-      router.push('/login');
+    // Ensure they stay in their role's routes
+    if (!pathname.startsWith(`/${user.role.toLowerCase()}`)) {
+      router.push(userDashboard);
+      return;
+    }
+  }
+  // **2. If tester but not logged in**
+  else if (isTester) {
+    // Redirect to home if trying to access protected routes or `/coming-soon`
+    if (pathname.startsWith('/admin') || pathname.startsWith('/agent') || pathname === '/coming-soon') {
+      router.push('/');
       return;
     }
 
-    // Check if user is trying to access a route that matches their role
-    if (user) {
-      const rolePrefix = `/${user.role.toLowerCase()}`;
-      if (!pathname.startsWith(rolePrefix) && !publicRoutes.includes(pathname)) {
-        // Redirect to their dashboard if they try to access unauthorized routes
-        router.push(`${rolePrefix}/dashboard`);
-      }
+    // Allow access to post-tester public routes
+    if (POST_TESTER_PUBLIC_ROUTES.includes(pathname)) {
+      return;
     }
-  };
 
-  const login = async (email: string, password: string) => {
-    try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, password }),
-      });
+    // Default redirect for testers
+    router.push('/');
+  }
+  // **3. Not a tester and not logged in → Only allow `/coming-soon`**
+  else if (pathname !== '/coming-soon') {
+    router.push('/coming-soon');
+  }
+};
 
-      if (!response.ok) {
-        throw new Error('Login failed');
-      }
+const login = async (email: string, password: string) => {
+  try {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
 
-      const data = await response.json();
-      setToken(data.data.token);
-      setUser(data.data.data);
+    if (!response.ok) throw new Error('Login failed');
 
-      // Store in sessionStorage (your preferred method)
-      sessionStorage.setItem('ezinsure_token', data.data.token);
-      sessionStorage.setItem('ezinsure_user', JSON.stringify(data.data.data));
+    const { data } = await response.json();
+    
+    // Set cookies properly
+    const cookieOptions = {
+      path: '/',
+      sameSite: 'Lax' as const,
+      secure: process.env.NODE_ENV === 'production',
+    };
 
-      // ALSO store in cookies for middleware access
-      document.cookie = `ezinsure_token=${data.data.token}; path=/; SameSite=Lax`;
-      document.cookie = `ezinsure_user=${encodeURIComponent(JSON.stringify(data.data.data))}; path=/; SameSite=Lax`;
+    // Set token cookie
+    document.cookie = `ezinsure_token=${data.token}; ${Object.entries(cookieOptions)
+      .map(([key, value]) => `${key}=${value}`)
+      .join('; ')}`;
 
-      // Redirect based on role
-      router.push(`/${data.data.data.role.toLowerCase()}/dashboard`);
-    } catch (error) {
-      console.error('Login error:', error);
-      throw error;
-    }
-  };
+    // Set user cookie with simplified data
+    const userData = {
+      _id: data.data._id,
+      role: data.data.role,
+      email: data.data.email
+    };
+    document.cookie = `ezinsure_user=${JSON.stringify(userData)}; ${Object.entries(cookieOptions)
+      .map(([key, value]) => `${key}=${value}`)
+      .join('; ')}`;
+
+    // Store in sessionStorage for client-side access
+    sessionStorage.setItem('ezinsure_token', data.token);
+    sessionStorage.setItem('ezinsure_user', JSON.stringify(data.data));
+
+    // Redirect based on role
+    router.push(`/${data.data.role.toLowerCase()}/dashboard`);
+  } catch (error) {
+    console.error('Login error:', error);
+    throw error;
+  }
+};
 
   const logout = () => {
     setToken(null);
