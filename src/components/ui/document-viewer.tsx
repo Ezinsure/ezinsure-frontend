@@ -1,7 +1,7 @@
-
 'use client';
 
 import { Button } from './button';
+import { useState, useEffect } from 'react';
 
 interface DocumentViewerProps {
   documentName: string;
@@ -14,6 +14,27 @@ export const DocumentViewer = ({
   documentPath, 
   onClose 
 }: DocumentViewerProps) => {
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+  const [isImage, setIsImage] = useState(false);
+
+  useEffect(() => {
+    // Check if the document is an image
+    const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif'];
+    setIsImage(imageExtensions.some(ext => documentPath.toLowerCase().endsWith(ext)));
+    setLoading(true);
+    setError(false);
+  }, [documentPath]);
+
+  const handleLoad = () => {
+    setLoading(false);
+  };
+
+  const handleError = () => {
+    setError(true);
+    setLoading(false);
+  };
+
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60]">
       <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-4xl mx-4 h-[90vh] flex flex-col">
@@ -40,12 +61,39 @@ export const DocumentViewer = ({
           </button>
         </div>
         
-        <div className="flex-1 border rounded-lg overflow-hidden">
-          <iframe 
-            src={documentPath}
-            className="w-full h-full"
-            title={documentName}
-          />
+        <div className="flex-1 border rounded-lg overflow-hidden relative">
+          {loading && (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <p>Loading document...</p>
+            </div>
+          )}
+          
+          {error ? (
+            <div className="h-full flex flex-col items-center justify-center">
+              <img 
+                src="/test_document.pdf" 
+                alt="File not found" 
+                className="max-h-48"
+              />
+              <p className="mt-4">Could not load document</p>
+            </div>
+          ) : isImage ? (
+            <img
+              src={documentPath}
+              alt={documentName}
+              className={`w-full h-full object-contain ${loading ? 'hidden' : 'block'}`}
+              onLoad={handleLoad}
+              onError={handleError}
+            />
+          ) : (
+            <iframe 
+              src={documentPath}
+              className={`w-full h-full ${loading ? 'hidden' : 'block'}`}
+              title={documentName}
+              onLoad={handleLoad}
+              onError={handleError}
+            />
+          )}
         </div>
         
         <div className="mt-4 flex justify-end gap-2">
