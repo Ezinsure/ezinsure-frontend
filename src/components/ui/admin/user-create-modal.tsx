@@ -3,6 +3,29 @@ import { Input } from "@/components/ui/input";
 import { ValidationRules, validateForm } from "@/components/ui/form-validation";
 // import { useState } from "react";
 
+interface FormData {
+  fullName: string;
+  email: string;
+  phoneNumber: string;
+  dateOfBirth: string;
+  address: string;
+  role: 'ADMIN' | 'AGENT';
+  emergencyContact1Name: string;
+  emergencyContact1PhoneNumber: string;
+  emergencyContact1Relationship: string;
+  emergencyContact2Name: string;
+  emergencyContact2PhoneNumber: string;
+  emergencyContact2Relationship: string;
+  nationalIdDocument: File | null;
+  criminalRecordCertificate: File | null;
+  passportPhoto: File | null;
+  [key: string]: string | File | null;
+}
+
+interface Errors {
+  [key: string]: string;
+}
+
 interface FileUploadFieldProps {
   label: string;
   name: string;
@@ -68,12 +91,12 @@ const FileUploadField = ({
 interface UserCreateModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onCreate: (formData: any) => void;
+  onCreate: (formData: FormData) => void;
   isLoading: boolean;
-  errors: { [key: string]: string };
-  formData: any;
-  setFormData: (data: any) => void;
-  setErrors: React.Dispatch<React.SetStateAction<{ [key: string]: string }>>;
+  errors: Errors;
+  formData: FormData;
+  setFormData: React.Dispatch<React.SetStateAction<FormData>>;
+  setErrors: React.Dispatch<React.SetStateAction<Errors>>;
 }
 
 export const UserCreateModal = ({
@@ -100,57 +123,34 @@ export const UserCreateModal = ({
     emergencyContact2Relationship: { required: true },
   };
 
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setFormData((prev: FormData) => ({ ...prev, [name]: value }));
+    
+    if (errors[name]) {
+      setErrors((prev: Errors) => {
+        const newErrors = { ...prev };
+        delete newErrors[name];
+        return newErrors;
+      });
+    }
+  };
 
-interface FormData {
-  fullName: string;
-  email: string;
-  phoneNumber: string;
-  dateOfBirth: string;
-  address: string;
-  role: 'ADMIN' | 'AGENT';
-  emergencyContact1Name: string;
-  emergencyContact1PhoneNumber: string;
-  emergencyContact1Relationship: string;
-  emergencyContact2Name: string;
-  emergencyContact2PhoneNumber: string;
-  emergencyContact2Relationship: string;
-  nationalIdDocument: File | null;
-  criminalRecordCertificate: File | null;
-  passportPhoto: File | null;
-}
-
-interface Errors {
-  [key: string]: string;
-}  
-
-const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-  const { name, value } = e.target;
-  setFormData((prev: FormData) => ({ ...prev, [name]: value }));
-  
-  if (errors[name]) {
-    setErrors((prev: Errors) => {
-      const newErrors = { ...prev };
-      delete newErrors[name];
-      return newErrors;
-    });
-  }
-};
-
-const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, fieldName: string) => {
-  const file = e.target.files?.[0] || null;
-  setFormData((prev: FormData) => ({ ...prev, [fieldName]: file }));
-  
-  if (errors[fieldName]) {
-    setErrors((prev: Errors) => {
-      const newErrors = { ...prev };
-      delete newErrors[fieldName];
-      return newErrors;
-    });
-  }
-};
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, fieldName: string) => {
+    const file = e.target.files?.[0] || null;
+    setFormData((prev: FormData) => ({ ...prev, [fieldName]: file }));
+    
+    if (errors[fieldName]) {
+      setErrors((prev: Errors) => {
+        const newErrors = { ...prev };
+        delete newErrors[fieldName];
+        return newErrors;
+      });
+    }
+  };
 
   const validateFiles = () => {
-    const fileErrors: { [key: string]: string } = {};
+    const fileErrors: Errors = {};
 
     if (formData.role === 'AGENT') {
       if (!formData.nationalIdDocument) {
@@ -211,7 +211,28 @@ const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, fieldName: str
   return (
     <div className="fixed inset-0 bg-gray-600/50 flex items-center justify-center z-50">
       <div className="max-h-[90vh] overflow-y-auto bg-white rounded-lg shadow-xl p-6 w-full max-w-2xl mx-4">
-        <h3 className="text-lg font-semibold mb-4">Create New User</h3>
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-semibold mb-4">Create New User</h3>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-600 cursor-pointer"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-6 w-6"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
+            </svg>
+          </button>
+        </div>
         <div className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <Input

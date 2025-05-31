@@ -37,10 +37,12 @@ export const UserViewModal = ({
   user, 
   onClose, 
   onStatusChange, 
-  isLoading,
+  // isLoading,
   setViewingDocument 
 }: UserViewModalProps) => {
   const [rejectionReason, setRejectionReason] = useState('');
+  const [isApproving, setIsApproving] = useState(false);
+  const [isRejecting, setIsRejecting] = useState(false);
 
   if (!user) return null;
 
@@ -63,13 +65,31 @@ export const UserViewModal = ({
     if (!path) {
       setViewingDocument({
         name,
-        path: '/test_document.png' // Placeholder path if document is not provided
+        path: '/File_not_found.jpg' // Placeholder path if document is not provided
       });
     } else {
       setViewingDocument({
         name,
         path
       });
+    }
+  };
+
+  const handleReject = async () => {
+    setIsRejecting(true);
+    try {
+      await onStatusChange('SENT_FOR_ACTION', rejectionReason);
+    } finally {
+      setIsRejecting(false);
+    }
+  };
+
+  const handleApprove = async () => {
+    setIsApproving(true);
+    try {
+      await onStatusChange('ACTIVE');
+    } finally {
+      setIsApproving(false);
     }
   };
 
@@ -225,7 +245,7 @@ export const UserViewModal = ({
           </div>
         )}
 
-        {user.status === 'PENDING' && (
+      {user.status === 'PENDING' && (
           <div className="mt-6">
             <label className="block text-sm font-medium mb-2">
               Rejection Reason (if sending for action)
@@ -244,6 +264,7 @@ export const UserViewModal = ({
           <Button
             variant="text"
             onClick={onClose}
+            disabled={isApproving || isRejecting}
           >
             Close
           </Button>
@@ -251,33 +272,17 @@ export const UserViewModal = ({
             <>
               <Button
                 variant="danger"
-                onClick={() => onStatusChange('SENT_FOR_ACTION', rejectionReason)}
-                disabled={isLoading}
+                onClick={handleReject}
+                disabled={!rejectionReason || isApproving}
               >
-                {isLoading ? (
-                  <>
-                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    Processing...
-                  </>
-                ) : 'Send for Action'}
+                {isRejecting ? 'Processing...' : 'Send for Action'}
               </Button>
               <Button
                 variant="primary"
-                onClick={() => onStatusChange('ACTIVE')}
-                disabled={isLoading}
+                onClick={handleApprove}
+                disabled={isRejecting}
               >
-                {isLoading ? (
-                  <>
-                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    Processing...
-                  </>
-                ) : 'Approve'}
+                {isApproving ? 'Processing...' : 'Approve'}
               </Button>
             </>
           )}

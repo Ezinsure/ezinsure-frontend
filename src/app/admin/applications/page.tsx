@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/components/ui/toast';
 import { DocumentViewer } from '@/components/ui/document-viewer';
+import { useAuth } from '@/context/AuthContext';
 
 // Application statuses
 enum ApplicationStatus {
@@ -18,24 +19,29 @@ enum ApplicationStatus {
   INSURANCE_ISSUED = 'insurance_issued'
 }
 
-// Application interface
+// Application interface based on the API response
 interface Application {
-  id: string;
+  _id: string;
+  applicationNumber: string;
   fullName: string;
   email: string;
-  phone: string;
+  phoneNumber: string;
+  dateOfBirth: string;
+  address: string;
+  insuranceCategory: string;
   insuranceType: string;
-  status: ApplicationStatus;
-  dateSubmitted: string;
-  nationalId: string;
+  insuranceDuration: string;
+  status: string;
+  nationalID: string;
   yellowCard: string;
-  additionalDocument?: string;
-  paymentProof?: string;
+  pastInsuranceCertificate?: string;
+  submittedAt: string;
+  proofOfPayment?: string;
+  certificateUrl?: string;
   invoiceId?: string;
-  insuranceId?: string;
-  transactionId?: string;
-  rejectionComment?: string;
   invoiceAmount?: string;
+  transactionId?: string;
+  rejectionReason?: string;
 }
 
 interface PaginationProps {
@@ -46,6 +52,7 @@ interface PaginationProps {
 
 export default function ManageApplicationsPage() {
   const { showToast, ToastContainer } = useToast();
+  const { token } = useAuth();
   const [applications, setApplications] = useState<Application[]>([]);
   const [selectedApp, setSelectedApp] = useState<Application | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -64,109 +71,34 @@ export default function ManageApplicationsPage() {
   } | null>(null);
   const itemsPerPage = 10;
 
-  // Mock data for demo purposes
+  // Fetch applications from API
   useEffect(() => {
-    // Simulating API fetch
-    setTimeout(() => {
-      const mockData: Application[] = [
-        {
-          id: '001',
-          fullName: 'John Doe',
-          email: 'john@example.com',
-          phone: '+250782123456',
-          insuranceType: 'car',
-          status: ApplicationStatus.PENDING,
-          dateSubmitted: '2025-05-01',
-          nationalId: 'ID_001.pdf',
-          yellowCard: 'YC_001.pdf',
-        },
-        {
-          id: '002',
-          fullName: 'Jane Smith',
-          email: 'jane@example.com',
-          phone: '+250782123457',
-          insuranceType: 'motorbike',
-          status: ApplicationStatus.APPLICATION_APPROVED,
-          dateSubmitted: '2025-05-02',
-          nationalId: 'ID_002.pdf',
-          yellowCard: 'YC_002.pdf',
-          additionalDocument: 'ADD_002.pdf',
-        },
-        {
-          id: '003',
-          fullName: 'Robert Katz',
-          email: 'robert@example.com',
-          phone: '+250782123458',
-          insuranceType: 'building',
-          status: ApplicationStatus.INVOICE_SENT,
-          dateSubmitted: '2025-05-03',
-          nationalId: 'ID_003.pdf',
-          yellowCard: 'YC_003.pdf',
-          invoiceId: 'INV_001',
-          invoiceAmount: '50000'
-        },
-        {
-          id: '004',
-          fullName: 'Maria Garcia',
-          email: 'maria@example.com',
-          phone: '+250782123459',
-          insuranceType: 'travel',
-          status: ApplicationStatus.REVIEW_PAYMENT,
-          dateSubmitted: '2025-05-04',
-          nationalId: 'ID_004.pdf',
-          yellowCard: 'YC_004.pdf',
-          invoiceId: 'INV_002',
-          paymentProof: 'PAY_001.pdf',
-          transactionId: 'TRX_001',
-          invoiceAmount: '75000'
-        },
-        {
-          id: '005',
-          fullName: 'David Chen',
-          email: 'david@example.com',
-          phone: '+250782123460',
-          insuranceType: 'health',
-          status: ApplicationStatus.PAYMENT_VERIFIED,
-          dateSubmitted: '2025-05-05',
-          nationalId: 'ID_005.pdf',
-          yellowCard: 'YC_005.pdf',
-          invoiceId: 'INV_003',
-          paymentProof: 'PAY_002.pdf',
-          transactionId: 'TRX_002',
-          invoiceAmount: '60000'
-        },
-        {
-          id: '006',
-          fullName: 'Sophie Kim',
-          email: 'sophie@example.com',
-          phone: '+250782123461',
-          insuranceType: 'sme',
-          status: ApplicationStatus.INSURANCE_ISSUED,
-          dateSubmitted: '2025-05-06',
-          nationalId: 'ID_006.pdf',
-          yellowCard: 'YC_006.pdf',
-          invoiceId: 'INV_004',
-          paymentProof: 'PAY_003.pdf',
-          insuranceId: 'INS_001',
-          transactionId: 'TRX_003',
-          invoiceAmount: '120000'
-        },
-        {
-          id: '007',
-          fullName: 'Michael Johnson',
-          email: 'michael@example.com',
-          phone: '+250782123462',
-          insuranceType: 'car',
-          status: ApplicationStatus.WAITING_FOR_USER_ACTION,
-          dateSubmitted: '2025-05-07',
-          nationalId: 'ID_007.pdf',
-          yellowCard: 'YC_007.pdf',
-          rejectionComment: 'Incomplete documentation',
-        },
-      ];
-      setApplications(mockData);
-      setIsLoading(false);
-    }, 1500);
+    const fetchApplications = async () => {
+      try {
+        setIsLoading(true);
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/applications`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        
+        if (!response.ok) {
+          throw new Error('Failed to fetch applications');
+        }
+        
+        const data = await response.json();
+        setApplications(data.data);
+      } catch (error) {
+        console.error('Error fetching applications:', error);
+        showToast('Failed to load applications', 'error');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchApplications();
   }, []);
 
   // Filter applications based on search query and tab
@@ -174,9 +106,9 @@ export default function ManageApplicationsPage() {
     const matchesSearch = 
       app.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       app.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      app.id.toLowerCase().includes(searchQuery.toLowerCase());
+      app.applicationNumber.toLowerCase().includes(searchQuery.toLowerCase());
     
-    const matchesTab = activeTab === 'all' || app.status === activeTab;
+    const matchesTab = activeTab === 'all' || app.status.toLowerCase() === activeTab;
     
     return matchesSearch && matchesTab;
   });
@@ -187,22 +119,40 @@ export default function ManageApplicationsPage() {
   );
 
   // Send invoice to client
-  const handleSendInvoice = () => {
-    if (!selectedApp) return;
-    if (!invoiceMessage) {
+  const handleSendInvoice = async () => {
+    if (!selectedApp || !invoiceMessage) {
       showToast('Please enter payment instructions', 'error');
       return;
     }
 
     setIsSending(true);
-    // Simulate API call
-    setTimeout(() => {
+    try {
+      const formData = new FormData();
+      formData.append('paymentinstructions', invoiceMessage);
+      if (invoiceFile) {
+        formData.append('invoice', invoiceFile);
+      }
+
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/sendInvoice/${selectedApp._id}`,
+        {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          },
+          body: formData
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to send invoice');
+      }
+
       const updatedApplications = applications.map(app => {
-        if (app.id === selectedApp.id) {
+        if (app._id === selectedApp._id) {
           return {
             ...app,
-            status: ApplicationStatus.INVOICE_SENT,
-            invoiceId: `INV_${Math.floor(Math.random() * 1000)}`,
+            status: 'invoice_sent'
           };
         }
         return app;
@@ -212,37 +162,41 @@ export default function ManageApplicationsPage() {
       showToast(`Invoice sent to ${selectedApp.fullName}`, 'success');
       setInvoiceMessage('');
       setInvoiceFile(null);
-      setIsSending(false);
       setSelectedApp(null);
-    }, 1500);
+    } catch (error) {
+      console.error('Error sending invoice:', error);
+      showToast('Failed to send invoice', 'error');
+    } finally {
+      setIsSending(false);
+    }
   };
 
   // Verify client payment
-  const handleVerifyPayment = () => {
+  const handleVerifyPayment = async () => {
     if (!selectedApp) return;
     
-    // Check if transaction ID has been used before
-    if (selectedApp.transactionId) {
-      const isDuplicate = applications.some(app => 
-        app.transactionId === selectedApp.transactionId && 
-        app.id !== selectedApp.id &&
-        app.status !== ApplicationStatus.WAITING_FOR_USER_ACTION
-      );
-      
-      if (isDuplicate) {
-        showToast('This transaction ID has already been claimed', 'error');
-        return;
-      }
-    }
-    
     setIsUpdating(true);
-    // Simulate API call
-    setTimeout(() => {
+    try {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/verifyPayment/${selectedApp._id}`,
+        {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          }
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to verify payment');
+      }
+
       const updatedApplications = applications.map(app => {
-        if (app.id === selectedApp.id) {
+        if (app._id === selectedApp._id) {
           return {
             ...app,
-            status: ApplicationStatus.PAYMENT_VERIFIED,
+            status: 'payment_verified'
           };
         }
         return app;
@@ -250,50 +204,91 @@ export default function ManageApplicationsPage() {
       
       setApplications(updatedApplications);
       showToast(`Payment from ${selectedApp.fullName} verified`, 'success');
-      setIsUpdating(false);
       setSelectedApp(null);
-    }, 1500);
+    } catch (error) {
+      console.error('Error verifying payment:', error);
+      showToast('Failed to verify payment', 'error');
+    } finally {
+      setIsUpdating(false);
+    }
   };
 
-  // Reject payment
-  const handleRejectPayment = () => {
+  // Reject application
+  const handleRejectApplication = async () => {
     if (!selectedApp || !rejectionComment) return;
     
     setIsUpdating(true);
-    // Simulate API call
-    setTimeout(() => {
+    try {
+      const formData = new FormData();
+      formData.append('reason', rejectionComment);
+
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/rejectApplication/${selectedApp._id}`,
+        {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          },
+          body: formData
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to reject application');
+      }
+
       const updatedApplications = applications.map(app => {
-        if (app.id === selectedApp.id) {
+        if (app._id === selectedApp._id) {
           return {
             ...app,
-            status: ApplicationStatus.WAITING_FOR_USER_ACTION,
-            rejectionComment: rejectionComment,
+            status: 'waiting_for_user_action',
+            rejectionReason: rejectionComment
           };
         }
         return app;
       });
       
       setApplications(updatedApplications);
-      showToast(`Payment from ${selectedApp.fullName} rejected`, 'error');
-      setIsUpdating(false);
+      showToast(`Application from ${selectedApp.fullName} rejected`, 'error');
       setRejectionComment('');
       setSelectedApp(null);
-    }, 1500);
+    } catch (error) {
+      console.error('Error rejecting application:', error);
+      showToast('Failed to reject application', 'error');
+    } finally {
+      setIsUpdating(false);
+    }
   };
 
   // Issue insurance to client
-  const handleIssueInsurance = () => {
-    if (!selectedApp) return;
+  const handleIssueInsurance = async () => {
+    if (!selectedApp || !insuranceFile) return;
     
     setIsUpdating(true);
-    // Simulate API call
-    setTimeout(() => {
+    try {
+      const formData = new FormData();
+      formData.append('InsuranceCertificate', insuranceFile);
+
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/issueInsurance/${selectedApp._id}`,
+        {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          },
+          body: formData
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to issue insurance');
+      }
+
       const updatedApplications = applications.map(app => {
-        if (app.id === selectedApp.id) {
+        if (app._id === selectedApp._id) {
           return {
             ...app,
-            status: ApplicationStatus.INSURANCE_ISSUED,
-            insuranceId: `INS_${Math.floor(Math.random() * 1000)}`,
+            status: 'insurance_issued'
           };
         }
         return app;
@@ -301,24 +296,42 @@ export default function ManageApplicationsPage() {
       
       setApplications(updatedApplications);
       showToast(`Insurance issued to ${selectedApp.fullName}`, 'success');
-      setIsUpdating(false);
       setInsuranceFile(null);
       setSelectedApp(null);
-    }, 1500);
+    } catch (error) {
+      console.error('Error issuing insurance:', error);
+      showToast('Failed to issue insurance', 'error');
+    } finally {
+      setIsUpdating(false);
+    }
   };
 
   // Approve application
-  const handleApproveApplication = () => {
+  const handleApproveApplication = async () => {
     if (!selectedApp) return;
     
     setIsUpdating(true);
-    // Simulate API call
-    setTimeout(() => {
+    try {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/approveApplication/${selectedApp._id}`,
+        {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          }
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to approve application');
+      }
+
       const updatedApplications = applications.map(app => {
-        if (app.id === selectedApp.id) {
+        if (app._id === selectedApp._id) {
           return {
             ...app,
-            status: ApplicationStatus.APPLICATION_APPROVED,
+            status: 'application_approved'
           };
         }
         return app;
@@ -326,14 +339,18 @@ export default function ManageApplicationsPage() {
       
       setApplications(updatedApplications);
       showToast(`Application from ${selectedApp.fullName} approved`, 'success');
-      setIsUpdating(false);
       setSelectedApp(null);
-    }, 1500);
+    } catch (error) {
+      console.error('Error approving application:', error);
+      showToast('Failed to approve application', 'error');
+    } finally {
+      setIsUpdating(false);
+    }
   };
 
   // Get status badge based on application status
-  const getStatusBadge = (status: ApplicationStatus) => {
-    switch (status) {
+  const getStatusBadge = (status: string) => {
+    switch (status.toLowerCase()) {
       case ApplicationStatus.PENDING:
         return <span className="px-2 py-1 rounded-full bg-blue-100 text-blue-700 text-xs font-medium">Pending</span>;
       case ApplicationStatus.APPLICATION_APPROVED:
@@ -355,7 +372,7 @@ export default function ManageApplicationsPage() {
 
   // Get action buttons based on application status
   const getActionButtons = (app: Application) => {
-    switch (app.status) {
+    switch (app.status.toLowerCase()) {
       case ApplicationStatus.PENDING:
         return (
           <Button 
@@ -645,8 +662,8 @@ export default function ManageApplicationsPage() {
                 </thead>
                 <tbody className="divide-y divide-gray-200">
                   {paginatedApplications.map((app) => (
-                    <tr key={app.id} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-[var(--main-blue)]">#{app.id}</td>
+                    <tr key={app._id} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-[var(--main-blue)]">#{app.applicationNumber}</td>
                       <td className="px-4 py-4 whitespace-nowrap">
                         <div className="flex items-center">
                           <div>
@@ -658,7 +675,7 @@ export default function ManageApplicationsPage() {
                       <td className="px-4 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-900 capitalize">{app.insuranceType.replace('_', ' ')}</div>
                       </td>
-                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{app.dateSubmitted}</td>
+                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(app.submittedAt).toLocaleDateString()}</td>
                       <td className="px-4 py-4 whitespace-nowrap">
                         {getStatusBadge(app.status)}
                       </td>
@@ -682,7 +699,7 @@ export default function ManageApplicationsPage() {
       </div>
 
       {/* Modal for reviewing pending application */}
-      {selectedApp && selectedApp.status === ApplicationStatus.PENDING && (
+      {selectedApp && selectedApp.status.toLowerCase() === ApplicationStatus.PENDING && (
         <div className="fixed inset-0 bg-gray-600/50 flex items-center justify-center z-50">
           <div className="max-h-[90vh] overflow-y-auto bg-white rounded-lg shadow-xl p-6 w-full max-w-3xl mx-4 fade-in">
             <div className="flex justify-between items-center mb-4">
@@ -698,7 +715,7 @@ export default function ManageApplicationsPage() {
               <div className="flex justify-between items-center">
                 <div>
                   <p className="text-sm text-gray-500">Application ID</p>
-                  <p className="font-semibold">#{selectedApp.id}</p>
+                  <p className="font-semibold">#{selectedApp.applicationNumber}</p>
                 </div>
                 <div>
                   {getStatusBadge(selectedApp.status)}
@@ -721,11 +738,11 @@ export default function ManageApplicationsPage() {
               </div>
               <div>
                 <p className="text-sm text-gray-500">Phone</p>
-                <p className="font-semibold">{selectedApp.phone}</p>
+                <p className="font-semibold">{selectedApp.phoneNumber}</p>
               </div>
               <div>
                 <p className="text-sm text-gray-500">Date Submitted</p>
-                <p className="font-semibold">{selectedApp.dateSubmitted}</p>
+                <p className="font-semibold">{new Date(selectedApp.submittedAt).toLocaleDateString()}</p>
               </div>
             </div>
             
@@ -735,33 +752,33 @@ export default function ManageApplicationsPage() {
                 <button 
                   className="bg-white p-3 rounded border text-left hover:bg-gray-50"
                   onClick={() => setViewingDocument({
-                    name: selectedApp.nationalId,
-                    path: '/test_document.pdf'
+                    name: 'National ID',
+                    path: selectedApp.nationalID
                   })}
                 >
                   <p className="text-sm font-medium">National ID</p>
-                  <p className="text-xs text-gray-500">{selectedApp.nationalId}</p>
+                  <p className="text-xs text-gray-500">View Document</p>
                 </button>
                 <button 
                   className="bg-white p-3 rounded border text-left hover:bg-gray-50"
                   onClick={() => setViewingDocument({
-                    name: selectedApp.yellowCard,
-                    path: '/test_document.pdf'
+                    name: 'Yellow Card',
+                    path: selectedApp.yellowCard
                   })}
                 >
                   <p className="text-sm font-medium">Yellow Card</p>
-                  <p className="text-xs text-gray-500">{selectedApp.yellowCard}</p>
+                  <p className="text-xs text-gray-500">View Document</p>
                 </button>
-                {selectedApp.additionalDocument && (
+                {selectedApp.pastInsuranceCertificate && (
                   <button 
                     className="bg-white p-3 rounded border text-left hover:bg-gray-50"
                     onClick={() => setViewingDocument({
-                      name: selectedApp.additionalDocument || 'Additional_Document.pdf',
-                      path: '/test_document.pdf'
+                      name: 'Past Insurance Certificate',
+                      path: selectedApp.pastInsuranceCertificate || '/File_not_found.jpg'
                     })}
                   >
-                    <p className="text-sm font-medium">Additional Document</p>
-                    <p className="text-xs text-gray-500">{selectedApp.additionalDocument}</p>
+                    <p className="text-sm font-medium">Past Insurance</p>
+                    <p className="text-xs text-gray-500">View Document</p>
                   </button>
                 )}
               </div>
@@ -782,29 +799,10 @@ export default function ManageApplicationsPage() {
               <Button variant="text" onClick={() => setSelectedApp(null)}>Cancel</Button>
               <Button 
                 variant="danger" 
-                onClick={() => {
-                  if (!rejectionComment) {
-                    showToast('Please enter rejection reason', 'error');
-                    return;
-                  }
-                  const updatedApplications = applications.map(app => {
-                    if (app.id === selectedApp.id) {
-                      return {
-                        ...app,
-                        status: ApplicationStatus.WAITING_FOR_USER_ACTION,
-                        rejectionComment: rejectionComment,
-                      };
-                    }
-                    return app;
-                  });
-                  setApplications(updatedApplications);
-                  showToast(`Application from ${selectedApp.fullName} rejected`, 'error');
-                  setSelectedApp(null);
-                  setRejectionComment('');
-                }}
-                disabled={!rejectionComment}
+                onClick={handleRejectApplication}
+                disabled={!rejectionComment || isUpdating}
               >
-                Reject Application
+                {isUpdating ? 'Rejecting...' : 'Reject Application'}
               </Button>
               <Button 
                 onClick={handleApproveApplication}
@@ -818,20 +816,21 @@ export default function ManageApplicationsPage() {
       )}
 
       {/* Modal for sending invoice */}
-      {selectedApp && selectedApp.status === ApplicationStatus.APPLICATION_APPROVED && (
+      {selectedApp && selectedApp.status.toLowerCase() === ApplicationStatus.APPLICATION_APPROVED && (
         <div className="fixed inset-0 bg-gray-600/50 flex items-center justify-center z-50">
           <div className="max-h-[90vh] overflow-y-auto bg-white rounded-lg shadow-xl p-6 w-full max-w-md mx-4 fade-in">
             <h3 className="text-lg font-semibold mb-4">Send Invoice to {selectedApp.fullName}</h3>
             <p className="text-gray-600 mb-4">Enter the invoice details for {selectedApp.insuranceType} insurance:</p>
             
             <div className="mt-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Payment Instructions</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Payment Instructions *</label>
               <textarea
                 className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[var(--main-blue)] focus:border-[var(--main-blue)] sm:text-sm"
                 rows={4}
                 value={invoiceMessage}
                 onChange={(e) => setInvoiceMessage(e.target.value)}
                 placeholder="Enter payment instructions..."
+                required
               />
             </div>
             
@@ -872,7 +871,7 @@ export default function ManageApplicationsPage() {
       )}
 
       {/* Modal for verifying payment */}
-      {selectedApp && selectedApp.status === ApplicationStatus.REVIEW_PAYMENT && (
+      {selectedApp && selectedApp.status.toLowerCase() === ApplicationStatus.REVIEW_PAYMENT && (
         <div className="fixed inset-0 bg-gray-600/50 flex items-center justify-center z-50">
           <div className="max-h-[90vh] overflow-y-auto bg-white rounded-lg shadow-xl p-6 w-full max-w-md mx-4 fade-in">
             <h3 className="text-lg font-semibold mb-4">Verify Payment</h3>
@@ -881,35 +880,30 @@ export default function ManageApplicationsPage() {
             <div className="border rounded-lg p-4 mb-4 bg-gray-50">
               <p className="font-medium">Payment Details:</p>
               <ul className="mt-2 space-y-1 text-sm">
-                <li><span className="text-gray-600">Invoice ID:</span> {selectedApp.invoiceId}</li>
-                <li><span className="text-gray-600">Amount Expected:</span> {selectedApp.invoiceAmount || 'N/A'} RWF</li>
-                <li><span className="text-gray-600">Transaction ID:</span> {selectedApp.transactionId || 'Not provided'}</li>
-                <li><span className="text-gray-600">Payment Proof:</span> 
-                  <button 
-                    className="text-[var(--main-blue)] hover:underline ml-1"
-                    onClick={() => setViewingDocument({
-                      name: selectedApp.paymentProof || 'Payment_Proof.pdf',
-                      path: '/test_document.pdf'
-                    })}
-                  >
-                    {selectedApp.paymentProof}
-                  </button>
-                </li>
-                <li><span className="text-gray-600">Date Submitted:</span> {selectedApp.dateSubmitted}</li>
+                {selectedApp.invoiceId && (
+                  <li><span className="text-gray-600">Invoice ID:</span> {selectedApp.invoiceId}</li>
+                )}
+                {selectedApp.invoiceAmount && (
+                  <li><span className="text-gray-600">Amount Expected:</span> {selectedApp.invoiceAmount} RWF</li>
+                )}
+                {selectedApp.transactionId && (
+                  <li><span className="text-gray-600">Transaction ID:</span> {selectedApp.transactionId}</li>
+                )}
+                {selectedApp.proofOfPayment && (
+                  <li><span className="text-gray-600">Payment Proof:</span> 
+                    <button 
+                      className="text-[var(--main-blue)] hover:underline ml-1"
+                      onClick={() => setViewingDocument({
+                        name: 'Payment Proof',
+                        path: selectedApp.proofOfPayment || '/File_not_found.jpg'
+                      })}
+                    >
+                      View Document
+                    </button>
+                  </li>
+                )}
+                <li><span className="text-gray-600">Date Submitted:</span> {new Date(selectedApp.submittedAt).toLocaleDateString()}</li>
               </ul>
-            </div>
-            
-            <div className="border rounded-lg p-4 mb-4 bg-blue-50">
-              <p className="font-medium text-[var(--main-blue)]">Invoice:</p>
-              <button 
-                className="text-[var(--main-blue)] hover:underline mt-1"
-                onClick={() => setViewingDocument({
-                  name: `Invoice_${selectedApp.invoiceId}.pdf`,
-                  path: '/test_document.pdf'
-                })}
-              >
-                View Invoice
-              </button>
             </div>
             
             <div className="flex justify-end gap-2 mt-6">
@@ -920,9 +914,10 @@ export default function ManageApplicationsPage() {
                   setSelectedApp({...selectedApp, status: ApplicationStatus.WAITING_FOR_USER_ACTION});
                 }}
                 disabled={isUpdating}
-              > Confirm Rejection
+              >
+                Reject Payment
               </Button>
-                             <Button onClick={handleVerifyPayment} disabled={isUpdating}>
+              <Button onClick={handleVerifyPayment} disabled={isUpdating}>
                 {isUpdating ? 'Verifying...' : 'Verify Payment'}
               </Button>
             </div>
@@ -931,7 +926,7 @@ export default function ManageApplicationsPage() {
       )}
 
       {/* Modal for rejecting payment */}
-      {selectedApp && selectedApp.status === ApplicationStatus.WAITING_FOR_USER_ACTION && (
+      {selectedApp && selectedApp.status.toLowerCase() === ApplicationStatus.WAITING_FOR_USER_ACTION && (
         <div className="fixed inset-0 bg-gray-600/50 flex items-center justify-center z-50">
           <div className="max-h-[90vh] overflow-y-auto bg-white rounded-lg shadow-xl p-6 w-full max-w-md mx-4 fade-in">
             <h3 className="text-lg font-semibold mb-4">Reject Payment</h3>
@@ -940,31 +935,40 @@ export default function ManageApplicationsPage() {
             <div className="border rounded-lg p-4 mb-4 bg-gray-50">
               <p className="font-medium">Payment Details:</p>
               <ul className="mt-2 space-y-1 text-sm">
-                <li><span className="text-gray-600">Invoice ID:</span> {selectedApp.invoiceId}</li>
-                <li><span className="text-gray-600">Amount Expected:</span> {selectedApp.invoiceAmount || 'N/A'} RWF</li>
-                <li><span className="text-gray-600">Transaction ID:</span> {selectedApp.transactionId || 'Not provided'}</li>
-                <li><span className="text-gray-600">Payment Proof:</span> 
-                  <button 
-                    className="text-[var(--main-blue)] hover:underline ml-1"
-                    onClick={() => setViewingDocument({
-                      name: selectedApp.paymentProof || 'Payment_Proof.pdf',
-                      path: '/test_document.pdf'
-                    })}
-                  >
-                    {selectedApp.paymentProof}
-                  </button>
-                </li>
+                {selectedApp.invoiceId && (
+                  <li><span className="text-gray-600">Invoice ID:</span> {selectedApp.invoiceId}</li>
+                )}
+                {selectedApp.invoiceAmount && (
+                  <li><span className="text-gray-600">Amount Expected:</span> {selectedApp.invoiceAmount} RWF</li>
+                )}
+                {selectedApp.transactionId && (
+                  <li><span className="text-gray-600">Transaction ID:</span> {selectedApp.transactionId}</li>
+                )}
+                {selectedApp.proofOfPayment && (
+                  <li><span className="text-gray-600">Payment Proof:</span> 
+                    <button 
+                      className="text-[var(--main-blue)] hover:underline ml-1"
+                      onClick={() => setViewingDocument({
+                        name: 'Payment Proof',
+                        path: selectedApp.proofOfPayment || ''
+                      })}
+                    >
+                      View Document
+                    </button>
+                  </li>
+                )}
               </ul>
             </div>
             
             <div className="mt-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Rejection Reason</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Rejection Reason *</label>
               <textarea
                 className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[var(--main-blue)] focus:border-[var(--main-blue)] sm:text-sm"
                 rows={4}
                 value={rejectionComment}
                 onChange={(e) => setRejectionComment(e.target.value)}
                 placeholder="Enter reason for rejecting this payment..."
+                required
               />
             </div>
             
@@ -977,7 +981,7 @@ export default function ManageApplicationsPage() {
               </Button>
               <Button 
                 variant="danger" 
-                onClick={handleRejectPayment} 
+                onClick={handleRejectApplication} 
                 disabled={!rejectionComment || isUpdating}
               >
                 {isUpdating ? 'Rejecting...' : 'Confirm Rejection'}
@@ -988,7 +992,7 @@ export default function ManageApplicationsPage() {
       )}
 
       {/* Modal for issuing insurance */}
-      {selectedApp && selectedApp.status === ApplicationStatus.PAYMENT_VERIFIED && (
+      {selectedApp && selectedApp.status.toLowerCase() === ApplicationStatus.PAYMENT_VERIFIED && (
         <div className="fixed inset-0 bg-gray-600/50 flex items-center justify-center z-50">
           <div className="max-h-[90vh] overflow-y-auto bg-white rounded-lg shadow-xl p-6 w-full max-w-md mx-4 fade-in">
             <h3 className="text-lg font-semibold mb-4">Issue Insurance</h3>
@@ -998,19 +1002,23 @@ export default function ManageApplicationsPage() {
               <p className="font-medium text-[var(--main-blue)]">Application Approved & Payment Verified</p>
               <p className="mt-2 text-sm text-gray-600">The application has been reviewed and the payment has been verified. You can now issue the insurance certificate.</p>
               <div className="mt-2 grid grid-cols-2 gap-2 text-sm">
-                <div>
-                  <p className="text-gray-600">Invoice Amount:</p>
-                  <p className="font-medium">{selectedApp.invoiceAmount || 'N/A'} RWF</p>
-                </div>
-                <div>
-                  <p className="text-gray-600">Transaction ID:</p>
-                  <p className="font-medium">{selectedApp.transactionId || 'N/A'}</p>
-                </div>
+                {selectedApp.invoiceAmount && (
+                  <div>
+                    <p className="text-gray-600">Invoice Amount:</p>
+                    <p className="font-medium">{selectedApp.invoiceAmount} RWF</p>
+                  </div>
+                )}
+                {selectedApp.transactionId && (
+                  <div>
+                    <p className="text-gray-600">Transaction ID:</p>
+                    <p className="font-medium">{selectedApp.transactionId}</p>
+                  </div>
+                )}
               </div>
             </div>
             
             <div className="mt-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Insurance Certificate</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Insurance Certificate *</label>
               <input
                 type="file"
                 onChange={(e) => setInsuranceFile(e.target.files?.[0] || null)}
@@ -1021,6 +1029,7 @@ export default function ManageApplicationsPage() {
                   file:bg-[var(--main-blue)] file:text-white
                   hover:file:bg-[var(--secondary-blue)]
                 "
+                required
               />
               {insuranceFile && (
                 <button 
@@ -1046,7 +1055,12 @@ export default function ManageApplicationsPage() {
       )}
 
       {/* Modal for viewing details */}
-      {selectedApp && ![ApplicationStatus.PENDING, ApplicationStatus.APPLICATION_APPROVED, ApplicationStatus.REVIEW_PAYMENT, ApplicationStatus.PAYMENT_VERIFIED].includes(selectedApp.status) && (
+      {selectedApp && ![
+        ApplicationStatus.PENDING, 
+        ApplicationStatus.APPLICATION_APPROVED, 
+        ApplicationStatus.REVIEW_PAYMENT, 
+        ApplicationStatus.PAYMENT_VERIFIED
+      ].includes(selectedApp.status.toLowerCase() as ApplicationStatus) && (
         <div className="fixed inset-0 bg-gray-600/50 flex items-center justify-center z-50">
           <div className="max-h-[90vh] overflow-y-auto bg-white rounded-lg shadow-xl p-6 w-full max-w-3xl mx-4 fade-in">
             <div className="flex justify-between items-center mb-4">
@@ -1062,7 +1076,7 @@ export default function ManageApplicationsPage() {
               <div className="flex justify-between items-center">
                 <div>
                   <p className="text-sm text-gray-500">Application ID</p>
-                  <p className="font-semibold">#{selectedApp.id}</p>
+                  <p className="font-semibold">#{selectedApp.applicationNumber}</p>
                 </div>
                 <div>
                   {getStatusBadge(selectedApp.status)}
@@ -1085,22 +1099,22 @@ export default function ManageApplicationsPage() {
               </div>
               <div>
                 <p className="text-sm text-gray-500">Phone</p>
-                <p className="font-semibold">{selectedApp.phone}</p>
+                <p className="font-semibold">{selectedApp.phoneNumber}</p>
               </div>
               <div>
                 <p className="text-sm text-gray-500">Date Submitted</p>
-                <p className="font-semibold">{selectedApp.dateSubmitted}</p>
+                <p className="font-semibold">{new Date(selectedApp.submittedAt).toLocaleDateString()}</p>
               </div>
-              {selectedApp.insuranceId && (
+              {selectedApp.certificateUrl && (
                 <div>
                   <p className="text-sm text-gray-500">Insurance ID</p>
-                  <p className="font-semibold">{selectedApp.insuranceId}</p>
+                  <p className="font-semibold">{selectedApp._id}</p>
                 </div>
               )}
-              {selectedApp.rejectionComment && (
+              {selectedApp.rejectionReason && (
                 <div className="md:col-span-2">
                   <p className="text-sm text-gray-500">Rejection Reason</p>
-                  <p className="font-semibold">{selectedApp.rejectionComment}</p>
+                  <p className="font-semibold">{selectedApp.rejectionReason}</p>
                 </div>
               )}
             </div>
@@ -1111,57 +1125,57 @@ export default function ManageApplicationsPage() {
                 <button 
                   className="bg-white p-3 rounded border text-left hover:bg-gray-50"
                   onClick={() => setViewingDocument({
-                    name: selectedApp.nationalId,
-                    path: '/test_document.pdf'
+                    name: 'National ID',
+                    path: selectedApp.nationalID
                   })}
                 >
                   <p className="text-sm font-medium">National ID</p>
-                  <p className="text-xs text-gray-500">{selectedApp.nationalId}</p>
+                  <p className="text-xs text-gray-500">View Document</p>
                 </button>
                 <button 
                   className="bg-white p-3 rounded border text-left hover:bg-gray-50"
                   onClick={() => setViewingDocument({
-                    name: selectedApp.yellowCard,
-                    path: '/test_document.pdf'
+                    name: 'Yellow Card',
+                    path: selectedApp.yellowCard
                   })}
                 >
                   <p className="text-sm font-medium">Yellow Card</p>
-                  <p className="text-xs text-gray-500">{selectedApp.yellowCard}</p>
+                  <p className="text-xs text-gray-500">View Document</p>
                 </button>
-                {selectedApp.additionalDocument && (
+                {selectedApp.pastInsuranceCertificate && (
                   <button 
                     className="bg-white p-3 rounded border text-left hover:bg-gray-50"
                     onClick={() => setViewingDocument({
-                      name: selectedApp.additionalDocument || 'Additional_Document.pdf',
-                      path: '/test_document.pdf'
+                      name: 'Past Insurance Certificate',
+                      path: selectedApp.pastInsuranceCertificate || '/File_not_found.jpg'
                     })}
                   >
-                    <p className="text-sm font-medium">Additional Document</p>
-                    <p className="text-xs text-gray-500">{selectedApp.additionalDocument}</p>
+                    <p className="text-sm font-medium">Past Insurance</p>
+                    <p className="text-xs text-gray-500">View Document</p>
                   </button>
                 )}
-                {selectedApp.paymentProof && (
+                {selectedApp.proofOfPayment && (
                   <button 
                     className="bg-white p-3 rounded border text-left hover:bg-gray-50"
                     onClick={() => setViewingDocument({
-                      name: selectedApp.paymentProof || 'Payment_Proof.pdf',
-                      path: '/test_document.pdf'
+                      name: 'Payment Proof',
+                      path: selectedApp.proofOfPayment || '/File_not_found.jpg'
                     })}
                   >
                     <p className="text-sm font-medium">Payment Proof</p>
-                    <p className="text-xs text-gray-500">{selectedApp.paymentProof}</p>
+                    <p className="text-xs text-gray-500">View Document</p>
                   </button>
                 )}
-                {selectedApp.insuranceId && (
+                {selectedApp.certificateUrl && (
                   <button 
                     className="bg-white p-3 rounded border text-left hover:bg-gray-50"
                     onClick={() => setViewingDocument({
-                      name: `Insurance_${selectedApp.insuranceId}.pdf`,
-                      path: '/test_document.pdf'
+                      name: 'Insurance Certificate',
+                      path: selectedApp.certificateUrl || ''
                     })}
                   >
                     <p className="text-sm font-medium">Insurance Certificate</p>
-                    <p className="text-xs text-gray-500">{selectedApp.insuranceId}</p>
+                    <p className="text-xs text-gray-500">View Document</p>
                   </button>
                 )}
               </div>
@@ -1175,10 +1189,12 @@ export default function ManageApplicationsPage() {
                     <p className="text-sm font-medium">Invoice ID</p>
                     <p className="text-xs text-gray-500">{selectedApp.invoiceId}</p>
                   </div>
-                  <div className="bg-white p-3 rounded border">
-                    <p className="text-sm font-medium">Amount</p>
-                    <p className="text-xs text-gray-500">{selectedApp.invoiceAmount || 'N/A'} RWF</p>
-                  </div>
+                  {selectedApp.invoiceAmount && (
+                    <div className="bg-white p-3 rounded border">
+                      <p className="text-sm font-medium">Amount</p>
+                      <p className="text-xs text-gray-500">{selectedApp.invoiceAmount} RWF</p>
+                    </div>
+                  )}
                   {selectedApp.transactionId && (
                     <div className="bg-white p-3 rounded border">
                       <p className="text-sm font-medium">Transaction ID</p>

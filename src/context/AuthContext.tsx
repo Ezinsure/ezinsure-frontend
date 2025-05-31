@@ -2,6 +2,7 @@
 
 import { createContext, useContext, ReactNode, useState, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
+import { useCallback } from 'react';
 
 interface User {
   _id: string;
@@ -31,35 +32,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const router = useRouter();
   const pathname = usePathname();
 
-  useEffect(() => {
-    const initializeAuth = async () => {
-      try {
-        const storedToken = sessionStorage.getItem('ezinsure_token');
-        const storedUser = sessionStorage.getItem('ezinsure_user');
-        
-        if (storedToken && storedUser) {
-          setToken(storedToken);
-          setUser(JSON.parse(storedUser));
-        }
-      } catch (error) {
-        console.error('Failed to initialize auth', error);
-        logout();
-      } finally {
-        setIsLoading(false);
-      }
-    };
 
-    initializeAuth();
-  }, []);
-
-  useEffect(() => {
-    if (!isLoading) {
-      handleRouteProtection();
-    }
-  }, [isLoading, pathname, user, token]);
-
-  // Update the handleRouteProtection function:
-const handleRouteProtection = () => {
+const handleRouteProtection = useCallback(() => {
   const POST_TESTER_PUBLIC_ROUTES = ['/', '/apply', '/login', '/register', '/track'];
   
   // Skip if still loading
@@ -104,7 +78,9 @@ const handleRouteProtection = () => {
   else if (pathname !== '/coming-soon') {
     router.push('/coming-soon');
   }
-};
+}, [isLoading, pathname, router, token, user]);
+
+
 
 const login = async (email: string, password: string) => {
   try {
@@ -116,7 +92,9 @@ const login = async (email: string, password: string) => {
 
     if (!response.ok) throw new Error('Login failed');
 
-    const { data } = await response.json();
+    const { data, token } = await response.json();
+    console.log('Login successful:', data);
+    console.log('Login successful:', token);
     
     // Set cookies properly
     const cookieOptions = {
@@ -126,33 +104,33 @@ const login = async (email: string, password: string) => {
     };
 
     // Set token cookie
-    document.cookie = `ezinsure_token=${data.token}; ${Object.entries(cookieOptions)
+    document.cookie = `ezinsure_token=${token}; ${Object.entries(cookieOptions)
       .map(([key, value]) => `${key}=${value}`)
       .join('; ')}`;
 
     // Set user cookie with simplified data
     const userData = {
-      _id: data.data._id,
-      role: data.data.role,
-      email: data.data.email
+      _id: data._id,
+      role: data.role,
+      email: data.email
     };
     document.cookie = `ezinsure_user=${JSON.stringify(userData)}; ${Object.entries(cookieOptions)
       .map(([key, value]) => `${key}=${value}`)
       .join('; ')}`;
 
     // Store in sessionStorage for client-side access
-    sessionStorage.setItem('ezinsure_token', data.token);
-    sessionStorage.setItem('ezinsure_user', JSON.stringify(data.data));
+    sessionStorage.setItem('ezinsure_token', token);
+    sessionStorage.setItem('ezinsure_user', JSON.stringify(data));
 
     // Redirect based on role
-    router.push(`/${data.data.role.toLowerCase()}/dashboard`);
+    router.push(`/${data.role.toLowerCase()}/dashboard`);
   } catch (error) {
     console.error('Login error:', error);
     throw error;
   }
 };
 
-  const logout = () => {
+  const logout = useCallback(() => {
     setToken(null);
     setUser(null);
     
@@ -165,7 +143,7 @@ const login = async (email: string, password: string) => {
     document.cookie = 'ezinsure_user=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT';
     
     router.push('/login');
-  };
+  }, [router]);
 
   const value = {
     user,
@@ -175,6 +153,33 @@ const login = async (email: string, password: string) => {
     isLoading,
     isAuthenticated: !!token,
   };
+
+    useEffect(() => {
+    const initializeAuth = async () => {
+      try {
+        const storedToken = sessionStorage.getItem('ezinsure_token');
+        const storedUser = sessionStorage.getItem('ezinsure_user');
+        
+        if (storedToken && storedUser) {
+          setToken(storedToken);
+          setUser(JSON.parse(storedUser));
+        }
+      } catch (error) {
+        console.error('Failed to initialize auth', error);
+        logout();
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    initializeAuth();
+  }, [logout]);
+  
+useEffect(() => {
+  if (!isLoading) {
+    handleRouteProtection();
+  }
+}, [isLoading, pathname, user, token, handleRouteProtection]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

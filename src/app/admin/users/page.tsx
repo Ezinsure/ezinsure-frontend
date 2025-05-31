@@ -84,29 +84,29 @@ export default function AdminUsersPage() {
 
   // Fetch users from API
   useEffect(() => {
-    const fetchUsers = async () => {
-      try {
-        setIsLoading(true);
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/users`, {
-  method: 'GET',
-  headers: {
-    'Content-Type': 'application/json',
-    'Authorization': `Bearer ${token}`
-  }
-});
-        if (!response.ok) {
-          throw new Error('Failed to fetch users');
-        }
-        const data = await response.json();
-        // console.log("all users: ", data)
-        setUsers(data.data);
-      } catch (error) {
-        console.error('Error fetching users:', error);
-        showToast('Failed to load users', 'error');
-      } finally {
-        setIsLoading(false);
+    // Update the fetchUsers function in the useEffect
+const fetchUsers = async () => {
+  try {
+    setIsLoading(true);
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/users`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
       }
-    };
+    });
+    if (!response.ok) {
+      throw new Error('Failed to fetch users');
+    }
+    const data = await response.json();
+    setUsers(data.data);
+  } catch (error) {
+    console.error('Error fetching users:', error);
+    showToast('Failed to load users', 'error');
+  } finally {
+    setIsLoading(false);
+  }
+};
 
     fetchUsers();
   }, []);
@@ -128,117 +128,177 @@ export default function AdminUsersPage() {
     currentPage * itemsPerPage
   );
 
-  const handleCreateUser = async () => {
-    setIsLoading(true);
-    try {
-      // In a real app, this would be an API call
-      console.log('Creating user with data:', formData);
+const handleCreateUser = async () => {
+  setIsLoading(true);
+  try {
+    const formDataToSend = new FormData();
+    formDataToSend.append('fullName', formData.fullName);
+    formDataToSend.append('email', formData.email);
+    formDataToSend.append('phoneNumber', formData.phoneNumber);
+    formDataToSend.append('dateOfBirth', formData.dateOfBirth);
+    formDataToSend.append('address', formData.address);
+    formDataToSend.append('role', formData.role);
+    
+    if (formData.role === 'AGENT') {
+      if (formData.nationalIdDocument) {
+        formDataToSend.append('nationalIdDocument', formData.nationalIdDocument);
+      }
+      if (formData.criminalRecordCertificate) {
+        formDataToSend.append('criminalRecordCertificate', formData.criminalRecordCertificate);
+      }
+      if (formData.passportPhoto) {
+        formDataToSend.append('passportPhoto', formData.passportPhoto);
+      }
       
-      // Mock response
-      const newUser: User = {
-        _id: `AG${Math.floor(1000 + Math.random() * 9000)}`,
-        fullName: formData.fullName,
-        email: formData.email,
-        phoneNumber: formData.phoneNumber,
-        role: formData.role,
-        status: formData.role === 'ADMIN' ? 'ACTIVE' : 'PENDING',
-        dateOfBirth: formData.dateOfBirth,
-        address: formData.address,
-        passportPhoto: formData.passportPhoto?.name ? 'https://example.com/' + formData.passportPhoto.name : undefined,
-        nationalIdDocument: formData.nationalIdDocument?.name ? 'https://example.com/' + formData.nationalIdDocument.name : undefined,
-        criminalRecordCertificate: formData.criminalRecordCertificate?.name ? 'https://example.com/' + formData.criminalRecordCertificate.name : undefined,
-        emergencyContacts: [
-          {
-            fullName: formData.emergencyContact1Name,
-            phoneNumber: formData.emergencyContact1PhoneNumber,
-            relationship: formData.emergencyContact1Relationship,
-            _id: Math.random().toString(36).substring(2, 9)
-          },
-          {
-            fullName: formData.emergencyContact2Name,
-            phoneNumber: formData.emergencyContact2PhoneNumber,
-            relationship: formData.emergencyContact2Relationship,
-            _id: Math.random().toString(36).substring(2, 9)
-          }
-        ],
-        createdAt: new Date().toISOString(),
-        agentCode: `AG-${Math.random().toString(36).substring(2, 10).toUpperCase()}`,
-        commissionRate: '5%'
-      };
-
-      setUsers(prev => [...prev, newUser]);
-      showToast('User created successfully!', 'success');
-      setIsCreatingUser(false);
-      setFormData({
-        fullName: '',
-        email: '',
-        phoneNumber: '',
-        dateOfBirth: '',
-        address: '',
-        role: 'AGENT',
-        emergencyContact1Name: '',
-        emergencyContact1PhoneNumber: '',
-        emergencyContact1Relationship: '',
-        emergencyContact2Name: '',
-        emergencyContact2PhoneNumber: '',
-        emergencyContact2Relationship: '',
-        nationalIdDocument: null,
-        criminalRecordCertificate: null,
-        passportPhoto: null,
-      });
-    } catch (error) {
-      console.error('Error creating user:', error);
-      showToast('Failed to create user', 'error');
-    } finally {
-      setIsLoading(false);
+      // Emergency contacts - Fixed field names
+      formDataToSend.append('emergencyContacts[0][fullName]', formData.emergencyContact1Name);
+      formDataToSend.append('emergencyContacts[0][phoneNumber]', formData.emergencyContact1PhoneNumber);
+      formDataToSend.append('emergencyContacts[0][relationship]', formData.emergencyContact1Relationship);
+      formDataToSend.append('emergencyContacts[1][fullName]', formData.emergencyContact2Name);
+      formDataToSend.append('emergencyContacts[1][phoneNumber]', formData.emergencyContact2PhoneNumber);
+      formDataToSend.append('emergencyContacts[1][relationship]', formData.emergencyContact2Relationship);
     }
-  };
 
-  const handleStatusChange = async (userId: string, status: User['status'], reason?: string) => {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/register`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      },
+      body: formDataToSend
+    });
+
+    console.log('Response from user creation:', response);
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error('Error response:', errorData); // Added for debugging
+      throw new Error(errorData.message || 'Failed to create user');
+    }
+
+    const data = await response.json();
+    setUsers(prev => [...prev, data.data]);
+    showToast('User created successfully!', 'success');
+    setIsCreatingUser(false);
+    setFormData({
+      fullName: '',
+      email: '',
+      phoneNumber: '',
+      dateOfBirth: '',
+      address: '',
+      role: 'AGENT',
+      emergencyContact1Name: '',
+      emergencyContact1PhoneNumber: '',
+      emergencyContact1Relationship: '',
+      emergencyContact2Name: '',
+      emergencyContact2PhoneNumber: '',
+      emergencyContact2Relationship: '',
+      nationalIdDocument: null,
+      criminalRecordCertificate: null,
+      passportPhoto: null,
+    });
+  } catch (error: unknown) {
+    console.error('Error creating user:', error);
+    if (error && typeof error === 'object' && 'message' in error) {
+      showToast((error as { message?: string }).message || 'Failed to create user', 'error');
+    } else {
+      showToast('Failed to create user', 'error');
+    }
+  } finally {
+    setIsLoading(false);
+  }
+};
+
+const handleStatusChange = async (userId: string, status: User['status'], reason?: string) => {
+  setIsLoading(true);
+  try {
+    let endpoint = '';
+    let body: Record<string, unknown> | null = null;
+    const method = 'PATCH';
+
+    switch (status) {
+      case 'ACTIVE':
+        endpoint = `approveAgentApplication/${userId}`;
+        break;
+      case 'SENT_FOR_ACTION':
+        endpoint = `sendForAction/${userId}`;
+        body = { action: reason }; // Format the reason as 'action' for the backend
+        break;
+      case 'DEACTIVATED':
+        endpoint = `deactivateAgentApplication/${userId}`;
+        break;
+      default:
+        throw new Error('Invalid status change');
+    }
+
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/${endpoint}`, {
+      method,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: body ? JSON.stringify(body) : null
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to update user status');
+    }
+
+    const updatedUsers = users.map(user => {
+      if (user._id === userId) {
+        return { 
+          ...user, 
+          status: status,
+          ...(reason && { rejectionReason: reason })
+        };
+      }
+      return user;
+    });
+
+    setUsers(updatedUsers as User[]);
+    showToast(`User status updated to ${status.replace('_', ' ').toLowerCase()}`, 'success');
+    setSelectedUser(null);
+  } catch (error) {
+    console.error('Error updating user status:', error);
+    showToast('Failed to update user status', 'error');
+  } finally {
+    setIsLoading(false);
+  }
+};
+
+const handleDeleteUser = async (userId: string) => {
+  if (confirm('Are you sure you want to deactivate this user?')) {
     setIsLoading(true);
     try {
-      // In a real app, this would be an API call
-      console.log(`Updating user ${userId} status to ${status} with reason: ${reason}`);
-      
-      const updatedUsers = users.map(user => {
-        if (user._id === userId) {
-          return { 
-            ...user, 
-            status,
-            ...(reason && { rejectionReason: reason })
-          };
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/deactivateAgentApplication/${userId}`,
+        {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
         }
-        return user;
-      });
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to deactivate user');
+      }
+
+      // Update the user status to DEACTIVATED in the local state
+      const updatedUsers = users.map((user) =>
+        user._id === userId ? { ...user, status: 'DEACTIVATED' as User['status'] } : user
+      );
 
       setUsers(updatedUsers);
-      showToast(`User status updated to ${status.replace('_', ' ').toLowerCase()}`, 'success');
-      setSelectedUser(null);
+      showToast('User deactivated successfully', 'success');
     } catch (error) {
-      console.error('Error updating user status:', error);
-      showToast('Failed to update user status', 'error');
+      console.error('Error deactivating user:', error);
+      showToast('Failed to deactivate user', 'error');
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const handleDeleteUser = async (userId: string) => {
-    if (confirm('Are you sure you want to delete this user?')) {
-      setIsLoading(true);
-      try {
-        // In a real app, this would be an API call
-        console.log('Deleting user:', userId);
-        
-        setUsers(prev => prev.filter(user => user._id !== userId));
-        showToast('User deleted successfully', 'success');
-      } catch (error) {
-        console.error('Error deleting user:', error);
-        showToast('Failed to delete user', 'error');
-      } finally {
-        setIsLoading(false);
-      }
-    }
-  };
+  }
+};
 
   const handleEditUser = async (updatedUser: User) => {
     setIsLoading(true);
