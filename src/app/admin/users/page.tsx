@@ -543,6 +543,7 @@ export default function AdminUsersPage() {
                             onClick={() => {
                               setSelectedUser(user);
                               setRejectionReason(user.rejectionReason || '');
+                              console.log(rejectionReason)
                             }}
                           >
                             View
