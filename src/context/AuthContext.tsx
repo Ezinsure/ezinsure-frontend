@@ -32,103 +32,104 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const router = useRouter();
   const pathname = usePathname();
 
-
-const handleRouteProtection = useCallback(() => {
-  const POST_TESTER_PUBLIC_ROUTES = ['/', '/apply', '/login', '/register', '/track'];
-  
-  // Skip if still loading
-  if (isLoading) return;
-
-  // Check for tester cookie (client-side)
-  const isTester = document.cookie.includes('ezinsure-tester=solektraRwanda@2025');
-
-  // **1. If logged in (has token & user)**
-  if (token && user) {
-    const userDashboard = `/${user.role.toLowerCase()}/dashboard`;
-
-    // Redirect to dashboard if trying to access public routes
-    if (POST_TESTER_PUBLIC_ROUTES.includes(pathname) || pathname === '/coming-soon') {
-      router.push(userDashboard);
-      return;
-    }
-
-    // Ensure they stay in their role's routes
-    if (!pathname.startsWith(`/${user.role.toLowerCase()}`)) {
-      router.push(userDashboard);
-      return;
-    }
-  }
-  // **2. If tester but not logged in**
-  else if (isTester) {
-    // Redirect to home if trying to access protected routes or `/coming-soon`
-    if (pathname.startsWith('/admin') || pathname.startsWith('/agent') || pathname === '/coming-soon') {
-      router.push('/');
-      return;
-    }
-
-    // Allow access to post-tester public routes
-    if (POST_TESTER_PUBLIC_ROUTES.includes(pathname)) {
-      return;
-    }
-
-    // Default redirect for testers
-    router.push('/');
-  }
-  // **3. Not a tester and not logged in → Only allow `/coming-soon`**
-  else if (pathname !== '/coming-soon') {
-    router.push('/coming-soon');
-  }
-}, [isLoading, pathname, router, token, user]);
-
-
-
-const login = async (email: string, password: string) => {
-  try {
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password }),
-    });
-
-    if (!response.ok) throw new Error('Login failed');
-
-    const { data, token } = await response.json();
-    console.log('Login successful:', data);
-    console.log('Login successful:', token);
+  const handleRouteProtection = useCallback(() => {
+    const POST_TESTER_PUBLIC_ROUTES = ['/', '/apply', '/login', '/register', '/track'];
     
-    // Set cookies properly
-    const cookieOptions = {
-      path: '/',
-      sameSite: 'Lax' as const,
-      secure: process.env.NODE_ENV === 'production',
-    };
+    // Skip if still loading
+    if (isLoading) return;
 
-    // Set token cookie
-    document.cookie = `ezinsure_token=${token}; ${Object.entries(cookieOptions)
-      .map(([key, value]) => `${key}=${value}`)
-      .join('; ')}`;
+    // Check for tester cookie (client-side)
+    const isTester = document.cookie.includes('ezinsure-tester=solektraRwanda@2025');
 
-    // Set user cookie with simplified data
-    const userData = {
-      _id: data._id,
-      role: data.role,
-      email: data.email
-    };
-    document.cookie = `ezinsure_user=${JSON.stringify(userData)}; ${Object.entries(cookieOptions)
-      .map(([key, value]) => `${key}=${value}`)
-      .join('; ')}`;
+    // **1. If logged in (has token & user)**
+    if (token && user) {
+      const userDashboard = `/${user.role.toLowerCase()}/dashboard`;
 
-    // Store in sessionStorage for client-side access
-    sessionStorage.setItem('ezinsure_token', token);
-    sessionStorage.setItem('ezinsure_user', JSON.stringify(data));
+      // Redirect to dashboard if trying to access public routes
+      if (POST_TESTER_PUBLIC_ROUTES.includes(pathname) || pathname === '/coming-soon') {
+        router.push(userDashboard);
+        return;
+      }
 
-    // Redirect based on role
-    router.push(`/${data.role.toLowerCase()}/dashboard`);
-  } catch (error) {
-    console.error('Login error:', error);
-    throw error;
-  }
-};
+      // Ensure they stay in their role's routes
+      if (!pathname.startsWith(`/${user.role.toLowerCase()}`)) {
+        router.push(userDashboard);
+        return;
+      }
+    }
+    // **2. If tester but not logged in**
+    else if (isTester) {
+      // Redirect to home if trying to access protected routes or `/coming-soon`
+      if (pathname.startsWith('/admin') || pathname.startsWith('/agent') || pathname === '/coming-soon') {
+        router.push('/');
+        return;
+      }
+
+      // Allow access to post-tester public routes
+      if (POST_TESTER_PUBLIC_ROUTES.includes(pathname)) {
+        return;
+      }
+
+      // Default redirect for testers
+      router.push('/');
+    }
+    // **3. Not a tester and not logged in → Only allow `/coming-soon`**
+    else if (pathname !== '/coming-soon') {
+      router.push('/coming-soon');
+    }
+  }, [isLoading, pathname, router, token, user]);
+
+  const login = async (email: string, password: string) => {
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+
+      if (!response.ok) throw new Error('Login failed');
+
+      const { data, token } = await response.json();
+      console.log('Login successful:', data);
+      console.log('Login successful:', token);
+      
+      // Set cookies properly
+      const cookieOptions = {
+        path: '/',
+        sameSite: 'Lax' as const,
+        secure: process.env.NODE_ENV === 'production',
+      };
+
+      // Set token cookie
+      document.cookie = `ezinsure_token=${token}; ${Object.entries(cookieOptions)
+        .map(([key, value]) => `${key}=${value}`)
+        .join('; ')}`;
+
+      // Set user cookie with simplified data
+      const userData = {
+        _id: data._id,
+        role: data.role,
+        email: data.email
+      };
+      document.cookie = `ezinsure_user=${JSON.stringify(userData)}; ${Object.entries(cookieOptions)
+        .map(([key, value]) => `${key}=${value}`)
+        .join('; ')}`;
+
+      // Store in sessionStorage for client-side access
+      sessionStorage.setItem('ezinsure_token', token);
+      sessionStorage.setItem('ezinsure_user', JSON.stringify(data));
+
+      // Update state immediately
+      setToken(token);
+      setUser(data);
+      
+      // Redirect based on role
+      router.push(`/${data.role.toLowerCase()}/dashboard`);
+    } catch (error) {
+      console.error('Login error:', error);
+      throw error;
+    }
+  };
 
   const logout = useCallback(() => {
     setToken(null);
@@ -154,7 +155,7 @@ const login = async (email: string, password: string) => {
     isAuthenticated: !!token,
   };
 
-    useEffect(() => {
+  useEffect(() => {
     const initializeAuth = async () => {
       try {
         const storedToken = sessionStorage.getItem('ezinsure_token');
@@ -175,11 +176,16 @@ const login = async (email: string, password: string) => {
     initializeAuth();
   }, [logout]);
   
-useEffect(() => {
-  if (!isLoading) {
-    handleRouteProtection();
-  }
-}, [isLoading, pathname, user, token, handleRouteProtection]);
+  useEffect(() => {
+    // Add a small delay to prevent race conditions during login
+    const timeoutId = setTimeout(() => {
+      if (!isLoading) {
+        handleRouteProtection();
+      }
+    }, 100);
+
+    return () => clearTimeout(timeoutId);
+  }, [isLoading, pathname, user, token, handleRouteProtection]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

@@ -12,17 +12,17 @@ interface FormState {
   [key: string]: string | File | null;
   fullName: string;
   email: string;
-  phone: string;
+  phoneNumber: string;
   dateOfBirth: string;
-  currentAddress: string;
-  nationalId: File | null;
-  criminalRecord: File | null;
+  address: string;
+  nationalIdDocument: File | null;
+  criminalRecordCertificate: File | null;
   passportPhoto: File | null;
   emergencyContact1Name: string;
-  emergencyContact1Phone: string;
+  emergencyContact1PhoneNumber: string;
   emergencyContact1Relationship: string;
   emergencyContact2Name: string;
-  emergencyContact2Phone: string;
+  emergencyContact2PhoneNumber: string;
   emergencyContact2Relationship: string;
 }
 
@@ -33,17 +33,17 @@ export default function AgentRegistrationPage() {
   const [formState, setFormState] = useState<FormState>({
     fullName: '',
     email: '',
-    phone: '',
+    phoneNumber: '',
     dateOfBirth: '',
-    currentAddress: '',
-    nationalId: null,
-    criminalRecord: null,
+    address: '',
+    nationalIdDocument: null,
+    criminalRecordCertificate: null,
     passportPhoto: null,
     emergencyContact1Name: '',
-    emergencyContact1Phone: '',
+    emergencyContact1PhoneNumber: '',
     emergencyContact1Relationship: '',
     emergencyContact2Name: '',
-    emergencyContact2Phone: '',
+    emergencyContact2PhoneNumber: '',
     emergencyContact2Relationship: '',
   });
 
@@ -53,14 +53,14 @@ export default function AgentRegistrationPage() {
   const validationRules: ValidationRules = {
     fullName: { required: true, minLength: 2 },
     email: { required: true, pattern: validationPatterns.email },
-    phone: { required: true, pattern: validationPatterns.phone },
+    phoneNumber: { required: true, pattern: validationPatterns.phone },
     dateOfBirth: { required: true },
-    currentAddress: { required: true, minLength: 10 },
+    address: { required: true, minLength: 10 },
     emergencyContact1Name: { required: true, minLength: 2 },
-    emergencyContact1Phone: { required: true, pattern: validationPatterns.phone },
+    emergencyContact1PhoneNumber: { required: true, pattern: validationPatterns.phone },
     emergencyContact1Relationship: { required: true },
     emergencyContact2Name: { required: true, minLength: 2 },
-    emergencyContact2Phone: { required: true, pattern: validationPatterns.phone },
+    emergencyContact2PhoneNumber: { required: true, pattern: validationPatterns.phone },
     emergencyContact2Relationship: { required: true },
   };
 
@@ -119,11 +119,11 @@ export default function AgentRegistrationPage() {
   const validateFiles = () => {
     const fileErrors: { [key: string]: string } = {};
 
-    if (!formState.nationalId) {
-      fileErrors.nationalId = 'National ID document is required';
+    if (!formState.nationalIdDocument) {
+      fileErrors.nationalIdDocument = 'National ID document is required';
     }
-    if (!formState.criminalRecord) {
-      fileErrors.criminalRecord = 'Criminal record document is required';
+    if (!formState.criminalRecordCertificate) {
+      fileErrors.criminalRecordCertificate = 'Criminal record document is required';
     }
     if (!formState.passportPhoto) {
       fileErrors.passportPhoto = 'Passport photo is required';
@@ -134,19 +134,19 @@ export default function AgentRegistrationPage() {
     const allowedDocTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png'];
     const maxFileSize = 5 * 1024 * 1024; // 5MB
 
-    if (formState.nationalId) {
-      if (!allowedDocTypes.includes(formState.nationalId.type)) {
-        fileErrors.nationalId = 'National ID must be PDF, JPEG, or PNG';
-      } else if (formState.nationalId.size > maxFileSize) {
-        fileErrors.nationalId = 'National ID file size must be less than 5MB';
+    if (formState.nationalIdDocument) {
+      if (!allowedDocTypes.includes(formState.nationalIdDocument.type)) {
+        fileErrors.nationalIdDocument = 'National ID must be PDF, JPEG, or PNG';
+      } else if (formState.nationalIdDocument.size > maxFileSize) {
+        fileErrors.nationalIdDocument = 'National ID file size must be less than 5MB';
       }
     }
 
-    if (formState.criminalRecord) {
-      if (!allowedDocTypes.includes(formState.criminalRecord.type)) {
-        fileErrors.criminalRecord = 'Criminal record must be PDF, JPEG, or PNG';
-      } else if (formState.criminalRecord.size > maxFileSize) {
-        fileErrors.criminalRecord = 'Criminal record file size must be less than 5MB';
+    if (formState.criminalRecordCertificate) {
+      if (!allowedDocTypes.includes(formState.criminalRecordCertificate.type)) {
+        fileErrors.criminalRecordCertificate = 'Criminal record must be PDF, JPEG, or PNG';
+      } else if (formState.criminalRecordCertificate.size > maxFileSize) {
+        fileErrors.criminalRecordCertificate = 'Criminal record file size must be less than 5MB';
       }
     }
 
@@ -175,36 +175,61 @@ export default function AgentRegistrationPage() {
       setIsSubmitting(true);
 
       try {
-        // Generate application ID
-        const applicationId = 'AGT' + Date.now().toString().slice(-6);
+        const formData = new FormData();
+        
+        // Append basic information
+        formData.append('fullName', formState.fullName);
+        formData.append('email', formState.email);
+        formData.append('phoneNumber', formState.phoneNumber);
+        formData.append('dateOfBirth', formState.dateOfBirth);
+        formData.append('address', formState.address);
+        
+        // Append files
+        if (formState.nationalIdDocument) {
+          formData.append('nationalIdDocument', formState.nationalIdDocument);
+        }
+        if (formState.criminalRecordCertificate) {
+          formData.append('criminalRecordCertificate', formState.criminalRecordCertificate);
+        }
+        if (formState.passportPhoto) {
+          formData.append('passportPhoto', formState.passportPhoto);
+        }
+        
+        // Append emergency contacts
+        formData.append('emergencyContacts[0][fullName]', formState.emergencyContact1Name);
+        formData.append('emergencyContacts[0][phoneNumber]', formState.emergencyContact1PhoneNumber);
+        formData.append('emergencyContacts[0][relationship]', formState.emergencyContact1Relationship);
+        formData.append('emergencyContacts[1][fullName]', formState.emergencyContact2Name);
+        formData.append('emergencyContacts[1][phoneNumber]', formState.emergencyContact2PhoneNumber);
+        formData.append('emergencyContacts[1][relationship]', formState.emergencyContact2Relationship);
 
-        // Simulate API call to submit registration
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/agents/apply`, {
+          method: 'POST',
+          body: formData,
+        });
 
-        // Store application data (in real app, this would be sent to backend)
-        const applicationData = {
-          id: applicationId,
-          ...formState,
-          status: 'pending_review',
-          dateSubmitted: new Date().toISOString().split('T')[0],
-          type: 'agent_application'
-        };
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || 'Registration failed');
+        }
 
-        // Store in localStorage for demo purposes
-        const existingApplications = JSON.parse(localStorage.getItem('agentApplications') || '[]');
-        existingApplications.push(applicationData);
-        localStorage.setItem('agentApplications', JSON.stringify(existingApplications));
-
-        showToast(`Registration successful! Your application ID is ${applicationId}. Please save this ID for tracking.`, 'success');
+        const data = await response.json();
+        console.log('Registration successful:', data);
+        
+        showToast(`Registration successful! Your application is under review.`, 'success');
         
         // Redirect to login after 3 seconds
         setTimeout(() => {
           router.push('/login');
         }, 3000);
 
-      } catch (error) {
-        console.log('Error during registration:', error);
-        showToast('An error occurred during registration. Please try again.', 'error');
+      } catch (error: unknown) {
+        console.error('Registration error:', error);
+        const errorMessage =
+          error instanceof Error
+            ? error.message
+            : 'An error occurred during registration. Please try again.';
+        showToast(errorMessage, 'error');
       } finally {
         setIsSubmitting(false);
       }
@@ -327,11 +352,11 @@ export default function AgentRegistrationPage() {
                   <Input
                     label="Phone Number"
                     type="tel"
-                    name="phone"
+                    name="phoneNumber"
                     placeholder="+250 7XX XXX XXX"
-                    value={formState.phone}
+                    value={formState.phoneNumber}
                     onChange={handleInputChange}
-                    error={errors.phone}
+                    error={errors.phoneNumber}
                     required
                   />
 
@@ -351,15 +376,15 @@ export default function AgentRegistrationPage() {
                     Current Address <span className="text-red-500">*</span>
                   </label>
                   <textarea
-                    name="currentAddress"
+                    name="address"
                     rows={3}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--main-blue)] focus:border-transparent"
                     placeholder="Enter your complete current address"
-                    value={formState.currentAddress}
+                    value={formState.address}
                     onChange={handleInputChange}
                   />
-                  {errors.currentAddress && (
-                    <p className="mt-2 text-sm text-red-600">{errors.currentAddress}</p>
+                  {errors.address && (
+                    <p className="mt-2 text-sm text-red-600">{errors.address}</p>
                   )}
                 </div>
               </div>
@@ -370,19 +395,19 @@ export default function AgentRegistrationPage() {
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   <FileUploadField
                     label="National ID"
-                    name="nationalId"
+                    name="nationalIdDocument"
                     accept=".pdf,.jpg,.jpeg,.png"
-                    error={errors.nationalId}
-                    file={formState.nationalId}
+                    error={errors.nationalIdDocument}
+                    file={formState.nationalIdDocument}
                     description="PDF, JPEG, or PNG up to 5MB"
                   />
 
                   <FileUploadField
                     label="Criminal Record Certificate"
-                    name="criminalRecord"
+                    name="criminalRecordCertificate"
                     accept=".pdf,.jpg,.jpeg,.png"
-                    error={errors.criminalRecord}
-                    file={formState.criminalRecord}
+                    error={errors.criminalRecordCertificate}
+                    file={formState.criminalRecordCertificate}
                     description="PDF, JPEG, or PNG up to 5MB"
                   />
                 </div>
@@ -420,11 +445,11 @@ export default function AgentRegistrationPage() {
                     <Input
                       label="Phone Number"
                       type="tel"
-                      name="emergencyContact1Phone"
+                      name="emergencyContact1PhoneNumber"
                       placeholder="+250 7XX XXX XXX"
-                      value={formState.emergencyContact1Phone}
+                      value={formState.emergencyContact1PhoneNumber}
                       onChange={handleInputChange}
-                      error={errors.emergencyContact1Phone}
+                      error={errors.emergencyContact1PhoneNumber}
                       required
                     />
 
@@ -439,11 +464,11 @@ export default function AgentRegistrationPage() {
                         className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--main-blue)] focus:border-transparent"
                       >
                         <option value="">Select relationship</option>
-                        <option value="parent">Parent</option>
-                        <option value="sibling">Sibling</option>
-                        <option value="spouse">Spouse</option>
-                        <option value="friend">Friend</option>
-                        <option value="other">Other</option>
+                        <option value="Parent">Parent</option>
+                        <option value="Sibling">Sibling</option>
+                        <option value="Spouse">Spouse</option>
+                        <option value="Friend">Friend</option>
+                        {/* <option value="Other">Other</option> */}
                       </select>
                       {errors.emergencyContact1Relationship && (
                         <p className="mt-2 text-sm text-red-600">{errors.emergencyContact1Relationship}</p>
@@ -469,11 +494,11 @@ export default function AgentRegistrationPage() {
                     <Input
                       label="Phone Number"
                       type="tel"
-                      name="emergencyContact2Phone"
+                      name="emergencyContact2PhoneNumber"
                       placeholder="+250 7XX XXX XXX"
-                      value={formState.emergencyContact2Phone}
+                      value={formState.emergencyContact2PhoneNumber}
                       onChange={handleInputChange}
-                      error={errors.emergencyContact2Phone}
+                      error={errors.emergencyContact2PhoneNumber}
                       required
                     />
 
@@ -488,11 +513,11 @@ export default function AgentRegistrationPage() {
                         className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--main-blue)] focus:border-transparent"
                       >
                         <option value="">Select relationship</option>
-                        <option value="parent">Parent</option>
-                        <option value="sibling">Sibling</option>
-                        <option value="spouse">Spouse</option>
-                        <option value="friend">Friend</option>
-                        <option value="other">Other</option>
+                        <option value="Parent">Parent</option>
+                        <option value="Sibling">Sibling</option>
+                        <option value="Spouse">Spouse</option>
+                        <option value="Friend">Friend</option>
+                        {/* <option value="Other">Other</option> */}
                       </select>
                       {errors.emergencyContact2Relationship && (
                         <p className="mt-2 text-sm text-red-600">{errors.emergencyContact2Relationship}</p>
