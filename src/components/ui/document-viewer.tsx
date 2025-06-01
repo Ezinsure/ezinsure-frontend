@@ -35,6 +35,43 @@ export const DocumentViewer = ({
     setLoading(false);
   };
 
+  const handleDownload = async () => {
+    try {
+      // Fetch the file
+      const response = await fetch(documentPath);
+      if (!response.ok) {
+        throw new Error('Failed to fetch file');
+      }
+      
+      // Get the blob
+      const blob = await response.blob();
+      
+      // Create a temporary URL for the blob
+      const url = window.URL.createObjectURL(blob);
+      
+      // Create a temporary anchor element and trigger download
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = documentName;
+      document.body.appendChild(link);
+      link.click();
+      
+      // Clean up
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Download failed:', error);
+      // Fallback to simple link approach
+      const link = document.createElement('a');
+      link.href = documentPath;
+      link.download = documentName;
+      link.target = '_blank';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+  };
+
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60]">
       <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-4xl mx-4 h-[90vh] flex flex-col">
@@ -71,7 +108,7 @@ export const DocumentViewer = ({
           {error ? (
             <div className="h-full flex flex-col items-center justify-center">
               <img 
-                src="/test_document.pdf" 
+                src="/File_not_found.pdf" 
                 alt="File not found" 
                 className="max-h-48"
               />
@@ -100,13 +137,7 @@ export const DocumentViewer = ({
           <Button variant="text" onClick={onClose}>
             Close
           </Button>
-          <Button 
-            as="a"
-            href={documentPath}
-            download={documentName}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
+          <Button onClick={handleDownload}>
             Download
           </Button>
         </div>

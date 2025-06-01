@@ -4,28 +4,37 @@ import { useState, useEffect } from 'react';
 import { MainLayout } from '@/components/ui/main-layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { FileInput } from '@/components/ui/file-input';
 import { useToast } from '@/components/ui/toast';
+import {
+  validateForm,
+  ValidationRules,
+  validationPatterns,
+  hasErrors,
+} from '@/components/ui/form-validation';
+import { DocumentViewer } from '@/components/ui/document-viewer';
 
 interface Application {
-  id: string;
+  _id: string;
+  applicationNumber: string;
   fullName: string;
   email: string;
-  phone: string;
+  phoneNumber: string;
+  dateOfBirth: string;
+  address: string;
+  insuranceCategory: string;
   insuranceType: string;
+  insuranceDuration: string;
   status: string;
-  dateSubmitted: string;
-  documents: {
-    nationalId: string;
-    yellowCard: string;
-    additionalDocument?: string;
-  };
-  payment?: {
-    invoiceId?: string;
-    amount?: string;
-    proof?: string;
-    date?: string;
-  };
-  insuranceId?: string;
+  nationalID: string;
+  yellowCard: string;
+  pastInsuranceCertificate: string | null;
+  agentId: string | null;
+  submittedAt: string;
+  rejectionReason?: string;
+  proofOfPayment?: string;
+  otp?: string;
+  otpExpires?: string;
 }
 
 interface OTPModalProps {
@@ -33,44 +42,20 @@ interface OTPModalProps {
   onClose: () => void;
   onVerify: (otp: string) => void;
   email: string;
-  phone: string;
   isLoading: boolean;
 }
 
-const OTPModal = ({ isOpen, onClose, onVerify, email, phone, isLoading }: OTPModalProps) => {
-  const [verificationMethod, setVerificationMethod] = useState<'email' | 'phone' | null>(null);
+const OTPModal = ({ isOpen, onClose, onVerify, email, isLoading }: OTPModalProps) => {
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
-  const [timeLeft, setTimeLeft] = useState(300); // 5 minutes in seconds
-  const [isOtpSent, setIsOtpSent] = useState(false);
   const { showToast } = useToast();
 
-  useEffect(() => {
-    let timer: NodeJS.Timeout;
-    if (isOtpSent && timeLeft > 0 && isOpen) {
-      timer = setTimeout(() => {
-        setTimeLeft(timeLeft - 1);
-      }, 1000);
-    }
-    return () => clearTimeout(timer);
-  }, [timeLeft, isOtpSent, isOpen]);
-
+  // Reset OTP fields when modal opens
   useEffect(() => {
     if (isOpen) {
-      setVerificationMethod(null);
       setOtp(['', '', '', '', '', '']);
-      setTimeLeft(300);
-      setIsOtpSent(false);
+      showToast(`OTP sent to your email: ${email}`, 'success');
     }
-  }, [isOpen]);
-
-  const handleSendOTP = (method: 'email' | 'phone') => {
-    setVerificationMethod(method);
-    setIsOtpSent(true);
-    setTimeLeft(300);
-    
-    const destination = method === 'email' ? email : phone;
-    showToast(`OTP sent to your ${method}: ${destination}`, 'success');
-  };
+  }, [isOpen]); // Removed email and showToast from dependencies to prevent infinite loops
 
   const handleOtpChange = (index: number, value: string) => {
     if (value.length > 1) return;
@@ -103,21 +88,6 @@ const OTPModal = ({ isOpen, onClose, onVerify, email, phone, isLoading }: OTPMod
     onVerify(otpValue);
   };
 
-  const formatTime = (seconds: number) => {
-    const minutes = Math.floor(seconds / 60);
-    const remainingSeconds = seconds % 60;
-    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
-  };
-
-  const handleResendOTP = () => {
-    if (verificationMethod) {
-      setTimeLeft(300);
-      setOtp(['', '', '', '', '', '']);
-      const destination = verificationMethod === 'email' ? email : phone;
-      showToast(`New OTP sent to your ${verificationMethod}: ${destination}`, 'success');
-    }
-  };
-
   if (!isOpen) return null;
 
   return (
@@ -136,116 +106,334 @@ const OTPModal = ({ isOpen, onClose, onVerify, email, phone, isLoading }: OTPMod
             </button>
           </div>
 
-          {!isOtpSent ? (
-            <div className="space-y-4">
-              <p className="text-gray-600 text-center mb-6">
-                Choose how you&apos;d like to receive your verification code:
-              </p>
-              
-              <div className="space-y-3">
-                <button
-                  onClick={() => handleSendOTP('email')}
-                  className="w-full p-4 border border-gray-200 rounded-lg hover:border-blue-300 hover:bg-blue-50 transition-colors text-left"
-                >
-                  <div className="flex items-center space-x-3">
-                    <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                      <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                      </svg>
-                    </div>
-                    <div>
-                      <p className="font-medium">Email Verification</p>
-                      <p className="text-sm text-gray-500">{email}</p>
-                    </div>
-                  </div>
-                </button>
-
-                <button
-                  onClick={() => handleSendOTP('phone')}
-                  className="w-full p-4 border border-gray-200 rounded-lg hover:border-blue-300 hover:bg-blue-50 transition-colors text-left"
-                >
-                  <div className="flex items-center space-x-3">
-                    <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
-                      <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                      </svg>
-                    </div>
-                    <div>
-                      <p className="font-medium">SMS Verification</p>
-                      <p className="text-sm text-gray-500">{phone}</p>
-                    </div>
-                  </div>
-                </button>
+          <div className="space-y-6">
+            <div className="text-center">
+              <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                </svg>
               </div>
+              <h4 className="text-lg font-semibold mb-2">Enter Verification Code</h4>
+              <p className="text-gray-600 text-sm mb-2">
+                We&apos;ve sent a 6-digit code to your email:
+              </p>
+              <p className="text-sm font-medium text-blue-600">{email}</p>
+              <p className="text-sm text-gray-500 mt-2">The code will expire in 2 minutes</p>
             </div>
-          ) : (
-            <div className="space-y-6">
-              <div className="text-center">
-                <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+
+            <div className="space-y-4">
+              <div className="flex justify-center space-x-2">
+                {otp.map((digit, index) => (
+                  <input
+                    key={index}
+                    id={`otp-${index}`}
+                    type="text"
+                    maxLength={1}
+                    value={digit}
+                    onChange={(e) => handleOtpChange(index, e.target.value)}
+                    onKeyDown={(e) => handleKeyDown(index, e)}
+                    className="w-12 h-12 text-center text-lg font-bold border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-colors"
+                  />
+                ))}
+              </div>
+
+              <Button
+                onClick={handleVerifyOTP}
+                disabled={otp.join('').length !== 6 || isLoading}
+                className="w-full"
+              >
+                {isLoading ? 'Verifying...' : 'Verify Code'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+interface EditApplicationModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  application: Application;
+  onSave: (updatedData: Partial<Application>, files: Record<string, File | null>) => Promise<void>;
+  isLoading: boolean;
+}
+
+const EditApplicationModal = ({ isOpen, onClose, application, onSave, isLoading }: EditApplicationModalProps) => {
+  const [formState, setFormState] = useState<Partial<Application>>({
+    fullName: application?.fullName ?? '',
+    email: application?.email ?? '',
+    phoneNumber: application.phoneNumber,
+    address: application.address,
+    dateOfBirth: application.dateOfBirth,
+    insuranceCategory: application.insuranceCategory,
+    insuranceType: application.insuranceType,
+    insuranceDuration: application.insuranceDuration,
+  });
+
+  const [files, setFiles] = useState<Record<string, File | null>>({
+    nationalID: null,
+    yellowCard: null,
+    pastInsuranceCertificate: null,
+    proofOfPayment: null,
+  });
+
+  const [errors, setErrors] = useState<{ [key: string]: string }>({});
+
+  const validationRules: ValidationRules = {
+    fullName: { required: true, minLength: 3, maxLength: 50 },
+    email: { required: true, pattern: validationPatterns.email },
+    phoneNumber: { required: true, pattern: validationPatterns.phone },
+    address: { required: true, minLength: 5, maxLength: 100 },
+    dateOfBirth: { required: true },
+    insuranceCategory: { required: true },
+    insuranceType: { required: true },
+    insuranceDuration: { required: true },
+    nationalID: { required: true },
+    yellowCard: { required: true },
+    proofOfPayment: { required: true },
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setFormState(prev => ({ ...prev, [name]: value }));
+
+    if (errors[name]) {
+      setErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors[name];
+        return newErrors;
+      });
+    }
+  };
+
+  const handleFileChange = (name: string) => (file: File | null) => {
+    setFiles(prev => ({ ...prev, [name]: file }));
+
+    if (errors[name]) {
+      setErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors[name];
+        return newErrors;
+      });
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const formErrors = validateForm({ ...formState, ...files }, validationRules);
+    setErrors(formErrors);
+
+    if (!hasErrors(formErrors)) {
+      await onSave(formState, files);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-gray-800/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="p-6">
+          <div className="flex justify-between items-center mb-6">
+            <h3 className="text-xl font-bold text-gray-900">Edit Application</h3>
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+
+          {application.rejectionReason && (
+            <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-6">
+              <div className="flex">
+                <div className="flex-shrink-0">
+                  <svg className="h-5 w-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                 </div>
-                <h4 className="text-lg font-semibold mb-2">Enter Verification Code</h4>
-                <p className="text-gray-600 text-sm mb-2">
-                  We&apos;ve sent a 6-digit code to your {verificationMethod}:
-                </p>
-                <p className="text-sm font-medium text-blue-600">
-                  {verificationMethod === 'email' ? email : phone}
-                </p>
-              </div>
-
-              <div className="space-y-4">
-                <div className="flex justify-center space-x-2">
-                  {otp.map((digit, index) => (
-                    <input
-                      key={index}
-                      id={`otp-${index}`}
-                      type="text"
-                      maxLength={1}
-                      value={digit}
-                      onChange={(e) => handleOtpChange(index, e.target.value)}
-                      onKeyDown={(e) => handleKeyDown(index, e)}
-                      className="w-12 h-12 text-center text-lg font-bold border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-colors"
-                    />
-                  ))}
-                </div>
-
-                <div className="text-center">
-                  <div className="text-sm text-gray-600 mb-3">
-                    Code expires in: <span className="font-mono font-medium text-red-600">{formatTime(timeLeft)}</span>
+                <div className="ml-3">
+                  <h3 className="text-sm font-medium text-red-800">Rejection Reason</h3>
+                  <div className="mt-2 text-sm text-red-700">
+                    <p>{application.rejectionReason}</p>
                   </div>
-                  
-                  {timeLeft > 0 ? (
-                    <button
-                      onClick={handleResendOTP}
-                      className="text-sm text-blue-600 hover:text-blue-800 font-medium"
-                    >
-                      Resend Code
-                    </button>
-                  ) : (
-                    <div className="text-sm text-red-600">
-                      Code expired. Please close and try again.
-                    </div>
-                  )}
                 </div>
-
-                <Button
-                  onClick={handleVerifyOTP}
-                  disabled={otp.join('').length !== 6 || isLoading || timeLeft === 0}
-                  className="w-full"
-                >
-                  {isLoading ? 'Verifying...' : 'Verify Code'}
-                </Button>
-              </div>
-
-              <div className="bg-gray-50 p-3 rounded-lg">
-                <p className="text-xs text-gray-600 text-center">
-                  <strong>For testing:</strong> Use OTP <span className="font-mono bg-gray-200 px-1 rounded">123456</span>
-                </p>
               </div>
             </div>
           )}
+
+          <form onSubmit={handleSubmit}>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <Input
+                label="Full Name"
+                name="fullName"
+                value={formState.fullName || ''}
+                onChange={handleInputChange}
+                error={errors.fullName}
+                required
+              />
+
+              <Input
+                label="Email Address"
+                type="email"
+                name="email"
+                value={formState.email || ''}
+                onChange={handleInputChange}
+                error={errors.email}
+                required
+              />
+
+              <Input
+                label="Phone Number"
+                name="phoneNumber"
+                value={formState.phoneNumber || ''}
+                onChange={handleInputChange}
+                error={errors.phoneNumber}
+                required
+              />
+
+              <Input
+                label="Date of Birth"
+                type="date"
+                name="dateOfBirth"
+                value={formState.dateOfBirth || ''}
+                onChange={handleInputChange}
+                error={errors.dateOfBirth}
+                required
+              />
+
+              <Input
+                label="Address"
+                name="address"
+                value={formState.address || ''}
+                onChange={handleInputChange}
+                error={errors.address}
+                required
+              />
+
+              <div>
+                <label className="block text-sm font-medium mb-1">
+                  Insurance Category <span className="text-red-500">*</span>
+                </label>
+                <select
+                  name="insuranceCategory"
+                  value={formState.insuranceCategory || ''}
+                  onChange={handleInputChange}
+                  className="w-full py-2 px-3 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none"
+                  required
+                >
+                  <option value="Car Insurance">Car Insurance</option>
+                  <option value="Motorbike Insurance">Motorbike Insurance</option>
+                  <option value="Building Insurance">Building Insurance</option>
+                  <option value="Travel Insurance">Travel Insurance</option>
+                  <option value="Health Insurance">Health Insurance</option>
+                  <option value="Fire Insurance Coverage">Fire Insurance Coverage</option>
+                </select>
+                {errors.insuranceCategory && (
+                  <p className="mt-1 text-sm text-red-600">{errors.insuranceCategory}</p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">
+                  Insurance Type <span className="text-red-500">*</span>
+                </label>
+                <select
+                  name="insuranceType"
+                  value={formState.insuranceType || ''}
+                  onChange={handleInputChange}
+                  className="w-full py-2 px-3 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none"
+                  required
+                >
+                  <option value="Comprehensive Insurance (covers everything)">Comprehensive Insurance</option>
+                  <option value="Third Party Insurance (covers partial)">Third Party Insurance</option>
+                </select>
+                {errors.insuranceType && (
+                  <p className="mt-1 text-sm text-red-600">{errors.insuranceType}</p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">
+                  Insurance Duration <span className="text-red-500">*</span>
+                </label>
+                <select
+                  name="insuranceDuration"
+                  value={formState.insuranceDuration || ''}
+                  onChange={handleInputChange}
+                  className="w-full py-2 px-3 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none"
+                  required
+                >
+                  <option value="1 Month">1 Month</option>
+                  <option value="6 Months">6 Months</option>
+                  <option value="12 Months">12 Months</option>
+                </select>
+                {errors.insuranceDuration && (
+                  <p className="mt-1 text-sm text-red-600">{errors.insuranceDuration}</p>
+                )}
+              </div>
+            </div>
+
+            <div className="mt-6">
+              <h3 className="text-lg font-semibold mb-4">Documents</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <FileInput
+                  label="National ID Card"
+                  name="nationalID"
+                  onChange={handleFileChange('nationalID')}
+                  error={errors.nationalID}
+                  required
+                  accept="image/*,.pdf"
+                />
+
+                <FileInput
+                  label="Yellow Card"
+                  name="yellowCard"
+                  onChange={handleFileChange('yellowCard')}
+                  error={errors.yellowCard}
+                  required
+                  accept="image/*,.pdf"
+                />
+
+                <FileInput
+                  label="Past Insurance Certificate (Optional)"
+                  name="pastInsuranceCertificate"
+                  onChange={handleFileChange('pastInsuranceCertificate')}
+                  accept="image/*,.pdf"
+                />
+
+                <FileInput
+                  label="Proof of Payment"
+                  name="proofOfPayment"
+                  onChange={handleFileChange('proofOfPayment')}
+                  error={errors.proofOfPayment}
+                  required
+                  accept="image/*,.pdf"
+                />
+              </div>
+            </div>
+
+            <div className="mt-8 flex justify-end space-x-3">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={onClose}
+                disabled={isLoading}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={isLoading}
+              >
+                {isLoading ? 'Saving...' : 'Save Changes'}
+              </Button>
+            </div>
+          </form>
         </div>
       </div>
     </div>
@@ -257,158 +445,138 @@ export default function TrackApplicationPage() {
   const [applicationId, setApplicationId] = useState('');
   const [application, setApplication] = useState<Application | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [paymentProof, setPaymentProof] = useState<File | null>(null);
   const [showOtpModal, setShowOtpModal] = useState(false);
-  const [tempApplication, setTempApplication] = useState<Application | null>(null);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [tempApplication, setTempApplication] = useState<Pick<Application, 'email'> | null>(null);
+  const [viewingDocument, setViewingDocument] = useState<{
+  name: string;
+  path: string;
+} | null>(null);
 
-  // Mock function to simulate initial application lookup (without details)
-  const lookupApplication = async (id: string) => {
-    setIsLoading(true);
-    try {
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Mock data - just basic info for OTP verification
-      const mockApplications: Record<string, Pick<Application, 'id' | 'email' | 'phone'>> = {
-        '001': {
-          id: '001',
-          email: 'john@example.com',
-          phone: '+250782123456',
-        },
-        '002': {
-          id: '002',
-          email: 'jane@example.com',
-          phone: '+250782123457',
-        },
-        '003': {
-          id: '003',
-          email: 'robert@example.com',
-          phone: '+250782123458',
-        },
-      };
+const handleViewDocument = (name: string, path: string) => {
+  setViewingDocument({ name, path });
+};
 
-      const foundApp = mockApplications[id];
-      if (foundApp) {
-        setTempApplication({
-          ...foundApp,
-          fullName: '',
-          insuranceType: '',
-          status: '',
-          dateSubmitted: '',
-          documents: { nationalId: '', yellowCard: '' }
-        });
-        setShowOtpModal(true);
-      } else {
-        showToast('No application found with that ID', 'error');
-      }
-    } catch (error) {
-      console.log(error);
-      showToast('Error fetching application', 'error');
-    } finally {
-      setIsLoading(false);
-    }
-  };
+// Fixed lookupApplication function
+const lookupApplication = async (id: string) => {
+  setIsLoading(true);
+  try {
+    const formData = new URLSearchParams();
+    formData.append('applicationNumber', id);
 
-  // Function to fetch full application details after OTP verification
-  const fetchFullApplication = async (id: string) => {
-    try {
-      // Full mock data
-      const mockApplications: Record<string, Application> = {
-        '001': {
-          id: '001',
-          fullName: 'John Doe',
-          email: 'john@example.com',
-          phone: '+250782123456',
-          insuranceType: 'car',
-          status: 'invoice_sent',
-          dateSubmitted: '2025-05-01',
-          documents: {
-            nationalId: 'ID_001.pdf',
-            yellowCard: 'YC_001.pdf',
-          },
-          payment: {
-            invoiceId: 'INV_001',
-            amount: '50,000 RWF',
-          },
-        },
-        '002': {
-          id: '002',
-          fullName: 'Jane Smith',
-          email: 'jane@example.com',
-          phone: '+250782123457',
-          insuranceType: 'motorbike',
-          status: 'payment_verified',
-          dateSubmitted: '2025-05-02',
-          documents: {
-            nationalId: 'ID_002.pdf',
-            yellowCard: 'YC_002.pdf',
-            additionalDocument: 'ADD_002.pdf',
-          },
-          payment: {
-            invoiceId: 'INV_002',
-            amount: '25,000 RWF',
-            proof: 'PAY_002.pdf',
-            date: '2025-05-03',
-          },
-        },
-        '003': {
-          id: '003',
-          fullName: 'Robert Katz',
-          email: 'robert@example.com',
-          phone: '+250782123458',
-          insuranceType: 'building',
-          status: 'insurance_issued',
-          dateSubmitted: '2025-05-03',
-          documents: {
-            nationalId: 'ID_003.pdf',
-            yellowCard: 'YC_003.pdf',
-          },
-          payment: {
-            invoiceId: 'INV_003',
-            amount: '120,000 RWF',
-            proof: 'PAY_003.pdf',
-            date: '2025-05-04',
-          },
-          insuranceId: 'INS_001',
-        },
-      };
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/trackApplication`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: formData,
+    });
 
-      return mockApplications[id];
-    } catch (error) {
-      console.log(error);
-      throw error;
-    }
-  };
-
-  const handleOtpVerification = async (otp: string) => {
-    setIsLoading(true);
+    const data = await response.json();
     
-    try {
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      // Check if OTP is correct (for testing, valid OTP is 123456)
-      if (otp === '123456') {
-        // Fetch full application details
-        const fullApp = await fetchFullApplication(applicationId);
-        if (fullApp) {
-          setApplication(fullApp);
-          setShowOtpModal(false);
-          setTempApplication(null);
-          showToast('Identity verified successfully!', 'success');
-        } else {
-          showToast('Error fetching application details', 'error');
-        }
-      } else {
-        showToast('Invalid OTP. Please try again.', 'error');
+    if (!response.ok) {
+      // Handle error responses
+      if (response.status === 404 || data.message?.includes('not found')) {
+        throw new Error('Application not found. Please check your application number and try again.');
       }
-    } catch (error) {
-      console.log(error);
-      showToast('Error verifying OTP', 'error');
-    } finally {
-      setIsLoading(false);
+      throw new Error(data.message || 'Failed to verify application. Please try again.');
     }
-  };
+    
+    // Check if OTP is required (successful response with OTP message)
+    if (data.message && data.message.includes('OTP sent to your email')) {
+      setTempApplication({
+        email: data.email || 'your email'
+      });
+      setShowOtpModal(true);
+      showToast(`OTP sent to your email: ${data.email || 'your registered email'}`, 'success');
+    } else if (data.data) {
+      // Direct application data (if no OTP required)
+      setApplication(data.data);
+      showToast('Application loaded successfully!', 'success');
+    } else {
+      showToast('Unexpected response from server', 'error');
+    }
+  } catch (error) {
+    console.error('Lookup error:', error);
+    showToast(
+      error instanceof Error ? error.message : 'Application not found. Please check your application number and try again.',
+      'error'
+    );
+  } finally {
+    setIsLoading(false);
+  }
+};
+
+// Fixed handleOtpVerification function
+const handleOtpVerification = async (otp: string) => {
+  setIsLoading(true);
+  
+  try {
+    const formData = new URLSearchParams();
+    formData.append('otp', otp);
+    formData.append('applicationNumber', applicationId);
+
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/verifyOtp`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: formData,
+    });
+
+    const data = await response.json();
+    // console.log('OTP verification response:', data);
+
+    if (!response.ok) {
+      // Handle error responses
+      if (response.status === 400) {
+        if (data.message?.includes('expired') || data.message?.includes('Expired')) {
+          throw new Error('OTP expired. Please request a new one.');
+        } else if (data.message?.includes('invalid') || data.message?.includes('Invalid')) {
+          throw new Error('Invalid OTP. Please try again.');
+        }
+      }
+      throw new Error(data.message || 'Failed to verify OTP');
+    }
+
+    // Success case - check if we have application data
+    if (data.data) {
+      setApplication(data.data);
+      setShowOtpModal(false);
+      showToast('Identity verified successfully!', 'success');
+    } else if (data.message && data.message.includes('success')) {
+      // If success message but no data, might need to fetch application again
+      setShowOtpModal(false);
+      showToast('OTP verified successfully!', 'success');
+      // Optionally refetch application data here
+    } else {
+      throw new Error('Verification successful but no application data received');
+    }
+  } catch (error) {
+    console.error('OTP verification error:', error);
+    let errorMessage = 'Error verifying OTP';
+    
+    if (error instanceof Error) {
+      if (error.message.includes('expired')) {
+        errorMessage = 'OTP expired. Please enter your application number again to get a new OTP.';
+        // Close OTP modal and reset form
+        setShowOtpModal(false);
+        setApplicationId('');
+        setTempApplication(null);
+      } else if (error.message.includes('invalid')) {
+        errorMessage = 'Invalid OTP. Please check and try again.';
+      } else {
+        errorMessage = error.message;
+      }
+    }
+    
+    showToast(errorMessage, 'error');
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   const handleCloseModal = () => {
     setShowOtpModal(false);
@@ -416,114 +584,73 @@ export default function TrackApplicationPage() {
     setApplicationId('');
   };
 
-  const handleSubmitPayment = () => {
-    if (!paymentProof) {
-      showToast('Please upload payment proof', 'error');
-      return;
+const handleUpdateApplication = async (updatedData: Partial<Application>, files: Record<string, File | null>) => {
+  setIsLoading(true);
+  try {
+    const formData = new FormData();
+    
+    // Append updated fields
+    Object.entries(updatedData).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) {
+        formData.append(key, value as string | Blob);
+      }
+    });
+
+    // Append files
+    Object.entries(files).forEach(([key, file]) => {
+      if (file) {
+        formData.append(key, file);
+      }
+    });
+
+    if (application) {
+      formData.append('applicationId', application._id);
     }
 
-    setIsLoading(true);
-    // Simulate API call
-    setTimeout(() => {
-      if (application) {
-        setApplication({
-          ...application,
-          status: 'payment_submitted',
-          payment: {
-            ...application.payment,
-            proof: paymentProof.name,
-            date: new Date().toISOString().split('T')[0],
-          },
-        });
-        showToast('Payment proof submitted successfully!', 'success');
-        setPaymentProof(null);
-      }
-      setIsLoading(false);
-    }, 1500);
-  };
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/updateApplication`, {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Failed to update application');
+    }
+
+    const { data } = await response.json();
+    setApplication(data);
+    setShowEditModal(false);
+    showToast('Application updated successfully!', 'success');
+  } catch (error) {
+    console.error(error);
+    showToast(error instanceof Error ? error.message : 'Error updating application', 'error');
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case 'pending':
+      case 'PENDING':
         return <span className="px-2 py-1 rounded-full bg-blue-100 text-blue-700 text-xs font-medium">Pending Review</span>;
-      case 'approved':
+      case 'APPROVED':
         return <span className="px-2 py-1 rounded-full bg-green-100 text-green-700 text-xs font-medium">Approved</span>;
-      case 'invoice_sent':
-        return <span className="px-2 py-1 rounded-full bg-indigo-100 text-indigo-700 text-xs font-medium">Invoice Sent</span>;
-      case 'payment_submitted':
-        return <span className="px-2 py-1 rounded-full bg-purple-100 text-purple-700 text-xs font-medium">Payment Submitted</span>;
-      case 'payment_verified':
-        return <span className="px-2 py-1 rounded-full bg-green-100 text-green-700 text-xs font-medium">Payment Verified</span>;
-      case 'insurance_issued':
-        return <span className="px-2 py-1 rounded-full bg-emerald-100 text-emerald-700 text-xs font-medium">Insurance Issued</span>;
-      case 'rejected':
+      case 'REJECTED':
         return <span className="px-2 py-1 rounded-full bg-red-100 text-red-700 text-xs font-medium">Rejected</span>;
+      case 'COMPLETED':
+        return <span className="px-2 py-1 rounded-full bg-emerald-100 text-emerald-700 text-xs font-medium">Completed</span>;
       default:
-        return <span className="px-2 py-1 rounded-full bg-gray-100 text-gray-700 text-xs font-medium">Unknown</span>;
+        return <span className="px-2 py-1 rounded-full bg-gray-100 text-gray-700 text-xs font-medium">{status}</span>;
     }
   };
 
-  const getStatusActions = (status: string) => {
-    switch (status) {
-      case 'invoice_sent':
-        return (
-          <div className="mt-6 bg-blue-50 p-4 rounded-lg">
-            <h4 className="font-medium text-[var(--main-blue)] mb-2">Payment Required</h4>
-            <p className="text-sm text-gray-600 mb-4">
-              Please submit proof of payment to proceed with your application.
-            </p>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-1">Upload Payment Proof</label>
-                <input
-                  type="file"
-                  onChange={(e) => setPaymentProof(e.target.files?.[0] || null)}
-                  className="block w-full text-sm text-gray-500
-                    file:mr-4 file:py-2 file:px-4
-                    file:rounded-md file:border-0
-                    file:text-sm file:font-semibold
-                    file:bg-[var(--main-blue)] file:text-white
-                    hover:file:bg-[var(--secondary-blue)]
-                  "
-                />
-                {paymentProof && (
-                  <p className="mt-2 text-sm text-gray-600">Selected: {paymentProof.name}</p>
-                )}
-              </div>
-              <Button
-                onClick={handleSubmitPayment}
-                disabled={!paymentProof || isLoading}
-                className="w-full"
-              >
-                {isLoading ? 'Submitting...' : 'Submit Payment Proof'}
-              </Button>
-            </div>
-          </div>
-        );
-      case 'payment_submitted':
-        return (
-          <div className="mt-6 bg-purple-50 p-4 rounded-lg">
-            <h4 className="font-medium text-purple-700 mb-2">Payment Under Review</h4>
-            <p className="text-sm text-gray-600">
-              Your payment proof has been submitted and is being reviewed. You&apos;ll be notified once verified.
-            </p>
-          </div>
-        );
-      case 'insurance_issued':
-        return (
-          <div className="mt-6 bg-green-50 p-4 rounded-lg">
-            <h4 className="font-medium text-green-700 mb-2">Insurance Issued</h4>
-            <p className="text-sm text-gray-600 mb-4">
-              Your insurance certificate has been issued. You can download it below.
-            </p>
-            <Button variant="secondary" className="w-full">
-              Download Insurance Certificate
-            </Button>
-          </div>
-        );
-      default:
-        return null;
-    }
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
   };
 
   return (
@@ -544,7 +671,7 @@ export default function TrackApplicationPage() {
                 <Input
                   label="Application ID"
                   name="applicationId"
-                  placeholder="Enter your application ID (e.g., 001)"
+                  placeholder="Enter your application ID (e.g., APP-17487********-****)"
                   value={applicationId}
                   onChange={(e) => setApplicationId(e.target.value)}
                 />
@@ -566,11 +693,20 @@ export default function TrackApplicationPage() {
               <div className="p-6 md:p-8">
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
                   <div>
-                    <h2 className="text-2xl font-bold text-gray-900">Application #{application.id}</h2>
-                    <p className="text-gray-600">Submitted on {application.dateSubmitted}</p>
+                    <h2 className="text-2xl font-bold text-gray-900">Application #{application.applicationNumber}</h2>
+                    <p className="text-gray-600">Submitted on {formatDate(application.submittedAt)}</p>
                   </div>
-                  <div className="mt-4 md:mt-0">
+                  <div className="mt-4 md:mt-0 flex items-center gap-3">
                     {getStatusBadge(application.status)}
+                    {(application.status === 'REJECTED' || application.status === 'PENDING') && (
+                      <Button
+                        onClick={() => setShowEditModal(true)}
+                        variant="outline"
+                        size="sm"
+                      >
+                        Edit Application
+                      </Button>
+                    )}
                   </div>
                 </div>
 
@@ -580,103 +716,147 @@ export default function TrackApplicationPage() {
                     <div className="space-y-2">
                       <div>
                         <p className="text-sm text-gray-500">Full Name</p>
-                        <p className="font-medium">{application.fullName}</p>
+                        <p className="font-medium">{application.fullName || 'Unknown'}</p>
                       </div>
                       <div>
                         <p className="text-sm text-gray-500">Email</p>
-                        <p className="font-medium">{application.email}</p>
+                        <p className="font-medium">{application.email || 'Unknown'}</p>
                       </div>
                       <div>
                         <p className="text-sm text-gray-500">Phone</p>
-                        <p className="font-medium">{application.phone}</p>
+                        <p className="font-medium">{application.phoneNumber || 'Unknown'}</p>
                       </div>
                       <div>
-                        <p className="text-sm text-gray-500">Insurance Type</p>
-                        <p className="font-medium capitalize">{application.insuranceType.replace('_', ' ')}</p>
+                        <p className="text-sm text-gray-500">Date of Birth</p>
+                        <p className="font-medium">{application.dateOfBirth ? formatDate(application.dateOfBirth) : 'Unknown'}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-500">Address</p>
+                        <p className="font-medium">{application.address || 'Unknown'}</p>
                       </div>
                     </div>
                   </div>
 
                   <div className="bg-gray-50 p-4 rounded-lg">
-                    <h3 className="font-medium text-gray-900 mb-3">Documents</h3>
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between bg-white p-3 rounded border">
-                        <div>
-                          <p className="text-sm font-medium">National ID</p>
-                          <p className="text-xs text-gray-500">{application.documents.nationalId}</p>
-                        </div>
-                        <Button variant="text" size="sm">
-                          View
-                        </Button>
+                    <h3 className="font-medium text-gray-900 mb-3">Insurance Details</h3>
+                    <div className="space-y-2">
+                      <div>
+                        <p className="text-sm text-gray-500">Insurance Category</p>
+                        <p className="font-medium">{application.insuranceCategory || 'Unknown'}</p>
                       </div>
-                      <div className="flex items-center justify-between bg-white p-3 rounded border">
-                        <div>
-                          <p className="text-sm font-medium">Yellow Card</p>
-                          <p className="text-xs text-gray-500">{application.documents.yellowCard}</p>
-                        </div>
-                        <Button variant="text" size="sm">
-                          View
-                        </Button>
+                      <div>
+                        <p className="text-sm text-gray-500">Insurance Type</p>
+                        <p className="font-medium">{application.insuranceType || 'Unknown'}</p>
                       </div>
-                      {application.documents.additionalDocument && (
-                        <div className="flex items-center justify-between bg-white p-3 rounded border">
-                          <div>
-                            <p className="text-sm font-medium">Additional Document</p>
-                            <p className="text-xs text-gray-500">{application.documents.additionalDocument}</p>
-                          </div>
-                          <Button variant="text" size="sm">
-                            View
-                          </Button>
-                        </div>
-                      )}
+                      <div>
+                        <p className="text-sm text-gray-500">Duration</p>
+                        <p className="font-medium">{application.insuranceDuration || 'Unknown'}</p>
+                      </div>
                     </div>
                   </div>
                 </div>
 
-                {application.payment && (
-                  <div className="bg-gray-50 p-4 rounded-lg mb-6">
-                    <h3 className="font-medium text-gray-900 mb-3">Payment Information</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="bg-gray-50 p-4 rounded-lg mb-6">
+                  <h3 className="font-medium text-gray-900 mb-3">Documents</h3>
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between bg-white p-3 rounded border">
                       <div>
-                        <p className="text-sm text-gray-500">Invoice ID</p>
-                        <p className="font-medium">{application.payment.invoiceId}</p>
+                        <p className="text-sm font-medium">National ID</p>
+                        <p className="text-xs text-gray-500">National ID document</p>
                       </div>
-                      <div>
-                        <p className="text-sm text-gray-500">Amount</p>
-                        <p className="font-medium">{application.payment.amount}</p>
-                      </div>
-                      {application.payment.proof && (
-                        <div>
-                          <p className="text-sm text-gray-500">Payment Proof</p>
-                          <p className="font-medium">{application.payment.proof}</p>
-                        </div>
-                      )}
-                      {application.payment.date && (
-                        <div>
-                          <p className="text-sm text-gray-500">Payment Date</p>
-                          <p className="font-medium">{application.payment.date}</p>
-                        </div>
-                      )}
+                    {application.nationalID ? (
+  <Button 
+    variant="text" 
+    size="sm"
+    onClick={() => handleViewDocument('National ID', application.nationalID)}
+  >
+    View
+  </Button>
+) : (
+  <span className="text-sm text-gray-500">Not provided</span>
+)}
                     </div>
+                    <div className="flex items-center justify-between bg-white p-3 rounded border">
+                      <div>
+                        <p className="text-sm font-medium">Yellow Card</p>
+                        <p className="text-xs text-gray-500">Yellow card document</p>
+                      </div>
+              {application.yellowCard ? (
+  <Button 
+    variant="text" 
+    size="sm"
+    onClick={() => handleViewDocument('Yellow Card', application.yellowCard)}
+  >
+    View
+  </Button>
+) : (
+  <span className="text-sm text-gray-500">Not provided</span>
+)}
+
+                    </div>
+                    <div className="flex items-center justify-between bg-white p-3 rounded border">
+                      <div>
+                        <p className="text-sm font-medium">Past Insurance Certificate</p>
+                        <p className="text-xs text-gray-500">Previous insurance document</p>
+                      </div>
+                     {application.pastInsuranceCertificate ? (
+  <Button 
+    variant="text" 
+    size="sm"
+    onClick={() => handleViewDocument('Past Insurance Certificate', application.pastInsuranceCertificate || '/File_not_found.jpg')}
+  >
+    View
+  </Button>
+) : (
+  <span className="text-sm text-gray-500">Not provided</span>
+)}
+                    </div>
+                    {application.proofOfPayment && (
+                      <div className="flex items-center justify-between bg-white p-3 rounded border">
+                        <div>
+                          <p className="text-sm font-medium">Proof of Payment</p>
+                          <p className="text-xs text-gray-500">Payment receipt</p>
+                        </div>
+                       {application.proofOfPayment && (
+  <Button 
+    variant="text" 
+    size="sm"
+    onClick={() => handleViewDocument('Proof of Payment', application.proofOfPayment || '/File_not_found.jpg')}
+  >
+    View
+  </Button>
+)}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {application.status === 'PENDING' && (
+                  <div className="mt-6 bg-blue-50 p-4 rounded-lg">
+                    <h4 className="font-medium text-blue-700 mb-2">Application Under Review</h4>
+                    <p className="text-sm text-gray-600">
+                      Your application is currently being reviewed. You&apos;ll be notified once a decision has been made.
+                    </p>
                   </div>
                 )}
 
-                {application.insuranceId && (
-                  <div className="bg-green-50 p-4 rounded-lg mb-6">
-                    <h3 className="font-medium text-green-700 mb-3">Insurance Certificate</h3>
-                    <div className="flex flex-col md:flex-row md:items-center justify-between">
-                      <div>
-                        <p className="text-sm text-gray-600">Your insurance certificate has been issued.</p>
-                        <p className="text-sm font-medium mt-1">Certificate ID: {application.insuranceId}</p>
+                {application.status === 'REJECTED' && application.rejectionReason && (
+                  <div className="mt-6 bg-red-50 border-l-4 border-red-500 p-4 rounded-lg">
+                    <div className="flex">
+                      <div className="flex-shrink-0">
+                        <svg className="h-5 w-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
                       </div>
-                      <Button variant="secondary" className="mt-4 md:mt-0">
-                        Download Certificate
-                      </Button>
+                      <div className="ml-3">
+                        <h3 className="text-sm font-medium text-red-800">Rejection Reason</h3>
+                        <div className="mt-2 text-sm text-red-700">
+                          <p>{application.rejectionReason}</p>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 )}
-
-                {getStatusActions(application.status)}
               </div>
             </div>
           )}
@@ -688,11 +868,30 @@ export default function TrackApplicationPage() {
         onClose={handleCloseModal}
         onVerify={handleOtpVerification}
         email={tempApplication?.email || ''}
-        phone={tempApplication?.phone || ''}
         isLoading={isLoading}
       />
 
+      {application && (
+        <EditApplicationModal
+          isOpen={showEditModal}
+          onClose={() => setShowEditModal(false)}
+          application={application}
+          onSave={handleUpdateApplication}
+          isLoading={isLoading}
+        />
+      )}
+
+      {viewingDocument && (
+  <DocumentViewer
+    documentName={viewingDocument.name}
+    documentPath={viewingDocument.path}
+    onClose={() => setViewingDocument(null)}
+  />
+)}
+
       <ToastContainer />
+
+      
     </MainLayout>
   );
 }

@@ -20,13 +20,13 @@ export default function ApplyPage() {
   const [formState, setFormState] = useState({
     fullName: '',
     email: '',
-    phone: '',
+    phoneNumber: '', // Changed from 'phone' to match API
     address: '',
     dateOfBirth: '',
     insuranceCategory: 'car',
     insuranceType: 'comprehensive',
     insuranceDuration: '12',
-    nationalId: null as File | null,
+    nationalID: null as File | null, // Changed from 'nationalId' to match API
     yellowCard: null as File | null,
     pastInsuranceCertificate: null as File | null,
   });
@@ -37,13 +37,13 @@ export default function ApplyPage() {
   const validationRules: ValidationRules = {
     fullName: { required: true, minLength: 3, maxLength: 50 },
     email: { required: true, pattern: validationPatterns.email },
-    phone: { required: true, pattern: validationPatterns.phone },
+    phoneNumber: { required: true, pattern: validationPatterns.phone }, // Updated field name
     address: { required: true, minLength: 5, maxLength: 100 },
     dateOfBirth: { required: true },
     insuranceCategory: { required: true },
     insuranceType: { required: true },
     insuranceDuration: { required: true },
-    nationalId: { required: true },
+    nationalID: { required: true }, // Updated field name
     yellowCard: { required: true },
   };
 
@@ -76,7 +76,37 @@ export default function ApplyPage() {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const formatInsuranceDuration = (duration: string) => {
+    switch (duration) {
+      case '1': return '1 Month';
+      case '3': return '3 Months';
+      case '6': return '6 Months';
+      case '12': return '12 Months';
+      default: return '12 Months';
+    }
+  };
+
+  const formatInsuranceType = (type: string) => {
+    switch (type) {
+      case 'comprehensive': return 'Comprehensive Insurance (covers everything)';
+      case 'thirdParty': return 'Third Party Insurance (covers partial)';
+      default: return 'Comprehensive Insurance (covers everything)';
+    }
+  };
+
+  const formatInsuranceCategory = (category: string) => {
+    switch (category) {
+      case 'car': return 'Car Insurance';
+      case 'motorbike': return 'Motorbike Insurance';
+      case 'building': return 'Building Insurance';
+      case 'travel': return 'Travel Insurance';
+      case 'health': return 'Health Insurance';
+      case 'fire': return 'Fire Insurance Coverage';
+      default: return 'Car Insurance';
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     // Validate form
@@ -86,31 +116,74 @@ export default function ApplyPage() {
     if (!hasErrors(formErrors)) {
       setIsSubmitting(true);
 
-      // Simulate API call
-      setTimeout(() => {
-        console.log('Form submitted:', formState);
+      try {
+        const formData = new FormData();
+        
+        // Append basic information
+        formData.append('fullName', formState.fullName);
+        formData.append('email', formState.email);
+        formData.append('phoneNumber', formState.phoneNumber);
+        formData.append('address', formState.address);
+        formData.append('dateOfBirth', formState.dateOfBirth);
+        formData.append('insuranceCategory', formatInsuranceCategory(formState.insuranceCategory));
+        formData.append('insuranceType', formatInsuranceType(formState.insuranceType));
+        formData.append('insuranceDuration', formatInsuranceDuration(formState.insuranceDuration));
+        
+        // Append files
+        if (formState.nationalID) {
+          formData.append('nationalID', formState.nationalID);
+        }
+        if (formState.yellowCard) {
+          formData.append('yellowCard', formState.yellowCard);
+        }
+        if (formState.pastInsuranceCertificate) {
+          formData.append('pastInsuranceCertificate', formState.pastInsuranceCertificate);
+        }
+
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/apply`, {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          console.error('Submission error:', errorData);
+          throw new Error(errorData.message || 'Application submission failed');
+        }
+
+        const data = await response.json();
+        
         showToast(
-          'Application submitted successfully! We will review your information and get back to you soon.',
+          `Application submitted successfully! Your application number is ${data.data.applicationNumber}.`,
           'success'
         );
-        setIsSubmitting(false);
 
         // Reset form after successful submission
         setFormState({
           fullName: '',
           email: '',
-          phone: '',
+          phoneNumber: '',
           address: '',
           dateOfBirth: '',
           insuranceCategory: 'car',
           insuranceType: 'comprehensive',
           insuranceDuration: '12',
-          nationalId: null,
+          nationalID: null,
           yellowCard: null,
           pastInsuranceCertificate: null,
         });
         setFormKey(Date.now());
-      }, 1500);
+
+      } catch (error: unknown) {
+        console.error('Application error:', error);
+        const errorMessage =
+          error instanceof Error
+            ? error.message
+            : 'Failed to submit application. Please try again.';
+        showToast(errorMessage, 'error');
+      } finally {
+        setIsSubmitting(false);
+      }
     } else {
       showToast('Please correct the errors in the form.', 'error');
     }
@@ -180,11 +253,11 @@ export default function ApplyPage() {
 
                 <Input
                   label="Phone Number"
-                  name="phone"
-                  placeholder="+250 782 123 456"
-                  value={formState.phone}
+                  name="phoneNumber" // Updated field name
+                  placeholder="0781234567"
+                  value={formState.phoneNumber}
                   onChange={handleInputChange}
-                  error={errors.phone}
+                  error={errors.phoneNumber}
                   required
                   icon={
                     <svg
@@ -313,11 +386,11 @@ export default function ApplyPage() {
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <FileInput
-                    key={`nationalId-${formKey}`}
+                    key={`nationalID-${formKey}`}
                     label="National ID Card"
-                    name="nationalId"
-                    onChange={handleFileChange('nationalId')}
-                    error={errors.nationalId}
+                    name="nationalID"
+                    onChange={handleFileChange('nationalID')}
+                    error={errors.nationalID}
                     required
                     accept="image/*,.pdf"
                   />
