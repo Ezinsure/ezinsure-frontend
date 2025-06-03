@@ -97,7 +97,7 @@ export default function ApplyPage() {
   const formatInsuranceCategory = (category: string) => {
     switch (category) {
       case 'car': return 'Car Insurance';
-      case 'motorbike': return 'Motorbike Insurance';
+      case 'motorbike': return 'MotorBike Insurance';
       case 'building': return 'Building Insurance';
       case 'travel': return 'Travel Insurance';
       case 'health': return 'Health Insurance';
@@ -148,7 +148,7 @@ export default function ApplyPage() {
         if (!response.ok) {
           const errorData = await response.json();
           console.error('Submission error:', errorData);
-          throw new Error(errorData.message || 'Application submission failed');
+          throw new Error(errorData.error || 'Application submission failed');
         }
 
         const data = await response.json();
@@ -313,7 +313,7 @@ export default function ApplyPage() {
                     required
                   >
                     <option value="car">Car Insurance</option>
-                    <option value="motorbike">Motorbike Insurance</option>
+                    <option value="motorbike">MotorBike Insurance</option>
                     <option value="building">Building Insurance</option>
                     <option value="travel">Travel Insurance</option>
                     <option value="health">Health Insurance</option>

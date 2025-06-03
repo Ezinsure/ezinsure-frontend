@@ -98,8 +98,13 @@ const fetchUsers = async () => {
     if (!response.ok) {
       throw new Error('Failed to fetch users');
     }
-    const data = await response.json();
-    setUsers(data.data);
+
+const data = await response.json();
+// Sort by createdAt in descending order (newest first)
+const sortedUsers = data.data.sort((a: User, b: User) => {
+  return new Date(b.createdAt || '').getTime() - new Date(a.createdAt || '').getTime();
+});
+setUsers(sortedUsers);
   } catch (error) {
     console.error('Error fetching users:', error);
     showToast('Failed to load users', 'error');
@@ -577,9 +582,12 @@ const handleDeleteUser = async (userId: string) => {
                 <tbody className="divide-y divide-gray-200">
                   {paginatedUsers.map((user) => (
                     <tr key={user._id} className="hover:bg-gray-50">
-                      <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-[var(--main-blue)]">
+                      {/* <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-[var(--main-blue)]">
                         #{user._id}
-                      </td>
+                      </td> */}
+                      <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-[var(--main-blue)]">
+  #{(currentPage - 1) * itemsPerPage + paginatedUsers.indexOf(user) + 1}
+</td>
                       <td className="px-4 py-4 whitespace-nowrap">
                         <div className="text-sm font-medium text-gray-900">
                           {user.fullName}

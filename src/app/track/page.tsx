@@ -161,39 +161,58 @@ interface EditApplicationModalProps {
 }
 
 const EditApplicationModal = ({ isOpen, onClose, application, onSave, isLoading }: EditApplicationModalProps) => {
-  const [formState, setFormState] = useState<Partial<Application>>({
-    fullName: application?.fullName ?? '',
-    email: application?.email ?? '',
-    phoneNumber: application.phoneNumber,
-    address: application.address,
-    dateOfBirth: application.dateOfBirth,
-    insuranceCategory: application.insuranceCategory,
-    insuranceType: application.insuranceType,
-    insuranceDuration: application.insuranceDuration,
+  const isInvoiceSent = application.status === 'INVOICE_SENT';
+  // const isWaitingForUserAction = application.status === 'WAITING_FOR_USER_ACTION';
+
+  const [formState, setFormState] = useState<Partial<Application>>(() => {
+    if (isInvoiceSent) {
+      return {};
+    }
+    return {
+      fullName: application.fullName,
+      email: application.email,
+      phoneNumber: application.phoneNumber,
+      address: application.address,
+      dateOfBirth: application.dateOfBirth,
+      insuranceCategory: application.insuranceCategory,
+      insuranceType: application.insuranceType,
+      insuranceDuration: application.insuranceDuration,
+    };
   });
 
-  const [files, setFiles] = useState<Record<string, File | null>>({
-    nationalID: null,
-    yellowCard: null,
-    pastInsuranceCertificate: null,
-    proofOfPayment: null,
+  const [files, setFiles] = useState<Record<string, File | null>>(() => {
+    if (isInvoiceSent) {
+      return { 
+        proofOfPayment: null, 
+        nationalID: null, 
+        yellowCard: null, 
+        pastInsuranceCertificate: null 
+      };
+    }
+    return {
+      proofOfPayment: null,
+      nationalID: null,
+      yellowCard: null,
+      pastInsuranceCertificate: null,
+    };
   });
 
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
-  const validationRules: ValidationRules = {
-    fullName: { required: true, minLength: 3, maxLength: 50 },
-    email: { required: true, pattern: validationPatterns.email },
-    phoneNumber: { required: true, pattern: validationPatterns.phone },
-    address: { required: true, minLength: 5, maxLength: 100 },
-    dateOfBirth: { required: true },
-    insuranceCategory: { required: true },
-    insuranceType: { required: true },
-    insuranceDuration: { required: true },
-    nationalID: { required: true },
-    yellowCard: { required: true },
-    proofOfPayment: { required: true },
-  };
+  const validationRules: ValidationRules = isInvoiceSent 
+    ? { proofOfPayment: { required: true } }
+    : {
+        fullName: { required: true, minLength: 3, maxLength: 50 },
+        email: { required: true, pattern: validationPatterns.email },
+        phoneNumber: { required: true, pattern: validationPatterns.phone },
+        address: { required: true, minLength: 5, maxLength: 100 },
+        dateOfBirth: { required: true },
+        insuranceCategory: { required: true },
+        insuranceType: { required: true },
+        insuranceDuration: { required: true },
+        nationalID: { required: true },
+        yellowCard: { required: true },
+      };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -222,11 +241,24 @@ const EditApplicationModal = ({ isOpen, onClose, application, onSave, isLoading 
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Check if any fields were changed
+    const isFormChanged = isInvoiceSent 
+      ? files.proofOfPayment !== null
+      : Object.keys(formState).some(
+          key => formState[key as keyof typeof formState] !== application[key as keyof Application]
+        ) || Object.values(files).some(file => file !== null);
+
+    if (!isFormChanged) {
+      onClose();
+      return;
+    }
+
     const formErrors = validateForm({ ...formState, ...files }, validationRules);
     setErrors(formErrors);
 
     if (!hasErrors(formErrors)) {
-      await onSave(formState, files);
+      await onSave(isInvoiceSent ? {} : formState, files);
     }
   };
 
@@ -237,7 +269,9 @@ const EditApplicationModal = ({ isOpen, onClose, application, onSave, isLoading 
       <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         <div className="p-6">
           <div className="flex justify-between items-center mb-6">
-            <h3 className="text-xl font-bold text-gray-900">Edit Application</h3>
+            <h3 className="text-xl font-bold text-gray-900">
+              {isInvoiceSent ? 'Upload Proof of Payment' : 'Edit Application'}
+            </h3>
             <button
               onClick={onClose}
               className="text-gray-400 hover:text-gray-600 transition-colors"
@@ -267,145 +301,8 @@ const EditApplicationModal = ({ isOpen, onClose, application, onSave, isLoading 
           )}
 
           <form onSubmit={handleSubmit}>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <Input
-                label="Full Name"
-                name="fullName"
-                value={formState.fullName || ''}
-                onChange={handleInputChange}
-                error={errors.fullName}
-                required
-              />
-
-              <Input
-                label="Email Address"
-                type="email"
-                name="email"
-                value={formState.email || ''}
-                onChange={handleInputChange}
-                error={errors.email}
-                required
-              />
-
-              <Input
-                label="Phone Number"
-                name="phoneNumber"
-                value={formState.phoneNumber || ''}
-                onChange={handleInputChange}
-                error={errors.phoneNumber}
-                required
-              />
-
-              <Input
-                label="Date of Birth"
-                type="date"
-                name="dateOfBirth"
-                value={formState.dateOfBirth || ''}
-                onChange={handleInputChange}
-                error={errors.dateOfBirth}
-                required
-              />
-
-              <Input
-                label="Address"
-                name="address"
-                value={formState.address || ''}
-                onChange={handleInputChange}
-                error={errors.address}
-                required
-              />
-
-              <div>
-                <label className="block text-sm font-medium mb-1">
-                  Insurance Category <span className="text-red-500">*</span>
-                </label>
-                <select
-                  name="insuranceCategory"
-                  value={formState.insuranceCategory || ''}
-                  onChange={handleInputChange}
-                  className="w-full py-2 px-3 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none"
-                  required
-                >
-                  <option value="Car Insurance">Car Insurance</option>
-                  <option value="Motorbike Insurance">Motorbike Insurance</option>
-                  <option value="Building Insurance">Building Insurance</option>
-                  <option value="Travel Insurance">Travel Insurance</option>
-                  <option value="Health Insurance">Health Insurance</option>
-                  <option value="Fire Insurance Coverage">Fire Insurance Coverage</option>
-                </select>
-                {errors.insuranceCategory && (
-                  <p className="mt-1 text-sm text-red-600">{errors.insuranceCategory}</p>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-1">
-                  Insurance Type <span className="text-red-500">*</span>
-                </label>
-                <select
-                  name="insuranceType"
-                  value={formState.insuranceType || ''}
-                  onChange={handleInputChange}
-                  className="w-full py-2 px-3 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none"
-                  required
-                >
-                  <option value="Comprehensive Insurance (covers everything)">Comprehensive Insurance</option>
-                  <option value="Third Party Insurance (covers partial)">Third Party Insurance</option>
-                </select>
-                {errors.insuranceType && (
-                  <p className="mt-1 text-sm text-red-600">{errors.insuranceType}</p>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-1">
-                  Insurance Duration <span className="text-red-500">*</span>
-                </label>
-                <select
-                  name="insuranceDuration"
-                  value={formState.insuranceDuration || ''}
-                  onChange={handleInputChange}
-                  className="w-full py-2 px-3 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none"
-                  required
-                >
-                  <option value="1 Month">1 Month</option>
-                  <option value="6 Months">6 Months</option>
-                  <option value="12 Months">12 Months</option>
-                </select>
-                {errors.insuranceDuration && (
-                  <p className="mt-1 text-sm text-red-600">{errors.insuranceDuration}</p>
-                )}
-              </div>
-            </div>
-
-            <div className="mt-6">
-              <h3 className="text-lg font-semibold mb-4">Documents</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <FileInput
-                  label="National ID Card"
-                  name="nationalID"
-                  onChange={handleFileChange('nationalID')}
-                  error={errors.nationalID}
-                  required
-                  accept="image/*,.pdf"
-                />
-
-                <FileInput
-                  label="Yellow Card"
-                  name="yellowCard"
-                  onChange={handleFileChange('yellowCard')}
-                  error={errors.yellowCard}
-                  required
-                  accept="image/*,.pdf"
-                />
-
-                <FileInput
-                  label="Past Insurance Certificate (Optional)"
-                  name="pastInsuranceCertificate"
-                  onChange={handleFileChange('pastInsuranceCertificate')}
-                  accept="image/*,.pdf"
-                />
-
+            {isInvoiceSent ? (
+              <div className="space-y-6">
                 <FileInput
                   label="Proof of Payment"
                   name="proofOfPayment"
@@ -413,9 +310,156 @@ const EditApplicationModal = ({ isOpen, onClose, application, onSave, isLoading 
                   error={errors.proofOfPayment}
                   required
                   accept="image/*,.pdf"
+                  currentFile={application.proofOfPayment?.split('/').pop()}
                 />
               </div>
-            </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <Input
+                    label="Full Name"
+                    name="fullName"
+                    value={formState.fullName || ''}
+                    onChange={handleInputChange}
+                    error={errors.fullName}
+                    required
+                  />
+
+                  <Input
+                    label="Email Address"
+                    type="email"
+                    name="email"
+                    value={formState.email || ''}
+                    onChange={handleInputChange}
+                    error={errors.email}
+                    required
+                  />
+
+                  <Input
+                    label="Phone Number"
+                    name="phoneNumber"
+                    value={formState.phoneNumber || ''}
+                    onChange={handleInputChange}
+                    error={errors.phoneNumber}
+                    required
+                  />
+
+                  <Input
+                    label="Date of Birth"
+                    type="date"
+                    name="dateOfBirth"
+                    value={formState.dateOfBirth || ''}
+                    onChange={handleInputChange}
+                    error={errors.dateOfBirth}
+                    required
+                  />
+
+                  <Input
+                    label="Address"
+                    name="address"
+                    value={formState.address || ''}
+                    onChange={handleInputChange}
+                    error={errors.address}
+                    required
+                  />
+
+                  <div>
+                    <label className="block text-sm font-medium mb-1">
+                      Insurance Category <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      name="insuranceCategory"
+                      value={formState.insuranceCategory || ''}
+                      onChange={handleInputChange}
+                      className="w-full py-2 px-3 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none"
+                      required
+                    >
+                      <option value="Car Insurance">Car Insurance</option>
+                      <option value="Motorbike Insurance">Motorbike Insurance</option>
+                      <option value="Building Insurance">Building Insurance</option>
+                      <option value="Travel Insurance">Travel Insurance</option>
+                      <option value="Health Insurance">Health Insurance</option>
+                      <option value="Fire Insurance Coverage">Fire Insurance Coverage</option>
+                    </select>
+                    {errors.insuranceCategory && (
+                      <p className="mt-1 text-sm text-red-600">{errors.insuranceCategory}</p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium mb-1">
+                      Insurance Type <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      name="insuranceType"
+                      value={formState.insuranceType || ''}
+                      onChange={handleInputChange}
+                      className="w-full py-2 px-3 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none"
+                      required
+                    >
+                      <option value="Comprehensive Insurance (covers everything)">Comprehensive Insurance</option>
+                      <option value="Third Party Insurance (covers partial)">Third Party Insurance</option>
+                    </select>
+                    {errors.insuranceType && (
+                      <p className="mt-1 text-sm text-red-600">{errors.insuranceType}</p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium mb-1">
+                      Insurance Duration <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      name="insuranceDuration"
+                      value={formState.insuranceDuration || ''}
+                      onChange={handleInputChange}
+                      className="w-full py-2 px-3 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none"
+                      required
+                    >
+                      <option value="1 Month">1 Month</option>
+                      <option value="6 Months">6 Months</option>
+                      <option value="12 Months">12 Months</option>
+                    </select>
+                    {errors.insuranceDuration && (
+                      <p className="mt-1 text-sm text-red-600">{errors.insuranceDuration}</p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="mt-6">
+                  <h3 className="text-lg font-semibold mb-4">Documents</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <FileInput
+                      label="National ID Card"
+                      name="nationalID"
+                      onChange={handleFileChange('nationalID')}
+                      error={errors.nationalID}
+                      required
+                      accept="image/*,.pdf"
+                      currentFile={application.nationalID?.split('/').pop()}
+                    />
+
+                    <FileInput
+                      label="Yellow Card"
+                      name="yellowCard"
+                      onChange={handleFileChange('yellowCard')}
+                      error={errors.yellowCard}
+                      required
+                      accept="image/*,.pdf"
+                      currentFile={application.yellowCard?.split('/').pop()}
+                    />
+
+                    <FileInput
+                      label="Past Insurance Certificate (Optional)"
+                      name="pastInsuranceCertificate"
+                      onChange={handleFileChange('pastInsuranceCertificate')}
+                      accept="image/*,.pdf"
+                      currentFile={application.pastInsuranceCertificate?.split('/').pop()}
+                    />
+                  </div>
+                </div>
+              </>
+            )}
 
             <div className="mt-8 flex justify-end space-x-3">
               <Button
@@ -631,14 +675,19 @@ const handleUpdateApplication = async (updatedData: Partial<Application>, files:
 
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case 'PENDING':
-        return <span className="px-2 py-1 rounded-full bg-blue-100 text-blue-700 text-xs font-medium">Pending Review</span>;
-      case 'APPROVED':
-        return <span className="px-2 py-1 rounded-full bg-green-100 text-green-700 text-xs font-medium">Approved</span>;
-      case 'REJECTED':
-        return <span className="px-2 py-1 rounded-full bg-red-100 text-red-700 text-xs font-medium">Rejected</span>;
-      case 'COMPLETED':
-        return <span className="px-2 py-1 rounded-full bg-emerald-100 text-emerald-700 text-xs font-medium">Completed</span>;
+
+      case 'APPLICATION_APPROVED':
+        return <span className="px-2 py-1 rounded-full bg-green-100 text-green-700 text-xs font-medium">Application Approved</span>;
+      case 'WAITING_FOR_USER_ACTION':
+        return <span className="px-2 py-1 rounded-full bg-orange-100 text-orange-700 text-xs font-medium">Waiting for User Action</span>;
+      case 'INVOICE_SENT':
+        return <span className="px-2 py-1 rounded-full bg-indigo-100 text-indigo-700 text-xs font-medium">Invoice Sent</span>;
+      case 'REVIEW_PAYMENT':
+        return <span className="px-2 py-1 rounded-full bg-purple-100 text-purple-700 text-xs font-medium">Review Payment</span>;
+      case 'PAYMENT_VERIFIED':
+        return <span className="px-2 py-1 rounded-full bg-green-100 text-green-700 text-xs font-medium">Payment Verified</span>;
+      case 'INSURANCE_ISSUED':
+        return <span className="px-2 py-1 rounded-full bg-emerald-100 text-emerald-700 text-xs font-medium">Insurance Issued</span>;
       default:
         return <span className="px-2 py-1 rounded-full bg-gray-100 text-gray-700 text-xs font-medium">{status}</span>;
     }
@@ -698,15 +747,15 @@ const handleUpdateApplication = async (updatedData: Partial<Application>, files:
                   </div>
                   <div className="mt-4 md:mt-0 flex items-center gap-3">
                     {getStatusBadge(application.status)}
-                    {(application.status === 'REJECTED' || application.status === 'PENDING') && (
-                      <Button
-                        onClick={() => setShowEditModal(true)}
-                        variant="outline"
-                        size="sm"
-                      >
-                        Edit Application
-                      </Button>
-                    )}
+{(application.status === 'WAITING_FOR_USER_ACTION' || application.status === 'INVOICE_SENT') && (
+  <Button
+    onClick={() => setShowEditModal(true)}
+    variant="outline"
+    size="sm"
+  >
+    Edit Application
+  </Button>
+)}
                   </div>
                 </div>
 

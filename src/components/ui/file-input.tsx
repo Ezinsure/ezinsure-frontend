@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 
 interface FileInputProps {
   label: string;
@@ -10,6 +10,7 @@ interface FileInputProps {
   error?: string;
   required?: boolean;
   className?: string;
+  currentFile?: string; // Add this new prop
 }
 
 export const FileInput = ({
@@ -20,10 +21,18 @@ export const FileInput = ({
   error,
   required = false,
   className = '',
+  currentFile, // Destructure the new prop
 }: FileInputProps) => {
-  const [fileName, setFileName] = useState<string>('');
+  const [fileName, setFileName] = useState<string>(currentFile || '');
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Update fileName when currentFile changes
+  useEffect(() => {
+    if (currentFile) {
+      setFileName(currentFile);
+    }
+  }, [currentFile]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] || null;
@@ -31,7 +40,7 @@ export const FileInput = ({
       setFileName(file.name);
       onChange(file);
     } else {
-      setFileName('');
+      setFileName(currentFile || ''); // Revert to currentFile if available
       onChange(null);
     }
   };
@@ -67,6 +76,15 @@ export const FileInput = ({
     fileInputRef.current?.click();
   };
 
+  const handleClearFile = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setFileName('');
+    onChange(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
   return (
     <div className={`mb-4 ${className}`}>
       <label className="block text-sm font-medium mb-1" htmlFor={name}>
@@ -100,8 +118,20 @@ export const FileInput = ({
           {accept.replace('image/*', 'Images').replace('.pdf', ', PDF')}
         </p>
         {fileName && (
-          <div className="mt-2 text-sm text-[var(--main-blue)] font-medium">
-            Selected: {fileName}
+          <div className="mt-2 flex items-center justify-center gap-2">
+            <span className="text-sm text-[var(--main-blue)] font-medium">
+              {fileName.includes('/') ? fileName.split('/').pop() : fileName}
+            </span>
+            <button 
+              type="button"
+              onClick={handleClearFile}
+              className="text-gray-500 hover:text-red-500"
+              aria-label="Remove file"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
           </div>
         )}
       </div>

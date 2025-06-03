@@ -19,7 +19,6 @@ enum ApplicationStatus {
   INSURANCE_ISSUED = 'insurance_issued'
 }
 
-// Application interface based on the API response
 interface Application {
   _id: string;
   applicationNumber: string;
@@ -62,8 +61,7 @@ export default function ManageApplicationsPage() {
   const [invoiceFile, setInvoiceFile] = useState<File | null>(null);
   const [rejectionComment, setRejectionComment] = useState('');
   const [insuranceFile, setInsuranceFile] = useState<File | null>(null);
-  const [isSending, setIsSending] = useState(false);
-  const [isUpdating, setIsUpdating] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [viewingDocument, setViewingDocument] = useState<{
     name: string;
@@ -98,8 +96,10 @@ export default function ManageApplicationsPage() {
       }
     };
 
-    fetchApplications();
-  }, []);
+    if (token) {
+      fetchApplications();
+    }
+  }, [token]);
 
   // Filter applications based on search query and tab
   const filteredApplications = applications.filter(app => {
@@ -125,10 +125,10 @@ export default function ManageApplicationsPage() {
       return;
     }
 
-    setIsSending(true);
+    setIsProcessing(true);
     try {
       const formData = new FormData();
-      formData.append('paymentinstructions', invoiceMessage);
+      formData.append('paymentInstructions', invoiceMessage);
       if (invoiceFile) {
         formData.append('invoice', invoiceFile);
       }
@@ -145,14 +145,15 @@ export default function ManageApplicationsPage() {
       );
 
       if (!response.ok) {
-        throw new Error('Failed to send invoice');
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to send invoice');
       }
 
       const updatedApplications = applications.map(app => {
         if (app._id === selectedApp._id) {
           return {
             ...app,
-            status: 'invoice_sent'
+            status: ApplicationStatus.INVOICE_SENT
           };
         }
         return app;
@@ -165,9 +166,9 @@ export default function ManageApplicationsPage() {
       setSelectedApp(null);
     } catch (error) {
       console.error('Error sending invoice:', error);
-      showToast('Failed to send invoice', 'error');
+      showToast(error instanceof Error ? error.message : 'Failed to send invoice', 'error');
     } finally {
-      setIsSending(false);
+      setIsProcessing(false);
     }
   };
 
@@ -175,7 +176,7 @@ export default function ManageApplicationsPage() {
   const handleVerifyPayment = async () => {
     if (!selectedApp) return;
     
-    setIsUpdating(true);
+    setIsProcessing(true);
     try {
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_BASE_URL}/verifyPayment/${selectedApp._id}`,
@@ -189,14 +190,15 @@ export default function ManageApplicationsPage() {
       );
 
       if (!response.ok) {
-        throw new Error('Failed to verify payment');
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to verify payment');
       }
 
       const updatedApplications = applications.map(app => {
         if (app._id === selectedApp._id) {
           return {
             ...app,
-            status: 'payment_verified'
+            status: ApplicationStatus.PAYMENT_VERIFIED
           };
         }
         return app;
@@ -207,41 +209,46 @@ export default function ManageApplicationsPage() {
       setSelectedApp(null);
     } catch (error) {
       console.error('Error verifying payment:', error);
-      showToast('Failed to verify payment', 'error');
+      showToast(error instanceof Error ? error.message : 'Failed to verify payment', 'error');
     } finally {
-      setIsUpdating(false);
+      setIsProcessing(false);
     }
   };
 
-  // Reject application
-  const handleRejectApplication = async () => {
-    if (!selectedApp || !rejectionComment) return;
+  // Reject application or payment
+  const handleReject = async (action: 'application' | 'payment') => {
+    if (!selectedApp || !rejectionComment) {
+      showToast('Please enter rejection reason', 'error');
+      return;
+    }
     
-    setIsUpdating(true);
+    setIsProcessing(true);
     try {
-      const formData = new FormData();
-      formData.append('reason', rejectionComment);
-
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_BASE_URL}/rejectApplication/${selectedApp._id}`,
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/sendApplicationForAction/${selectedApp._id}`,
         {
           method: 'PUT',
           headers: {
+            'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`
           },
-          body: formData
+          body: JSON.stringify({
+            action: 'reject',
+            reason: rejectionComment
+          })
         }
       );
 
       if (!response.ok) {
-        throw new Error('Failed to reject application');
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to reject');
       }
 
       const updatedApplications = applications.map(app => {
         if (app._id === selectedApp._id) {
           return {
             ...app,
-            status: 'waiting_for_user_action',
+            status: ApplicationStatus.WAITING_FOR_USER_ACTION,
             rejectionReason: rejectionComment
           };
         }
@@ -249,22 +256,30 @@ export default function ManageApplicationsPage() {
       });
       
       setApplications(updatedApplications);
-      showToast(`Application from ${selectedApp.fullName} rejected`, 'error');
+      showToast(
+        action === 'application' 
+          ? `Application from ${selectedApp.fullName} rejected` 
+          : `Payment from ${selectedApp.fullName} rejected`, 
+        'error'
+      );
       setRejectionComment('');
       setSelectedApp(null);
     } catch (error) {
-      console.error('Error rejecting application:', error);
-      showToast('Failed to reject application', 'error');
+      console.error('Error rejecting:', error);
+      showToast(error instanceof Error ? error.message : 'Failed to reject', 'error');
     } finally {
-      setIsUpdating(false);
+      setIsProcessing(false);
     }
   };
 
   // Issue insurance to client
   const handleIssueInsurance = async () => {
-    if (!selectedApp || !insuranceFile) return;
+    if (!selectedApp || !insuranceFile) {
+      showToast('Please upload insurance certificate', 'error');
+      return;
+    }
     
-    setIsUpdating(true);
+    setIsProcessing(true);
     try {
       const formData = new FormData();
       formData.append('InsuranceCertificate', insuranceFile);
@@ -281,14 +296,15 @@ export default function ManageApplicationsPage() {
       );
 
       if (!response.ok) {
-        throw new Error('Failed to issue insurance');
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to issue insurance');
       }
 
       const updatedApplications = applications.map(app => {
         if (app._id === selectedApp._id) {
           return {
             ...app,
-            status: 'insurance_issued'
+            status: ApplicationStatus.INSURANCE_ISSUED
           };
         }
         return app;
@@ -300,9 +316,9 @@ export default function ManageApplicationsPage() {
       setSelectedApp(null);
     } catch (error) {
       console.error('Error issuing insurance:', error);
-      showToast('Failed to issue insurance', 'error');
+      showToast(error instanceof Error ? error.message : 'Failed to issue insurance', 'error');
     } finally {
-      setIsUpdating(false);
+      setIsProcessing(false);
     }
   };
 
@@ -310,7 +326,7 @@ export default function ManageApplicationsPage() {
   const handleApproveApplication = async () => {
     if (!selectedApp) return;
     
-    setIsUpdating(true);
+    setIsProcessing(true);
     try {
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_BASE_URL}/approveApplication/${selectedApp._id}`,
@@ -324,14 +340,15 @@ export default function ManageApplicationsPage() {
       );
 
       if (!response.ok) {
-        throw new Error('Failed to approve application');
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to approve application');
       }
 
       const updatedApplications = applications.map(app => {
         if (app._id === selectedApp._id) {
           return {
             ...app,
-            status: 'application_approved'
+            status: ApplicationStatus.APPLICATION_APPROVED
           };
         }
         return app;
@@ -342,9 +359,9 @@ export default function ManageApplicationsPage() {
       setSelectedApp(null);
     } catch (error) {
       console.error('Error approving application:', error);
-      showToast('Failed to approve application', 'error');
+      showToast(error instanceof Error ? error.message : 'Failed to approve application', 'error');
     } finally {
-      setIsUpdating(false);
+      setIsProcessing(false);
     }
   };
 
@@ -796,19 +813,21 @@ export default function ManageApplicationsPage() {
             </div>
             
             <div className="flex justify-end gap-2 mt-6">
-              <Button variant="text" onClick={() => setSelectedApp(null)}>Cancel</Button>
+              <Button variant="text" onClick={() => setSelectedApp(null)} disabled={isProcessing}>
+                Cancel
+              </Button>
               <Button 
                 variant="danger" 
-                onClick={handleRejectApplication}
-                disabled={!rejectionComment || isUpdating}
+                onClick={() => handleReject('application')}
+                disabled={!rejectionComment || isProcessing}
               >
-                {isUpdating ? 'Rejecting...' : 'Reject Application'}
+                {isProcessing ? 'Processing...' : 'Reject Application'}
               </Button>
               <Button 
                 onClick={handleApproveApplication}
-                disabled={isUpdating}
+                disabled={rejectionComment.length > 0 || isProcessing}
               >
-                {isUpdating ? 'Approving...' : 'Approve Application'}
+                {isProcessing ? 'Processing...' : 'Approve Application'}
               </Button>
             </div>
           </div>
@@ -861,9 +880,11 @@ export default function ManageApplicationsPage() {
             </div>
             
             <div className="flex justify-end gap-2 mt-6">
-              <Button variant="text" onClick={() => setSelectedApp(null)}>Cancel</Button>
-              <Button onClick={handleSendInvoice} disabled={isSending || !invoiceMessage}>
-                {isSending ? 'Sending...' : 'Send Invoice'}
+              <Button variant="text" onClick={() => setSelectedApp(null)} disabled={isProcessing}>
+                Cancel
+              </Button>
+              <Button onClick={handleSendInvoice} disabled={isProcessing || !invoiceMessage}>
+                {isProcessing ? 'Sending...' : 'Send Invoice'}
               </Button>
             </div>
           </div>
@@ -913,12 +934,12 @@ export default function ManageApplicationsPage() {
                   setRejectionComment('');
                   setSelectedApp({...selectedApp, status: ApplicationStatus.WAITING_FOR_USER_ACTION});
                 }}
-                disabled={isUpdating}
+                disabled={isProcessing}
               >
                 Reject Payment
               </Button>
-              <Button onClick={handleVerifyPayment} disabled={isUpdating}>
-                {isUpdating ? 'Verifying...' : 'Verify Payment'}
+              <Button onClick={handleVerifyPayment} disabled={isProcessing}>
+                {isProcessing ? 'Verifying...' : 'Verify Payment'}
               </Button>
             </div>
           </div>
@@ -976,15 +997,16 @@ export default function ManageApplicationsPage() {
               <Button 
                 variant="text" 
                 onClick={() => setSelectedApp({...selectedApp, status: ApplicationStatus.REVIEW_PAYMENT})}
+                disabled={isProcessing}
               >
                 Back
               </Button>
               <Button 
                 variant="danger" 
-                onClick={handleRejectApplication} 
-                disabled={!rejectionComment || isUpdating}
+                onClick={() => handleReject('payment')} 
+                disabled={!rejectionComment || isProcessing}
               >
-                {isUpdating ? 'Rejecting...' : 'Confirm Rejection'}
+                {isProcessing ? 'Processing...' : 'Confirm Rejection'}
               </Button>
             </div>
           </div>
@@ -1045,9 +1067,11 @@ export default function ManageApplicationsPage() {
             </div>
             
             <div className="flex justify-end gap-2 mt-6">
-              <Button variant="text" onClick={() => setSelectedApp(null)}>Cancel</Button>
-              <Button onClick={handleIssueInsurance} disabled={!insuranceFile || isUpdating}>
-                {isUpdating ? 'Issuing...' : 'Issue Insurance Certificate'}
+              <Button variant="text" onClick={() => setSelectedApp(null)} disabled={isProcessing}>
+                Cancel
+              </Button>
+              <Button onClick={handleIssueInsurance} disabled={!insuranceFile || isProcessing}>
+                {isProcessing ? 'Issuing...' : 'Issue Insurance Certificate'}
               </Button>
             </div>
           </div>

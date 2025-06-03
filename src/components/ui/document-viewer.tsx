@@ -1,7 +1,7 @@
 'use client';
 
 import { Button } from './button';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 interface DocumentViewerProps {
   documentName: string;
@@ -17,22 +17,63 @@ export const DocumentViewer = ({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [isImage, setIsImage] = useState(false);
+  const [isPdf, setIsPdf] = useState(false);
+  const [useEmbedFallback, setUseEmbedFallback] = useState(false);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const loadingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
-    // Check if the document is an image
-    const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif'];
-    setIsImage(imageExtensions.some(ext => documentPath.toLowerCase().endsWith(ext)));
+    // Check file type
+    const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg'];
+    const pdfExtensions = ['.pdf'];
+    
+    const isImg = imageExtensions.some(ext => documentPath.toLowerCase().endsWith(ext));
+    const isPdfFile = pdfExtensions.some(ext => documentPath.toLowerCase().endsWith(ext));
+    
+    setIsImage(isImg);
+    setIsPdf(isPdfFile);
     setLoading(true);
     setError(false);
+    setUseEmbedFallback(false);
+
+    // Set a timeout for loading - if it takes too long, consider it failed
+    if (loadingTimeoutRef.current) {
+      clearTimeout(loadingTimeoutRef.current);
+    }
+    
+    loadingTimeoutRef.current = setTimeout(() => {
+      if (loading && isPdfFile) {
+        setUseEmbedFallback(true);
+        setLoading(false);
+      }
+    }, 5000); // 5 second timeout
+
+    return () => {
+      if (loadingTimeoutRef.current) {
+        clearTimeout(loadingTimeoutRef.current);
+      }
+    };
   }, [documentPath]);
 
   const handleLoad = () => {
     setLoading(false);
+    if (loadingTimeoutRef.current) {
+      clearTimeout(loadingTimeoutRef.current);
+    }
   };
 
   const handleError = () => {
     setError(true);
     setLoading(false);
+    if (loadingTimeoutRef.current) {
+      clearTimeout(loadingTimeoutRef.current);
+    }
+    
+    // For PDFs, try the embed fallback
+    if (isPdf && !useEmbedFallback) {
+      setUseEmbedFallback(true);
+      setError(false);
+    }
   };
 
   const handleDownload = async () => {
@@ -72,6 +113,68 @@ export const DocumentViewer = ({
     }
   };
 
+  const openInNewTab = () => {
+    window.open(documentPath, '_blank');
+  };
+
+  const renderPdfViewer = () => {
+    if (error && !useEmbedFallback) {
+      return (
+        <div className="h-full flex flex-col items-center justify-center">
+          <svg className="w-16 h-16 text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+          <p className="text-gray-600 mb-4">Could not load PDF document</p>
+          <div className="flex gap-2">
+            <Button onClick={openInNewTab} variant="outline">
+              Open in New Tab
+            </Button>
+            <Button onClick={handleDownload}>
+              Download PDF
+            </Button>
+          </div>
+        </div>
+      );
+    }
+
+    if (useEmbedFallback) {
+      return (
+        <div className="h-full flex flex-col">
+          <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3 mb-4">
+            <p className="text-sm text-yellow-800">
+              PDF preview may not be available in this browser. You can download the file or open it in a new tab.
+            </p>
+          </div>
+          <embed
+            src={documentPath}
+            type="application/pdf"
+            className="flex-1 w-full"
+            onLoad={handleLoad}
+          />
+          <div className="mt-4 flex justify-center gap-2">
+            <Button onClick={openInNewTab} variant="outline">
+              Open in New Tab
+            </Button>
+            <Button onClick={handleDownload}>
+              Download PDF
+            </Button>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <iframe 
+        ref={iframeRef}
+        src={documentPath}
+        className={`w-full h-full ${loading ? 'hidden' : 'block'}`}
+        title={documentName}
+        onLoad={handleLoad}
+        onError={handleError}
+      />
+    );
+  };
+
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60]">
       <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-4xl mx-4 h-[90vh] flex flex-col">
@@ -101,17 +204,18 @@ export const DocumentViewer = ({
         <div className="flex-1 border rounded-lg overflow-hidden relative">
           {loading && (
             <div className="absolute inset-0 flex items-center justify-center">
-              <p>Loading document...</p>
+              <div className="flex flex-col items-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mb-2"></div>
+                <p>Loading document...</p>
+              </div>
             </div>
           )}
           
-          {error ? (
+          {error && !isPdf ? (
             <div className="h-full flex flex-col items-center justify-center">
-              <img 
-                src="/File_not_found.pdf" 
-                alt="File not found" 
-                className="max-h-48"
-              />
+              <svg className="w-16 h-16 text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
               <p className="mt-4">Could not load document</p>
             </div>
           ) : isImage ? (
@@ -122,6 +226,8 @@ export const DocumentViewer = ({
               onLoad={handleLoad}
               onError={handleError}
             />
+          ) : isPdf ? (
+            renderPdfViewer()
           ) : (
             <iframe 
               src={documentPath}
@@ -133,14 +239,30 @@ export const DocumentViewer = ({
           )}
         </div>
         
-        <div className="mt-4 flex justify-end gap-2">
-          <Button variant="text" onClick={onClose}>
-            Close
-          </Button>
-          <Button onClick={handleDownload}>
-            Download
-          </Button>
-        </div>
+        {!isPdf && (
+          <div className="mt-4 flex justify-end gap-2">
+            <Button variant="text" onClick={onClose}>
+              Close
+            </Button>
+            <Button onClick={handleDownload}>
+              Download
+            </Button>
+          </div>
+        )}
+        
+        {isPdf && !useEmbedFallback && !error && (
+          <div className="mt-4 flex justify-end gap-2">
+            <Button variant="text" onClick={onClose}>
+              Close
+            </Button>
+            <Button variant="outline" onClick={openInNewTab}>
+              Open in New Tab
+            </Button>
+            <Button onClick={handleDownload}>
+              Download
+            </Button>
+          </div>
+        )}
       </div>
     </div>
   );
