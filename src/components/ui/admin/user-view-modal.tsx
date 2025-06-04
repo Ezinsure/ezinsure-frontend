@@ -23,6 +23,14 @@ interface User {
   rejectionReason?: string;
   agentCode?: string;
   commissionRate?: string;
+  deactivationReason?: string;
+  deactivationFile?: string;
+  deactivationHistory?: Array<{
+    deactivationReason: string;
+    deactivationFile?: string;
+    _id: string;
+    deactivationDate: string;
+  }>;
 }
 
 interface UserViewModalProps {
@@ -32,6 +40,47 @@ interface UserViewModalProps {
   isLoading: boolean;
   setViewingDocument: (doc: { name: string; path: string } | null) => void;
 }
+
+const DeactivationHistory = ({ history }: { history: User['deactivationHistory'] }) => {
+  if (!history || history.length === 0) return null;
+
+  return (
+    <div className="mt-6">
+      <h3 className="font-medium text-lg mb-3">Deactivation History</h3>
+      <div className="space-y-4">
+        {history.map((entry, index) => (
+          <div key={entry._id} className="border-l-4 border-red-500 pl-4 py-2 bg-red-50 rounded-r-md">
+            <div className="flex justify-between items-start">
+              <div>
+                <p className="font-medium text-red-800">Deactivation #{index + 1}</p>
+                <p className="text-sm text-gray-600">
+                  {new Date(entry.deactivationDate).toLocaleDateString('en-US', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  })}
+                </p>
+              </div>
+              {entry.deactivationFile && (
+                <Button
+                  variant="text"
+                  size="sm"
+                  onClick={() => window.open(entry.deactivationFile, '_blank')}
+                  className="text-red-600 hover:text-red-800"
+                >
+                  View Document
+                </Button>
+              )}
+            </div>
+            <p className="mt-2 text-red-700">{entry.deactivationReason}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
 
 export const UserViewModal = ({ 
   user, 
@@ -244,6 +293,14 @@ export const UserViewModal = ({
             <p className="text-sm text-red-600">{user.rejectionReason}</p>
           </div>
         )}
+
+
+{/* Always show is a user was ever deactivated */}
+  {/* {user.status === 'DEACTIVATED' && ( */}
+    <>
+      <DeactivationHistory history={user.deactivationHistory} />
+    </>
+  {/* )} */}
 
       {user.status === 'PENDING' && (
           <div className="mt-6">

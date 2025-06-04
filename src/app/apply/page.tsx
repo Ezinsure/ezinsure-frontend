@@ -26,7 +26,7 @@ export default function ApplyPage() {
     insuranceCategory: 'car',
     insuranceType: 'comprehensive',
     insuranceDuration: '12',
-    nationalID: null as File | null, // Changed from 'nationalId' to match API
+    nationalID: null as File | null, 
     yellowCard: null as File | null,
     pastInsuranceCertificate: null as File | null,
   });
@@ -387,7 +387,7 @@ export default function ApplyPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <FileInput
                     key={`nationalID-${formKey}`}
-                    label="National ID Card"
+                    label="National ID Card / Passport"
                     name="nationalID"
                     onChange={handleFileChange('nationalID')}
                     error={errors.nationalID}

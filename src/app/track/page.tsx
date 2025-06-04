@@ -430,7 +430,7 @@ const EditApplicationModal = ({ isOpen, onClose, application, onSave, isLoading 
                   <h3 className="text-lg font-semibold mb-4">Documents</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <FileInput
-                      label="National ID Card"
+                      label="National ID Card / Passport"
                       name="nationalID"
                       onChange={handleFileChange('nationalID')}
                       error={errors.nationalID}
@@ -810,8 +810,8 @@ const handleUpdateApplication = async (updatedData: Partial<Application>, files:
                   <div className="space-y-3">
                     <div className="flex items-center justify-between bg-white p-3 rounded border">
                       <div>
-                        <p className="text-sm font-medium">National ID</p>
-                        <p className="text-xs text-gray-500">National ID document</p>
+                        <p className="text-sm font-medium">National ID / Passport</p>
+                        <p className="text-xs text-gray-500">National ID / Passport document</p>
                       </div>
                     {application.nationalID ? (
   <Button 

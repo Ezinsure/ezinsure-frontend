@@ -33,6 +33,14 @@ interface User {
   rejectionReason?: string;
   agentCode?: string;
   commissionRate?: string;
+  deactivationReason?: string;
+  deactivationFile?: string;
+  deactivationHistory?: Array<{
+    deactivationReason: string;
+    deactivationFile?: string;
+    _id: string;
+    deactivationDate: string;
+  }>;
 }
 
 interface PaginationProps {
@@ -40,6 +48,68 @@ interface PaginationProps {
   totalPages: number;
   onPageChange: (page: number) => void;
 }
+
+// Add this interface near your other interfaces
+interface DeactivationModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onConfirm: (reason: string, file: File | null) => void;
+  isLoading: boolean;
+}
+
+// Add this component near your other components (like Pagination)
+const DeactivationModal = ({ isOpen, onClose, onConfirm, isLoading }: DeactivationModalProps) => {
+  const [reason, setReason] = useState('');
+  const [file, setFile] = useState<File | null>(null);
+
+  const handleSubmit = () => {
+    onConfirm(reason, file);
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-gray-600/50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg p-6 w-full max-w-md">
+        <h2 className="text-xl font-bold mb-4">Confirm Deactivation</h2>
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Deactivation Reason <span className='text-red-700'>*</span>
+          </label>
+          <textarea
+            className="w-full border border-gray-300 rounded-md p-2"
+            rows={3}
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            required
+          />
+        </div>
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Attachment (Optional)
+          </label>
+          <input
+            type="file"
+            className="w-full border border-gray-300 rounded-md p-2"
+            onChange={(e) => setFile(e.target.files ? e.target.files[0] : null)}
+          />
+        </div>
+        <div className="flex justify-end gap-2">
+          <Button variant="outline" onClick={onClose} disabled={isLoading}>
+            Cancel
+          </Button>
+          <Button
+            variant="danger"
+            onClick={handleSubmit}
+            disabled={isLoading || !reason}
+          >
+            Confirm Deactivation
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 export default function AdminUsersPage() {
   const { showToast, ToastContainer } = useToast();
@@ -58,6 +128,8 @@ export default function AdminUsersPage() {
   const [roleFilter, setRoleFilter] = useState<'all' | 'ADMIN' | 'AGENT'>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | User['status']>('all');
   const { token } = useAuth();
+  const [isDeactivating, setIsDeactivating] = useState(false);
+const [userToDeactivate, setUserToDeactivate] = useState<string | null>(null);
   const itemsPerPage = 10;
   
 
@@ -226,7 +298,7 @@ const handleStatusChange = async (userId: string, status: User['status'], reason
         break;
       case 'SENT_FOR_ACTION':
         endpoint = `sendForAction/${userId}`;
-        body = { action: reason }; // Format the reason as 'action' for the backend
+        body = { rejectionReason: reason }; // Format the reason as 'action' for the backend
         break;
       case 'DEACTIVATED':
         endpoint = `deactivateAgentApplication/${userId}`;
@@ -271,39 +343,60 @@ const handleStatusChange = async (userId: string, status: User['status'], reason
 };
 
 const handleDeleteUser = async (userId: string) => {
-  if (confirm('Are you sure you want to deactivate this user?')) {
-    setIsLoading(true);
-    try {
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_BASE_URL}/deactivateAgentApplication/${userId}`,
-        {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
-          },
-        }
-      );
+  setUserToDeactivate(userId);
+  setIsDeactivating(true);
+};
 
-      if (!response.ok) {
-        throw new Error('Failed to deactivate user');
-      }
+const confirmDeactivation = async (reason: string, deactivationFile: File | null) => {
+  if (!userToDeactivate) return;
 
-      // Update the user status to DEACTIVATED in the local state
-      const updatedUsers = users.map((user) =>
-        user._id === userId ? { ...user, status: 'DEACTIVATED' as User['status'] } : user
-      );
-
-      setUsers(updatedUsers);
-      showToast('User deactivated successfully', 'success');
-    } catch (error) {
-      console.error('Error deactivating user:', error);
-      showToast('Failed to deactivate user', 'error');
-    } finally {
-      setIsLoading(false);
+  setIsLoading(true);
+  try {
+    const formData = new FormData();
+    formData.append('deactivationReason', reason);
+    if (deactivationFile) {
+      formData.append('deactivationFile', deactivationFile);
     }
+
+    const response = await fetch(
+      `${process.env.NEXT_PUBLIC_API_BASE_URL}/deactivateAgentApplication/${userToDeactivate}`,
+      {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+        body: formData,
+      }
+    );
+
+    console.log('Response from deactivation:', response);
+    if (!response.ok) {
+      throw new Error('Failed to deactivate user');
+    }
+
+    const updatedUsers = users.map((user) =>
+      user._id === userToDeactivate 
+        ? { 
+            ...user, 
+            status: 'DEACTIVATED',
+            deactivationReason: reason,
+            deactivationFile: deactivationFile ? URL.createObjectURL(deactivationFile) : undefined
+          } 
+        : user
+    );
+
+    setUsers(updatedUsers);
+    showToast('User deactivated successfully', 'success');
+  } catch (error) {
+    console.error('Error deactivating user:', error);
+    showToast('Failed to deactivate user', 'error');
+  } finally {
+    setIsLoading(false);
+    setIsDeactivating(false);
+    setUserToDeactivate(null);
   }
 };
+
 
   const handleEditUser = async (updatedUser: User) => {
     setIsLoading(true);
@@ -629,12 +722,12 @@ const handleDeleteUser = async (userId: string) => {
                                 Edit
                               </Button>
                               <Button
-                                size="sm"
-                                variant="danger"
-                                onClick={() => handleDeleteUser(user._id)}
-                              >
-                                Deactivate
-                              </Button>
+  size="sm"
+  variant="danger"
+  onClick={() => handleDeleteUser(user._id)}
+>
+  Deactivate
+</Button>
                             </>
                           )}
                           {(user.status === 'PENDING' || user.status === 'SENT_FOR_ACTION') && (
@@ -717,6 +810,13 @@ const handleDeleteUser = async (userId: string) => {
             onClose={() => setViewingDocument(null)}
           />
         )}
+
+        <DeactivationModal
+  isOpen={isDeactivating}
+  onClose={() => setIsDeactivating(false)}
+  onConfirm={confirmDeactivation}
+  isLoading={isLoading}
+/>
 
         <ToastContainer />
       </div>

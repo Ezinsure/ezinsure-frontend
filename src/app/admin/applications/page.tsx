@@ -234,7 +234,7 @@ export default function ManageApplicationsPage() {
           },
           body: JSON.stringify({
             action: 'reject',
-            reason: rejectionComment
+            rejectionReason: rejectionComment,
           })
         }
       );
@@ -769,11 +769,11 @@ export default function ManageApplicationsPage() {
                 <button 
                   className="bg-white p-3 rounded border text-left hover:bg-gray-50"
                   onClick={() => setViewingDocument({
-                    name: 'National ID',
+                    name: 'National ID / Passport',
                     path: selectedApp.nationalID
                   })}
                 >
-                  <p className="text-sm font-medium">National ID</p>
+                  <p className="text-sm font-medium">National ID / Passport</p>
                   <p className="text-xs text-gray-500">View Document</p>
                 </button>
                 <button 
@@ -1149,11 +1149,11 @@ export default function ManageApplicationsPage() {
                 <button 
                   className="bg-white p-3 rounded border text-left hover:bg-gray-50"
                   onClick={() => setViewingDocument({
-                    name: 'National ID',
+                    name: 'National ID / Passport',
                     path: selectedApp.nationalID
                   })}
                 >
-                  <p className="text-sm font-medium">National ID</p>
+                  <p className="text-sm font-medium">National ID / Passport</p>
                   <p className="text-xs text-gray-500">View Document</p>
                 </button>
                 <button 
