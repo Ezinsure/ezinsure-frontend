@@ -23,6 +23,8 @@ interface Application {
   insuranceCategory: string;
   insuranceType: string;
   insuranceDuration: string;
+  vehicleType?: string;  
+  vehicleAge?: string;   
   status: string;
   nationalID: string;
   yellowCard: string;
@@ -190,6 +192,8 @@ const EditApplicationModal = ({ isOpen, onClose, onSave, application, isLoading 
       insuranceCategory: application.insuranceCategory,
       insuranceType: application.insuranceType,
       insuranceDuration: application.insuranceDuration,
+      vehicleType: application.vehicleType,  
+      vehicleAge: application.vehicleAge, 
       province: application.province,
       district: application.district,
       sector: application.sector,
@@ -587,6 +591,58 @@ const EditApplicationModal = ({ isOpen, onClose, onSave, application, isLoading 
                       <p className="mt-1 text-sm text-red-600">{errors.insuranceDuration}</p>
                     )}
                   </div>
+{(formState.insuranceCategory === 'Car Insurance' || formState.insuranceCategory === 'Motorbike Insurance') && (
+  <>
+    <div>
+      <label className="block text-sm font-medium mb-1">
+        Vehicle Type <span className="text-red-500">*</span>
+      </label>
+      <select
+        name="vehicleType"
+        value={formState.vehicleType || ''}
+        onChange={handleInputChange}
+        className="w-full py-2 px-3 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none"
+      >
+        <option value="">Select Vehicle Type</option>
+        {formState.insuranceCategory === 'Car Insurance' ? (
+          <>
+            <option value="pickup">Pick Up</option>
+            <option value="taxi">Taxi</option>
+            <option value="truck">Truck</option>
+            <option value="sedan">Sedan</option>
+            <option value="suv">SUV</option>
+          </>
+        ) : (
+          <>
+            <option value="moped">Moped</option>
+            <option value="scooter">Scooter</option>
+            <option value="motorcycle">Motorcycle</option>
+          </>
+        )}
+      </select>
+      {errors.vehicleType && (
+        <p className="mt-1 text-sm text-red-600">{errors.vehicleType}</p>
+      )}
+    </div>
+    <div>
+      <label className="block text-sm font-medium mb-1">
+        Vehicle Year <span className="text-red-500">*</span>
+      </label>
+      <input
+        type="number"
+        name="vehicleAge"
+        min="1900"
+        max={new Date().getFullYear()}
+        value={formState.vehicleAge || ''}
+        onChange={handleInputChange}
+        className="w-full py-2 px-3 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none"
+      />
+      {errors.vehicleAge && (
+        <p className="mt-1 text-sm text-red-600">{errors.vehicleAge}</p>
+      )}
+    </div>
+  </>
+)}
                 </div>
 
                 <div className="mt-6">
@@ -956,29 +1012,46 @@ const handleEditSuccess = async (): Promise<void> => {
           </div>
         </div>
 
-        <div className="bg-gray-50 p-4 rounded-lg">
-          <h3 className="font-medium text-gray-900 mb-3">Insurance Details</h3>
-          <div className="space-y-2">
-            <div>
-              <p className="text-sm text-gray-500">Insurance Category</p>
-              <p className="font-medium">{application.insuranceCategory || 'Unknown'}</p>
-            </div>
-            <div>
-              <p className="text-sm text-gray-500">Insurance Type</p>
-              <p className="font-medium">{application.insuranceType || 'Unknown'}</p>
-            </div>
-            <div>
-              <p className="text-sm text-gray-500">Duration</p>
-              <p className="font-medium">{application.insuranceDuration || 'Unknown'}</p>
-            </div>
-            {application.amount && (
-              <div>
-                <p className="text-sm text-gray-500">Amount</p>
-                <p className="font-medium">{application.amount.toLocaleString()} RWF</p>
-              </div>
-            )}
+       <div className="bg-gray-50 p-4 rounded-lg">
+  <h3 className="font-medium text-gray-900 mb-3">Insurance Details</h3>
+  <div className="space-y-2">
+    <div>
+      <p className="text-sm text-gray-500">Insurance Category</p>
+      <p className="font-medium">{application.insuranceCategory || 'Unknown'}</p>
+    </div>
+    <div>
+      <p className="text-sm text-gray-500">Insurance Type</p>
+      <p className="font-medium">{application.insuranceType || 'Unknown'}</p>
+    </div>
+    <div>
+      <p className="text-sm text-gray-500">Duration</p>
+      <p className="font-medium">{application.insuranceDuration || 'Unknown'}</p>
+    </div>
+    {/* Add these new fields */}
+    {(application.insuranceCategory === 'Car Insurance' || application.insuranceCategory === 'MotorBike Insurance') && (
+      <>
+        {application.vehicleType && (
+          <div>
+            <p className="text-sm text-gray-500">Vehicle Type</p>
+            <p className="font-medium">{application.vehicleType}</p>
           </div>
-        </div>
+        )}
+        {application.vehicleAge && (
+          <div>
+            <p className="text-sm text-gray-500">Vehicle Year</p>
+            <p className="font-medium">{application.vehicleAge}</p>
+          </div>
+        )}
+      </>
+    )}
+    {application.amount && (
+      <div>
+        <p className="text-sm text-gray-500">Amount</p>
+        <p className="font-medium">{application.amount.toLocaleString()} RWF</p>
+      </div>
+    )}
+  </div>
+</div>
       </div>
 
       <div className="bg-gray-50 p-4 rounded-lg mb-6">

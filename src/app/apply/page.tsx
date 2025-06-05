@@ -12,20 +12,30 @@ import {
   validationPatterns,
   hasErrors,
 } from '@/components/ui/form-validation';
+import { rwandaProvinces } from '@/utils/rwanda-administrative';
 
 export default function ApplyPage() {
   const { showToast, ToastContainer } = useToast();
   const [formKey, setFormKey] = useState(Date.now());
 
+  // State for administrative divisions
+  const [availableDistricts, setAvailableDistricts] = useState<{name: string, sectors?: string[]}[]>([]);
+  const [availableSectors, setAvailableSectors] = useState<string[]>([]);
+
   const [formState, setFormState] = useState({
     fullName: '',
     email: '',
-    phoneNumber: '', // Changed from 'phone' to match API
+    phoneNumber: '',
     address: '',
     dateOfBirth: '',
+    province: '',
+    district: '',
+    sector: '',
     insuranceCategory: 'car',
     insuranceType: 'comprehensive',
     insuranceDuration: '12',
+    vehicleType: '',
+    vehicleAge: '',
     nationalID: null as File | null, 
     yellowCard: null as File | null,
     pastInsuranceCertificate: null as File | null,
@@ -37,20 +47,71 @@ export default function ApplyPage() {
   const validationRules: ValidationRules = {
     fullName: { required: true, minLength: 3, maxLength: 50 },
     email: { required: true, pattern: validationPatterns.email },
-    phoneNumber: { required: true, pattern: validationPatterns.phone }, // Updated field name
+    phoneNumber: { required: true, pattern: validationPatterns.phone },
     address: { required: true, minLength: 5, maxLength: 100 },
     dateOfBirth: { required: true },
+    province: { required: true },
+    district: { required: true },
+    sector: { required: true },
     insuranceCategory: { required: true },
     insuranceType: { required: true },
     insuranceDuration: { required: true },
-    nationalID: { required: true }, // Updated field name
+    vehicleType: { required: formState.insuranceCategory === 'car' || formState.insuranceCategory === 'motorbike' },
+    vehicleAge: { required: formState.insuranceCategory === 'car' || formState.insuranceCategory === 'motorbike' },
+    nationalID: { required: true },
     yellowCard: { required: true },
+  };
+
+  // Update districts when province changes
+  const handleProvinceChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setFormState(prev => ({ 
+      ...prev, 
+      [name]: value,
+      district: '',
+      sector: ''
+    }));
+
+    if (value) {
+      const selectedProvince = rwandaProvinces.find(p => p.name === value);
+      setAvailableDistricts(selectedProvince?.districts || []);
+    } else {
+      setAvailableDistricts([]);
+    }
+    setAvailableSectors([]);
+  };
+
+  // Update sectors when district changes
+  const handleDistrictChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setFormState(prev => ({ 
+      ...prev, 
+      [name]: value,
+      sector: ''
+    }));
+
+    if (value) {
+      const selectedDistrict = availableDistricts.find(d => d.name === value);
+      setAvailableSectors(selectedDistrict?.sectors || []);
+    } else {
+      setAvailableSectors([]);
+    }
   };
 
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
     const { name, value } = e.target;
+    
+    // Special handling for province and district changes
+    if (name === 'province') {
+      handleProvinceChange(e as React.ChangeEvent<HTMLSelectElement>);
+      return;
+    } else if (name === 'district') {
+      handleDistrictChange(e as React.ChangeEvent<HTMLSelectElement>);
+      return;
+    }
+    
     setFormState((prev) => ({ ...prev, [name]: value }));
 
     // Clear error when typing
@@ -125,9 +186,18 @@ export default function ApplyPage() {
         formData.append('phoneNumber', formState.phoneNumber);
         formData.append('address', formState.address);
         formData.append('dateOfBirth', formState.dateOfBirth);
+        formData.append('province', formState.province);
+        formData.append('district', formState.district);
+        formData.append('sector', formState.sector);
         formData.append('insuranceCategory', formatInsuranceCategory(formState.insuranceCategory));
         formData.append('insuranceType', formatInsuranceType(formState.insuranceType));
         formData.append('insuranceDuration', formatInsuranceDuration(formState.insuranceDuration));
+        
+        // Append vehicle details if applicable
+        if (formState.insuranceCategory === 'car' || formState.insuranceCategory === 'motorbike') {
+          formData.append('vehicleType', formState.vehicleType);
+          formData.append('vehicleAge', formState.vehicleAge);
+        }
         
         // Append files
         if (formState.nationalID) {
@@ -165,13 +235,20 @@ export default function ApplyPage() {
           phoneNumber: '',
           address: '',
           dateOfBirth: '',
+          province: '',
+          district: '',
+          sector: '',
           insuranceCategory: 'car',
           insuranceType: 'comprehensive',
           insuranceDuration: '12',
+          vehicleType: '',
+          vehicleAge: '',
           nationalID: null,
           yellowCard: null,
           pastInsuranceCertificate: null,
         });
+        setAvailableDistricts([]);
+        setAvailableSectors([]);
         setFormKey(Date.now());
 
       } catch (error: unknown) {
@@ -253,7 +330,7 @@ export default function ApplyPage() {
 
                 <Input
                   label="Phone Number"
-                  name="phoneNumber" // Updated field name
+                  name="phoneNumber"
                   placeholder="0781234567"
                   value={formState.phoneNumber}
                   onChange={handleInputChange}
@@ -296,6 +373,74 @@ export default function ApplyPage() {
                   required
                 />
 
+                {/* Province Select */}
+                <div>
+                  <label className="block text-sm font-medium mb-1">
+                    Province <span className="text-[var(--error-red)]">*</span>
+                  </label>
+                  <select
+                    name="province"
+                    value={formState.province}
+                    onChange={handleInputChange}
+                    className="w-full py-2 px-3 rounded-lg focus:outline-none border border-gray-300 focus:border-[var(--main-blue)]"
+                    required
+                  >
+                    <option value="">Select Province</option>
+                    {rwandaProvinces.map(province => (
+                      <option key={province.name} value={province.name}>{province.name}</option>
+                    ))}
+                  </select>
+                  {errors.province && (
+                    <p className="mt-1 text-sm text-[var(--error-red)]">{errors.province}</p>
+                  )}
+                </div>
+
+                {/* District Select */}
+                <div>
+                  <label className="block text-sm font-medium mb-1">
+                    District <span className="text-[var(--error-red)]">*</span>
+                  </label>
+                  <select
+                    name="district"
+                    value={formState.district}
+                    onChange={handleInputChange}
+                    disabled={!formState.province}
+                    className="w-full py-2 px-3 rounded-lg focus:outline-none border border-gray-300 focus:border-[var(--main-blue)] disabled:bg-gray-100 disabled:cursor-not-allowed"
+                    required
+                  >
+                    <option value="">Select District</option>
+                    {availableDistricts.map(district => (
+                      <option key={district.name} value={district.name}>{district.name}</option>
+                    ))}
+                  </select>
+                  {errors.district && (
+                    <p className="mt-1 text-sm text-[var(--error-red)]">{errors.district}</p>
+                  )}
+                </div>
+
+                {/* Sector Select */}
+                <div>
+                  <label className="block text-sm font-medium mb-1">
+                    Sector <span className="text-[var(--error-red)]">*</span>
+                  </label>
+                  <select
+                    name="sector"
+                    value={formState.sector}
+                    onChange={handleInputChange}
+                    disabled={!formState.district}
+                    className="w-full py-2 px-3 rounded-lg focus:outline-none border border-gray-300 focus:border-[var(--main-blue)] disabled:bg-gray-100 disabled:cursor-not-allowed"
+                    required
+                  >
+                    <option value="">Select Sector</option>
+                    {availableSectors.map(sector => (
+                      <option key={sector} value={sector}>{sector}</option>
+                    ))}
+                  </select>
+                  {errors.sector && (
+                    <p className="mt-1 text-sm text-[var(--error-red)]">{errors.sector}</p>
+                  )}
+                </div>
+
                 <div className="md:col-span-2">
                   <label
                     className="block text-sm font-medium mb-1"
@@ -325,6 +470,60 @@ export default function ApplyPage() {
                     </p>
                   )}
                 </div>
+
+                {/* Vehicle Type (only shown for car/motorbike insurance) */}
+                {(formState.insuranceCategory === 'car' || formState.insuranceCategory === 'motorbike') && (
+                  <div>
+                    <label className="block text-sm font-medium mb-1">
+                      Vehicle Type <span className="text-[var(--error-red)]">*</span>
+                    </label>
+                    <select
+                      name="vehicleType"
+                      value={formState.vehicleType}
+                      onChange={handleInputChange}
+                      className="w-full py-2 px-3 rounded-lg focus:outline-none border border-gray-300 focus:border-[var(--main-blue)]"
+                      required
+                    >
+                      <option value="">Select Vehicle Type</option>
+                      {formState.insuranceCategory === 'car' ? (
+                        <>
+                          <option value="pickup">Pick Up</option>
+                          <option value="taxi">Taxi</option>
+                          <option value="truck">Truck</option>
+                          <option value="sedan">Sedan</option>
+                          <option value="suv">SUV</option>
+                        </>
+                      ) : (
+                        <>
+                          <option value="moped">Moped</option>
+                          <option value="scooter">Scooter</option>
+                          <option value="motorcycle">Motorcycle</option>
+                        </>
+                      )}
+                    </select>
+                    {errors.vehicleType && (
+                      <p className="mt-1 text-sm text-[var(--error-red)]">{errors.vehicleType}</p>
+                    )}
+                  </div>
+                )}
+
+                {/* Vehicle Age (only shown for car/motorbike insurance) */}
+                {(formState.insuranceCategory === 'car' || formState.insuranceCategory === 'motorbike') && (
+                  <div>
+                    <Input
+                      label="Vehicle Age (Year of Manufacture)"
+                      type="number"
+                      name="vehicleAge"
+                      placeholder="e.g. 2015"
+                      min="1900"
+                      max={new Date().getFullYear().toString()}
+                      value={formState.vehicleAge}
+                      onChange={handleInputChange}
+                      error={errors.vehicleAge}
+                      required
+                    />
+                  </div>
+                )}
 
                 <div className="md:col-span-2">
                   <label
