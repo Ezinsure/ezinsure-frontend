@@ -1,6 +1,8 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ValidationRules, validateForm } from "@/components/ui/form-validation";
+import { AdministrativeDivision, rwandaProvinces } from '@/utils/rwanda-administrative';
+import { useEffect, useState } from "react";
 // import { useState } from "react";
 
 interface FormData {
@@ -9,6 +11,9 @@ interface FormData {
   phoneNumber: string;
   dateOfBirth: string;
   address: string;
+  province: string;
+  district: string;
+  sector: string;
   role: 'ADMIN' | 'AGENT';
   emergencyContact1Name: string;
   emergencyContact1PhoneNumber: string;
@@ -109,6 +114,8 @@ export const UserCreateModal = ({
   setFormData,
   setErrors
 }: UserCreateModalProps) => {
+  const [districts, setDistricts] = useState<AdministrativeDivision[]>([]);
+const [sectors, setSectors] = useState<string[]>([]);
   const validationRules: ValidationRules = {
     fullName: { required: true, minLength: 3 },
     email: { required: true, pattern: /^[^\s@]+@[^\s@]+\.[^\s@]+$/ },
@@ -206,6 +213,28 @@ export const UserCreateModal = ({
     }
   };
 
+  useEffect(() => {
+  if (formData.province) {
+    const selectedProvince = rwandaProvinces.find(p => p.name === formData.province);
+    setDistricts(selectedProvince?.districts || []);
+    setFormData(prev => ({ ...prev, district: '', sector: '' }));
+  } else {
+    setDistricts([]);
+    setFormData(prev => ({ ...prev, district: '', sector: '' }));
+  }
+}, [formData.province]);
+
+useEffect(() => {
+  if (formData.district) {
+    const selectedDistrict = districts.find(d => d.name === formData.district);
+    setSectors(selectedDistrict?.sectors || []);
+    setFormData(prev => ({ ...prev, sector: '' }));
+  } else {
+    setSectors([]);
+    setFormData(prev => ({ ...prev, sector: '' }));
+  }
+}, [formData.district, districts]);
+
   if (!isOpen) return null;
 
   return (
@@ -287,6 +316,56 @@ export const UserCreateModal = ({
               <p className="mt-2 text-sm text-red-600">{errors.address}</p>
             )}
           </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+  <div>
+    <label className="block text-sm font-medium text-gray-700 mb-1">Province *</label>
+    <select
+      className="w-full border border-gray-300 rounded-md p-2"
+      value={formData.province}
+      onChange={(e) => setFormData({...formData, province: e.target.value})}
+      required
+    >
+      <option value="">Select Province</option>
+      {rwandaProvinces.map(province => (
+        <option key={province.name} value={province.name}>{province.name}</option>
+      ))}
+    </select>
+  </div>
+
+  <div>
+    <label className="block text-sm font-medium text-gray-700 mb-1">District *</label>
+    <select
+      className="w-full border border-gray-300 rounded-md p-2"
+      value={formData.district}
+      onChange={(e) => setFormData({...formData, district: e.target.value})}
+      required
+      disabled={!formData.province}
+    >
+      <option value="">Select District</option>
+      {districts.map(district => (
+        <option key={district.name} value={district.name}>{district.name}</option>
+      ))}
+    </select>
+  </div>
+
+  <div>
+    <label className="block text-sm font-medium text-gray-700 mb-1">Sector *</label>
+    <select
+      className="w-full border border-gray-300 rounded-md p-2"
+      value={formData.sector}
+      onChange={(e) => setFormData({...formData, sector: e.target.value})}
+      required
+      disabled={!formData.district}
+    >
+      <option value="">Select Sector</option>
+      {sectors.map(sector => (
+        <option key={sector} value={sector}>{sector}</option>
+      ))}
+    </select>
+  </div>
+</div>
+          
 
           <div>
             <label className="block text-sm font-medium mb-1">

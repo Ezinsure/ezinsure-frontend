@@ -41,6 +41,8 @@ interface Application {
   invoiceAmount?: string;
   transactionId?: string;
   rejectionReason?: string;
+  amount?: number;
+  companyCommission?: number;
 }
 
 interface PaginationProps {
@@ -63,6 +65,7 @@ export default function ManageApplicationsPage() {
   const [insuranceFile, setInsuranceFile] = useState<File | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
+  const [invoiceAmount, setInvoiceAmount] = useState('');
   const [viewingDocument, setViewingDocument] = useState<{
     name: string;
     path: string;
@@ -70,36 +73,40 @@ export default function ManageApplicationsPage() {
   const itemsPerPage = 10;
 
   // Fetch applications from API
-  useEffect(() => {
-    const fetchApplications = async () => {
-      try {
-        setIsLoading(true);
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/applications`, {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          }
-        });
-        
-        if (!response.ok) {
-          throw new Error('Failed to fetch applications');
+useEffect(() => {
+  const fetchApplications = async () => {
+    try {
+      setIsLoading(true);
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/applications`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
         }
-        
-        const data = await response.json();
-        setApplications(data.data);
-      } catch (error) {
-        console.error('Error fetching applications:', error);
-        showToast('Failed to load applications', 'error');
-      } finally {
-        setIsLoading(false);
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch applications');
       }
-    };
-
-    if (token) {
-      fetchApplications();
+      
+      const data = await response.json();
+      // Sort applications by submittedAt in descending order (newest first)
+      const sortedApplications = data.data.sort((a: Application, b: Application) => {
+        return new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime();
+      });
+      setApplications(sortedApplications);
+    } catch (error) {
+      console.error('Error fetching applications:', error);
+      showToast('Failed to load applications', 'error');
+    } finally {
+      setIsLoading(false);
     }
-  }, [token]);
+  };
+
+  if (token) {
+    fetchApplications();
+  }
+}, [token]);
 
   // Filter applications based on search query and tab
   const filteredApplications = applications.filter(app => {
@@ -119,58 +126,61 @@ export default function ManageApplicationsPage() {
   );
 
   // Send invoice to client
-  const handleSendInvoice = async () => {
-    if (!selectedApp || !invoiceMessage) {
-      showToast('Please enter payment instructions', 'error');
-      return;
+ const handleSendInvoice = async () => {
+  if (!selectedApp || !invoiceMessage || !invoiceAmount) {
+    showToast('Please fill all required fields', 'error');
+    return;
+  }
+
+  setIsProcessing(true);
+  try {
+    const formData = new FormData();
+    formData.append('paymentInstructions', invoiceMessage);
+    formData.append('amount', invoiceAmount); // Add amount to form data
+    if (invoiceFile) {
+      formData.append('invoice', invoiceFile);
     }
 
-    setIsProcessing(true);
-    try {
-      const formData = new FormData();
-      formData.append('paymentInstructions', invoiceMessage);
-      if (invoiceFile) {
-        formData.append('invoice', invoiceFile);
+    const response = await fetch(
+      `${process.env.NEXT_PUBLIC_API_BASE_URL}/sendInvoice/${selectedApp._id}`,
+      {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData
       }
+    );
 
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_BASE_URL}/sendInvoice/${selectedApp._id}`,
-        {
-          method: 'PUT',
-          headers: {
-            'Authorization': `Bearer ${token}`
-          },
-          body: formData
-        }
-      );
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to send invoice');
-      }
-
-      const updatedApplications = applications.map(app => {
-        if (app._id === selectedApp._id) {
-          return {
-            ...app,
-            status: ApplicationStatus.INVOICE_SENT
-          };
-        }
-        return app;
-      });
-      
-      setApplications(updatedApplications);
-      showToast(`Invoice sent to ${selectedApp.fullName}`, 'success');
-      setInvoiceMessage('');
-      setInvoiceFile(null);
-      setSelectedApp(null);
-    } catch (error) {
-      console.error('Error sending invoice:', error);
-      showToast(error instanceof Error ? error.message : 'Failed to send invoice', 'error');
-    } finally {
-      setIsProcessing(false);
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Failed to send invoice');
     }
-  };
+
+    const updatedApplications = applications.map(app => {
+      if (app._id === selectedApp._id) {
+        return {
+          ...app,
+          status: ApplicationStatus.INVOICE_SENT,
+          invoiceAmount: invoiceAmount // Update the amount in local state
+        };
+      }
+      return app;
+    });
+    
+    setApplications(updatedApplications);
+    showToast(`Invoice sent to ${selectedApp.fullName}`, 'success');
+    setInvoiceMessage('');
+    setInvoiceAmount('');
+    setInvoiceFile(null);
+    setSelectedApp(null);
+  } catch (error) {
+    console.error('Error sending invoice:', error);
+    showToast(error instanceof Error ? error.message : 'Failed to send invoice', 'error');
+  } finally {
+    setIsProcessing(false);
+  }
+};
 
   // Verify client payment
   const handleVerifyPayment = async () => {
@@ -393,7 +403,7 @@ export default function ManageApplicationsPage() {
       case ApplicationStatus.PENDING:
         return (
           <Button 
-            size="sm" 
+            size="xs" 
             onClick={() => {
               setSelectedApp(app);
             }}
@@ -667,42 +677,56 @@ export default function ManageApplicationsPage() {
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Client</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Insurance Type</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                  </tr>
-                </thead>
+               <thead className="bg-gray-50">
+  <tr>
+    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
+    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Client</th>
+    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Insurance Type</th>
+    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Commission</th>
+    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+  </tr>
+</thead>
                 <tbody className="divide-y divide-gray-200">
-                  {paginatedApplications.map((app) => (
-                    <tr key={app._id} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-[var(--main-blue)]">#{app.applicationNumber}</td>
-                      <td className="px-4 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <div>
-                            <div className="text-sm font-medium text-gray-900">{app.fullName}</div>
-                            <div className="text-sm text-gray-500">{app.email}</div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-4 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900 capitalize">{app.insuranceType.replace('_', ' ')}</div>
-                      </td>
-                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(app.submittedAt).toLocaleDateString()}</td>
-                      <td className="px-4 py-4 whitespace-nowrap">
-                        {getStatusBadge(app.status)}
-                      </td>
-                      <td className="px-4 py-4 whitespace-nowrap text-sm font-medium">
-                        <div className="flex space-x-2">
-                          {getActionButtons(app)}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                 {paginatedApplications.map((app, index) => (
+  <tr key={app._id} className="hover:bg-gray-50 transition-colors ">
+    <td className="px-4 py-4 text-xs whitespace-nowrap font-medium text-[var(--main-blue)]">
+      #{(currentPage - 1) * itemsPerPage + index + 1}
+    </td>
+    <td className="px-4 py-4 text-xs whitespace-nowrap">
+      <div className="flex items-center">
+        <div>
+          <div className="text-xs font-medium text-gray-900">{app.fullName}</div>
+          <div className="text-xs text-gray-500">{app.email}</div>
+        </div>
+      </div>
+    </td>
+    <td className="px-4 py-4 text-xs whitespace-nowrap">
+      <div className="text-xs text-gray-900 capitalize">{app.insuranceType.replace('_', ' ')}</div>
+    </td>
+    <td className="px-4 py-4 text-xs whitespace-nowrap">
+      <div className="text-xs text-gray-900">
+        {app.amount ? `${app.amount.toLocaleString()} RWF` : 'N/A'}
+      </div>
+    </td>
+    <td className="px-4 py-4 text-xs whitespace-nowrap">
+      <div className="text-xs text-gray-900">
+        {app.companyCommission ? `${app.companyCommission.toLocaleString()} RWF` : 'N/A'}
+      </div>
+    </td>
+    <td className="px-4 py-4 text-xs whitespace-nowrap text-gray-500">{new Date(app.submittedAt).toLocaleDateString()}</td>
+    <td className="px-4 py-4 text-xs whitespace-nowrap">
+      {getStatusBadge(app.status)}
+    </td>
+    <td className="px-4 py-4 text-xs whitespace-nowrap font-medium">
+      <div className="flex space-x-2">
+        {getActionButtons(app)}
+      </div>
+    </td>
+  </tr>
+))}
                 </tbody>
               </table>
               <Pagination
@@ -812,84 +836,108 @@ export default function ManageApplicationsPage() {
               />
             </div>
             
-            <div className="flex justify-end gap-2 mt-6">
-              <Button variant="text" onClick={() => setSelectedApp(null)} disabled={isProcessing}>
-                Cancel
-              </Button>
-              <Button 
-                variant="danger" 
-                onClick={() => handleReject('application')}
-                disabled={!rejectionComment || isProcessing}
-              >
-                {isProcessing ? 'Processing...' : 'Reject Application'}
-              </Button>
-              <Button 
-                onClick={handleApproveApplication}
-                disabled={rejectionComment.length > 0 || isProcessing}
-              >
-                {isProcessing ? 'Processing...' : 'Approve Application'}
-              </Button>
-            </div>
+           <div className="flex justify-end gap-2 mt-6">
+  <Button 
+    variant="text" 
+    onClick={() => setSelectedApp(null)} 
+    disabled={isProcessing}
+  >
+    Cancel
+  </Button>
+  <Button 
+    variant="danger" 
+    onClick={() => {
+      setIsProcessing(true);
+      handleReject('application').finally(() => setIsProcessing(false));
+    }}
+    disabled={!rejectionComment || isProcessing}
+  >
+    {isProcessing ? 'Processing...' : 'Reject Application'}
+  </Button>
+  <Button 
+    onClick={() => {
+      setIsProcessing(true);
+      handleApproveApplication().finally(() => setIsProcessing(false));
+    }}
+    disabled={rejectionComment.length > 0 || isProcessing}
+  >
+    {isProcessing ? 'Processing...' : 'Approve Application'}
+  </Button>
+</div>
+
           </div>
         </div>
       )}
 
       {/* Modal for sending invoice */}
       {selectedApp && selectedApp.status.toLowerCase() === ApplicationStatus.APPLICATION_APPROVED && (
-        <div className="fixed inset-0 bg-gray-600/50 flex items-center justify-center z-50">
-          <div className="max-h-[90vh] overflow-y-auto bg-white rounded-lg shadow-xl p-6 w-full max-w-md mx-4 fade-in">
-            <h3 className="text-lg font-semibold mb-4">Send Invoice to {selectedApp.fullName}</h3>
-            <p className="text-gray-600 mb-4">Enter the invoice details for {selectedApp.insuranceType} insurance:</p>
-            
-            <div className="mt-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Payment Instructions *</label>
-              <textarea
-                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[var(--main-blue)] focus:border-[var(--main-blue)] sm:text-sm"
-                rows={4}
-                value={invoiceMessage}
-                onChange={(e) => setInvoiceMessage(e.target.value)}
-                placeholder="Enter payment instructions..."
-                required
-              />
-            </div>
-            
-            <div className="mt-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Invoice Attachment (Optional)</label>
-              <input
-                type="file"
-                onChange={(e) => setInvoiceFile(e.target.files?.[0] || null)}
-                className="block w-full text-sm text-gray-500
-                  file:mr-4 file:py-2 file:px-4
-                  file:rounded-md file:border-0
-                  file:text-sm file:font-semibold
-                  file:bg-[var(--main-blue)] file:text-white
-                  hover:file:bg-[var(--secondary-blue)]
-                "
-              />
-              {invoiceFile && (
-                <button 
-                  className="mt-2 text-sm text-[var(--main-blue)] hover:underline"
-                  onClick={() => setViewingDocument({
-                    name: invoiceFile.name,
-                    path: URL.createObjectURL(invoiceFile)
-                  })}
-                >
-                  View: {invoiceFile.name}
-                </button>
-              )}
-            </div>
-            
-            <div className="flex justify-end gap-2 mt-6">
-              <Button variant="text" onClick={() => setSelectedApp(null)} disabled={isProcessing}>
-                Cancel
-              </Button>
-              <Button onClick={handleSendInvoice} disabled={isProcessing || !invoiceMessage}>
-                {isProcessing ? 'Sending...' : 'Send Invoice'}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+  <div className="fixed inset-0 bg-gray-600/50 flex items-center justify-center z-50">
+    <div className="max-h-[90vh] overflow-y-auto bg-white rounded-lg shadow-xl p-6 w-full max-w-md mx-4 fade-in">
+      <h3 className="text-lg font-semibold mb-4">Send Invoice to {selectedApp.fullName}</h3>
+      <p className="text-gray-600 mb-4">Enter the invoice details for {selectedApp.insuranceType} insurance:</p>
+      
+      {/* Add Amount field */}
+      <div className="mt-4">
+        <label className="block text-sm font-medium text-gray-700 mb-1">Amount (RWF) *</label>
+        <input
+          type="number"
+          className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[var(--main-blue)] focus:border-[var(--main-blue)] sm:text-sm"
+          value={invoiceAmount}
+          onChange={(e) => setInvoiceAmount(e.target.value)}
+          placeholder="Enter amount"
+          required
+        />
+      </div>
+      
+      <div className="mt-4">
+        <label className="block text-sm font-medium text-gray-700 mb-1">Payment Instructions *</label>
+        <textarea
+          className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[var(--main-blue)] focus:border-[var(--main-blue)] sm:text-sm"
+          rows={4}
+          value={invoiceMessage}
+          onChange={(e) => setInvoiceMessage(e.target.value)}
+          placeholder="Enter payment instructions..."
+          required
+        />
+      </div>
+      
+      <div className="mt-4">
+        <label className="block text-sm font-medium text-gray-700 mb-1">Invoice Attachment (Optional)</label>
+        <input
+          type="file"
+          onChange={(e) => setInvoiceFile(e.target.files?.[0] || null)}
+          className="block w-full text-sm text-gray-500
+            file:mr-4 file:py-2 file:px-4
+            file:rounded-md file:border-0
+            file:text-sm file:font-semibold
+            file:bg-[var(--main-blue)] file:text-white
+            hover:file:bg-[var(--secondary-blue)]
+          "
+        />
+        {invoiceFile && (
+          <button 
+            className="mt-2 text-sm text-[var(--main-blue)] hover:underline"
+            onClick={() => setViewingDocument({
+              name: invoiceFile.name,
+              path: URL.createObjectURL(invoiceFile)
+            })}
+          >
+            View: {invoiceFile.name}
+          </button>
+        )}
+      </div>
+      
+      <div className="flex justify-end gap-2 mt-6">
+        <Button variant="text" onClick={() => setSelectedApp(null)} disabled={isProcessing}>
+          Cancel
+        </Button>
+        <Button onClick={handleSendInvoice} disabled={isProcessing || !invoiceMessage || !invoiceAmount}>
+          {isProcessing ? 'Sending...' : 'Send Invoice'}
+        </Button>
+      </div>
+    </div>
+  </div>
+)}
 
       {/* Modal for verifying payment */}
       {selectedApp && selectedApp.status.toLowerCase() === ApplicationStatus.REVIEW_PAYMENT && (
@@ -1135,13 +1183,13 @@ export default function ManageApplicationsPage() {
                   <p className="font-semibold">{selectedApp._id}</p>
                 </div>
               )}
-              {selectedApp.rejectionReason && (
-                <div className="md:col-span-2">
-                  <p className="text-sm text-gray-500">Rejection Reason</p>
-                  <p className="font-semibold">{selectedApp.rejectionReason}</p>
-                </div>
-              )}
             </div>
+              {selectedApp && selectedApp.rejectionReason && (
+  <div className="mt-4 bg-red-50 p-4 rounded-lg">
+    <h4 className="font-medium text-red-700 mb-2">Rejection Reason</h4>
+    <p className="text-red-600">{selectedApp.rejectionReason}</p>
+  </div>
+)}
             
             <div className="bg-[var(--light-gray)] p-4 rounded-lg mb-4">
               <h4 className="font-medium mb-2">Documents</h4>

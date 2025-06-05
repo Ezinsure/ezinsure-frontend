@@ -7,7 +7,7 @@ interface ButtonProps {
   onClick?: () => void;
   type?: 'button' | 'submit' | 'reset';
   variant?: 'primary' | 'secondary' | 'outline' | 'text' | 'danger';
-  size?: 'sm' | 'md' | 'lg';
+  size?: 'xs' | 'sm' | 'md' | 'lg';
   fullWidth?: boolean;
   disabled?: boolean;
   className?: string;
@@ -47,6 +47,7 @@ export const Button = ({
   };
   
   const sizeClasses = {
+    xs: 'text-xs px-3 py-1.5',
     sm: 'text-sm px-3 py-1.5',
     md: 'text-base px-4 py-2',
     lg: 'text-lg px-6 py-3'

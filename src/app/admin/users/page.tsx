@@ -20,6 +20,9 @@ interface User {
   status: 'ACTIVE' | 'DEACTIVATED' | 'SENT_FOR_ACTION' | 'PENDING';
   dateOfBirth?: string;
   address?: string;
+  province?: string;
+  district?: string;
+  sector?: string;
   passportPhoto?: string;
   nationalIdDocument?: string;
   criminalRecordCertificate?: string;
@@ -134,23 +137,26 @@ const [userToDeactivate, setUserToDeactivate] = useState<string | null>(null);
   
 
   // Form state for creating users
-  const [formData, setFormData] = useState({
-    fullName: '',
-    email: '',
-    phoneNumber: '',
-    dateOfBirth: '',
-    address: '',
-    role: 'AGENT' as 'ADMIN' | 'AGENT',
-    emergencyContact1Name: '',
-    emergencyContact1PhoneNumber: '',
-    emergencyContact1Relationship: '',
-    emergencyContact2Name: '',
-    emergencyContact2PhoneNumber: '',
-    emergencyContact2Relationship: '',
-    nationalIdDocument: null as File | null,
-    criminalRecordCertificate: null as File | null,
-    passportPhoto: null as File | null,
-  });
+const [formData, setFormData] = useState({
+  fullName: '',
+  email: '',
+  phoneNumber: '',
+  dateOfBirth: '',
+  address: '',
+  province: '',
+  district: '',
+  sector: '',
+  role: 'AGENT' as 'ADMIN' | 'AGENT',
+  emergencyContact1Name: '',
+  emergencyContact1PhoneNumber: '',
+  emergencyContact1Relationship: '',
+  emergencyContact2Name: '',
+  emergencyContact2PhoneNumber: '',
+  emergencyContact2Relationship: '',
+  nationalIdDocument: null as File | null,
+  criminalRecordCertificate: null as File | null,
+  passportPhoto: null as File | null,
+});
 
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
@@ -214,6 +220,9 @@ const handleCreateUser = async () => {
     formDataToSend.append('phoneNumber', formData.phoneNumber);
     formDataToSend.append('dateOfBirth', formData.dateOfBirth);
     formDataToSend.append('address', formData.address);
+    formDataToSend.append('province', formData.province);
+    formDataToSend.append('district', formData.district);
+    formDataToSend.append('sector', formData.sector);
     formDataToSend.append('role', formData.role);
     
     if (formData.role === 'AGENT') {
@@ -262,6 +271,9 @@ const handleCreateUser = async () => {
       phoneNumber: '',
       dateOfBirth: '',
       address: '',
+      province: '',
+      district: '',
+      sector: '',
       role: 'AGENT',
       emergencyContact1Name: '',
       emergencyContact1PhoneNumber: '',
@@ -378,14 +390,14 @@ const confirmDeactivation = async (reason: string, deactivationFile: File | null
       user._id === userToDeactivate 
         ? { 
             ...user, 
-            status: 'DEACTIVATED',
+            status: 'DEACTIVATED' as User['status'],
             deactivationReason: reason,
             deactivationFile: deactivationFile ? URL.createObjectURL(deactivationFile) : undefined
           } 
         : user
     );
 
-    setUsers(updatedUsers);
+    setUsers(updatedUsers as User[]);
     showToast('User deactivated successfully', 'success');
   } catch (error) {
     console.error('Error deactivating user:', error);

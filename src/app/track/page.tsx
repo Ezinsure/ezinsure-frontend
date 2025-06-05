@@ -6,12 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { FileInput } from '@/components/ui/file-input';
 import { useToast } from '@/components/ui/toast';
-import {
-  validateForm,
-  ValidationRules,
-  validationPatterns,
-  hasErrors,
-} from '@/components/ui/form-validation';
+import { rwandaProvinces } from '@/utils/rwanda-administrative';
 import { DocumentViewer } from '@/components/ui/document-viewer';
 
 interface Application {
@@ -22,6 +17,9 @@ interface Application {
   phoneNumber: string;
   dateOfBirth: string;
   address: string;
+  province?: string;
+  district?: string;
+  sector?: string;
   insuranceCategory: string;
   insuranceType: string;
   insuranceDuration: string;
@@ -35,6 +33,7 @@ interface Application {
   proofOfPayment?: string;
   otp?: string;
   otpExpires?: string;
+  amount?: number;
 }
 
 interface OTPModalProps {
@@ -156,13 +155,27 @@ interface EditApplicationModalProps {
   isOpen: boolean;
   onClose: () => void;
   application: Application;
-  onSave: (updatedData: Partial<Application>, files: Record<string, File | null>) => Promise<void>;
+  onSave?: (updatedData: Partial<Application>, files: Record<string, File | null>) => Promise<void>;
   isLoading: boolean;
 }
 
-const EditApplicationModal = ({ isOpen, onClose, application, onSave, isLoading }: EditApplicationModalProps) => {
+
+interface EditApplicationModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  application: Application;
+  onSave?: (updatedData: Partial<Application>, files: Record<string, File | null>) => Promise<void>;
+  isLoading: boolean;
+}
+
+const EditApplicationModal = ({ isOpen, onClose, onSave, application, isLoading }: EditApplicationModalProps) => {
   const isInvoiceSent = application.status === 'INVOICE_SENT';
-  // const isWaitingForUserAction = application.status === 'WAITING_FOR_USER_ACTION';
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { showToast } = useToast();
+
+  // State for administrative divisions
+  const [availableDistricts, setAvailableDistricts] = useState<{name: string, sectors?: string[]}[]>([]);
+  const [availableSectors, setAvailableSectors] = useState<string[]>([]);
 
   const [formState, setFormState] = useState<Partial<Application>>(() => {
     if (isInvoiceSent) {
@@ -177,6 +190,9 @@ const EditApplicationModal = ({ isOpen, onClose, application, onSave, isLoading 
       insuranceCategory: application.insuranceCategory,
       insuranceType: application.insuranceType,
       insuranceDuration: application.insuranceDuration,
+      province: application.province,
+      district: application.district,
+      sector: application.sector,
     };
   });
 
@@ -199,20 +215,39 @@ const EditApplicationModal = ({ isOpen, onClose, application, onSave, isLoading 
 
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
-  const validationRules: ValidationRules = isInvoiceSent 
-    ? { proofOfPayment: { required: true } }
-    : {
-        fullName: { required: true, minLength: 3, maxLength: 50 },
-        email: { required: true, pattern: validationPatterns.email },
-        phoneNumber: { required: true, pattern: validationPatterns.phone },
-        address: { required: true, minLength: 5, maxLength: 100 },
-        dateOfBirth: { required: true },
-        insuranceCategory: { required: true },
-        insuranceType: { required: true },
-        insuranceDuration: { required: true },
-        nationalID: { required: true },
-        yellowCard: { required: true },
-      };
+  // Update districts when province changes
+  useEffect(() => {
+    if (formState.province) {
+      const selectedProvince = rwandaProvinces.find(p => p.name === formState.province);
+      const districts = selectedProvince?.districts || [];
+      setAvailableDistricts(districts);
+      
+      // Reset district and sector if they're not in the new province
+      if (!districts.some(d => d.name === formState.district)) {
+        setFormState(prev => ({ ...prev, district: '', sector: '' }));
+      }
+    } else {
+      setAvailableDistricts([]);
+      setFormState(prev => ({ ...prev, district: '', sector: '' }));
+    }
+  }, [formState.province]);
+
+  // Update sectors when district changes
+  useEffect(() => {
+    if (formState.district) {
+      const selectedDistrict = availableDistricts.find(d => d.name === formState.district);
+      const sectors = selectedDistrict?.sectors || [];
+      setAvailableSectors(sectors);
+      
+      // Reset sector if it's not in the new district
+      if (!sectors.includes(formState.sector || '')) {
+        setFormState(prev => ({ ...prev, sector: '' }));
+      }
+    } else {
+      setAvailableSectors([]);
+      setFormState(prev => ({ ...prev, sector: '' }));
+    }
+  }, [formState.district, availableDistricts]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -241,24 +276,96 @@ const EditApplicationModal = ({ isOpen, onClose, application, onSave, isLoading 
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSubmitting(true);
     
-    // Check if any fields were changed
-    const isFormChanged = isInvoiceSent 
-      ? files.proofOfPayment !== null
-      : Object.keys(formState).some(
-          key => formState[key as keyof typeof formState] !== application[key as keyof Application]
-        ) || Object.values(files).some(file => file !== null);
+    try {
+      if (isInvoiceSent) {
+        if (!files.proofOfPayment) {
+          throw new Error('Please select a proof of payment file');
+        }
 
-    if (!isFormChanged) {
+        const paymentFormData = new FormData();
+        paymentFormData.append('proofOfPayment', files.proofOfPayment);
+
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/sendProofofPayment/${application._id}`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          },
+          body: paymentFormData,
+          credentials: 'include'
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || 'Failed to submit proof of payment');
+        }
+
+        showToast('Proof of payment submitted successfully!', 'success');
+        onClose();
+        return;
+      }
+
+      const formData = new FormData();
+      const updatedData: { [key: string]: string | number } = {};
+      const updatedFiles: Record<string, File | null> = {};
+      
+      Object.entries(formState).forEach(([key, value]) => {
+        const originalValue = application[key as keyof Application];
+        if (value !== undefined && value !== originalValue) {
+          const formattedValue = key === 'dateOfBirth' && value 
+            ? new Date(value as string).toISOString().split('T')[0]
+            : value;
+          
+          formData.append(key, formattedValue as string);
+          if (formattedValue !== undefined && formattedValue !== null) {
+            updatedData[key as keyof Application] = formattedValue;
+          }
+        }
+      });
+
+      Object.entries(files).forEach(([key, file]) => {
+        if (file) {
+          formData.append(key, file);
+          updatedFiles[key] = file;
+        }
+      });
+
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/updateInsuranceApplication/${application._id}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Accept': 'application/json',
+        },
+        body: formData,
+        credentials: 'include'
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to update application');
+      }
+
+      showToast('Application updated successfully!', 'success');
+      
+      if (onSave) {
+        await onSave(updatedData, updatedFiles);
+      }
+      
       onClose();
-      return;
-    }
-
-    const formErrors = validateForm({ ...formState, ...files }, validationRules);
-    setErrors(formErrors);
-
-    if (!hasErrors(formErrors)) {
-      await onSave(isInvoiceSent ? {} : formState, files);
+    } catch (error) {
+      console.error('Submission error:', error);
+      let errorMessage = 'Failed to submit. Please try again.';
+      
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      } else if (typeof error === 'string') {
+        errorMessage = error;
+      }
+      
+      showToast(errorMessage, 'error');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -282,7 +389,7 @@ const EditApplicationModal = ({ isOpen, onClose, application, onSave, isLoading 
             </button>
           </div>
 
-          {application.rejectionReason && (
+          {application.status === "WAITING_FOR_USER_ACTION" && application.rejectionReason && (
             <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-6">
               <div className="flex">
                 <div className="flex-shrink-0">
@@ -308,7 +415,6 @@ const EditApplicationModal = ({ isOpen, onClose, application, onSave, isLoading 
                   name="proofOfPayment"
                   onChange={handleFileChange('proofOfPayment')}
                   error={errors.proofOfPayment}
-                  required
                   accept="image/*,.pdf"
                   currentFile={application.proofOfPayment?.split('/').pop()}
                 />
@@ -322,7 +428,6 @@ const EditApplicationModal = ({ isOpen, onClose, application, onSave, isLoading 
                     value={formState.fullName || ''}
                     onChange={handleInputChange}
                     error={errors.fullName}
-                    required
                   />
 
                   <Input
@@ -332,7 +437,6 @@ const EditApplicationModal = ({ isOpen, onClose, application, onSave, isLoading 
                     value={formState.email || ''}
                     onChange={handleInputChange}
                     error={errors.email}
-                    required
                   />
 
                   <Input
@@ -341,17 +445,15 @@ const EditApplicationModal = ({ isOpen, onClose, application, onSave, isLoading 
                     value={formState.phoneNumber || ''}
                     onChange={handleInputChange}
                     error={errors.phoneNumber}
-                    required
                   />
 
                   <Input
                     label="Date of Birth"
                     type="date"
                     name="dateOfBirth"
-                    value={formState.dateOfBirth || ''}
+                    value={formState.dateOfBirth ? new Date(formState.dateOfBirth).toISOString().split('T')[0] : ''}
                     onChange={handleInputChange}
                     error={errors.dateOfBirth}
-                    required
                   />
 
                   <Input
@@ -360,8 +462,72 @@ const EditApplicationModal = ({ isOpen, onClose, application, onSave, isLoading 
                     value={formState.address || ''}
                     onChange={handleInputChange}
                     error={errors.address}
-                    required
                   />
+
+                  {/* Province Select */}
+                  <div>
+                    <label className="block text-sm font-medium mb-1">
+                      Province <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      name="province"
+                      value={formState.province || ''}
+                      onChange={handleInputChange}
+                      className="w-full py-2 px-3 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none"
+                    >
+                      <option value="">Select Province</option>
+                      {rwandaProvinces.map(province => (
+                        <option key={province.name} value={province.name}>{province.name}</option>
+                      ))}
+                    </select>
+                    {errors.province && (
+                      <p className="mt-1 text-sm text-red-600">{errors.province}</p>
+                    )}
+                  </div>
+
+                  {/* District Select */}
+                  <div>
+                    <label className="block text-sm font-medium mb-1">
+                      District <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      name="district"
+                      value={formState.district || ''}
+                      onChange={handleInputChange}
+                      disabled={!formState.province}
+                      className="w-full py-2 px-3 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none disabled:bg-gray-100 disabled:cursor-not-allowed"
+                    >
+                      <option value="">Select District</option>
+                      {availableDistricts.map(district => (
+                        <option key={district.name} value={district.name}>{district.name}</option>
+                      ))}
+                    </select>
+                    {errors.district && (
+                      <p className="mt-1 text-sm text-red-600">{errors.district}</p>
+                    )}
+                  </div>
+
+                  {/* Sector Select */}
+                  <div>
+                    <label className="block text-sm font-medium mb-1">
+                      Sector <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      name="sector"
+                      value={formState.sector || ''}
+                      onChange={handleInputChange}
+                      disabled={!formState.district}
+                      className="w-full py-2 px-3 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none disabled:bg-gray-100 disabled:cursor-not-allowed"
+                    >
+                      <option value="">Select Sector</option>
+                      {availableSectors.map(sector => (
+                        <option key={sector} value={sector}>{sector}</option>
+                      ))}
+                    </select>
+                    {errors.sector && (
+                      <p className="mt-1 text-sm text-red-600">{errors.sector}</p>
+                    )}
+                  </div>
 
                   <div>
                     <label className="block text-sm font-medium mb-1">
@@ -372,7 +538,6 @@ const EditApplicationModal = ({ isOpen, onClose, application, onSave, isLoading 
                       value={formState.insuranceCategory || ''}
                       onChange={handleInputChange}
                       className="w-full py-2 px-3 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none"
-                      required
                     >
                       <option value="Car Insurance">Car Insurance</option>
                       <option value="Motorbike Insurance">Motorbike Insurance</option>
@@ -395,7 +560,6 @@ const EditApplicationModal = ({ isOpen, onClose, application, onSave, isLoading 
                       value={formState.insuranceType || ''}
                       onChange={handleInputChange}
                       className="w-full py-2 px-3 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none"
-                      required
                     >
                       <option value="Comprehensive Insurance (covers everything)">Comprehensive Insurance</option>
                       <option value="Third Party Insurance (covers partial)">Third Party Insurance</option>
@@ -414,7 +578,6 @@ const EditApplicationModal = ({ isOpen, onClose, application, onSave, isLoading 
                       value={formState.insuranceDuration || ''}
                       onChange={handleInputChange}
                       className="w-full py-2 px-3 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none"
-                      required
                     >
                       <option value="1 Month">1 Month</option>
                       <option value="6 Months">6 Months</option>
@@ -434,7 +597,6 @@ const EditApplicationModal = ({ isOpen, onClose, application, onSave, isLoading 
                       name="nationalID"
                       onChange={handleFileChange('nationalID')}
                       error={errors.nationalID}
-                      required
                       accept="image/*,.pdf"
                       currentFile={application.nationalID?.split('/').pop()}
                     />
@@ -444,7 +606,6 @@ const EditApplicationModal = ({ isOpen, onClose, application, onSave, isLoading 
                       name="yellowCard"
                       onChange={handleFileChange('yellowCard')}
                       error={errors.yellowCard}
-                      required
                       accept="image/*,.pdf"
                       currentFile={application.yellowCard?.split('/').pop()}
                     />
@@ -470,11 +631,12 @@ const EditApplicationModal = ({ isOpen, onClose, application, onSave, isLoading 
               >
                 Cancel
               </Button>
+           
               <Button
                 type="submit"
-                disabled={isLoading}
+                disabled={isSubmitting}
               >
-                {isLoading ? 'Saving...' : 'Save Changes'}
+                {isSubmitting ? 'Submitting...' : 'Submit'}
               </Button>
             </div>
           </form>
@@ -594,7 +756,7 @@ const handleOtpVerification = async (otp: string) => {
       // If success message but no data, might need to fetch application again
       setShowOtpModal(false);
       showToast('OTP verified successfully!', 'success');
-      // Optionally refetch application data here
+      setTempApplication(data.email);
     } else {
       throw new Error('Verification successful but no application data received');
     }
@@ -628,48 +790,14 @@ const handleOtpVerification = async (otp: string) => {
     setApplicationId('');
   };
 
-const handleUpdateApplication = async (updatedData: Partial<Application>, files: Record<string, File | null>) => {
-  setIsLoading(true);
+const handleEditSuccess = async (): Promise<void> => {
   try {
-    const formData = new FormData();
-    
-    // Append updated fields
-    Object.entries(updatedData).forEach(([key, value]) => {
-      if (value !== undefined && value !== null) {
-        formData.append(key, value as string | Blob);
-      }
-    });
-
-    // Append files
-    Object.entries(files).forEach(([key, file]) => {
-      if (file) {
-        formData.append(key, file);
-      }
-    });
-
     if (application) {
-      formData.append('applicationId', application._id);
+      await lookupApplication(application.applicationNumber);
     }
-
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/updateApplication`, {
-      method: 'POST',
-      body: formData,
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.message || 'Failed to update application');
-    }
-
-    const { data } = await response.json();
-    setApplication(data);
-    setShowEditModal(false);
-    showToast('Application updated successfully!', 'success');
   } catch (error) {
-    console.error(error);
-    showToast(error instanceof Error ? error.message : 'Error updating application', 'error');
-  } finally {
-    setIsLoading(false);
+    console.error('Error refreshing application:', error);
+    showToast('Failed to refresh application data', 'error');
   }
 };
 
@@ -684,6 +812,8 @@ const handleUpdateApplication = async (updatedData: Partial<Application>, files:
         return <span className="px-2 py-1 rounded-full bg-indigo-100 text-indigo-700 text-xs font-medium">Invoice Sent</span>;
       case 'REVIEW_PAYMENT':
         return <span className="px-2 py-1 rounded-full bg-purple-100 text-purple-700 text-xs font-medium">Review Payment</span>;
+      case 'PENDING':
+        return <span className="px-2 py-1 rounded-full bg-blue-100 text-blue-700 text-xs font-medium">Pending</span>;
       case 'PAYMENT_VERIFIED':
         return <span className="px-2 py-1 rounded-full bg-green-100 text-green-700 text-xs font-medium">Payment Verified</span>;
       case 'INSURANCE_ISSUED':
@@ -737,178 +867,204 @@ const handleUpdateApplication = async (updatedData: Partial<Application>, files:
             </div>
           </div>
 
-          {application && (
-            <div className="bg-white rounded-xl shadow-lg overflow-hidden fade-in">
-              <div className="p-6 md:p-8">
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
-                  <div>
-                    <h2 className="text-2xl font-bold text-gray-900">Application #{application.applicationNumber}</h2>
-                    <p className="text-gray-600">Submitted on {formatDate(application.submittedAt)}</p>
-                  </div>
-                  <div className="mt-4 md:mt-0 flex items-center gap-3">
-                    {getStatusBadge(application.status)}
-{(application.status === 'WAITING_FOR_USER_ACTION' || application.status === 'INVOICE_SENT') && (
-  <Button
-    onClick={() => setShowEditModal(true)}
-    variant="outline"
-    size="sm"
-  >
-    Edit Application
-  </Button>
-)}
-                  </div>
+{application && (
+  <div className="bg-white rounded-xl shadow-lg overflow-hidden fade-in">
+    <div className="p-6 md:p-8">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900">Application #{application.applicationNumber}</h2>
+          <p className="text-gray-600">Submitted on {formatDate(application.submittedAt)}</p>
+        </div>
+        <div className="mt-4 md:mt-0 flex items-center gap-3">
+          {getStatusBadge(application.status)}
+          {(application.status === 'WAITING_FOR_USER_ACTION' || application.status === 'INVOICE_SENT') && (
+            <Button
+              onClick={() => setShowEditModal(true)}
+              variant="outline"
+              size="sm"
+            >
+              {application.status === 'WAITING_FOR_USER_ACTION' ? 'Edit Application' : 'Upload Proof of Payment'}
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {application.status === 'WAITING_FOR_USER_ACTION' && application.rejectionReason && (
+        <>
+          <h2 className='text-blue-500 text-sm'>Almost There! Resolve the issues below to get approved.</h2>
+          <div className="mt-6 bg-red-50 border-l-4 border-red-500 p-4 rounded-lg">
+            <div className="flex">
+              <div className="flex-shrink-0">
+                <svg className="h-5 w-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <div className="ml-3">
+                <h3 className="text-sm font-medium text-red-800">Rejection Reason</h3>
+                <div className="mt-2 text-sm text-red-700">
+                  <p>{application.rejectionReason}</p>
                 </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <h3 className="font-medium text-gray-900 mb-3">Applicant Information</h3>
-                    <div className="space-y-2">
-                      <div>
-                        <p className="text-sm text-gray-500">Full Name</p>
-                        <p className="font-medium">{application.fullName || 'Unknown'}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-500">Email</p>
-                        <p className="font-medium">{application.email || 'Unknown'}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-500">Phone</p>
-                        <p className="font-medium">{application.phoneNumber || 'Unknown'}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-500">Date of Birth</p>
-                        <p className="font-medium">{application.dateOfBirth ? formatDate(application.dateOfBirth) : 'Unknown'}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-500">Address</p>
-                        <p className="font-medium">{application.address || 'Unknown'}</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <h3 className="font-medium text-gray-900 mb-3">Insurance Details</h3>
-                    <div className="space-y-2">
-                      <div>
-                        <p className="text-sm text-gray-500">Insurance Category</p>
-                        <p className="font-medium">{application.insuranceCategory || 'Unknown'}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-500">Insurance Type</p>
-                        <p className="font-medium">{application.insuranceType || 'Unknown'}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-500">Duration</p>
-                        <p className="font-medium">{application.insuranceDuration || 'Unknown'}</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-gray-50 p-4 rounded-lg mb-6">
-                  <h3 className="font-medium text-gray-900 mb-3">Documents</h3>
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between bg-white p-3 rounded border">
-                      <div>
-                        <p className="text-sm font-medium">National ID / Passport</p>
-                        <p className="text-xs text-gray-500">National ID / Passport document</p>
-                      </div>
-                    {application.nationalID ? (
-  <Button 
-    variant="text" 
-    size="sm"
-    onClick={() => handleViewDocument('National ID', application.nationalID)}
-  >
-    View
-  </Button>
-) : (
-  <span className="text-sm text-gray-500">Not provided</span>
-)}
-                    </div>
-                    <div className="flex items-center justify-between bg-white p-3 rounded border">
-                      <div>
-                        <p className="text-sm font-medium">Yellow Card</p>
-                        <p className="text-xs text-gray-500">Yellow card document</p>
-                      </div>
-              {application.yellowCard ? (
-  <Button 
-    variant="text" 
-    size="sm"
-    onClick={() => handleViewDocument('Yellow Card', application.yellowCard)}
-  >
-    View
-  </Button>
-) : (
-  <span className="text-sm text-gray-500">Not provided</span>
-)}
-
-                    </div>
-                    <div className="flex items-center justify-between bg-white p-3 rounded border">
-                      <div>
-                        <p className="text-sm font-medium">Past Insurance Certificate</p>
-                        <p className="text-xs text-gray-500">Previous insurance document</p>
-                      </div>
-                     {application.pastInsuranceCertificate ? (
-  <Button 
-    variant="text" 
-    size="sm"
-    onClick={() => handleViewDocument('Past Insurance Certificate', application.pastInsuranceCertificate || '/File_not_found.jpg')}
-  >
-    View
-  </Button>
-) : (
-  <span className="text-sm text-gray-500">Not provided</span>
-)}
-                    </div>
-                    {application.proofOfPayment && (
-                      <div className="flex items-center justify-between bg-white p-3 rounded border">
-                        <div>
-                          <p className="text-sm font-medium">Proof of Payment</p>
-                          <p className="text-xs text-gray-500">Payment receipt</p>
-                        </div>
-                       {application.proofOfPayment && (
-  <Button 
-    variant="text" 
-    size="sm"
-    onClick={() => handleViewDocument('Proof of Payment', application.proofOfPayment || '/File_not_found.jpg')}
-  >
-    View
-  </Button>
-)}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {application.status === 'PENDING' && (
-                  <div className="mt-6 bg-blue-50 p-4 rounded-lg">
-                    <h4 className="font-medium text-blue-700 mb-2">Application Under Review</h4>
-                    <p className="text-sm text-gray-600">
-                      Your application is currently being reviewed. You&apos;ll be notified once a decision has been made.
-                    </p>
-                  </div>
-                )}
-
-                {application.status === 'REJECTED' && application.rejectionReason && (
-                  <div className="mt-6 bg-red-50 border-l-4 border-red-500 p-4 rounded-lg">
-                    <div className="flex">
-                      <div className="flex-shrink-0">
-                        <svg className="h-5 w-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                      </div>
-                      <div className="ml-3">
-                        <h3 className="text-sm font-medium text-red-800">Rejection Reason</h3>
-                        <div className="mt-2 text-sm text-red-700">
-                          <p>{application.rejectionReason}</p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
               </div>
             </div>
+          </div>
+        </>
+      )}
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+        <div className="bg-gray-50 p-4 rounded-lg">
+          <h3 className="font-medium text-gray-900 mb-3">Applicant Information</h3>
+          <div className="space-y-2">
+            <div>
+              <p className="text-sm text-gray-500">Full Name</p>
+              <p className="font-medium">{application.fullName || 'Unknown'}</p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-500">Email</p>
+              <p className="font-medium">{application.email || 'Unknown'}</p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-500">Phone</p>
+              <p className="font-medium">{application.phoneNumber || 'Unknown'}</p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-500">Date of Birth</p>
+              <p className="font-medium">{application.dateOfBirth ? formatDate(application.dateOfBirth) : 'Unknown'}</p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-500">Address</p>
+              <p className="font-medium">{application.address || 'Unknown'}</p>
+            </div>
+            {/* Added location fields */}
+            {application.province && (
+              <div>
+                <p className="text-sm text-gray-500">Province</p>
+                <p className="font-medium">{application.province}</p>
+              </div>
+            )}
+            {application.district && (
+              <div>
+                <p className="text-sm text-gray-500">District</p>
+                <p className="font-medium">{application.district}</p>
+              </div>
+            )}
+            {application.sector && (
+              <div>
+                <p className="text-sm text-gray-500">Sector</p>
+                <p className="font-medium">{application.sector}</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="bg-gray-50 p-4 rounded-lg">
+          <h3 className="font-medium text-gray-900 mb-3">Insurance Details</h3>
+          <div className="space-y-2">
+            <div>
+              <p className="text-sm text-gray-500">Insurance Category</p>
+              <p className="font-medium">{application.insuranceCategory || 'Unknown'}</p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-500">Insurance Type</p>
+              <p className="font-medium">{application.insuranceType || 'Unknown'}</p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-500">Duration</p>
+              <p className="font-medium">{application.insuranceDuration || 'Unknown'}</p>
+            </div>
+            {application.amount && (
+              <div>
+                <p className="text-sm text-gray-500">Amount</p>
+                <p className="font-medium">{application.amount.toLocaleString()} RWF</p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-gray-50 p-4 rounded-lg mb-6">
+        <h3 className="font-medium text-gray-900 mb-3">Documents</h3>
+        <div className="space-y-3">
+          <div className="flex items-center justify-between bg-white p-3 rounded border">
+            <div>
+              <p className="text-sm font-medium">National ID / Passport</p>
+              <p className="text-xs text-gray-500">National ID / Passport document</p>
+            </div>
+            {application.nationalID ? (
+              <Button 
+                variant="text" 
+                size="sm"
+                onClick={() => handleViewDocument('National ID / Passport', application.nationalID)}
+              >
+                View
+              </Button>
+            ) : (
+              <span className="text-sm text-gray-500">Not provided</span>
+            )}
+          </div>
+          <div className="flex items-center justify-between bg-white p-3 rounded border">
+            <div>
+              <p className="text-sm font-medium">Yellow Card</p>
+              <p className="text-xs text-gray-500">Yellow card document</p>
+            </div>
+            {application.yellowCard ? (
+              <Button 
+                variant="text" 
+                size="sm"
+                onClick={() => handleViewDocument('Yellow Card', application.yellowCard)}
+              >
+                View
+              </Button>
+            ) : (
+              <span className="text-sm text-gray-500">Not provided</span>
+            )}
+          </div>
+          <div className="flex items-center justify-between bg-white p-3 rounded border">
+            <div>
+              <p className="text-sm font-medium">Past Insurance Certificate</p>
+              <p className="text-xs text-gray-500">Previous insurance document</p>
+            </div>
+            {application.pastInsuranceCertificate ? (
+              <Button 
+                variant="text" 
+                size="sm"
+                onClick={() => handleViewDocument('Past Insurance Certificate', application.pastInsuranceCertificate || '/File_not_found.jpg')}
+              >
+                View
+              </Button>
+            ) : (
+              <span className="text-sm text-gray-500">Not provided</span>
+            )}
+          </div>
+          {/* Proof of Payment section */}
+          {application.proofOfPayment && (
+            <div className="flex items-center justify-between bg-white p-3 rounded border">
+              <div>
+                <p className="text-sm font-medium">Proof of Payment</p>
+                <p className="text-xs text-gray-500">Payment receipt</p>
+              </div>
+              <Button 
+                variant="text" 
+                size="sm"
+                onClick={() => handleViewDocument('Proof of Payment', application.proofOfPayment || '/File_not_found.jpg')}
+              >
+                View
+              </Button>
+            </div>
           )}
+        </div>
+      </div>
+
+      {application.status === 'PENDING' && (
+        <div className="mt-6 bg-blue-50 p-4 rounded-lg">
+          <h4 className="font-medium text-blue-700 mb-2">Application Under Review</h4>
+          <p className="text-sm text-gray-600">
+            Your application is currently being reviewed. You&apos;ll be notified once a decision has been made.
+          </p>
+        </div>
+      )}
+    </div>
+  </div>
+)}
         </div>
       </div>
 
@@ -925,10 +1081,13 @@ const handleUpdateApplication = async (updatedData: Partial<Application>, files:
           isOpen={showEditModal}
           onClose={() => setShowEditModal(false)}
           application={application}
-          onSave={handleUpdateApplication}
+          onSave={handleEditSuccess}
           isLoading={isLoading}
         />
+        
       )}
+
+      
 
       {viewingDocument && (
   <DocumentViewer
