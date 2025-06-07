@@ -302,7 +302,7 @@ const handleStatusChange = async (userId: string, status: User['status'], reason
   try {
     let endpoint = '';
     let body: Record<string, unknown> | null = null;
-    const method = 'PATCH';
+    const method = 'PUT';
 
     switch (status) {
       case 'ACTIVE':

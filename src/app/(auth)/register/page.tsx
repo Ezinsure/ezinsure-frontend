@@ -609,6 +609,11 @@ const handleSaveChanges = async (updatedData: Partial<Application>, files: Recor
       }
     });
 
+    console.log("FormData contents:");
+    for (const [key, value] of formData.entries()) {
+      console.log(key, value);
+    }
+
     const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/updateAgentApplication`, {
       method: 'PUT',
       credentials: 'include',
@@ -621,6 +626,7 @@ const handleSaveChanges = async (updatedData: Partial<Application>, files: Recor
     }
 
     const data = await response.json();
+    console.log('Update response:', data);
     setApplication(data.data);
     showToast('Application updated successfully!', 'success');
   } catch (error) {
