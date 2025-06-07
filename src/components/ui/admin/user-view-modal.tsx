@@ -318,31 +318,40 @@ export const UserViewModal = ({
         )}
 
         <div className="flex justify-end gap-2 mt-6">
-          <Button
-            variant="text"
-            onClick={onClose}
-            disabled={isApproving || isRejecting}
-          >
-            Close
-          </Button>
+       
           {user.status === 'PENDING' && (
-            <>
-              <Button
-                variant="danger"
-                onClick={handleReject}
-                disabled={!rejectionReason || isApproving}
-              >
-                {isRejecting ? 'Processing...' : 'Send for Action'}
-              </Button>
-              <Button
-                variant="primary"
-                onClick={handleApprove}
-                disabled={isRejecting}
-              >
-                {isApproving ? 'Processing...' : 'Approve'}
-              </Button>
-            </>
-          )}
+  <div className="flex justify-end gap-2 mt-6">
+    <Button
+      variant="text"
+      onClick={onClose}
+      disabled={isApproving || isRejecting}
+    >
+      Close
+    </Button>
+    <Button
+      variant="danger"
+      onClick={handleReject}
+      disabled={
+        !rejectionReason || // Disable if rejection reason is empty
+        isApproving ||      // Disable if approving is in progress
+        isRejecting         // Disable if rejecting is in progress
+      }
+    >
+      {isRejecting ? 'Processing...' : 'Send for Action'}
+    </Button>
+    <Button
+      variant="primary"
+      onClick={handleApprove}
+      disabled={
+        rejectionReason.trim() !== "" || // Disable if rejection reason is filled
+        isRejecting ||                  // Disable if rejecting is in progress
+        isApproving                     // Disable if approving is in progress
+      }
+    >
+      {isApproving ? 'Processing...' : 'Approve'}
+    </Button>
+  </div>
+)}
         </div>
       </div>
     </div>
