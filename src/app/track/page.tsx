@@ -23,8 +23,8 @@ interface Application {
   insuranceCategory: string;
   insuranceType: string;
   insuranceDuration: string;
-  vehicleType?: string;  
-  vehicleAge?: string;   
+  vehicleType?: string;
+  vehicleAge?: string;
   status: string;
   nationalID: string;
   yellowCard: string;
@@ -36,6 +36,12 @@ interface Application {
   otp?: string;
   otpExpires?: string;
   amount?: number;
+  companyCommission?: number;
+  agentCommission?: number;
+  certificateUrl?: string;
+  invoiceId?: string;
+  invoiceAmount?: string;
+  transactionId?: string;
 }
 
 interface OTPModalProps {
@@ -789,12 +795,13 @@ const handleOtpVerification = async (otp: string) => {
     });
 
     const data = await response.json();
-    // console.log('OTP verification response:', data);
+    console.log('OTP verification response:', data);
 
     if (!response.ok) {
       // Handle error responses
       if (response.status === 400) {
         if (data.message?.includes('expired') || data.message?.includes('Expired')) {
+          // console.log(data)
           throw new Error('OTP expired. Please request a new one.');
         } else if (data.message?.includes('invalid') || data.message?.includes('Invalid')) {
           throw new Error('Invalid OTP. Please try again.');
@@ -967,6 +974,7 @@ const handleEditSuccess = async (): Promise<void> => {
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+        {/* Applicant Information */}
         <div className="bg-gray-50 p-4 rounded-lg">
           <h3 className="font-medium text-gray-900 mb-3">Applicant Information</h3>
           <div className="space-y-2">
@@ -984,13 +992,12 @@ const handleEditSuccess = async (): Promise<void> => {
             </div>
             <div>
               <p className="text-sm text-gray-500">Date of Birth</p>
-              <p className="font-medium">{application.dateOfBirth ? formatDate(application.dateOfBirth) : 'Unknown'}</p>
+              <p className="font-medium">{formatDate(application.dateOfBirth)}</p>
             </div>
             <div>
               <p className="text-sm text-gray-500">Address</p>
-              <p className="font-medium">{application.address || 'Unknown'}</p>
+              <p className="font-medium">{application.address || 'Unknown' }</p>
             </div>
-            {/* Added location fields */}
             {application.province && (
               <div>
                 <p className="text-sm text-gray-500">Province</p>
@@ -1012,103 +1019,105 @@ const handleEditSuccess = async (): Promise<void> => {
           </div>
         </div>
 
-       <div className="bg-gray-50 p-4 rounded-lg">
-  <h3 className="font-medium text-gray-900 mb-3">Insurance Details</h3>
-  <div className="space-y-2">
-    <div>
-      <p className="text-sm text-gray-500">Insurance Category</p>
-      <p className="font-medium">{application.insuranceCategory || 'Unknown'}</p>
-    </div>
-    <div>
-      <p className="text-sm text-gray-500">Insurance Type</p>
-      <p className="font-medium">{application.insuranceType || 'Unknown'}</p>
-    </div>
-    <div>
-      <p className="text-sm text-gray-500">Duration</p>
-      <p className="font-medium">{application.insuranceDuration || 'Unknown'}</p>
-    </div>
-    {/* Add these new fields */}
-    {(application.insuranceCategory === 'Car Insurance' || application.insuranceCategory === 'MotorBike Insurance') && (
-      <>
-        {application.vehicleType && (
-          <div>
-            <p className="text-sm text-gray-500">Vehicle Type</p>
-            <p className="font-medium">{application.vehicleType}</p>
+        {/* Insurance Details */}
+        <div className="bg-gray-50 p-4 rounded-lg">
+          <h3 className="font-medium text-gray-900 mb-3">Insurance Details</h3>
+          <div className="space-y-2">
+            <div>
+              <p className="text-sm text-gray-500">Insurance Category</p>
+              <p className="font-medium">{application.insuranceCategory}</p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-500">Insurance Type</p>
+              <p className="font-medium">{application.insuranceType}</p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-500">Duration</p>
+              <p className="font-medium">{application.insuranceDuration}</p>
+            </div>
+            {(application.insuranceCategory === 'Car Insurance' || application.insuranceCategory === 'Motorbike Insurance') && (
+              <>
+                {application.vehicleType && (
+                  <div>
+                    <p className="text-sm text-gray-500">Vehicle Type</p>
+                    <p className="font-medium">{application.vehicleType}</p>
+                  </div>
+                )}
+                {application.vehicleAge && (
+                  <div>
+                    <p className="text-sm text-gray-500">Vehicle Year</p>
+                    <p className="font-medium">{application.vehicleAge}</p>
+                  </div>
+                )}
+              </>
+            )}
+            {application.amount && (
+              <div>
+                <p className="text-sm text-gray-500">Amount</p>
+                <p className="font-medium">{application.amount.toLocaleString()} RWF</p>
+              </div>
+            )}
+            {application.companyCommission && (
+              <div>
+                <p className="text-sm text-gray-500">Company Commission</p>
+                <p className="font-medium">{application.companyCommission.toLocaleString()} RWF</p>
+              </div>
+            )}
+            {application.agentCommission && (
+              <div>
+                <p className="text-sm text-gray-500">Agent Commission</p>
+                <p className="font-medium">{application.agentCommission.toLocaleString()} RWF</p>
+              </div>
+            )}
           </div>
-        )}
-        {application.vehicleAge && (
-          <div>
-            <p className="text-sm text-gray-500">Vehicle Year</p>
-            <p className="font-medium">{application.vehicleAge}</p>
-          </div>
-        )}
-      </>
-    )}
-    {application.amount && (
-      <div>
-        <p className="text-sm text-gray-500">Amount</p>
-        <p className="font-medium">{application.amount.toLocaleString()} RWF</p>
-      </div>
-    )}
-  </div>
-</div>
+        </div>
       </div>
 
+      {/* Documents Section */}
       <div className="bg-gray-50 p-4 rounded-lg mb-6">
         <h3 className="font-medium text-gray-900 mb-3">Documents</h3>
-        <div className="space-y-3">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="flex items-center justify-between bg-white p-3 rounded border">
             <div>
               <p className="text-sm font-medium">National ID / Passport</p>
-              <p className="text-xs text-gray-500">National ID / Passport document</p>
+              <p className="text-xs text-gray-500">National identification document</p>
             </div>
-            {application.nationalID ? (
-              <Button 
-                variant="text" 
-                size="sm"
-                onClick={() => handleViewDocument('National ID / Passport', application.nationalID)}
-              >
-                View
-              </Button>
-            ) : (
-              <span className="text-sm text-gray-500">Not provided</span>
-            )}
+            <Button 
+              variant="text" 
+              size="sm"
+              onClick={() => handleViewDocument('National ID / Passport', application.nationalID)}
+            >
+              View
+            </Button>
           </div>
           <div className="flex items-center justify-between bg-white p-3 rounded border">
             <div>
               <p className="text-sm font-medium">Yellow Card</p>
-              <p className="text-xs text-gray-500">Yellow card document</p>
+              <p className="text-xs text-gray-500">Vehicle insurance document</p>
             </div>
-            {application.yellowCard ? (
+            <Button 
+              variant="text" 
+              size="sm"
+              onClick={() => handleViewDocument('Yellow Card', application.yellowCard)}
+            >
+              View
+            </Button>
+          </div>
+          {application.pastInsuranceCertificate && (
+            <div className="flex items-center justify-between bg-white p-3 rounded border">
+              <div>
+                <p className="text-sm font-medium">Past Insurance Certificate</p>
+                <p className="text-xs text-gray-500">Previous insurance document</p>
+              </div>
               <Button 
                 variant="text" 
                 size="sm"
-                onClick={() => handleViewDocument('Yellow Card', application.yellowCard)}
+                onClick={() => handleViewDocument('Past Insurance Certificate', application.pastInsuranceCertificate!)}
               >
                 View
               </Button>
-            ) : (
-              <span className="text-sm text-gray-500">Not provided</span>
-            )}
-          </div>
-          <div className="flex items-center justify-between bg-white p-3 rounded border">
-            <div>
-              <p className="text-sm font-medium">Past Insurance Certificate</p>
-              <p className="text-xs text-gray-500">Previous insurance document</p>
             </div>
-            {application.pastInsuranceCertificate ? (
-              <Button 
-                variant="text" 
-                size="sm"
-                onClick={() => handleViewDocument('Past Insurance Certificate', application.pastInsuranceCertificate || '/File_not_found.jpg')}
-              >
-                View
-              </Button>
-            ) : (
-              <span className="text-sm text-gray-500">Not provided</span>
-            )}
-          </div>
-          {/* Proof of Payment section */}
+          )}
           {application.proofOfPayment && (
             <div className="flex items-center justify-between bg-white p-3 rounded border">
               <div>
@@ -1118,7 +1127,22 @@ const handleEditSuccess = async (): Promise<void> => {
               <Button 
                 variant="text" 
                 size="sm"
-                onClick={() => handleViewDocument('Proof of Payment', application.proofOfPayment || '/File_not_found.jpg')}
+                onClick={() => handleViewDocument('Proof of Payment', application.proofOfPayment!)}
+              >
+                View
+              </Button>
+            </div>
+          )}
+          {application.certificateUrl && (
+            <div className="flex items-center justify-between bg-white p-3 rounded border">
+              <div>
+                <p className="text-sm font-medium">Insurance Certificate</p>
+                <p className="text-xs text-gray-500">Issued insurance document</p>
+              </div>
+              <Button 
+                variant="text" 
+                size="sm"
+                onClick={() => handleViewDocument('Insurance Certificate', application.certificateUrl!)}
               >
                 View
               </Button>
@@ -1127,11 +1151,63 @@ const handleEditSuccess = async (): Promise<void> => {
         </div>
       </div>
 
+      {/* Payment Information (if available) */}
+      {(application.invoiceId || application.transactionId) && (
+        <div className="bg-gray-50 p-4 rounded-lg mb-6">
+          <h3 className="font-medium text-gray-900 mb-3">Payment Information</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {application.invoiceId && (
+              <div className="bg-white p-3 rounded border">
+                <p className="text-sm font-medium">Invoice ID</p>
+                <p className="text-xs text-gray-500">{application.invoiceId}</p>
+              </div>
+            )}
+            {application.invoiceAmount && (
+              <div className="bg-white p-3 rounded border">
+                <p className="text-sm font-medium">Invoice Amount</p>
+                <p className="text-xs text-gray-500">{application.invoiceAmount} RWF</p>
+              </div>
+            )}
+            {application.transactionId && (
+              <div className="bg-white p-3 rounded border">
+                <p className="text-sm font-medium">Transaction ID</p>
+                <p className="text-xs text-gray-500">{application.transactionId}</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Status-specific messages */}
       {application.status === 'PENDING' && (
         <div className="mt-6 bg-blue-50 p-4 rounded-lg">
           <h4 className="font-medium text-blue-700 mb-2">Application Under Review</h4>
           <p className="text-sm text-gray-600">
             Your application is currently being reviewed. You&apos;ll be notified once a decision has been made.
+          </p>
+        </div>
+      )}
+      {application.status === 'APPLICATION_APPROVED' && (
+        <div className="mt-6 bg-green-50 p-4 rounded-lg">
+          <h4 className="font-medium text-green-700 mb-2">Application Approved</h4>
+          <p className="text-sm text-gray-600">
+            Your application has been approved. Please wait for the invoice to be sent.
+          </p>
+        </div>
+      )}
+      {application.status === 'PAYMENT_VERIFIED' && (
+        <div className="mt-6 bg-purple-50 p-4 rounded-lg">
+          <h4 className="font-medium text-purple-700 mb-2">Payment Verified</h4>
+          <p className="text-sm text-gray-600">
+            Your payment has been verified. Your insurance certificate will be issued soon.
+          </p>
+        </div>
+      )}
+      {application.status === 'INSURANCE_ISSUED' && (
+        <div className="mt-6 bg-emerald-50 p-4 rounded-lg">
+          <h4 className="font-medium text-emerald-700 mb-2">Insurance Issued</h4>
+          <p className="text-sm text-gray-600">
+            Your insurance has been issued. You can download your certificate above.
           </p>
         </div>
       )}

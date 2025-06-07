@@ -43,6 +43,14 @@ interface Application {
   rejectionReason?: string;
   amount?: number;
   companyCommission?: number;
+  agentCommission?: number;
+  agentId?: string;
+  reasonForPaymentRejection?: string;
+  vehicleType?: string;
+  vehicleAge?: string;
+  province?: string;
+  district?: string;
+  sector?: string;
 }
 
 interface PaginationProps {
@@ -183,47 +191,61 @@ useEffect(() => {
 };
 
   // Verify client payment
-  const handleVerifyPayment = async () => {
-    if (!selectedApp) return;
-    
-    setIsProcessing(true);
-    try {
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_BASE_URL}/verifyPayment/${selectedApp._id}`,
-        {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          }
-        }
-      );
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to verify payment');
+// Replace the existing handleVerifyPayment function with this:
+const handleVerifyPayment = async (action: 'approve' | 'reject') => {
+  if (!selectedApp) return;
+  
+  setIsProcessing(true);
+  try {
+    const response = await fetch(
+      `${process.env.NEXT_PUBLIC_API_BASE_URL}/verifyPayment/${selectedApp._id}`,
+      {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          action,
+          ...(action === 'reject' && { reasonForPaymentRejection: rejectionComment })
+        })
       }
+    );
 
-      const updatedApplications = applications.map(app => {
-        if (app._id === selectedApp._id) {
-          return {
-            ...app,
-            status: ApplicationStatus.PAYMENT_VERIFIED
-          };
-        }
-        return app;
-      });
-      
-      setApplications(updatedApplications);
-      showToast(`Payment from ${selectedApp.fullName} verified`, 'success');
-      setSelectedApp(null);
-    } catch (error) {
-      console.error('Error verifying payment:', error);
-      showToast(error instanceof Error ? error.message : 'Failed to verify payment', 'error');
-    } finally {
-      setIsProcessing(false);
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Failed to verify payment');
     }
-  };
+
+    const updatedApplications = applications.map(app => {
+      if (app._id === selectedApp._id) {
+        return {
+          ...app,
+          status: action === 'approve' 
+            ? ApplicationStatus.PAYMENT_VERIFIED 
+            : ApplicationStatus.WAITING_FOR_USER_ACTION,
+          ...(action === 'reject' && { reasonForPaymentRejection: rejectionComment })
+        };
+      }
+      return app;
+    });
+    
+    setApplications(updatedApplications);
+    showToast(
+      action === 'approve' 
+        ? `Payment from ${selectedApp.fullName} verified` 
+        : `Payment from ${selectedApp.fullName} rejected`,
+      action === 'approve' ? 'success' : 'error'
+    );
+    setRejectionComment('');
+    setSelectedApp(null);
+  } catch (error) {
+    console.error('Error verifying payment:', error);
+    showToast(error instanceof Error ? error.message : 'Failed to verify payment', 'error');
+  } finally {
+    setIsProcessing(false);
+  }
+};
 
   // Reject application or payment
   const handleReject = async (action: 'application' | 'payment') => {
@@ -292,7 +314,7 @@ useEffect(() => {
     setIsProcessing(true);
     try {
       const formData = new FormData();
-      formData.append('InsuranceCertificate', insuranceFile);
+      formData.append('insuranceCertificate', insuranceFile);
 
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_BASE_URL}/issueInsurance/${selectedApp._id}`,
@@ -415,7 +437,7 @@ useEffect(() => {
       case ApplicationStatus.APPLICATION_APPROVED:
         return (
           <Button 
-            size="sm" 
+            size="xs" 
             onClick={() => {
               setSelectedApp(app);
               setInvoiceMessage(`Please pay ${app.invoiceAmount || '[amount]'} RWF to:\nBank: Kigali Bank\nAccount: 1234567890\nOr via MOMO: 0782123456`);
@@ -428,7 +450,7 @@ useEffect(() => {
       case ApplicationStatus.REVIEW_PAYMENT:
         return (
           <Button 
-            size="sm" 
+            size="xs" 
             onClick={() => {
               setSelectedApp(app);
             }}
@@ -440,7 +462,7 @@ useEffect(() => {
       case ApplicationStatus.PAYMENT_VERIFIED:
         return (
           <Button 
-            size="sm" 
+            size="xs" 
             onClick={() => {
               setSelectedApp(app);
             }}
@@ -452,7 +474,7 @@ useEffect(() => {
       default:
         return (
           <Button 
-            size="sm" 
+            size="xs" 
             variant="text" 
             onClick={() => {
               setSelectedApp(app);
@@ -608,49 +630,49 @@ useEffect(() => {
             
             <div className="flex overflow-x-auto pb-2 md:pb-0 gap-2">
               <Button
-                size="sm"
+                size="xs"
                 variant={activeTab === 'all' ? 'primary' : 'text'}
                 onClick={() => setActiveTab('all')}
               >
                 All
               </Button>
               <Button
-                size="sm"
+                size="xs"
                 variant={activeTab === ApplicationStatus.PENDING ? 'primary' : 'text'}
                 onClick={() => setActiveTab(ApplicationStatus.PENDING)}
               >
                 Pending
               </Button>
               <Button
-                size="sm"
+                size="xs"
                 variant={activeTab === ApplicationStatus.PAYMENT_VERIFIED ? 'primary' : 'text'}
                 onClick={() => setActiveTab(ApplicationStatus.PAYMENT_VERIFIED)}
               >
                 Payment Verified
               </Button>
               <Button
-                size="sm"
+                size="xs"
                 variant={activeTab === ApplicationStatus.APPLICATION_APPROVED ? 'primary' : 'text'}
                 onClick={() => setActiveTab(ApplicationStatus.APPLICATION_APPROVED)}
               >
                 Application Approved
               </Button>
               <Button
-                size="sm"
+                size="xs"
                 variant={activeTab === ApplicationStatus.INVOICE_SENT ? 'primary' : 'text'}
                 onClick={() => setActiveTab(ApplicationStatus.INVOICE_SENT)}
               >
                 Invoice Sent
               </Button>
               <Button
-                size="sm"
+                size="xs"
                 variant={activeTab === ApplicationStatus.REVIEW_PAYMENT ? 'primary' : 'text'}
                 onClick={() => setActiveTab(ApplicationStatus.REVIEW_PAYMENT)}
               >
                 Review Payment
               </Button>
               <Button
-                size="sm"
+                size="xs"
                 variant={activeTab === ApplicationStatus.WAITING_FOR_USER_ACTION ? 'primary' : 'text'}
                 onClick={() => setActiveTab(ApplicationStatus.WAITING_FOR_USER_ACTION)}
               >
@@ -739,135 +761,219 @@ useEffect(() => {
         </div>
       </div>
 
-      {/* Modal for reviewing pending application */}
-      {selectedApp && selectedApp.status.toLowerCase() === ApplicationStatus.PENDING && (
-        <div className="fixed inset-0 bg-gray-600/50 flex items-center justify-center z-50">
-          <div className="max-h-[90vh] overflow-y-auto bg-white rounded-lg shadow-xl p-6 w-full max-w-3xl mx-4 fade-in">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold">Review Application</h3>
-              <button onClick={() => setSelectedApp(null)} className="text-gray-400 hover:text-gray-600">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-            
-            <div className="bg-[var(--light-gray)] p-4 rounded-lg mb-4">
-              <div className="flex justify-between items-center">
-                <div>
-                  <p className="text-sm text-gray-500">Application ID</p>
-                  <p className="font-semibold">#{selectedApp.applicationNumber}</p>
-                </div>
-                <div>
-                  {getStatusBadge(selectedApp.status)}
-                </div>
-              </div>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-              <div>
-                <p className="text-sm text-gray-500">Client Name</p>
-                <p className="font-semibold">{selectedApp.fullName}</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">Insurance Type</p>
-                <p className="font-semibold capitalize">{selectedApp.insuranceType.replace('_', ' ')}</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">Email</p>
-                <p className="font-semibold">{selectedApp.email}</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">Phone</p>
-                <p className="font-semibold">{selectedApp.phoneNumber}</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">Date Submitted</p>
-                <p className="font-semibold">{new Date(selectedApp.submittedAt).toLocaleDateString()}</p>
-              </div>
-            </div>
-            
-            <div className="bg-[var(--light-gray)] p-4 rounded-lg mb-4">
-              <h4 className="font-medium mb-2">Documents</h4>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <button 
-                  className="bg-white p-3 rounded border text-left hover:bg-gray-50"
-                  onClick={() => setViewingDocument({
-                    name: 'National ID / Passport',
-                    path: selectedApp.nationalID
-                  })}
-                >
-                  <p className="text-sm font-medium">National ID / Passport</p>
-                  <p className="text-xs text-gray-500">View Document</p>
-                </button>
-                <button 
-                  className="bg-white p-3 rounded border text-left hover:bg-gray-50"
-                  onClick={() => setViewingDocument({
-                    name: 'Yellow Card',
-                    path: selectedApp.yellowCard
-                  })}
-                >
-                  <p className="text-sm font-medium">Yellow Card</p>
-                  <p className="text-xs text-gray-500">View Document</p>
-                </button>
-                {selectedApp.pastInsuranceCertificate && (
-                  <button 
-                    className="bg-white p-3 rounded border text-left hover:bg-gray-50"
-                    onClick={() => setViewingDocument({
-                      name: 'Past Insurance Certificate',
-                      path: selectedApp.pastInsuranceCertificate || '/File_not_found.jpg'
-                    })}
-                  >
-                    <p className="text-sm font-medium">Past Insurance</p>
-                    <p className="text-xs text-gray-500">View Document</p>
-                  </button>
-                )}
-              </div>
-            </div>
-            
-            <div className="mt-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Rejection Reason (if rejecting)</label>
-              <textarea
-                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[var(--main-blue)] focus:border-[var(--main-blue)] sm:text-sm"
-                rows={4}
-                value={rejectionComment}
-                onChange={(e) => setRejectionComment(e.target.value)}
-                placeholder="Enter reason for rejecting this application..."
-              />
-            </div>
-            
-           <div className="flex justify-end gap-2 mt-6">
-  <Button 
-    variant="text" 
-    onClick={() => setSelectedApp(null)} 
-    disabled={isProcessing}
-  >
-    Cancel
-  </Button>
-  <Button 
-    variant="danger" 
-    onClick={() => {
-      setIsProcessing(true);
-      handleReject('application').finally(() => setIsProcessing(false));
-    }}
-    disabled={!rejectionComment || isProcessing}
-  >
-    {isProcessing ? 'Processing...' : 'Reject Application'}
-  </Button>
-  <Button 
-    onClick={() => {
-      setIsProcessing(true);
-      handleApproveApplication().finally(() => setIsProcessing(false));
-    }}
-    disabled={rejectionComment.length > 0 || isProcessing}
-  >
-    {isProcessing ? 'Processing...' : 'Approve Application'}
-  </Button>
-</div>
-
+   {/* Modal for reviewing pending application */}
+{selectedApp && selectedApp.status.toLowerCase() === ApplicationStatus.PENDING && (
+  <div className="fixed inset-0 bg-gray-600/50 flex items-center justify-center z-50">
+    <div className="max-h-[90vh] overflow-y-auto bg-white rounded-lg shadow-xl p-6 w-full max-w-3xl mx-4 fade-in">
+      <div className="flex justify-between items-center mb-4">
+        <h3 className="text-lg font-semibold">Review Application</h3>
+        <button onClick={() => setSelectedApp(null)} className="text-gray-400 hover:text-gray-600">
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+      
+      <div className="bg-[var(--light-gray)] p-4 rounded-lg mb-4">
+        <div className="flex justify-between items-center">
+          <div>
+            <p className="text-sm text-gray-500">Application ID</p>
+            <p className="font-semibold">#{selectedApp.applicationNumber}</p>
+          </div>
+          <div>
+            {getStatusBadge(selectedApp.status)}
           </div>
         </div>
-      )}
+      </div>
+      
+      {/* Enhanced application details section with all fields */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+        {/* Personal Info */}
+        <div className="space-y-4">
+          <div>
+            <p className="text-sm text-gray-500">Full Name</p>
+            <p className="font-semibold">{selectedApp.fullName}</p>
+          </div>
+          <div>
+            <p className="text-sm text-gray-500">Email</p>
+            <p className="font-semibold">{selectedApp.email}</p>
+          </div>
+          <div>
+            <p className="text-sm text-gray-500">Phone</p>
+            <p className="font-semibold">{selectedApp.phoneNumber}</p>
+          </div>
+          <div>
+            <p className="text-sm text-gray-500">Date of Birth</p>
+            <p className="font-semibold">{new Date(selectedApp.dateOfBirth).toLocaleDateString()}</p>
+          </div>
+        </div>
+        
+        {/* Address Info */}
+        <div className="space-y-4">
+          <div>
+            <p className="text-sm text-gray-500">Address</p>
+            <p className="font-semibold">{selectedApp.address}</p>
+          </div>
+          {selectedApp.province && (
+            <div>
+              <p className="text-sm text-gray-500">Province</p>
+              <p className="font-semibold">{selectedApp.province}</p>
+            </div>
+          )}
+          {selectedApp.district && (
+            <div>
+              <p className="text-sm text-gray-500">District</p>
+              <p className="font-semibold">{selectedApp.district}</p>
+            </div>
+          )}
+          {selectedApp.sector && (
+            <div>
+              <p className="text-sm text-gray-500">Sector</p>
+              <p className="font-semibold">{selectedApp.sector}</p>
+            </div>
+          )}
+        </div>
+        
+        {/* Insurance Info */}
+        <div className="space-y-4">
+          <div>
+            <p className="text-sm text-gray-500">Insurance Category</p>
+            <p className="font-semibold">{selectedApp.insuranceCategory}</p>
+          </div>
+          <div>
+            <p className="text-sm text-gray-500">Insurance Type</p>
+            <p className="font-semibold">{selectedApp.insuranceType}</p>
+          </div>
+          <div>
+            <p className="text-sm text-gray-500">Duration</p>
+            <p className="font-semibold">{selectedApp.insuranceDuration}</p>
+          </div>
+          {selectedApp.amount && (
+            <div>
+              <p className="text-sm text-gray-500">Amount</p>
+              <p className="font-semibold">{selectedApp.amount.toLocaleString()} RWF</p>
+            </div>
+          )}
+        </div>
+        
+        {/* Vehicle Info (if applicable) */}
+        {(selectedApp.vehicleType || selectedApp.vehicleAge) && (
+          <div className="space-y-4">
+            {selectedApp.vehicleType && (
+              <div>
+                <p className="text-sm text-gray-500">Vehicle Type</p>
+                <p className="font-semibold">{selectedApp.vehicleType}</p>
+              </div>
+            )}
+            {selectedApp.vehicleAge && (
+              <div>
+                <p className="text-sm text-gray-500">Vehicle Year</p>
+                <p className="font-semibold">{selectedApp.vehicleAge}</p>
+              </div>
+            )}
+          </div>
+        )}
+        
+        {/* Commission Info (if available) */}
+        {(selectedApp.companyCommission || selectedApp.agentCommission) && (
+          <div className="space-y-4">
+            {selectedApp.companyCommission && (
+              <div>
+                <p className="text-sm text-gray-500">Company Commission</p>
+                <p className="font-semibold">{selectedApp.companyCommission.toLocaleString()} RWF</p>
+              </div>
+            )}
+            {selectedApp.agentCommission && (
+              <div>
+                <p className="text-sm text-gray-500">Agent Commission</p>
+                <p className="font-semibold">{selectedApp.agentCommission.toLocaleString()} RWF</p>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+      
+      {/* Documents Section */}
+      <div className="bg-[var(--light-gray)] p-4 rounded-lg mb-4">
+        <h4 className="font-medium mb-2">Documents</h4>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <button 
+            className="bg-white p-3 rounded border text-left hover:bg-gray-50"
+            onClick={() => setViewingDocument({
+              name: 'National ID / Passport',
+              path: selectedApp.nationalID
+            })}
+          >
+            <p className="text-sm font-medium">National ID / Passport</p>
+            <p className="text-xs text-gray-500">View Document</p>
+          </button>
+          <button 
+            className="bg-white p-3 rounded border text-left hover:bg-gray-50"
+            onClick={() => setViewingDocument({
+              name: 'Yellow Card',
+              path: selectedApp.yellowCard
+            })}
+          >
+            <p className="text-sm font-medium">Yellow Card</p>
+            <p className="text-xs text-gray-500">View Document</p>
+          </button>
+          {selectedApp.pastInsuranceCertificate && (
+            <button 
+              className="bg-white p-3 rounded border text-left hover:bg-gray-50"
+              onClick={() => setViewingDocument({
+                name: 'Past Insurance Certificate',
+                path: selectedApp.pastInsuranceCertificate || '/File_not_found.jpg'
+              })}
+            >
+              <p className="text-sm font-medium">Past Insurance</p>
+              <p className="text-xs text-gray-500">View Document</p>
+            </button>
+          )}
+        </div>
+      </div>
+      
+      <div className="mt-4">
+        <label className="block text-sm font-medium text-gray-700 mb-1">Rejection Reason (if rejecting)</label>
+        <textarea
+          className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[var(--main-blue)] focus:border-[var(--main-blue)] sm:text-sm"
+          rows={4}
+          value={rejectionComment}
+          onChange={(e) => setRejectionComment(e.target.value)}
+          placeholder="Enter reason for rejecting this application..."
+        />
+      </div>
+      
+      <div className="flex justify-end gap-2 mt-6">
+        <Button 
+          variant="text" 
+          onClick={() => setSelectedApp(null)} 
+          disabled={isProcessing}
+        >
+          Cancel
+        </Button>
+        <Button 
+          variant="danger" 
+          onClick={() => {
+            setIsProcessing(true);
+            handleReject('application').finally(() => setIsProcessing(false));
+          }}
+          disabled={!rejectionComment || isProcessing}
+        >
+          {isProcessing ? 'Processing...' : 'Reject Application'}
+        </Button>
+        <Button 
+          onClick={() => {
+            setIsProcessing(true);
+            handleApproveApplication().finally(() => setIsProcessing(false));
+          }}
+          disabled={rejectionComment.length > 0 || isProcessing}
+        >
+          {isProcessing ? 'Processing...' : 'Approve Application'}
+        </Button>
+      </div>
+    </div>
+  </div>
+)}
 
       {/* Modal for sending invoice */}
       {selectedApp && selectedApp.status.toLowerCase() === ApplicationStatus.APPLICATION_APPROVED && (
@@ -877,12 +983,12 @@ useEffect(() => {
       <p className="text-gray-600 mb-4">Enter the invoice details for {selectedApp.insuranceType} insurance:</p>
       
       {/* Add Amount field */}
-      <div className="mt-4">
+     <div className="mt-4">
         <label className="block text-sm font-medium text-gray-700 mb-1">Amount (RWF) *</label>
         <input
           type="number"
           className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[var(--main-blue)] focus:border-[var(--main-blue)] sm:text-sm"
-          value={invoiceAmount}
+          value={invoiceAmount || selectedApp.amount || ''}
           onChange={(e) => setInvoiceAmount(e.target.value)}
           placeholder="Enter amount"
           required
@@ -943,7 +1049,14 @@ useEffect(() => {
       {selectedApp && selectedApp.status.toLowerCase() === ApplicationStatus.REVIEW_PAYMENT && (
         <div className="fixed inset-0 bg-gray-600/50 flex items-center justify-center z-50">
           <div className="max-h-[90vh] overflow-y-auto bg-white rounded-lg shadow-xl p-6 w-full max-w-md mx-4 fade-in">
-            <h3 className="text-lg font-semibold mb-4">Verify Payment</h3>
+            <div className="flex justify-between items-center mb-4">
+        <h3 className="text-lg font-semibold">Verify Payment</h3>
+        <button onClick={() => setSelectedApp(null)} className="text-gray-400 hover:text-gray-600">
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
             <p className="text-gray-600 mb-4">Review payment proof for {selectedApp.fullName}&apos;s application:</p>
             
             <div className="border rounded-lg p-4 mb-4 bg-gray-50">
@@ -974,22 +1087,49 @@ useEffect(() => {
                 <li><span className="text-gray-600">Date Submitted:</span> {new Date(selectedApp.submittedAt).toLocaleDateString()}</li>
               </ul>
             </div>
+
+            <div className="mt-4">
+        <label className="block text-sm font-medium text-gray-700 mb-1">Rejection Reason (if rejecting)</label>
+        <textarea
+          className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[var(--main-blue)] focus:border-[var(--main-blue)] sm:text-sm"
+          rows={4}
+          value={rejectionComment}
+          onChange={(e) => setRejectionComment(e.target.value)}
+          placeholder="Enter reason for rejecting this payment..."
+        />
+      </div>
             
-            <div className="flex justify-end gap-2 mt-6">
-              <Button 
-                variant="danger" 
-                onClick={() => {
-                  setRejectionComment('');
-                  setSelectedApp({...selectedApp, status: ApplicationStatus.WAITING_FOR_USER_ACTION});
-                }}
-                disabled={isProcessing}
-              >
-                Reject Payment
-              </Button>
-              <Button onClick={handleVerifyPayment} disabled={isProcessing}>
-                {isProcessing ? 'Verifying...' : 'Verify Payment'}
-              </Button>
-            </div>
+              <div className="flex justify-end gap-2 mt-6">
+        <Button 
+          variant="text" 
+          size='sm'
+          onClick={() => setSelectedApp(null)} 
+          disabled={isProcessing}
+        >
+          Cancel
+        </Button>
+        <Button 
+          variant="danger" 
+          size='sm'
+          onClick={() => {
+            setIsProcessing(true);
+            handleVerifyPayment('reject').finally(() => setIsProcessing(false));
+          }}
+          disabled={!rejectionComment || isProcessing}
+        >
+          {isProcessing ? 'Processing...' : 'Reject Payment'}
+        </Button>
+        <Button 
+          size='sm'
+          onClick={() => {
+            setIsProcessing(true);
+            handleVerifyPayment('approve').finally(() => setIsProcessing(false));
+          }}
+          disabled={rejectionComment.length > 0 || isProcessing}
+        >
+          {isProcessing ? 'Processing...' : 'Approve Payment'}
+        </Button>
+      </div>
           </div>
         </div>
       )}
@@ -1127,162 +1267,248 @@ useEffect(() => {
       )}
 
       {/* Modal for viewing details */}
-      {selectedApp && ![
-        ApplicationStatus.PENDING, 
-        ApplicationStatus.APPLICATION_APPROVED, 
-        ApplicationStatus.REVIEW_PAYMENT, 
-        ApplicationStatus.PAYMENT_VERIFIED
-      ].includes(selectedApp.status.toLowerCase() as ApplicationStatus) && (
-        <div className="fixed inset-0 bg-gray-600/50 flex items-center justify-center z-50">
-          <div className="max-h-[90vh] overflow-y-auto bg-white rounded-lg shadow-xl p-6 w-full max-w-3xl mx-4 fade-in">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold">Application Details</h3>
-              <button onClick={() => setSelectedApp(null)} className="text-gray-400 hover:text-gray-600">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
+    {selectedApp && ![
+  ApplicationStatus.PENDING, 
+  ApplicationStatus.APPLICATION_APPROVED, 
+  ApplicationStatus.REVIEW_PAYMENT, 
+  ApplicationStatus.PAYMENT_VERIFIED
+].includes(selectedApp.status.toLowerCase() as ApplicationStatus) && (
+  <div className="fixed inset-0 bg-gray-600/50 flex items-center justify-center z-50">
+    <div className="max-h-[90vh] overflow-y-auto bg-white rounded-lg shadow-xl p-6 w-full max-w-3xl mx-4 fade-in">
+      <div className="flex justify-between items-center mb-4">
+        <h3 className="text-lg font-semibold">Application Details</h3>
+        <button onClick={() => setSelectedApp(null)} className="text-gray-400 hover:text-gray-600">
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+      
+      <div className="bg-[var(--light-gray)] p-4 rounded-lg mb-4">
+        <div className="flex justify-between items-center">
+          <div>
+            <p className="text-sm text-gray-500">Application ID</p>
+            <p className="font-semibold">#{selectedApp.applicationNumber}</p>
+          </div>
+          <div>
+            {getStatusBadge(selectedApp.status)}
+          </div>
+        </div>
+      </div>
+      
+      {/* Enhanced Application Details Section */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+        {/* Personal Information */}
+        <div className="space-y-2">
+          <div>
+            <p className="text-sm text-gray-500">Full Name</p>
+            <p className="font-semibold">{selectedApp.fullName}</p>
+          </div>
+          <div>
+            <p className="text-sm text-gray-500">Email</p>
+            <p className="font-semibold">{selectedApp.email}</p>
+          </div>
+          <div>
+            <p className="text-sm text-gray-500">Phone</p>
+            <p className="font-semibold">{selectedApp.phoneNumber}</p>
+          </div>
+          <div>
+            <p className="text-sm text-gray-500">Date of Birth</p>
+            <p className="font-semibold">{new Date(selectedApp.dateOfBirth).toLocaleDateString()}</p>
+          </div>
+        </div>
+        
+        {/* Address Information */}
+        <div className="space-y-2">
+          <div>
+            <p className="text-sm text-gray-500">Address</p>
+            <p className="font-semibold">{selectedApp.address}</p>
+          </div>
+          {selectedApp.province && (
+            <div>
+              <p className="text-sm text-gray-500">Province</p>
+              <p className="font-semibold">{selectedApp.province}</p>
             </div>
-            
-            <div className="bg-[var(--light-gray)] p-4 rounded-lg mb-4">
-              <div className="flex justify-between items-center">
-                <div>
-                  <p className="text-sm text-gray-500">Application ID</p>
-                  <p className="font-semibold">#{selectedApp.applicationNumber}</p>
-                </div>
-                <div>
-                  {getStatusBadge(selectedApp.status)}
-                </div>
-              </div>
+          )}
+          {selectedApp.district && (
+            <div>
+              <p className="text-sm text-gray-500">District</p>
+              <p className="font-semibold">{selectedApp.district}</p>
             </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-              <div>
-                <p className="text-sm text-gray-500">Client Name</p>
-                <p className="font-semibold">{selectedApp.fullName}</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">Insurance Type</p>
-                <p className="font-semibold capitalize">{selectedApp.insuranceType.replace('_', ' ')}</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">Email</p>
-                <p className="font-semibold">{selectedApp.email}</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">Phone</p>
-                <p className="font-semibold">{selectedApp.phoneNumber}</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">Date Submitted</p>
-                <p className="font-semibold">{new Date(selectedApp.submittedAt).toLocaleDateString()}</p>
-              </div>
-              {selectedApp.certificateUrl && (
-                <div>
-                  <p className="text-sm text-gray-500">Insurance ID</p>
-                  <p className="font-semibold">{selectedApp._id}</p>
-                </div>
-              )}
+          )}
+          {selectedApp.sector && (
+            <div>
+              <p className="text-sm text-gray-500">Sector</p>
+              <p className="font-semibold">{selectedApp.sector}</p>
             </div>
-              {selectedApp && selectedApp.rejectionReason && (
-  <div className="mt-4 bg-red-50 p-4 rounded-lg">
-    <h4 className="font-medium text-red-700 mb-2">Rejection Reason</h4>
-    <p className="text-red-600">{selectedApp.rejectionReason}</p>
-  </div>
-)}
-            
-            <div className="bg-[var(--light-gray)] p-4 rounded-lg mb-4">
-              <h4 className="font-medium mb-2">Documents</h4>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <button 
-                  className="bg-white p-3 rounded border text-left hover:bg-gray-50"
-                  onClick={() => setViewingDocument({
-                    name: 'National ID / Passport',
-                    path: selectedApp.nationalID
-                  })}
-                >
-                  <p className="text-sm font-medium">National ID / Passport</p>
-                  <p className="text-xs text-gray-500">View Document</p>
-                </button>
-                <button 
-                  className="bg-white p-3 rounded border text-left hover:bg-gray-50"
-                  onClick={() => setViewingDocument({
-                    name: 'Yellow Card',
-                    path: selectedApp.yellowCard
-                  })}
-                >
-                  <p className="text-sm font-medium">Yellow Card</p>
-                  <p className="text-xs text-gray-500">View Document</p>
-                </button>
-                {selectedApp.pastInsuranceCertificate && (
-                  <button 
-                    className="bg-white p-3 rounded border text-left hover:bg-gray-50"
-                    onClick={() => setViewingDocument({
-                      name: 'Past Insurance Certificate',
-                      path: selectedApp.pastInsuranceCertificate || '/File_not_found.jpg'
-                    })}
-                  >
-                    <p className="text-sm font-medium">Past Insurance</p>
-                    <p className="text-xs text-gray-500">View Document</p>
-                  </button>
-                )}
-                {selectedApp.proofOfPayment && (
-                  <button 
-                    className="bg-white p-3 rounded border text-left hover:bg-gray-50"
-                    onClick={() => setViewingDocument({
-                      name: 'Payment Proof',
-                      path: selectedApp.proofOfPayment || '/File_not_found.jpg'
-                    })}
-                  >
-                    <p className="text-sm font-medium">Payment Proof</p>
-                    <p className="text-xs text-gray-500">View Document</p>
-                  </button>
-                )}
-                {selectedApp.certificateUrl && (
-                  <button 
-                    className="bg-white p-3 rounded border text-left hover:bg-gray-50"
-                    onClick={() => setViewingDocument({
-                      name: 'Insurance Certificate',
-                      path: selectedApp.certificateUrl || ''
-                    })}
-                  >
-                    <p className="text-sm font-medium">Insurance Certificate</p>
-                    <p className="text-xs text-gray-500">View Document</p>
-                  </button>
-                )}
-              </div>
+          )}
+        </div>
+        
+        {/* Insurance Information */}
+        <div className="space-y-2">
+          <div>
+            <p className="text-sm text-gray-500">Insurance Category</p>
+            <p className="font-semibold">{selectedApp.insuranceCategory}</p>
+          </div>
+          <div>
+            <p className="text-sm text-gray-500">Insurance Type</p>
+            <p className="font-semibold">{selectedApp.insuranceType}</p>
+          </div>
+          <div>
+            <p className="text-sm text-gray-500">Duration</p>
+            <p className="font-semibold">{selectedApp.insuranceDuration}</p>
+          </div>
+          {selectedApp.amount && (
+            <div>
+              <p className="text-sm text-gray-500">Amount</p>
+              <p className="font-semibold">{selectedApp.amount.toLocaleString()} RWF</p>
             </div>
-            
-            {selectedApp.invoiceId && (
-              <div className="bg-[var(--light-gray)] p-4 rounded-lg mb-4">
-                <h4 className="font-medium mb-2">Invoice & Payment</h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="bg-white p-3 rounded border">
-                    <p className="text-sm font-medium">Invoice ID</p>
-                    <p className="text-xs text-gray-500">{selectedApp.invoiceId}</p>
-                  </div>
-                  {selectedApp.invoiceAmount && (
-                    <div className="bg-white p-3 rounded border">
-                      <p className="text-sm font-medium">Amount</p>
-                      <p className="text-xs text-gray-500">{selectedApp.invoiceAmount} RWF</p>
-                    </div>
-                  )}
-                  {selectedApp.transactionId && (
-                    <div className="bg-white p-3 rounded border">
-                      <p className="text-sm font-medium">Transaction ID</p>
-                      <p className="text-xs text-gray-500">{selectedApp.transactionId}</p>
-                    </div>
-                  )}
-                </div>
+          )}
+        </div>
+        
+        {/* Vehicle Information (if applicable) */}
+        {(selectedApp.insuranceCategory === 'Car Insurance' || selectedApp.insuranceCategory === 'Motorbike Insurance') && (
+          <div className="space-y-2">
+            {selectedApp.vehicleType && (
+              <div>
+                <p className="text-sm text-gray-500">Vehicle Type</p>
+                <p className="font-semibold">{selectedApp.vehicleType}</p>
               </div>
             )}
-            
-            <div className="flex justify-end">
-              <Button variant="text" onClick={() => setSelectedApp(null)}>Close</Button>
+            {selectedApp.vehicleAge && (
+              <div>
+                <p className="text-sm text-gray-500">Vehicle Year</p>
+                <p className="font-semibold">{selectedApp.vehicleAge}</p>
+              </div>
+            )}
+          </div>
+        )}
+        
+        {/* Commission Information (if available) */}
+        {(selectedApp.companyCommission || selectedApp.agentCommission) && (
+          <div className="space-y-2">
+            {selectedApp.companyCommission && (
+              <div>
+                <p className="text-sm text-gray-500">Company Commission</p>
+                <p className="font-semibold">{selectedApp.companyCommission.toLocaleString()} RWF</p>
+              </div>
+            )}
+            {selectedApp.agentId && (selectedApp.agentCommission && (
+              <div>
+                <p className="text-sm text-gray-500">Agent Commission</p>
+                <p className="font-semibold">{selectedApp.agentCommission.toLocaleString()} RWF</p>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+      
+      {/* Rejection Reason (if exists) */}
+      {selectedApp.rejectionReason && (
+        <div className="mt-4 bg-red-50 p-4 rounded-lg">
+          <h4 className="font-medium text-red-700 mb-2">Rejection Reason</h4>
+          <p className="text-red-600">{selectedApp.rejectionReason}</p>
+        </div>
+      )}
+      
+      {/* Documents Section */}
+      <div className="bg-[var(--light-gray)] p-4 rounded-lg mb-4 mt-6">
+        <h4 className="font-medium mb-2">Documents</h4>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <button 
+            className="bg-white p-3 rounded border text-left hover:bg-gray-50"
+            onClick={() => setViewingDocument({
+              name: 'National ID / Passport',
+              path: selectedApp.nationalID
+            })}
+          >
+            <p className="text-sm font-medium">National ID / Passport</p>
+            <p className="text-xs text-gray-500">View Document</p>
+          </button>
+          
+          <button 
+            className="bg-white p-3 rounded border text-left hover:bg-gray-50"
+            onClick={() => setViewingDocument({
+              name: 'Yellow Card',
+              path: selectedApp.yellowCard
+            })}
+          >
+            <p className="text-sm font-medium">Yellow Card</p>
+            <p className="text-xs text-gray-500">View Document</p>
+          </button>
+          
+          {selectedApp.pastInsuranceCertificate && (
+            <button 
+              className="bg-white p-3 rounded border text-left hover:bg-gray-50"
+              onClick={() => setViewingDocument({
+                name: 'Past Insurance Certificate',
+                path: selectedApp.pastInsuranceCertificate || ''
+              })}
+            >
+              <p className="text-sm font-medium">Past Insurance</p>
+              <p className="text-xs text-gray-500">View Document</p>
+            </button>
+          )}
+          
+          {selectedApp.proofOfPayment && (
+            <button 
+              className="bg-white p-3 rounded border text-left hover:bg-gray-50"
+              onClick={() => setViewingDocument({
+                name: 'Proof of Payment',
+                path: selectedApp.proofOfPayment || ''
+              })}
+            >
+              <p className="text-sm font-medium">Proof of Payment</p>
+              <p className="text-xs text-gray-500">View Document</p>
+            </button>
+          )}
+          
+          {selectedApp.certificateUrl && (
+            <button 
+              className="bg-white p-3 rounded border text-left hover:bg-gray-50"
+              onClick={() => setViewingDocument({
+                name: 'Insurance Certificate',
+                path: selectedApp.certificateUrl || ''
+              })}
+            >
+              <p className="text-sm font-medium">Insurance Certificate</p>
+              <p className="text-xs text-gray-500">View Document</p>
+            </button>
+          )}
+        </div>
+      </div>
+      
+      {/* Invoice & Payment Information (if available) */}
+      {selectedApp.invoiceId && (
+        <div className="bg-[var(--light-gray)] p-4 rounded-lg mb-4">
+          <h4 className="font-medium mb-2">Invoice & Payment</h4>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="bg-white p-3 rounded border">
+              <p className="text-sm font-medium">Invoice ID</p>
+              <p className="text-xs text-gray-500">{selectedApp.invoiceId}</p>
             </div>
+            {selectedApp.invoiceAmount && (
+              <div className="bg-white p-3 rounded border">
+                <p className="text-sm font-medium">Amount</p>
+                <p className="text-xs text-gray-500">{selectedApp.invoiceAmount} RWF</p>
+              </div>
+            )}
+            {selectedApp.transactionId && (
+              <div className="bg-white p-3 rounded border">
+                <p className="text-sm font-medium">Transaction ID</p>
+                <p className="text-xs text-gray-500">{selectedApp.transactionId}</p>
+              </div>
+            )}
           </div>
         </div>
       )}
+      
+      <div className="flex justify-end">
+        <Button variant="text" onClick={() => setSelectedApp(null)}>Close</Button>
+      </div>
+    </div>
+  </div>
+)}
 
       {/* Document viewer modal */}
       {viewingDocument && (

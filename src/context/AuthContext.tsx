@@ -90,8 +90,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (!response.ok) throw new Error('Login failed');
 
       const { data, token } = await response.json();
-      console.log('Login successful:', data);
-      console.log('Login successful:', token);
+      // console.log('Login successful:', data);
+      // console.log('Login successful:', token);
       
       // Set cookies properly
       const cookieOptions = {
