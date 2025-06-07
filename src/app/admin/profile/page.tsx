@@ -176,6 +176,7 @@ const getDateLimits = () => {
     try {
       const sessionUser = sessionStorage.getItem('ezinsure_user');
       const userData = sessionUser ? JSON.parse(sessionUser) : authUser;
+      // console.log("Auth User: ", userData);
       
       setProfile(userData);
       setOriginalProfile(userData);
