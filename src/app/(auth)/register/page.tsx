@@ -431,11 +431,12 @@ export default function AgentRegistrationPage() {
       formData.append('email', email);
 
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/trackAgentApplication`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: formData,
+         method: 'POST',
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: formData,
       });
 
       const data = await response.json();
@@ -477,6 +478,7 @@ export default function AgentRegistrationPage() {
 
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/verifyAgentOtp`, {
         method: 'POST',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
         },
@@ -542,10 +544,10 @@ export default function AgentRegistrationPage() {
     switch (status) {
       case 'PENDING':
         return <span className="px-2 py-1 rounded-full bg-yellow-100 text-yellow-800 text-xs font-medium">Pending</span>;
-      case 'APPROVED':
-        return <span className="px-2 py-1 rounded-full bg-green-100 text-green-800 text-xs font-medium">Approved</span>;
-      case 'REJECTED':
-        return <span className="px-2 py-1 rounded-full bg-red-100 text-red-800 text-xs font-medium">Rejected</span>;
+      case 'ACTIVE':
+        return <span className="px-2 py-1 rounded-full bg-green-100 text-green-800 text-xs font-medium">Active</span>;
+      case 'DEACTIVATED':
+        return <span className="px-2 py-1 rounded-full bg-red-100 text-red-800 text-xs font-medium">Deactivated</span>;
       case 'SENT_FOR_ACTION':
         return <span className="px-2 py-1 rounded-full bg-orange-100 text-orange-800 text-xs font-medium">Action Required</span>;
       default:
