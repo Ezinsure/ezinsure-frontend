@@ -12,21 +12,31 @@ import {
   validationPatterns,
   hasErrors,
 } from '@/components/ui/form-validation';
+import { rwandaProvinces } from '@/utils/rwanda-administrative';
 
-export default function ApplyPage() {
+export default function AgentApplyPage() {
   const { showToast, ToastContainer } = useToast();
   const [formKey, setFormKey] = useState(Date.now());
+
+  // State for administrative divisions
+  const [availableDistricts, setAvailableDistricts] = useState<{name: string, sectors?: string[]}[]>([]);
+  const [availableSectors, setAvailableSectors] = useState<string[]>([]);
 
   const [formState, setFormState] = useState({
     fullName: '',
     email: '',
-    phone: '',
+    phoneNumber: '',
     address: '',
     dateOfBirth: '',
+    province: '',
+    district: '',
+    sector: '',
     insuranceCategory: 'car',
     insuranceType: 'comprehensive',
     insuranceDuration: '12',
-    nationalId: null as File | null,
+    vehicleType: '',
+    vehicleAge: '',
+    nationalID: null as File | null, 
     yellowCard: null as File | null,
     pastInsuranceCertificate: null as File | null,
   });
@@ -37,20 +47,92 @@ export default function ApplyPage() {
   const validationRules: ValidationRules = {
     fullName: { required: true, minLength: 3, maxLength: 50 },
     email: { required: true, pattern: validationPatterns.email },
-    phone: { required: true, pattern: validationPatterns.phone },
+    phoneNumber: { required: true, pattern: validationPatterns.phone },
     address: { required: true, minLength: 5, maxLength: 100 },
     dateOfBirth: { required: true },
+    province: { required: true },
+    district: { required: true },
+    sector: { required: true },
     insuranceCategory: { required: true },
     insuranceType: { required: true },
     insuranceDuration: { required: true },
-    nationalId: { required: true },
+    vehicleType: { required: formState.insuranceCategory === 'car' || formState.insuranceCategory === 'motorbike' },
+    vehicleAge: { required: formState.insuranceCategory === 'car' || formState.insuranceCategory === 'motorbike' },
+    nationalID: { required: true },
     yellowCard: { required: true },
+  };
+
+  const getTokenFromStorage = () => {
+  return sessionStorage.getItem('ezinsure_token');
+};
+
+// const getUserFromStorage = () => {
+//   const user = sessionStorage.getItem('ezinsure_user');
+//   return user ? JSON.parse(user) : null;
+// };
+
+
+  const getDateLimits = () => {
+    const today = new Date();
+    const maxDate = new Date(today.getFullYear() - 18, today.getMonth(), today.getDate());
+    const minDate = new Date(today.getFullYear() - 100, today.getMonth(), today.getDate());
+    
+    return {
+      min: minDate.toISOString().split('T')[0],
+      max: maxDate.toISOString().split('T')[0]
+    };
+  };
+
+  // Update districts when province changes
+  const handleProvinceChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setFormState(prev => ({ 
+      ...prev, 
+      [name]: value,
+      district: '',
+      sector: ''
+    }));
+
+    if (value) {
+      const selectedProvince = rwandaProvinces.find(p => p.name === value);
+      setAvailableDistricts(selectedProvince?.districts || []);
+    } else {
+      setAvailableDistricts([]);
+    }
+    setAvailableSectors([]);
+  };
+
+  // Update sectors when district changes
+  const handleDistrictChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setFormState(prev => ({ 
+      ...prev, 
+      [name]: value,
+      sector: ''
+    }));
+
+    if (value) {
+      const selectedDistrict = availableDistricts.find(d => d.name === value);
+      setAvailableSectors(selectedDistrict?.sectors || []);
+    } else {
+      setAvailableSectors([]);
+    }
   };
 
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
     const { name, value } = e.target;
+    
+    // Special handling for province and district changes
+    if (name === 'province') {
+      handleProvinceChange(e as React.ChangeEvent<HTMLSelectElement>);
+      return;
+    } else if (name === 'district') {
+      handleDistrictChange(e as React.ChangeEvent<HTMLSelectElement>);
+      return;
+    }
+    
     setFormState((prev) => ({ ...prev, [name]: value }));
 
     // Clear error when typing
@@ -76,7 +158,37 @@ export default function ApplyPage() {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const formatInsuranceDuration = (duration: string) => {
+    switch (duration) {
+      case '1': return '1 Month';
+      case '3': return '3 Months';
+      case '6': return '6 Months';
+      case '12': return '12 Months';
+      default: return '12 Months';
+    }
+  };
+
+  const formatInsuranceType = (type: string) => {
+    switch (type) {
+      case 'comprehensive': return 'Comprehensive Insurance (covers everything)';
+      case 'thirdParty': return 'Third Party Insurance (covers partial)';
+      default: return 'Comprehensive Insurance (covers everything)';
+    }
+  };
+
+  const formatInsuranceCategory = (category: string) => {
+    switch (category) {
+      case 'car': return 'Car Insurance';
+      case 'motorbike': return 'MotorBike Insurance';
+      case 'building': return 'Building Insurance';
+      case 'travel': return 'Travel Insurance';
+      case 'health': return 'Health Insurance';
+      case 'fire': return 'Fire Insurance Coverage';
+      default: return 'Car Insurance';
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     // Validate form
@@ -86,31 +198,102 @@ export default function ApplyPage() {
     if (!hasErrors(formErrors)) {
       setIsSubmitting(true);
 
-      // Simulate API call
-      setTimeout(() => {
-        console.log('Form submitted:', formState);
+      try {
+        const formData = new FormData();
+        
+        // Append basic information
+        formData.append('fullName', formState.fullName);
+        formData.append('email', formState.email);
+        formData.append('phoneNumber', formState.phoneNumber);
+        formData.append('address', formState.address);
+        formData.append('dateOfBirth', formState.dateOfBirth);
+        formData.append('province', formState.province);
+        formData.append('district', formState.district);
+        formData.append('sector', formState.sector);
+        formData.append('insuranceCategory', formatInsuranceCategory(formState.insuranceCategory));
+        formData.append('insuranceType', formatInsuranceType(formState.insuranceType));
+        formData.append('insuranceDuration', formatInsuranceDuration(formState.insuranceDuration));
+        
+        // Append vehicle details if applicable
+        if (formState.insuranceCategory === 'car' || formState.insuranceCategory === 'motorbike') {
+          formData.append('vehicleType', formState.vehicleType);
+          formData.append('vehicleAge', formState.vehicleAge);
+        }
+        
+        // Append files
+        if (formState.nationalID) {
+          formData.append('nationalID', formState.nationalID);
+        }
+        if (formState.yellowCard) {
+          formData.append('yellowCard', formState.yellowCard);
+        }
+        if (formState.pastInsuranceCertificate) {
+          formData.append('pastInsuranceCertificate', formState.pastInsuranceCertificate);
+        }
+
+        // Add agent ID to the form data
+        // const user = getUserFromStorage();
+const token = getTokenFromStorage();
+
+if (!token) {
+  showToast('Authentication required. Please login again.', 'error');
+  return;
+}
+
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/apply`, {
+          method: 'POST',
+          body: formData,
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          console.error('Submission error:', errorData);
+          throw new Error(errorData.error || 'Application submission failed');
+        }
+
+        const data = await response.json();
+        
         showToast(
-          'Application submitted successfully! We will review your information and get back to you soon.',
+          `Application submitted successfully! Your application number is ${data.data.applicationNumber}.`,
           'success'
         );
-        setIsSubmitting(false);
 
         // Reset form after successful submission
         setFormState({
           fullName: '',
           email: '',
-          phone: '',
+          phoneNumber: '',
           address: '',
           dateOfBirth: '',
+          province: '',
+          district: '',
+          sector: '',
           insuranceCategory: 'car',
           insuranceType: 'comprehensive',
           insuranceDuration: '12',
-          nationalId: null,
+          vehicleType: '',
+          vehicleAge: '',
+          nationalID: null,
           yellowCard: null,
           pastInsuranceCertificate: null,
         });
+        setAvailableDistricts([]);
+        setAvailableSectors([]);
         setFormKey(Date.now());
-      }, 1500);
+
+      } catch (error: unknown) {
+        console.error('Application error:', error);
+        const errorMessage =
+          error instanceof Error
+            ? error.message
+            : 'Failed to submit application. Please try again.';
+        showToast(errorMessage, 'error');
+      } finally {
+        setIsSubmitting(false);
+      }
     } else {
       showToast('Please correct the errors in the form.', 'error');
     }
@@ -123,19 +306,19 @@ export default function ApplyPage() {
         <div className="max-w-3xl mx-auto mt-16">
           <div className="mb-8 text-center">
             <h1 className="text-3xl md:text-4xl font-bold mb-4">
-              Apply for Insurance
+              Apply for Insurance (Agent)
             </h1>
             <p className="text-gray-600">
-              Fill out the form below to apply for insurance. Our team will
-              review your application and get back to you shortly.
+              Fill out the form below to apply for insurance on behalf of your client. Our team will
+              review the application and get back to you shortly.
             </p>
           </div>
 
           <div className="bg-white rounded-xl shadow-lg overflow-hidden">
             <div className="p-6 bg-gradient-to-r from-[var(--main-blue)] to-[var(--secondary-blue)] text-white">
-              <h2 className="text-xl font-semibold">Personal Information</h2>
+              <h2 className="text-xl font-semibold">Client Information</h2>
               <p className="opacity-80">
-                Please provide accurate information for faster processing
+                Please provide accurate client information for faster processing
               </p>
             </div>
 
@@ -180,11 +363,11 @@ export default function ApplyPage() {
 
                 <Input
                   label="Phone Number"
-                  name="phone"
-                  placeholder="+250 782 123 456"
-                  value={formState.phone}
+                  name="phoneNumber"
+                  placeholder="0781234567"
+                  value={formState.phoneNumber}
                   onChange={handleInputChange}
-                  error={errors.phone}
+                  error={errors.phoneNumber}
                   required
                   icon={
                     <svg
@@ -210,6 +393,8 @@ export default function ApplyPage() {
                   value={formState.dateOfBirth}
                   onChange={handleInputChange}
                   error={errors.dateOfBirth}
+                  min={getDateLimits().min}
+                max={getDateLimits().max}
                   required
                 />
 
@@ -222,6 +407,74 @@ export default function ApplyPage() {
                   error={errors.address}
                   required
                 />
+
+                {/* Province Select */}
+                <div>
+                  <label className="block text-sm font-medium mb-1">
+                    Province <span className="text-[var(--error-red)]">*</span>
+                  </label>
+                  <select
+                    name="province"
+                    value={formState.province}
+                    onChange={handleInputChange}
+                    className="w-full py-2 px-3 rounded-lg focus:outline-none border border-gray-300 focus:border-[var(--main-blue)]"
+                    required
+                  >
+                    <option value="">Select Province</option>
+                    {rwandaProvinces.map(province => (
+                      <option key={province.name} value={province.name}>{province.name}</option>
+                    ))}
+                  </select>
+                  {errors.province && (
+                    <p className="mt-1 text-sm text-[var(--error-red)]">{errors.province}</p>
+                  )}
+                </div>
+
+                {/* District Select */}
+                <div>
+                  <label className="block text-sm font-medium mb-1">
+                    District <span className="text-[var(--error-red)]">*</span>
+                  </label>
+                  <select
+                    name="district"
+                    value={formState.district}
+                    onChange={handleInputChange}
+                    disabled={!formState.province}
+                    className="w-full py-2 px-3 rounded-lg focus:outline-none border border-gray-300 focus:border-[var(--main-blue)] disabled:bg-gray-100 disabled:cursor-not-allowed"
+                    required
+                  >
+                    <option value="">Select District</option>
+                    {availableDistricts.map(district => (
+                      <option key={district.name} value={district.name}>{district.name}</option>
+                    ))}
+                  </select>
+                  {errors.district && (
+                    <p className="mt-1 text-sm text-[var(--error-red)]">{errors.district}</p>
+                  )}
+                </div>
+
+                {/* Sector Select */}
+                <div>
+                  <label className="block text-sm font-medium mb-1">
+                    Sector <span className="text-[var(--error-red)]">*</span>
+                  </label>
+                  <select
+                    name="sector"
+                    value={formState.sector}
+                    onChange={handleInputChange}
+                    disabled={!formState.district}
+                    className="w-full py-2 px-3 rounded-lg focus:outline-none border border-gray-300 focus:border-[var(--main-blue)] disabled:bg-gray-100 disabled:cursor-not-allowed"
+                    required
+                  >
+                    <option value="">Select Sector</option>
+                    {availableSectors.map(sector => (
+                      <option key={sector} value={sector}>{sector}</option>
+                    ))}
+                  </select>
+                  {errors.sector && (
+                    <p className="mt-1 text-sm text-[var(--error-red)]">{errors.sector}</p>
+                  )}
+                </div>
 
                 <div className="md:col-span-2">
                   <label
@@ -240,7 +493,7 @@ export default function ApplyPage() {
                     required
                   >
                     <option value="car">Car Insurance</option>
-                    <option value="motorbike">Motorbike Insurance</option>
+                    <option value="motorbike">MotorBike Insurance</option>
                     <option value="building">Building Insurance</option>
                     <option value="travel">Travel Insurance</option>
                     <option value="health">Health Insurance</option>
@@ -252,6 +505,60 @@ export default function ApplyPage() {
                     </p>
                   )}
                 </div>
+
+                {/* Vehicle Type (only shown for car/motorbike insurance) */}
+                {(formState.insuranceCategory === 'car' || formState.insuranceCategory === 'motorbike') && (
+                  <div>
+                    <label className="block text-sm font-medium mb-1">
+                      Vehicle Type <span className="text-[var(--error-red)]">*</span>
+                    </label>
+                    <select
+                      name="vehicleType"
+                      value={formState.vehicleType}
+                      onChange={handleInputChange}
+                      className="w-full py-2 px-3 rounded-lg focus:outline-none border border-gray-300 focus:border-[var(--main-blue)]"
+                      required
+                    >
+                      <option value="">Select Vehicle Type</option>
+                      {formState.insuranceCategory === 'car' ? (
+                        <>
+                          <option value="pickup">Pick Up</option>
+                          <option value="taxi">Taxi</option>
+                          <option value="truck">Truck</option>
+                          <option value="sedan">Sedan</option>
+                          <option value="suv">SUV</option>
+                        </>
+                      ) : (
+                        <>
+                          <option value="moped">Moped</option>
+                          <option value="scooter">Scooter</option>
+                          <option value="motorcycle">Motorcycle</option>
+                        </>
+                      )}
+                    </select>
+                    {errors.vehicleType && (
+                      <p className="mt-1 text-sm text-[var(--error-red)]">{errors.vehicleType}</p>
+                    )}
+                  </div>
+                )}
+
+                {/* Vehicle Age (only shown for car/motorbike insurance) */}
+                {(formState.insuranceCategory === 'car' || formState.insuranceCategory === 'motorbike') && (
+                  <div>
+                    <Input
+                      label="Vehicle Age (Year of Manufacture)"
+                      type="number"
+                      name="vehicleAge"
+                      placeholder="e.g. 2015"
+                      min="1900"
+                      max={new Date().getFullYear().toString()}
+                      value={formState.vehicleAge}
+                      onChange={handleInputChange}
+                      error={errors.vehicleAge}
+                      required
+                    />
+                  </div>
+                )}
 
                 <div className="md:col-span-2">
                   <label
@@ -313,11 +620,11 @@ export default function ApplyPage() {
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <FileInput
-                    key={`nationalId-${formKey}`}
-                    label="National ID Card"
-                    name="nationalId"
-                    onChange={handleFileChange('nationalId')}
-                    error={errors.nationalId}
+                    key={`nationalID-${formKey}`}
+                    label="National ID Card / Passport"
+                    name="nationalID"
+                    onChange={handleFileChange('nationalID')}
+                    error={errors.nationalID}
                     required
                     accept="image/*,.pdf"
                   />
@@ -360,20 +667,20 @@ export default function ApplyPage() {
           <div className="mt-8 bg-[var(--light-gray)] rounded-lg p-6">
             <h3 className="text-xl font-semibold mb-2">What happens next?</h3>
             <ol className="list-decimal pl-5 space-y-2">
-              <li>Our team will review your application within the next 30 minutes.</li>
+              <li>Our team will review the application within the next 30 minutes.</li>
               <li>
-                You will receive a confirmation email with your application
+                You will receive a confirmation email with the application
                 number.
               </li>
               <li>
-                Use the application number to track your application status.
+                Use the application number to track the application status.
               </li>
               <li>Once reviewed, you will receive a quotation and invoice.</li>
-              <li>Follow the instructions in the invoice to pay for your insurance.</li>
-              <li>After payment, submit a clear proof of payment (Any for of receipt)</li>
+              <li>Follow the instructions in the invoice to pay for the insurance.</li>
+              <li>After payment, submit a clear proof of payment (Any form of receipt)</li>
               <li>
-                After payment confirmation, your insurance certificate will be
-                issued and sent to you via Email or direclty on Whatsapp.
+                After payment confirmation, the insurance certificate will be
+                issued and sent to you via Email or directly on WhatsApp.
               </li>
             </ol>
           </div>

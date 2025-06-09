@@ -32,14 +32,17 @@ interface Application {
   agentId: string | null;
   submittedAt: string;
   rejectionReason?: string;
+  reasonForPaymentRejection: string;
   proofOfPayment?: string;
   otp?: string;
   otpExpires?: string;
   amount?: number;
+  paymentInstructions?: string;
   companyCommission?: number;
   agentCommission?: number;
-  certificateUrl?: string;
+  insuranceCertificate?: string;
   invoiceId?: string;
+  invoice?: string;
   invoiceAmount?: string;
   transactionId?: string;
 }
@@ -177,13 +180,15 @@ interface EditApplicationModalProps {
 }
 
 const EditApplicationModal = ({ isOpen, onClose, onSave, application, isLoading }: EditApplicationModalProps) => {
-  const isInvoiceSent = application.status === 'INVOICE_SENT';
+  const isInvoiceSent = application.status === 'INVOICE_SENT' || (application.status === 'WAITING_FOR_USER_ACTION' && application.reasonForPaymentRejection);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { showToast } = useToast();
 
   // State for administrative divisions
   const [availableDistricts, setAvailableDistricts] = useState<{name: string, sectors?: string[]}[]>([]);
   const [availableSectors, setAvailableSectors] = useState<string[]>([]);
+  const [transactionId, setTransactionId] = useState('');
+
 
   const [formState, setFormState] = useState<Partial<Application>>(() => {
     if (isInvoiceSent) {
@@ -290,12 +295,13 @@ const EditApplicationModal = ({ isOpen, onClose, onSave, application, isLoading 
     
     try {
       if (isInvoiceSent) {
-        if (!files.proofOfPayment) {
+        if (!files.proofOfPayment || !transactionId) {
           throw new Error('Please select a proof of payment file');
         }
 
         const paymentFormData = new FormData();
         paymentFormData.append('proofOfPayment', files.proofOfPayment);
+        paymentFormData.append('transactionId', transactionId);
 
         const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/sendProofofPayment/${application._id}`, {
           method: 'PUT',
@@ -310,9 +316,12 @@ const EditApplicationModal = ({ isOpen, onClose, onSave, application, isLoading 
           const errorData = await response.json();
           throw new Error(errorData.message || 'Failed to submit proof of payment');
         }
-
-        showToast('Proof of payment submitted successfully!', 'success');
-        onClose();
+  showToast('Application updated successfully!', 'success');
+        if (onSave) {
+          await onSave({ proofOfPayment: files.proofOfPayment.name, transactionId }, { proofOfPayment: files.proofOfPayment });
+        }
+      
+      onClose();
         return;
       }
 
@@ -399,7 +408,7 @@ const EditApplicationModal = ({ isOpen, onClose, onSave, application, isLoading 
             </button>
           </div>
 
-          {application.status === "WAITING_FOR_USER_ACTION" && application.rejectionReason && (
+          {application.status === "WAITING_FOR_USER_ACTION" && (application.rejectionReason || application.reasonForPaymentRejection) && (
             <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-6">
               <div className="flex">
                 <div className="flex-shrink-0">
@@ -410,7 +419,7 @@ const EditApplicationModal = ({ isOpen, onClose, onSave, application, isLoading 
                 <div className="ml-3">
                   <h3 className="text-sm font-medium text-red-800">Rejection Reason</h3>
                   <div className="mt-2 text-sm text-red-700">
-                    <p>{application.rejectionReason}</p>
+                    <p>{application.rejectionReason || application.reasonForPaymentRejection}</p>
                   </div>
                 </div>
               </div>
@@ -420,6 +429,14 @@ const EditApplicationModal = ({ isOpen, onClose, onSave, application, isLoading 
           <form onSubmit={handleSubmit}>
             {isInvoiceSent ? (
               <div className="space-y-6">
+                <Input
+      label="Transaction ID"
+      name="transactionId"
+      value={transactionId}
+      onChange={(e) => setTransactionId(e.target.value)}
+      error={errors.transactionId}
+      placeholder="Enter your payment transaction ID"
+    />
                 <FileInput
                   label="Proof of Payment"
                   name="proofOfPayment"
@@ -946,13 +963,13 @@ const handleEditSuccess = async (): Promise<void> => {
               variant="outline"
               size="sm"
             >
-              {application.status === 'WAITING_FOR_USER_ACTION' ? 'Edit Application' : 'Upload Proof of Payment'}
+              {(application.status === 'WAITING_FOR_USER_ACTION' && !application.reasonForPaymentRejection) ? 'Edit Application' : 'Upload Proof of Payment'}
             </Button>
           )}
         </div>
       </div>
 
-      {application.status === 'WAITING_FOR_USER_ACTION' && application.rejectionReason && (
+      {application.status === 'WAITING_FOR_USER_ACTION' && (application.rejectionReason || application.reasonForPaymentRejection) && (
         <>
           <h2 className='text-blue-500 text-sm'>Almost There! Resolve the issues below to get approved.</h2>
           <div className="mt-6 bg-red-50 border-l-4 border-red-500 p-4 rounded-lg">
@@ -965,7 +982,7 @@ const handleEditSuccess = async (): Promise<void> => {
               <div className="ml-3">
                 <h3 className="text-sm font-medium text-red-800">Rejection Reason</h3>
                 <div className="mt-2 text-sm text-red-700">
-                  <p>{application.rejectionReason}</p>
+                  <p>{application.rejectionReason || application.reasonForPaymentRejection}</p>
                 </div>
               </div>
             </div>
@@ -1118,6 +1135,21 @@ const handleEditSuccess = async (): Promise<void> => {
               </Button>
             </div>
           )}
+          {application.invoice && (
+            <div className="flex items-center justify-between bg-white p-3 rounded border">
+              <div>
+                <p className="text-sm font-medium">Quotation / Invoice</p>
+                <p className="text-xs text-gray-500">Payment instructions</p>
+              </div>
+              <Button 
+                variant="text" 
+                size="sm"
+                onClick={() => handleViewDocument('Quotation / Invoice', application.invoice!)}
+              >
+                View
+              </Button>
+            </div>
+          )}
           {application.proofOfPayment && (
             <div className="flex items-center justify-between bg-white p-3 rounded border">
               <div>
@@ -1133,7 +1165,7 @@ const handleEditSuccess = async (): Promise<void> => {
               </Button>
             </div>
           )}
-          {application.certificateUrl && (
+          {application.insuranceCertificate && (
             <div className="flex items-center justify-between bg-white p-3 rounded border">
               <div>
                 <p className="text-sm font-medium">Insurance Certificate</p>
@@ -1142,7 +1174,7 @@ const handleEditSuccess = async (): Promise<void> => {
               <Button 
                 variant="text" 
                 size="sm"
-                onClick={() => handleViewDocument('Insurance Certificate', application.certificateUrl!)}
+                onClick={() => handleViewDocument('Insurance Certificate', application.insuranceCertificate!)}
               >
                 View
               </Button>
@@ -1172,8 +1204,28 @@ const handleEditSuccess = async (): Promise<void> => {
               <div className="bg-white p-3 rounded border">
                 <p className="text-sm font-medium">Transaction ID</p>
                 <p className="text-xs text-gray-500">{application.transactionId}</p>
+                {application.paymentInstructions && (
+                  <p className='text-xs text-left block'><span className="text-sm font-medium text-gray-600">Payment Instructions:</span> {application.paymentInstructions} RWF</p>
+                )}
+                {application.invoice && (
+                  <><span className="text-sm font-medium  text-gray-600">Quotation / Invoice:</span> 
+                    <button 
+                      className="text-sm  text-[var(--main-blue)] hover:underline ml-1"
+                      onClick={() => setViewingDocument({
+                        name: 'Quotation / Invoice',
+                        path: application.invoice || '/File_not_found.jpg'
+                      })}
+                    >
+                      View Document
+                    </button>
+                  </>
+                )}
+                {application.amount && (
+                  <p className='text-xs'><span className="text-sm font-medium text-gray-600">Amount Expected:</span> {application.amount} RWF</p>
+                )}
               </div>
             )}
+            
           </div>
         </div>
       )}

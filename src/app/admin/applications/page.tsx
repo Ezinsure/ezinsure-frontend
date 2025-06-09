@@ -36,12 +36,14 @@ interface Application {
   pastInsuranceCertificate?: string;
   submittedAt: string;
   proofOfPayment?: string;
-  certificateUrl?: string;
+  insuranceCertificate?: string;
   invoiceId?: string;
+  invoice?: string;
   invoiceAmount?: string;
   transactionId?: string;
   rejectionReason?: string;
   amount?: number;
+  paymentInstructions?: string;
   companyCommission?: number;
   agentCommission?: number;
   agentId?: string;
@@ -440,7 +442,7 @@ const handleVerifyPayment = async (action: 'approve' | 'reject') => {
             size="xs" 
             onClick={() => {
               setSelectedApp(app);
-              setInvoiceMessage(`Please pay ${app.invoiceAmount || '[amount]'} RWF to:\nBank: Kigali Bank\nAccount: 1234567890\nOr via MOMO: 0782123456`);
+              setInvoiceMessage(`Please make your payment to one of the following:\nBank: Kigali Bank\nAccount: 1234567890\nOr via MOMO: 0782123456`);
             }}
           >
             Send Invoice
@@ -1065,12 +1067,24 @@ const handleVerifyPayment = async (action: 'approve' | 'reject') => {
                 {selectedApp.invoiceId && (
                   <li><span className="text-gray-600">Invoice ID:</span> {selectedApp.invoiceId}</li>
                 )}
-                {selectedApp.invoiceAmount && (
-                  <li><span className="text-gray-600">Amount Expected:</span> {selectedApp.invoiceAmount} RWF</li>
+                {selectedApp.invoice && (
+                  <li><span className="text-gray-600">Quotation / Invoice:</span> 
+                    <button 
+                      className="text-[var(--main-blue)] hover:underline ml-1"
+                      onClick={() => setViewingDocument({
+                        name: 'Quotation / Invoice',
+                        path: selectedApp.invoice || '/File_not_found.jpg'
+                      })}
+                    >
+                      View Document
+                    </button>
+                  </li>
                 )}
-                {selectedApp.transactionId && (
-                  <li><span className="text-gray-600">Transaction ID:</span> {selectedApp.transactionId}</li>
+                {selectedApp.amount && (
+                  <li><span className="text-gray-600">Amount Expected:</span> {selectedApp.amount} RWF</li>
                 )}
+                
+                
                 {selectedApp.proofOfPayment && (
                   <li><span className="text-gray-600">Payment Proof:</span> 
                     <button 
@@ -1083,6 +1097,9 @@ const handleVerifyPayment = async (action: 'approve' | 'reject') => {
                       View Document
                     </button>
                   </li>
+                )}
+                {selectedApp.transactionId && (
+                  <li><span className="text-gray-600">Transaction ID:</span> {selectedApp.transactionId}</li>
                 )}
                 <li><span className="text-gray-600">Date Submitted:</span> {new Date(selectedApp.submittedAt).toLocaleDateString()}</li>
               </ul>
@@ -1212,10 +1229,10 @@ const handleVerifyPayment = async (action: 'approve' | 'reject') => {
               <p className="font-medium text-[var(--main-blue)]">Application Approved & Payment Verified</p>
               <p className="mt-2 text-sm text-gray-600">The application has been reviewed and the payment has been verified. You can now issue the insurance certificate.</p>
               <div className="mt-2 grid grid-cols-2 gap-2 text-sm">
-                {selectedApp.invoiceAmount && (
+                {selectedApp.amount && (
                   <div>
                     <p className="text-gray-600">Invoice Amount:</p>
-                    <p className="font-medium">{selectedApp.invoiceAmount} RWF</p>
+                    <p className="font-medium">{selectedApp.amount} RWF</p>
                   </div>
                 )}
                 {selectedApp.transactionId && (
@@ -1463,12 +1480,24 @@ const handleVerifyPayment = async (action: 'approve' | 'reject') => {
             </button>
           )}
           
-          {selectedApp.certificateUrl && (
+          {selectedApp.invoice && (
+            <button 
+              className="bg-white p-3 rounded border text-left hover:bg-gray-50"
+              onClick={() => setViewingDocument({
+                name: 'Quotation / Invoice',
+                path: selectedApp.invoice || ''
+              })}
+            >
+              <p className="text-sm font-medium">Quotation / Invoice</p>
+              <p className="text-xs text-gray-500">View Document</p>
+            </button>
+          )}
+          {selectedApp.invoice && (
             <button 
               className="bg-white p-3 rounded border text-left hover:bg-gray-50"
               onClick={() => setViewingDocument({
                 name: 'Insurance Certificate',
-                path: selectedApp.certificateUrl || ''
+                path: selectedApp.insuranceCertificate || ''
               })}
             >
               <p className="text-sm font-medium">Insurance Certificate</p>
@@ -1479,18 +1508,21 @@ const handleVerifyPayment = async (action: 'approve' | 'reject') => {
       </div>
       
       {/* Invoice & Payment Information (if available) */}
-      {selectedApp.invoiceId && (
+      {selectedApp.invoice && (
         <div className="bg-[var(--light-gray)] p-4 rounded-lg mb-4">
           <h4 className="font-medium mb-2">Invoice & Payment</h4>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="bg-white p-3 rounded border">
-              <p className="text-sm font-medium">Invoice ID</p>
-              <p className="text-xs text-gray-500">{selectedApp.invoiceId}</p>
-            </div>
-            {selectedApp.invoiceAmount && (
+          
+            {selectedApp.amount && (
               <div className="bg-white p-3 rounded border">
                 <p className="text-sm font-medium">Amount</p>
-                <p className="text-xs text-gray-500">{selectedApp.invoiceAmount} RWF</p>
+                <p className="text-xs text-gray-500">{selectedApp.amount} RWF</p>
+              </div>
+            )}
+            {selectedApp.paymentInstructions && (
+              <div className="bg-white p-3 rounded border">
+                <p className="text-sm font-medium">Payment Instructions</p>
+                <p className="text-xs text-gray-500">{selectedApp.paymentInstructions}</p>
               </div>
             )}
             {selectedApp.transactionId && (

@@ -6,25 +6,42 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/components/ui/toast';
 import { DocumentViewer } from '@/components/ui/document-viewer';
+import { useAuth } from '@/context/AuthContext';
+import { FileInput } from '@/components/ui/file-input';
+import { rwandaProvinces } from '@/utils/rwanda-administrative';
 
 interface Application {
-  id: string;
-  clientName: string;
-  phone: string;
+  _id: string;
+  applicationNumber: string;
+  fullName: string;
+  email: string;
+  phoneNumber: string;
+  dateOfBirth: string;
+  address: string;
+  province?: string;
+  district?: string;
+  sector?: string;
+  insuranceCategory: string;
   insuranceType: string;
+  insuranceDuration: string;
+  vehicleType?: string;
+  vehicleAge?: string;
   status: string;
-  dateSubmitted: string;
-  commission: string;
-  documents: {
-    nationalId: string;
-    yellowCard: string;
-  };
-  payment?: {
-    invoiceId?: string;
-    amount?: string;
-    proof?: string;
-    transactionId?: string;
-  };
+  nationalID: string;
+  yellowCard: string;
+  pastInsuranceCertificate?: string;
+  submittedAt: string;
+  proofOfPayment?: string;
+  insuranceCertificate?: string;
+  invoiceId?: string;
+  invoice?: string;
+  invoiceAmount?: string;
+  transactionId?: string;
+  rejectionReason?: string;
+  reasonForPaymentRejection?: string;
+  amount?: number;
+  agentCommission?: number;
+  agentId?: string;
 }
 
 interface PaginationProps {
@@ -33,252 +50,719 @@ interface PaginationProps {
   onPageChange: (page: number) => void;
 }
 
+const EditApplicationModal = ({ 
+  isOpen, 
+  onClose, 
+  application,
+  onSave,
+  isLoading
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  application: Application;
+  onSave: () => void;
+  isLoading: boolean;
+}) => {
+  const [formState, setFormState] = useState<Partial<Application>>({
+    fullName: application.fullName,
+    email: application.email,
+    phoneNumber: application.phoneNumber,
+    address: application.address,
+    dateOfBirth: application.dateOfBirth,
+    insuranceCategory: application.insuranceCategory,
+    insuranceType: application.insuranceType,
+    insuranceDuration: application.insuranceDuration,
+    vehicleType: application.vehicleType,
+    vehicleAge: application.vehicleAge,
+    province: application.province,
+    district: application.district,
+    sector: application.sector,
+  });
+
+  const [files, setFiles] = useState<Record<string, File | null>>({
+    nationalID: null,
+    yellowCard: null,
+    pastInsuranceCertificate: null,
+  });
+
+  const [availableDistricts, setAvailableDistricts] = useState<{name: string, sectors?: string[]}[]>([]);
+  const [availableSectors, setAvailableSectors] = useState<string[]>([]);
+  const [errors, setErrors] = useState<{ [key: string]: string }>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { showToast } = useToast();
+
+  // Update districts when province changes
+  useEffect(() => {
+    if (formState.province) {
+      const selectedProvince = rwandaProvinces.find(p => p.name === formState.province);
+      const districts = selectedProvince?.districts || [];
+      setAvailableDistricts(districts);
+      
+      if (!districts.some(d => d.name === formState.district)) {
+        setFormState(prev => ({ ...prev, district: '', sector: '' }));
+      }
+    } else {
+      setAvailableDistricts([]);
+      setFormState(prev => ({ ...prev, district: '', sector: '' }));
+    }
+  }, [formState.province]);
+
+  // Update sectors when district changes
+  useEffect(() => {
+    if (formState.district) {
+      const selectedDistrict = availableDistricts.find(d => d.name === formState.district);
+      const sectors = selectedDistrict?.sectors || [];
+      setAvailableSectors(sectors);
+      
+      if (!sectors.includes(formState.sector || '')) {
+        setFormState(prev => ({ ...prev, sector: '' }));
+      }
+    } else {
+      setAvailableSectors([]);
+      setFormState(prev => ({ ...prev, sector: '' }));
+    }
+  }, [formState.district, availableDistricts]);
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setFormState(prev => ({ ...prev, [name]: value }));
+
+    if (errors[name]) {
+      setErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors[name];
+        return newErrors;
+      });
+    }
+  };
+
+  const handleFileChange = (name: string) => (file: File | null) => {
+    setFiles(prev => ({ ...prev, [name]: file }));
+
+    if (errors[name]) {
+      setErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors[name];
+        return newErrors;
+      });
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    
+    try {
+      const formData = new FormData();
+      const updatedData: { [key: string]: string | number } = {};
+      
+      Object.entries(formState).forEach(([key, value]) => {
+        const originalValue = application[key as keyof Application];
+        if (value !== undefined && value !== originalValue) {
+          const formattedValue = key === 'dateOfBirth' && value 
+            ? new Date(value as string).toISOString().split('T')[0]
+            : value;
+          
+          formData.append(key, formattedValue as string);
+          updatedData[key as keyof Application] = formattedValue;
+        }
+      });
+
+      Object.entries(files).forEach(([key, file]) => {
+        if (file) {
+          formData.append(key, file);
+        }
+      });
+
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/updateInsuranceApplication/${application._id}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        },
+        body: formData,
+        credentials: 'include'
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to update application');
+      }
+
+      showToast('Application updated successfully!', 'success');
+      onSave();
+      onClose();
+    } catch (error) {
+      console.error('Submission error:', error);
+      showToast(
+        error instanceof Error ? error.message : 'Failed to update application',
+        'error'
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-gray-800/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="p-6">
+          <div className="flex justify-between items-center mb-6">
+            <h3 className="text-xl font-bold text-gray-900">Edit Application</h3>
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+
+          {application.status === "WAITING_FOR_USER_ACTION" && (application.reasonForPaymentRejection || application.rejectionReason) && (
+            <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-6">
+              <div className="flex">
+                <div className="flex-shrink-0">
+                  <svg className="h-5 w-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <div className="ml-3">
+                  <h3 className="text-sm font-medium text-red-800">Rejection Reason</h3>
+                  <div className="mt-2 text-sm text-red-700">
+                    <p>{application.reasonForPaymentRejection || application.rejectionReason}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit}>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <Input
+                label="Full Name"
+                name="fullName"
+                value={formState.fullName || ''}
+                onChange={handleInputChange}
+                error={errors.fullName}
+              />
+
+              <Input
+                label="Email Address"
+                type="email"
+                name="email"
+                value={formState.email || ''}
+                onChange={handleInputChange}
+                error={errors.email}
+              />
+
+              <Input
+                label="Phone Number"
+                name="phoneNumber"
+                value={formState.phoneNumber || ''}
+                onChange={handleInputChange}
+                error={errors.phoneNumber}
+              />
+
+              <Input
+                label="Date of Birth"
+                type="date"
+                name="dateOfBirth"
+                value={formState.dateOfBirth ? new Date(formState.dateOfBirth).toISOString().split('T')[0] : ''}
+                onChange={handleInputChange}
+                error={errors.dateOfBirth}
+              />
+
+              <Input
+                label="Address"
+                name="address"
+                value={formState.address || ''}
+                onChange={handleInputChange}
+                error={errors.address}
+              />
+
+              {/* Province Select */}
+              <div>
+                <label className="block text-sm font-medium mb-1">
+                  Province <span className="text-red-500">*</span>
+                </label>
+                <select
+                  name="province"
+                  value={formState.province || ''}
+                  onChange={handleInputChange}
+                  className="w-full py-2 px-3 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none"
+                >
+                  <option value="">Select Province</option>
+                  {rwandaProvinces.map(province => (
+                    <option key={province.name} value={province.name}>{province.name}</option>
+                  ))}
+                </select>
+                {errors.province && (
+                  <p className="mt-1 text-sm text-red-600">{errors.province}</p>
+                )}
+              </div>
+
+              {/* District Select */}
+              <div>
+                <label className="block text-sm font-medium mb-1">
+                  District <span className="text-red-500">*</span>
+                </label>
+                <select
+                  name="district"
+                  value={formState.district || ''}
+                  onChange={handleInputChange}
+                  disabled={!formState.province}
+                  className="w-full py-2 px-3 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none disabled:bg-gray-100 disabled:cursor-not-allowed"
+                >
+                  <option value="">Select District</option>
+                  {availableDistricts.map(district => (
+                    <option key={district.name} value={district.name}>{district.name}</option>
+                  ))}
+                </select>
+                {errors.district && (
+                  <p className="mt-1 text-sm text-red-600">{errors.district}</p>
+                )}
+              </div>
+
+              {/* Sector Select */}
+              <div>
+                <label className="block text-sm font-medium mb-1">
+                  Sector <span className="text-red-500">*</span>
+                </label>
+                <select
+                  name="sector"
+                  value={formState.sector || ''}
+                  onChange={handleInputChange}
+                  disabled={!formState.district}
+                  className="w-full py-2 px-3 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none disabled:bg-gray-100 disabled:cursor-not-allowed"
+                >
+                  <option value="">Select Sector</option>
+                  {availableSectors.map(sector => (
+                    <option key={sector} value={sector}>{sector}</option>
+                  ))}
+                </select>
+                {errors.sector && (
+                  <p className="mt-1 text-sm text-red-600">{errors.sector}</p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">
+                  Insurance Category <span className="text-red-500">*</span>
+                </label>
+                <select
+                  name="insuranceCategory"
+                  value={formState.insuranceCategory || ''}
+                  onChange={handleInputChange}
+                  className="w-full py-2 px-3 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none"
+                >
+                  <option value="Car Insurance">Car Insurance</option>
+                  <option value="Motorbike Insurance">Motorbike Insurance</option>
+                  <option value="Building Insurance">Building Insurance</option>
+                  <option value="Travel Insurance">Travel Insurance</option>
+                  <option value="Health Insurance">Health Insurance</option>
+                  <option value="Fire Insurance Coverage">Fire Insurance Coverage</option>
+                </select>
+                {errors.insuranceCategory && (
+                  <p className="mt-1 text-sm text-red-600">{errors.insuranceCategory}</p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">
+                  Insurance Type <span className="text-red-500">*</span>
+                </label>
+                <select
+                  name="insuranceType"
+                  value={formState.insuranceType || ''}
+                  onChange={handleInputChange}
+                  className="w-full py-2 px-3 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none"
+                >
+                  <option value="Comprehensive Insurance (covers everything)">Comprehensive Insurance</option>
+                  <option value="Third Party Insurance (covers partial)">Third Party Insurance</option>
+                </select>
+                {errors.insuranceType && (
+                  <p className="mt-1 text-sm text-red-600">{errors.insuranceType}</p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">
+                  Insurance Duration <span className="text-red-500">*</span>
+                </label>
+                <select
+                  name="insuranceDuration"
+                  value={formState.insuranceDuration || ''}
+                  onChange={handleInputChange}
+                  className="w-full py-2 px-3 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none"
+                >
+                  <option value="1 Month">1 Month</option>
+                  <option value="6 Months">6 Months</option>
+                  <option value="12 Months">12 Months</option>
+                </select>
+                {errors.insuranceDuration && (
+                  <p className="mt-1 text-sm text-red-600">{errors.insuranceDuration}</p>
+                )}
+              </div>
+
+              {(formState.insuranceCategory === 'Car Insurance' || formState.insuranceCategory === 'Motorbike Insurance') && (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">
+                      Vehicle Type <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      name="vehicleType"
+                      value={formState.vehicleType || ''}
+                      onChange={handleInputChange}
+                      className="w-full py-2 px-3 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none"
+                    >
+                      <option value="">Select Vehicle Type</option>
+                      {formState.insuranceCategory === 'Car Insurance' ? (
+                        <>
+                          <option value="pickup">Pick Up</option>
+                          <option value="taxi">Taxi</option>
+                          <option value="truck">Truck</option>
+                          <option value="sedan">Sedan</option>
+                          <option value="suv">SUV</option>
+                        </>
+                      ) : (
+                        <>
+                          <option value="moped">Moped</option>
+                          <option value="scooter">Scooter</option>
+                          <option value="motorcycle">Motorcycle</option>
+                        </>
+                      )}
+                    </select>
+                    {errors.vehicleType && (
+                      <p className="mt-1 text-sm text-red-600">{errors.vehicleType}</p>
+                    )}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">
+                      Vehicle Year <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="number"
+                      name="vehicleAge"
+                      min="1900"
+                      max={new Date().getFullYear()}
+                      value={formState.vehicleAge || ''}
+                      onChange={handleInputChange}
+                      className="w-full py-2 px-3 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none"
+                    />
+                    {errors.vehicleAge && (
+                      <p className="mt-1 text-sm text-red-600">{errors.vehicleAge}</p>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+
+            <div className="mt-6">
+              <h3 className="text-lg font-semibold mb-4">Documents</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <FileInput
+                  label="National ID Card / Passport"
+                  name="nationalID"
+                  onChange={handleFileChange('nationalID')}
+                  error={errors.nationalID}
+                  accept="image/*,.pdf"
+                  currentFile={application.nationalID?.split('/').pop()}
+                />
+
+                <FileInput
+                  label="Yellow Card"
+                  name="yellowCard"
+                  onChange={handleFileChange('yellowCard')}
+                  error={errors.yellowCard}
+                  accept="image/*,.pdf"
+                  currentFile={application.yellowCard?.split('/').pop()}
+                />
+
+                <FileInput
+                  label="Past Insurance Certificate (Optional)"
+                  name="pastInsuranceCertificate"
+                  onChange={handleFileChange('pastInsuranceCertificate')}
+                  accept="image/*,.pdf"
+                  currentFile={application.pastInsuranceCertificate?.split('/').pop()}
+                />
+              </div>
+            </div>
+
+            <div className="mt-8 flex justify-end space-x-3">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={onClose}
+                disabled={isLoading}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? 'Submitting...' : 'Submit'}
+              </Button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export default function AgentApplicationsPage() {
   const { showToast, ToastContainer } = useToast();
+  const { token } = useAuth();
   const [applications, setApplications] = useState<Application[]>([]);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [isLoading, setIsLoading] = useState(true);
   const [selectedApp, setSelectedApp] = useState<Application | null>(null);
   const [paymentProof, setPaymentProof] = useState<File | null>(null);
   const [transactionId, setTransactionId] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [activeTab, setActiveTab] = useState<'all' | string>('all');
   const [viewingDocument, setViewingDocument] = useState<{
     name: string;
     path: string;
   } | null>(null);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const itemsPerPage = 10;
 
-  // Mock data for demo purposes
+  // Fetch applications for the agent
   useEffect(() => {
-    setTimeout(() => {
-      const mockData: Application[] = [
-        {
-          id: 'AG001',
-          clientName: 'John Doe',
-          phone: '+250782123456',
-          insuranceType: 'car',
-          status: 'pending',
-          dateSubmitted: '2025-05-01',
-          commission: '5,000 RWF',
-          documents: {
-            nationalId: 'ID_001.pdf',
-            yellowCard: 'YC_001.pdf',
-          },
-        },
-        {
-          id: 'AG002',
-          clientName: 'Jane Smith',
-          phone: '+250782123457',
-          insuranceType: 'motorbike',
-          status: 'approved',
-          dateSubmitted: '2025-05-02',
-          commission: '3,000 RWF',
-          documents: {
-            nationalId: 'ID_002.pdf',
-            yellowCard: 'YC_002.pdf',
-          },
-        },
-        {
-          id: 'AG003',
-          clientName: 'Robert Katz',
-          phone: '+250782123458',
-          insuranceType: 'building',
-          status: 'invoice_sent',
-          dateSubmitted: '2025-05-03',
-          commission: '12,000 RWF',
-          documents: {
-            nationalId: 'ID_003.pdf',
-            yellowCard: 'YC_003.pdf',
-          },
-          payment: {
-            invoiceId: 'INV_001',
-            amount: '120,000 RWF',
-          },
-        },
-        {
-          id: 'AG004',
-          clientName: 'Maria Garcia',
-          phone: '+250782123459',
-          insuranceType: 'travel',
-          status: 'payment_submitted',
-          dateSubmitted: '2025-05-04',
-          commission: '2,500 RWF',
-          documents: {
-            nationalId: 'ID_004.pdf',
-            yellowCard: 'YC_004.pdf',
-          },
-          payment: {
-            invoiceId: 'INV_002',
-            amount: '25,000 RWF',
-            proof: 'PAY_001.pdf',
-            transactionId: 'TRX_001',
-          },
-        },
-        {
-          id: 'AG005',
-          clientName: 'David Chen',
-          phone: '+250782123460',
-          insuranceType: 'health',
-          status: 'payment_verified',
-          dateSubmitted: '2025-05-05',
-          commission: '4,000 RWF',
-          documents: {
-            nationalId: 'ID_005.pdf',
-            yellowCard: 'YC_005.pdf',
-          },
-          payment: {
-            invoiceId: 'INV_003',
-            amount: '40,000 RWF',
-            proof: 'PAY_002.pdf',
-            transactionId: 'TRX_002',
-          },
-        },
-        {
-          id: 'AG006',
-          clientName: 'Sophie Kim',
-          phone: '+250782123461',
-          insuranceType: 'sme',
-          status: 'completed',
-          dateSubmitted: '2025-05-06',
-          commission: '15,000 RWF',
-          documents: {
-            nationalId: 'ID_006.pdf',
-            yellowCard: 'YC_006.pdf',
-          },
-          payment: {
-            invoiceId: 'INV_004',
-            amount: '150,000 RWF',
-            proof: 'PAY_003.pdf',
-            transactionId: 'TRX_003',
-          },
-        },
-      ];
-      setApplications(mockData);
-      setIsLoading(false);
-    }, 1500);
-  }, []);
+    const fetchApplications = async () => {
+      try {
+        setIsLoading(true);
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/getApplicationsByAgent`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        
+        if (!response.ok) {
+          throw new Error('Failed to fetch applications');
+        }
+        
+        const data = await response.json();
+        // Sort applications by submittedAt in descending order (newest first)
+        const sortedApplications = data.data.sort((a: Application, b: Application) => {
+          return new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime();
+        });
+        setApplications(sortedApplications);
+      } catch (error) {
+        console.error('Error fetching applications:', error);
+        showToast('Failed to load applications', 'error');
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
-  const filteredApplications = applications.filter(
-    (app) =>
-      (app.clientName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      app.id.toLowerCase().includes(searchQuery.toLowerCase())) &&
-      (activeTab === 'all' || app.status === activeTab)
-  );
+    if (token) {
+      fetchApplications();
+    }
+  }, [token]);
+
+  // Filter applications based on search query and tab
+  const filteredApplications = applications.filter(app => {
+    const matchesSearch = 
+      app.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      app.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      app.applicationNumber.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    const matchesTab = activeTab === 'all' || app.status.toLowerCase() === activeTab;
+    
+    return matchesSearch && matchesTab;
+  });
 
   const paginatedApplications = filteredApplications.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
   );
 
-  const handleSubmitPayment = () => {
-    if (!selectedApp || !paymentProof || !transactionId) return;
+  // Handle payment proof submission
+  const handleSubmitPayment = async () => {
+    if (!selectedApp || !paymentProof || !transactionId) {
+      showToast('Please fill all required fields', 'error');
+      return;
+    }
 
     setIsLoading(true);
-    setTimeout(() => {
-      const updatedApplications = applications.map((app) => {
-        if (app.id === selectedApp.id) {
+    try {
+      const formData = new FormData();
+      formData.append('proofOfPayment', paymentProof);
+      formData.append('transactionId', transactionId);
+
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/sendProofofPayment/${selectedApp._id}`,
+        {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          },
+          body: formData
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to submit payment proof');
+      }
+
+      const updatedApplications = applications.map(app => {
+        if (app._id === selectedApp._id) {
           return {
             ...app,
-            status: 'payment_submitted',
-            payment: {
-              ...app.payment,
-              proof: paymentProof.name,
-              transactionId: transactionId,
-            },
+            status: 'REVIEW_PAYMENT',
+            proofOfPayment: URL.createObjectURL(paymentProof),
+            transactionId: transactionId
           };
         }
         return app;
       });
-
+      
       setApplications(updatedApplications);
       showToast('Payment proof submitted successfully!', 'success');
-      setSelectedApp(null);
       setPaymentProof(null);
       setTransactionId('');
+      setSelectedApp(null);
+    } catch (error) {
+      console.error('Error submitting payment proof:', error);
+      showToast(error instanceof Error ? error.message : 'Failed to submit payment proof', 'error');
+    } finally {
       setIsLoading(false);
-    }, 1000);
-  };
-
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'pending':
-        return (
-          <span className="px-2 py-1 rounded-full bg-blue-100 text-blue-700 text-xs font-medium">
-            Pending
-          </span>
-        );
-      case 'approved':
-        return (
-          <span className="px-2 py-1 rounded-full bg-green-100 text-green-700 text-xs font-medium">
-            Approved
-          </span>
-        );
-      case 'invoice_sent':
-        return (
-          <span className="px-2 py-1 rounded-full bg-indigo-100 text-indigo-700 text-xs font-medium">
-            Invoice Sent
-          </span>
-        );
-      case 'payment_submitted':
-        return (
-          <span className="px-2 py-1 rounded-full bg-purple-100 text-purple-700 text-xs font-medium">
-            Payment Submitted
-          </span>
-        );
-      case 'payment_verified':
-        return (
-          <span className="px-2 py-1 rounded-full bg-green-100 text-green-700 text-xs font-medium">
-            Payment Verified
-          </span>
-        );
-      case 'completed':
-        return (
-          <span className="px-2 py-1 rounded-full bg-emerald-100 text-emerald-700 text-xs font-medium">
-            Completed
-          </span>
-        );
-      default:
-        return (
-          <span className="px-2 py-1 rounded-full bg-gray-100 text-gray-700 text-xs font-medium">
-            Unknown
-          </span>
-        );
     }
   };
 
-  const getActionButton = (app: Application) => {
-    switch (app.status) {
+  // Handle successful edit
+  const handleEditSuccess = async () => {
+    try {
+      setIsLoading(true);
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/getApplicationsByAgent`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch applications');
+      }
+      
+      const data = await response.json();
+      setApplications(data.data);
+      showToast('Application updated successfully!', 'success');
+    } catch (error) {
+      console.error('Error refreshing applications:', error);
+      showToast('Failed to refresh applications', 'error');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Get status badge based on application status
+  const getStatusBadge = (status: string) => {
+    switch (status.toLowerCase()) {
+      case 'pending':
+        return <span className="px-2 py-1 rounded-full bg-blue-100 text-blue-700 text-xs font-medium">Pending</span>;
+      case 'application_approved':
+        return <span className="px-2 py-1 rounded-full bg-green-100 text-green-700 text-xs font-medium">Approved</span>;
+      case 'waiting_for_user_action':
+        return <span className="px-2 py-1 rounded-full bg-orange-100 text-orange-700 text-xs font-medium">Action Required</span>;
       case 'invoice_sent':
+        return <span className="px-2 py-1 rounded-full bg-indigo-100 text-indigo-700 text-xs font-medium">Invoice Sent</span>;
+      case 'review_payment':
+        return <span className="px-2 py-1 rounded-full bg-purple-100 text-purple-700 text-xs font-medium">Payment Review</span>;
+      case 'payment_verified':
+        return <span className="px-2 py-1 rounded-full bg-green-100 text-green-700 text-xs font-medium">Payment Verified</span>;
+      case 'insurance_issued':
+        return <span className="px-2 py-1 rounded-full bg-emerald-100 text-emerald-700 text-xs font-medium">Insurance Issued</span>;
+      default:
+        return <span className="px-2 py-1 rounded-full bg-gray-100 text-gray-700 text-xs font-medium">Unknown</span>;
+    }
+  };
+
+  // Format date for display
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    });
+  };
+
+  // Get action buttons based on application status
+  const getActionButtons = (app: Application) => {
+    switch (app.status.toLowerCase()) {
+      case 'waiting_for_user_action':
         return (
-          <Button size="sm" onClick={() => setSelectedApp(app)}>
-            Submit Payment
+          <Button 
+            size="sm" 
+            onClick={() => {
+              setSelectedApp(app);
+              setShowEditModal(true);
+            }}
+          >
+            Edit Application
           </Button>
         );
-      case 'completed':
+      
+      case 'invoice_sent':
         return (
-          <Button
-            size="sm"
+          <Button 
+            size="sm" 
+            onClick={() => {
+              setSelectedApp(app);
+            }}
+          >
+            Upload Payment
+          </Button>
+        );
+      
+      case 'insurance_issued':
+        return (
+          <Button 
+            size="sm" 
             variant="secondary"
-            onClick={() => setSelectedApp(app)}
+            onClick={() => {
+              setViewingDocument({
+                name: 'Insurance Certificate',
+                path: app.insuranceCertificate || ''
+              });
+            }}
           >
             View Certificate
           </Button>
         );
+      
       default:
         return (
-          <Button size="sm" variant="text" onClick={() => setSelectedApp(app)}>
+          <Button 
+            size="sm" 
+            variant="text" 
+            onClick={() => {
+              setSelectedApp(app);
+            }}
+          >
             View Details
           </Button>
         );
     }
   };
 
-  const Pagination = ({
-    currentPage,
-    totalPages,
-    onPageChange,
-  }: PaginationProps) => {
+  // Calculate total commission
+  const totalCommission = applications.reduce((total, app) => {
+    return total + (app.agentCommission || 0);
+  }, 0);
+
+  const Pagination = ({ currentPage, totalPages, onPageChange }: PaginationProps) => {
     const maxVisiblePages = 5;
     let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
     const endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
@@ -315,24 +799,13 @@ export default function AgentApplicationsPage() {
         <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
           <div>
             <p className="text-sm text-gray-700">
-              Showing
-              <span className="font-medium p-2">{(currentPage - 1) * 10 + 1}</span>{' '}
-              to
-              <span className="font-medium p-2">
-                {Math.min(currentPage * 10, paginatedApplications.length)}
-              </span>
-              of
-              <span className="font-medium p-2">
-                {filteredApplications.length}
-              </span>{' '}
-              results
+              Showing <span className="font-medium">{(currentPage - 1) * 10 + 1}</span> to{' '}
+              <span className="font-medium">{Math.min(currentPage * 10, filteredApplications.length)}</span> of{' '}
+              <span className="font-medium">{filteredApplications.length}</span> results
             </p>
           </div>
           <div>
-            <nav
-              className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px "
-              aria-label="Pagination"
-            >
+            <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px " aria-label="Pagination">
               <Button
                 variant="text"
                 size="sm"
@@ -340,7 +813,8 @@ export default function AgentApplicationsPage() {
                 disabled={currentPage === 1}
                 className="rounded-l-md"
               >
-                <span className="sr-only">First</span>«
+                <span className="sr-only">First</span>
+                «
               </Button>
               <Button
                 variant="text"
@@ -348,46 +822,42 @@ export default function AgentApplicationsPage() {
                 onClick={() => onPageChange(Math.max(1, currentPage - 1))}
                 disabled={currentPage === 1}
               >
-                <span className="sr-only">Previous</span>‹
+                <span className="sr-only">Previous</span>
+                ‹
               </Button>
-
+              
               {startPage > 1 && (
                 <span className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700">
                   ...
                 </span>
               )}
-
+              
               {pages.map((page) => (
                 <Button
                   key={page}
                   variant={currentPage === page ? 'primary' : 'text'}
                   size="sm"
                   onClick={() => onPageChange(page)}
-                  className={
-                    currentPage === page
-                      ? 'z-10 bg-[var(--main-blue)] border-[var(--main-blue)] text-white'
-                      : ''
-                  }
+                  className={currentPage === page ? 'z-10 bg-[var(--main-blue)] border-[var(--main-blue)] text-white' : ''}
                 >
                   {page}
                 </Button>
               ))}
-
+              
               {endPage < totalPages && (
                 <span className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700">
                   ...
                 </span>
               )}
-
+              
               <Button
                 variant="text"
                 size="sm"
-                onClick={() =>
-                  onPageChange(Math.min(totalPages, currentPage + 1))
-                }
+                onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
                 disabled={currentPage === totalPages}
               >
-                <span className="sr-only">Next</span>›
+                <span className="sr-only">Next</span>
+                ›
               </Button>
               <Button
                 variant="text"
@@ -396,7 +866,8 @@ export default function AgentApplicationsPage() {
                 disabled={currentPage === totalPages}
                 className="rounded-r-md"
               >
-                <span className="sr-only">Last</span>»
+                <span className="sr-only">Last</span>
+                »
               </Button>
             </nav>
           </div>
@@ -405,23 +876,13 @@ export default function AgentApplicationsPage() {
     );
   };
 
-  // Calculate total commission for display
-  const totalCommission = filteredApplications.reduce((total, app) => {
-    const commissionValue = parseInt(app.commission.replace(/[^0-9]/g, ''));
-    return total + commissionValue;
-  }, 0);
-
   return (
     <MainLayout containerClass="p-0" fullWidth>
       <div className="container mx-auto px-4 py-8">
         <div className="absolute top-0 left-0 w-full h-[10vh] overflow-hidden z-0 bg-gradient-to-br from-[#0A2540] to-[#126BB3]"></div>
         <div className="mb-8 mt-16">
-          <h1 className="text-3xl font-bold mb-2 fade-in">
-            Client Applications
-          </h1>
-          <p className="text-gray-600 slide-up">
-            Track and manage applications for your clients
-          </p>
+          <h1 className="text-3xl font-bold mb-2 fade-in">Client Applications</h1>
+          <p className="text-gray-600 slide-up">Track and manage applications for your clients</p>
           
           {/* Commission Summary */}
           <div className="mt-4 bg-gradient-to-r from-orange-50 to-yellow-50 border border-orange-200 rounded-lg p-4">
@@ -459,21 +920,11 @@ export default function AgentApplicationsPage() {
               <Input
                 label=""
                 name="search"
-                placeholder="Search by client name or ID..."
+                placeholder="Search by name, email or ID..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 icon={
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="18"
-                    height="18"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <circle cx="11" cy="11" r="8"></circle>
                     <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
                   </svg>
@@ -498,8 +949,8 @@ export default function AgentApplicationsPage() {
               </Button>
               <Button
                 size="sm"
-                variant={activeTab === 'approved' ? 'primary' : 'text'}
-                onClick={() => setActiveTab('approved')}
+                variant={activeTab === 'application_approved' ? 'primary' : 'text'}
+                onClick={() => setActiveTab('application_approved')}
               >
                 Approved
               </Button>
@@ -512,15 +963,15 @@ export default function AgentApplicationsPage() {
               </Button>
               <Button
                 size="sm"
-                variant={activeTab === 'payment_submitted' ? 'primary' : 'text'}
-                onClick={() => setActiveTab('payment_submitted')}
+                variant={activeTab === 'waiting_for_user_action' ? 'primary' : 'text'}
+                onClick={() => setActiveTab('waiting_for_user_action')}
               >
-                Payment Submitted
+                Action Required
               </Button>
               <Button
                 size="sm"
-                variant={activeTab === 'completed' ? 'primary' : 'text'}
-                onClick={() => setActiveTab('completed')}
+                variant={activeTab === 'insurance_issued' ? 'primary' : 'text'}
+                onClick={() => setActiveTab('insurance_issued')}
               >
                 Completed
               </Button>
@@ -537,19 +988,8 @@ export default function AgentApplicationsPage() {
             </div>
           ) : filteredApplications.length === 0 ? (
             <div className="p-8 text-center">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-16 w-16 mx-auto text-gray-400"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                />
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 mx-auto text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
               </svg>
               <p className="mt-4 text-gray-600">No applications found</p>
             </div>
@@ -558,43 +998,26 @@ export default function AgentApplicationsPage() {
               <table className="w-full">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      ID
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Client
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Insurance Type
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Date
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Commission
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Status
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Actions
-                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Client</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Insurance Type</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Commission</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
                   {paginatedApplications.map((app) => (
-                    <tr
-                      key={app.id}
-                      className="hover:bg-gray-50 transition-colors"
-                    >
+                    <tr key={app._id} className="hover:bg-gray-50 transition-colors">
                       <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-[var(--main-blue)]">
-                        #{app.id}
+                        #{app.applicationNumber}
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap">
                         <div className="text-sm font-medium text-gray-900">
-                          {app.clientName}
+                          {app.fullName}
                         </div>
-                        <div className="text-sm text-gray-500">{app.phone}</div>
+                        <div className="text-sm text-gray-500">{app.phoneNumber}</div>
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-900 capitalize">
@@ -602,11 +1025,11 @@ export default function AgentApplicationsPage() {
                         </div>
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {app.dateSubmitted}
+                        {formatDate(app.submittedAt)}
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap">
                         <div className="text-sm font-semibold text-[var(--accent-orange)]">
-                          {app.commission}
+                          {app.agentCommission?.toLocaleString() || '0'} RWF
                         </div>
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap">
@@ -614,7 +1037,7 @@ export default function AgentApplicationsPage() {
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap text-sm font-medium">
                         <div className="flex space-x-2">
-                          {getActionButton(app)}
+                          {getActionButtons(app)}
                         </div>
                       </td>
                     </tr>
@@ -623,9 +1046,7 @@ export default function AgentApplicationsPage() {
               </table>
               <Pagination
                 currentPage={currentPage}
-                totalPages={Math.ceil(
-                  filteredApplications.length / itemsPerPage
-                )}
+                totalPages={Math.ceil(filteredApplications.length / itemsPerPage)}
                 onPageChange={setCurrentPage}
               />
             </div>
@@ -633,42 +1054,46 @@ export default function AgentApplicationsPage() {
         </div>
       </div>
 
-      {/* Modal for submitting payment */}
-      {selectedApp && selectedApp.status === 'invoice_sent' && (
-        <div className="fixed inset-0 bg-gray-600/50 bg-opacity-20 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md mx-4 fade-in">
+      {/* Modal for uploading payment proof */}
+      {selectedApp && selectedApp.status.toLowerCase() === 'invoice_sent' && (
+        <div className="fixed inset-0 bg-gray-600/50 flex items-center justify-center z-50">
+          <div className="max-h-[90vh] overflow-y-auto bg-white rounded-lg shadow-xl p-6 w-full max-w-md mx-4 fade-in">
             <h3 className="text-lg font-semibold mb-4">
-              Submit Payment Proof for {selectedApp.clientName}
+              Upload Payment Proof for {selectedApp.fullName}
             </h3>
             <div className="space-y-4">
               <div className="border rounded-lg p-4 bg-gray-50">
                 <p className="font-medium">Invoice Details:</p>
                 <div className="mt-2 space-y-1 text-sm">
-                  <p>
-                    <span className="text-gray-600">Invoice ID:</span>{' '}
-                    {selectedApp.payment?.invoiceId}
-                  </p>
-                  <p>
-                    <span className="text-gray-600">Amount:</span>{' '}
-                    {selectedApp.payment?.amount}
-                  </p>
-                  {selectedApp.payment?.invoiceId && (
+                  {selectedApp.invoiceId && (
+                    <p>
+                      <span className="text-gray-600">Invoice ID:</span> {selectedApp.invoiceId}
+                    </p>
+                  )}
+                  {selectedApp.amount && (
+                    <p>
+                      <span className="text-gray-600">Amount:</span> {selectedApp.amount} RWF
+                    </p>
+                  )}
+                  {selectedApp.invoice && (
+                  <li><span className="text-gray-600">Quotation / Invoice:</span> 
                     <button 
-                      className="text-[var(--main-blue)] hover:underline mt-2"
+                      className="text-[var(--main-blue)] hover:underline ml-1"
                       onClick={() => setViewingDocument({
-                        name: `Invoice_${selectedApp.payment?.invoiceId}.pdf`,
-                        path: '/test_document.pdf'
+                        name: 'Quotation / Invoice',
+                        path: selectedApp.invoice || '/File_not_found.jpg'
                       })}
                     >
-                      View Invoice
+                      View Document
                     </button>
-                  )}
+                  </li>
+                )}
                 </div>
               </div>
 
               <div>
                 <label className="block text-sm font-medium mb-1">
-                  Transaction ID
+                  Transaction ID *
                 </label>
                 <input
                   type="text"
@@ -676,29 +1101,21 @@ export default function AgentApplicationsPage() {
                   onChange={(e) => setTransactionId(e.target.value)}
                   className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[var(--main-blue)] focus:border-[var(--main-blue)] sm:text-sm"
                   placeholder="Enter transaction ID"
+                  required
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1">
-                  Upload Payment Proof
-                </label>
-                <input
-                  type="file"
-                  onChange={(e) => setPaymentProof(e.target.files?.[0] || null)}
-                  className="block w-full text-sm text-gray-500
-                    file:mr-4 file:py-2 file:px-4
-                    file:rounded-md file:border-0
-                    file:text-sm file:font-semibold
-                    file:bg-[var(--main-blue)] file:text-white
-                    hover:file:bg-[var(--secondary-blue)]
-                  "
+                {/* <label className="block text-sm font-medium mb-1">
+                  Upload Payment Proof *
+                </label> */}
+                <FileInput
+                  label="Payment Proof *"
+                  name="proofOfPayment"
+                  onChange={setPaymentProof}
+                  accept="image/*,.pdf"
+                  currentFile={selectedApp.proofOfPayment?.split('/').pop()}
                 />
-                {paymentProof && (
-                  <p className="mt-2 text-sm text-gray-600">
-                    Selected: {paymentProof.name}
-                  </p>
-                )}
               </div>
 
               <div className="flex justify-end gap-2 mt-6">
@@ -709,6 +1126,7 @@ export default function AgentApplicationsPage() {
                     setPaymentProof(null);
                     setTransactionId('');
                   }}
+                  disabled={isLoading}
                 >
                   Cancel
                 </Button>
@@ -725,133 +1143,244 @@ export default function AgentApplicationsPage() {
       )}
 
       {/* Modal for viewing details */}
-      {selectedApp && selectedApp.status !== 'invoice_sent' && (
-        <div className="fixed inset-0 bg-gray-600/50 bg-opacity-20 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-2xl mx-4 fade-in h-[90vh] overflow-y-auto">
+      {selectedApp && selectedApp.status.toLowerCase() !== 'invoice_sent' && (
+        <div className="fixed inset-0 bg-gray-600/50 flex items-center justify-center z-50">
+          <div className="max-h-[90vh] overflow-y-auto bg-white rounded-lg shadow-xl p-6 w-full max-w-3xl mx-4 fade-in">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-semibold">Application Details</h3>
               <button
                 onClick={() => setSelectedApp(null)}
                 className="text-gray-400 hover:text-gray-600"
               >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-6 w-6"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M6 18L18 6M6 6l12 12"
-                  />
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-4">
+            <div className="bg-gray-50 p-4 rounded-lg mb-4">
+              <div className="flex justify-between items-center">
                 <div>
                   <p className="text-sm text-gray-500">Application ID</p>
-                  <p className="font-semibold">#{selectedApp.id}</p>
+                  <p className="font-semibold">#{selectedApp.applicationNumber}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-500">Client Name</p>
-                  <p className="font-semibold">{selectedApp.clientName}</p>
+                  {getStatusBadge(selectedApp.status)}
+                </div>
+              </div>
+            </div>
+
+            {/* Application Details */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
+              {/* Personal Information */}
+              <div className="space-y-4">
+                <div>
+                  <p className="text-sm text-gray-500">Full Name</p>
+                  <p className="font-semibold">{selectedApp.fullName}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">Email</p>
+                  <p className="font-semibold">{selectedApp.email}</p>
                 </div>
                 <div>
                   <p className="text-sm text-gray-500">Phone</p>
-                  <p className="font-semibold">{selectedApp.phone}</p>
+                  <p className="font-semibold">{selectedApp.phoneNumber}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">Date of Birth</p>
+                  <p className="font-semibold">{formatDate(selectedApp.dateOfBirth)}</p>
+                </div>
+              </div>
+
+              {/* Address Information */}
+              <div className="space-y-4">
+                <div>
+                  <p className="text-sm text-gray-500">Address</p>
+                  <p className="font-semibold">{selectedApp.address}</p>
+                </div>
+                {selectedApp.province && (
+                  <div>
+                    <p className="text-sm text-gray-500">Province</p>
+                    <p className="font-semibold">{selectedApp.province}</p>
+                  </div>
+                )}
+                {selectedApp.district && (
+                  <div>
+                    <p className="text-sm text-gray-500">District</p>
+                    <p className="font-semibold">{selectedApp.district}</p>
+                  </div>
+                )}
+                {selectedApp.sector && (
+                  <div>
+                    <p className="text-sm text-gray-500">Sector</p>
+                    <p className="font-semibold">{selectedApp.sector}</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Insurance Information */}
+              <div className="space-y-4">
+                <div>
+                  <p className="text-sm text-gray-500">Insurance Category</p>
+                  <p className="font-semibold">{selectedApp.insuranceCategory}</p>
                 </div>
                 <div>
                   <p className="text-sm text-gray-500">Insurance Type</p>
-                  <p className="font-semibold capitalize">
-                    {selectedApp.insuranceType.replace('_', ' ')}
-                  </p>
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                <div>
-                  <p className="text-sm text-gray-500">Date Submitted</p>
-                  <p className="font-semibold">{selectedApp.dateSubmitted}</p>
+                  <p className="font-semibold">{selectedApp.insuranceType}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-500">Status</p>
-                  <div className="mt-1">
-                    {getStatusBadge(selectedApp.status)}
-                  </div>
+                  <p className="text-sm text-gray-500">Duration</p>
+                  <p className="font-semibold">{selectedApp.insuranceDuration}</p>
                 </div>
-                <div>
-                  <p className="text-sm text-gray-500">Commission</p>
-                  <p className="font-semibold text-[var(--accent-orange)]">
-                    {selectedApp.commission}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {selectedApp.payment && (
-              <div className="mt-6 bg-gray-50 p-4 rounded-lg">
-                <h4 className="font-medium mb-2">Payment Information</h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm text-gray-500">Invoice ID</p>
-                    <p className="font-medium">
-                      {selectedApp.payment.invoiceId}
-                    </p>
-                  </div>
+                {selectedApp.amount && (
                   <div>
                     <p className="text-sm text-gray-500">Amount</p>
-                    <p className="font-medium">{selectedApp.payment.amount}</p>
+                    <p className="font-semibold">{selectedApp.amount.toLocaleString()} RWF</p>
                   </div>
-                  {selectedApp.payment.proof && (
+                )}
+              </div>
+
+              {/* Vehicle Information (if applicable) */}
+              {(selectedApp.insuranceCategory === 'Car Insurance' || selectedApp.insuranceCategory === 'Motorbike Insurance') && (
+                <div className="space-y-4">
+                  {selectedApp.vehicleType && (
                     <div>
-                      <p className="text-sm text-gray-500">Payment Proof</p>
-                      <p className="font-medium">{selectedApp.payment.proof}</p>
+                      <p className="text-sm text-gray-500">Vehicle Type</p>
+                      <p className="font-semibold">{selectedApp.vehicleType}</p>
                     </div>
                   )}
-                  {selectedApp.payment.transactionId && (
+                  {selectedApp.vehicleAge && (
                     <div>
-                      <p className="text-sm text-gray-500">Transaction ID</p>
-                      <p className="font-medium">{selectedApp.payment.transactionId}</p>
+                      <p className="text-sm text-gray-500">Vehicle Year</p>
+                      <p className="font-semibold">{selectedApp.vehicleAge}</p>
                     </div>
                   )}
                 </div>
+              )}
+            </div>
+
+            {/* Rejection Reason (if exists) */}
+            {(selectedApp.rejectionReason || selectedApp.reasonForPaymentRejection) && (
+              <div className="mt-4 bg-red-50 p-4 rounded-lg">
+                <h4 className="font-medium text-red-700 mb-2">Rejection Reason</h4>
+                <p className="text-red-600">{selectedApp.rejectionReason || selectedApp.reasonForPaymentRejection}</p>
               </div>
             )}
 
+            {/* Documents Section */}
             <div className="mt-6 bg-gray-50 p-4 rounded-lg">
               <h4 className="font-medium mb-2">Documents</h4>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <button 
                   className="bg-white p-3 rounded border text-left hover:bg-gray-50"
                   onClick={() => setViewingDocument({
-                    name: selectedApp.documents.nationalId,
-                    path: '/test_document.pdf'
+                    name: 'National ID / Passport',
+                    path: selectedApp.nationalID
                   })}
                 >
-                  <p className="text-sm font-medium">National ID</p>
-                  <p className="text-xs text-gray-500">
-                    {selectedApp.documents.nationalId}
-                  </p>
+                  <p className="text-sm font-medium">National ID / Passport</p>
+                  <p className="text-xs text-gray-500">View Document</p>
                 </button>
+                
                 <button 
                   className="bg-white p-3 rounded border text-left hover:bg-gray-50"
                   onClick={() => setViewingDocument({
-                    name: selectedApp.documents.yellowCard,
-                    path: '/test_document.pdf'
+                    name: 'Yellow Card',
+                    path: selectedApp.yellowCard
                   })}
                 >
                   <p className="text-sm font-medium">Yellow Card</p>
-                  <p className="text-xs text-gray-500">
-                    {selectedApp.documents.yellowCard}
-                  </p>
+                  <p className="text-xs text-gray-500">View Document</p>
                 </button>
+                
+                {selectedApp.pastInsuranceCertificate && (
+                  <button 
+                    className="bg-white p-3 rounded border text-left hover:bg-gray-50"
+                    onClick={() => setViewingDocument({
+                      name: 'Past Insurance Certificate',
+                      path: selectedApp.pastInsuranceCertificate || ''
+                    })}
+                  >
+                    <p className="text-sm font-medium">Past Insurance</p>
+                    <p className="text-xs text-gray-500">View Document</p>
+                  </button>
+                )}
+                {selectedApp.invoice && (
+            <button 
+              className="bg-white p-3 rounded border text-left hover:bg-gray-50"
+              onClick={() => setViewingDocument({
+                name: 'Quotation / Invoice',
+                path: selectedApp.invoice || ''
+              })}
+            >
+              <p className="text-sm font-medium">Quotation / Invoice</p>
+              <p className="text-xs text-gray-500">View Document</p>
+            </button>
+          )}
+                
+                {selectedApp.proofOfPayment && (
+                  <button 
+                    className="bg-white p-3 rounded border text-left hover:bg-gray-50"
+                    onClick={() => setViewingDocument({
+                      name: 'Proof of Payment',
+                      path: selectedApp.proofOfPayment || ''
+                    })}
+                  >
+                    <p className="text-sm font-medium">Proof of Payment</p>
+                    <p className="text-xs text-gray-500">View Document</p>
+                  </button>
+                )}
+                
+                {selectedApp.insuranceCertificate && (
+                  <button 
+                    className="bg-white p-3 rounded border text-left hover:bg-gray-50"
+                    onClick={() => setViewingDocument({
+                      name: 'Insurance Certificate',
+                      path: selectedApp.insuranceCertificate || ''
+                    })}
+                  >
+                    <p className="text-sm font-medium">Insurance Certificate</p>
+                    <p className="text-xs text-gray-500">View Document</p>
+                  </button>
+                )}
               </div>
             </div>
+
+            {/* Payment Information (if available) */}
+            {selectedApp.invoice && (
+              <div className="mt-6 bg-gray-50 p-4 rounded-lg">
+                <h4 className="font-medium mb-2">Payment Information</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  
+                  {selectedApp.amount && (
+                    <div className="bg-white p-3 rounded border">
+                      <p className="text-sm font-medium">Amount</p>
+                      <p className="text-xs text-gray-500">{selectedApp.amount} RWF</p>
+                    </div>
+                  )}
+                  {selectedApp.transactionId && (
+                    <div className="bg-white p-3 rounded border">
+                      <p className="text-sm font-medium">Transaction ID</p>
+                      <p className="text-xs text-gray-500">{selectedApp.transactionId}</p>
+                      {selectedApp.invoice && (
+                  <><span className="text-gray-600">Quotation / Invoice:</span> 
+                    <button 
+                      className="text-sm text-[var(--main-blue)] hover:underline ml-1"
+                      onClick={() => setViewingDocument({
+                        name: 'Quotation / Invoice',
+                        path: selectedApp.invoice || '/File_not_found.jpg'
+                      })}
+                    >
+                      View Document
+                    </button>
+                  </>
+                )}
+                    </div>
+                  )}
+                  
+                </div>
+              </div>
+            )}
 
             <div className="flex justify-end mt-6">
               <Button variant="text" onClick={() => setSelectedApp(null)}>
@@ -860,6 +1389,20 @@ export default function AgentApplicationsPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Edit Application Modal */}
+      {selectedApp && (
+        <EditApplicationModal
+          isOpen={showEditModal}
+          onClose={() => {
+            setShowEditModal(false);
+            setSelectedApp(null);
+          }}
+          application={selectedApp}
+          onSave={handleEditSuccess}
+          isLoading={isLoading}
+        />
       )}
 
       {/* Document viewer modal */}
