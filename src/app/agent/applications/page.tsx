@@ -148,59 +148,69 @@ const EditApplicationModal = ({
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSubmitting(true);
+ const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  setIsSubmitting(true);
+  
+  try {
+    const formData = new FormData();
+    const updatedData: { [key: string]: string | number } = {};
     
-    try {
-      const formData = new FormData();
-      const updatedData: { [key: string]: string | number } = {};
+    // Only include fields that have been changed and are not empty
+    Object.entries(formState).forEach(([key, value]) => {
+      const originalValue = application[key as keyof Application];
       
-      Object.entries(formState).forEach(([key, value]) => {
-        const originalValue = application[key as keyof Application];
-        if (value !== undefined && value !== originalValue) {
-          const formattedValue = key === 'dateOfBirth' && value 
-            ? new Date(value as string).toISOString().split('T')[0]
-            : value;
-          
-          formData.append(key, formattedValue as string);
-          updatedData[key as keyof Application] = formattedValue;
-        }
-      });
-
-      Object.entries(files).forEach(([key, file]) => {
-        if (file) {
-          formData.append(key, file);
-        }
-      });
-
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/updateInsuranceApplication/${application._id}`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-        },
-        body: formData,
-        credentials: 'include'
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to update application');
+      // Check if the value has changed and is not empty
+      if (value !== undefined && value !== originalValue && value !== '') {
+        const formattedValue = key === 'dateOfBirth' && value 
+          ? new Date(value as string).toISOString().split('T')[0]
+          : value;
+        
+        formData.append(key, formattedValue as string);
+        updatedData[key as keyof Application] = formattedValue;
       }
+    });
 
-      showToast('Application updated successfully!', 'success');
-      onSave();
-      onClose();
-    } catch (error) {
-      console.error('Submission error:', error);
-      showToast(
-        error instanceof Error ? error.message : 'Failed to update application',
-        'error'
-      );
-    } finally {
-      setIsSubmitting(false);
+    // Only include files that have been changed
+    Object.entries(files).forEach(([key, file]) => {
+      if (file) {
+        formData.append(key, file);
+      }
+    });
+
+    // If no fields were changed, show a message and return
+    if (Object.keys(updatedData).length === 0 && Object.values(files).every(file => !file)) {
+      showToast('No changes were made to the application', 'info');
+      return;
     }
-  };
+
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/updateInsuranceApplication/${application._id}`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+      },
+      body: formData,
+      credentials: 'include'
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Failed to update application');
+    }
+
+    showToast('Application updated successfully!', 'success');
+    onSave();
+    onClose();
+  } catch (error) {
+    console.error('Submission error:', error);
+    showToast(
+      error instanceof Error ? error.message : 'Failed to update application',
+      'error'
+    );
+  } finally {
+    setIsSubmitting(false);
+  }
+};
 
   if (!isOpen) return null;
 
@@ -701,23 +711,36 @@ export default function AgentApplicationsPage() {
   // Get action buttons based on application status
   const getActionButtons = (app: Application) => {
     switch (app.status.toLowerCase()) {
-      case 'waiting_for_user_action':
+     case 'waiting_for_user_action':
+      if (app.reasonForPaymentRejection || app.rejectionReason) {
         return (
           <Button 
-            size="sm" 
+            size="xs" 
             onClick={() => {
               setSelectedApp(app);
               setShowEditModal(true);
             }}
           >
-            Edit Application
+            Upload Payment Proof
           </Button>
         );
+      }
+      return (
+        <Button 
+          size="xs" 
+          onClick={() => {
+            setSelectedApp(app);
+            setShowEditModal(true);
+          }}
+        >
+          Edit Application
+        </Button>
+      );
       
       case 'invoice_sent':
         return (
           <Button 
-            size="sm" 
+            size="xs" 
             onClick={() => {
               setSelectedApp(app);
             }}
@@ -729,7 +752,7 @@ export default function AgentApplicationsPage() {
       case 'insurance_issued':
         return (
           <Button 
-            size="sm" 
+            size="xs" 
             variant="secondary"
             onClick={() => {
               setViewingDocument({
@@ -745,7 +768,7 @@ export default function AgentApplicationsPage() {
       default:
         return (
           <Button 
-            size="sm" 
+            size="xs" 
             variant="text" 
             onClick={() => {
               setSelectedApp(app);
@@ -1143,7 +1166,7 @@ export default function AgentApplicationsPage() {
       )}
 
       {/* Modal for viewing details */}
-      {selectedApp && selectedApp.status.toLowerCase() !== 'invoice_sent' && (
+      {selectedApp && (selectedApp.status.toLowerCase() !== 'invoice_sent' && selectedApp.status.toLowerCase() !== 'waiting_for_user_action') && (
         <div className="fixed inset-0 bg-gray-600/50 flex items-center justify-center z-50">
           <div className="max-h-[90vh] overflow-y-auto bg-white rounded-lg shadow-xl p-6 w-full max-w-3xl mx-4 fade-in">
             <div className="flex justify-between items-center mb-4">

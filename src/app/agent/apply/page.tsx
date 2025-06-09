@@ -603,6 +603,7 @@ if (!token) {
                     required
                   >
                     <option value="1">1 Month</option>
+                    <option value="3">3 Months</option>
                     <option value="6">6 Months</option>
                     <option value="12">12 Months</option>
                   </select>
