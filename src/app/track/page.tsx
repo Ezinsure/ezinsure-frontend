@@ -1074,18 +1074,18 @@ const handleEditSuccess = async (): Promise<void> => {
                 <p className="font-medium">{application.amount.toLocaleString()} RWF</p>
               </div>
             )}
-            {application.companyCommission && (
+            {/* {application.companyCommission && (
               <div>
                 <p className="text-sm text-gray-500">Company Commission</p>
                 <p className="font-medium">{application.companyCommission.toLocaleString()} RWF</p>
               </div>
-            )}
-            {application.agentCommission && (
+            )} */}
+            {/* {application.agentCommission && (
               <div>
                 <p className="text-sm text-gray-500">Agent Commission</p>
                 <p className="font-medium">{application.agentCommission.toLocaleString()} RWF</p>
               </div>
-            )}
+            )} */}
           </div>
         </div>
       </div>
