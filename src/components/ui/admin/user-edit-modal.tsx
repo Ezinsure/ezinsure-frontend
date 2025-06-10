@@ -8,10 +8,15 @@ interface User {
   email: string;
   phoneNumber: string;
   role: 'ADMIN' | 'AGENT';
+  // password?: string; 
+  commissionRate?: string;
   status: 'ACTIVE' | 'DEACTIVATED' | 'SENT_FOR_ACTION' | 'PENDING';
+  // createdBy?: string; 
+  createdAt?: string;
+  agentCode?: string;
+  passportPhoto?: string;
   dateOfBirth?: string;
   address?: string;
-  passportPhoto?: string;
   nationalIdDocument?: string;
   criminalRecordCertificate?: string;
   emergencyContacts?: Array<{
@@ -20,10 +25,20 @@ interface User {
     relationship: string;
     _id: string;
   }>;
-  createdAt?: string;
   rejectionReason?: string;
-  agentCode?: string;
-  commissionRate?: string;
+  bankName?: string;
+  bankAccountNumber?: string;
+  province?: string; 
+  district?: string; 
+  sector?: string; 
+  otp?: string; 
+  otpExpires?: string; 
+  deactivationHistory?: Array<{ 
+    deactivationReason: string;
+    deactivationFile?: string;
+    deactivationDate: string;
+    _id: string;
+  }>;
 }
 
 interface UserEditModalProps {
@@ -128,6 +143,45 @@ export const UserEditModal = ({ user, onClose, onSave, isLoading }: UserEditModa
             />
           </div>
 
+{/* Bank information */}
+<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+  <Input
+    label="Bank Name"
+    name="bankName"
+    value={formData.bankName || ''}
+    onChange={handleInputChange}
+  />
+  <Input
+    label="Bank Account Number"
+    name="bankAccountNumber"
+    value={formData.bankAccountNumber || ''}
+    onChange={handleInputChange}
+  />
+</div>
+
+{/* Location fields */}
+<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+  <Input
+    label="Province"
+    name="province"
+    value={formData.province || ''}
+    onChange={handleInputChange}
+  />
+  <Input
+    label="District"
+    name="district"
+    value={formData.district || ''}
+    onChange={handleInputChange}
+  />
+  <Input
+    label="Sector"
+    name="sector"
+    value={formData.sector || ''}
+    onChange={handleInputChange}
+  />
+</div>
+
+       
           <div>
             <label className="block text-sm font-medium mb-1">
               Role

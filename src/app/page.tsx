@@ -81,10 +81,10 @@ export default function Home() {
               <div className="relative">
                 <div className="bg-white bg-opacity-10 backdrop-filter backdrop-blur-lg rounded-xl p-6 md:p-8 shadow-xl px-auto">
                   <Image
-                    src="/support.webp"
+                    src="/support.jpg"
                     alt="Insurance Coverage"
-                    width={800}
-                    height={600}
+                    width={700}
+                    height={500}
                     className="rounded-lg mx-auto"
                   />
                 </div>

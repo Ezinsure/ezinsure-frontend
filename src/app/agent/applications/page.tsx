@@ -67,7 +67,7 @@ const EditApplicationModal = ({
 }) => {
   // Determine if this is a payment rejection case
   const isPaymentRejection = application.status === 'WAITING_FOR_USER_ACTION' && 
-                           (application.reasonForPaymentRejection || application.rejectionReason);
+                           (application.reasonForPaymentRejection);
 
   const [formState, setFormState] = useState<Partial<Application>>(() => {
     if (isPaymentRejection) {
@@ -604,7 +604,7 @@ export default function AgentApplicationsPage() {
     name: string;
     path: string;
   } | null>(null);
-  const [showEditModal, setShowEditModal] = useState(false);
+  // const [showEditModal, setShowEditModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const itemsPerPage = 10;
   const [activeModal, setActiveModal] = useState<ModalType>('none');
@@ -809,6 +809,7 @@ const getActionButtons = (app: Application) => {
             size="xs" 
             onClick={() => {
               setSelectedApp(app);
+              // setShowEditModal(true);
               setActiveModal('edit-application');
             }}
           >
@@ -1487,9 +1488,9 @@ const getActionButtons = (app: Application) => {
       {/* Edit Application Modal */}
       {selectedApp && activeModal === 'edit-application' && (
         <EditApplicationModal
-          isOpen={showEditModal}
+          isOpen={true}
           onClose={() => {
-            setShowEditModal(false);
+            // setShowEditModal(false);
             setSelectedApp(null);
             setActiveModal('none');
           }}

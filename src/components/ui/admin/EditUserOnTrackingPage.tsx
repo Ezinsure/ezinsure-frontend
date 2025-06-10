@@ -28,6 +28,8 @@ export interface Application {
   }>;
   submittedAt: string;
   rejectionReason?: string;
+  bankName: string;
+  bankAccountNumber: string;
 }
 
 interface EditUserModalProps {

@@ -24,6 +24,8 @@ interface FormData {
   nationalIdDocument: File | null;
   criminalRecordCertificate: File | null;
   passportPhoto: File | null;
+    bankName: string;
+  bankAccountNumber: string;
   [key: string]: string | File | null;
 }
 
@@ -366,7 +368,26 @@ useEffect(() => {
   </div>
 </div>
           
-
+<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+  <Input
+    label="Bank Name"
+    name="bankName"
+    type="text"
+    value={formData.bankName}
+    onChange={(e) => setFormData({ ...formData, bankName: e.target.value })}
+    error={errors.bankName}
+    required
+  />
+  <Input
+    label="Bank Account Number"
+    name="bankAccountNumber"
+    type="text"
+    value={formData.bankAccountNumber}
+    onChange={(e) => setFormData({ ...formData, bankAccountNumber: e.target.value })}
+    error={errors.bankAccountNumber}
+    required
+  />
+</div>
           <div>
             <label className="block text-sm font-medium mb-1">
               Role <span className="text-red-500">*</span>

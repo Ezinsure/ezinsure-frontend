@@ -715,7 +715,8 @@ const getActionButtons = (app: Application) => {
     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Client</th>
     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Insurance Type</th>
     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
-    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Commission</th>
+    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Company Commission</th>
+    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Agent Commission</th>
     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
@@ -740,12 +741,17 @@ const getActionButtons = (app: Application) => {
     </td>
     <td className="px-4 py-4 text-xs whitespace-nowrap">
       <div className="text-xs text-gray-900">
-        {app.amount ? `${app.amount.toLocaleString()} RWF` : 'N/A'}
+        {app.amount ? `${app.amount.toLocaleString()} RWF` : '0 RWF'}
       </div>
     </td>
     <td className="px-4 py-4 text-xs whitespace-nowrap">
       <div className="text-xs text-gray-900">
-        {app.companyCommission ? `${app.companyCommission.toLocaleString()} RWF` : 'N/A'}
+        {app.companyCommission ? `${app.companyCommission.toLocaleString()} RWF` : '0 RWF'}
+      </div>
+    </td>
+    <td className="px-4 py-4 text-xs whitespace-nowrap">
+      <div className="text-xs text-gray-900">
+        {app.agentCommission ? `${app.agentCommission.toLocaleString()} RWF` : '0 RWF'}
       </div>
     </td>
     <td className="px-4 py-4 text-xs whitespace-nowrap text-gray-500">{new Date(app.submittedAt).toLocaleDateString()}</td>

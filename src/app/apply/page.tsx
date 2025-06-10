@@ -39,6 +39,7 @@ export default function ApplyPage() {
     nationalID: null as File | null, 
     yellowCard: null as File | null,
     pastInsuranceCertificate: null as File | null,
+     insuranceProvider: 'SONARWA',
   });
 
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
@@ -60,6 +61,7 @@ export default function ApplyPage() {
     vehicleAge: { required: formState.insuranceCategory === 'car' || formState.insuranceCategory === 'motorbike' },
     nationalID: { required: true },
     yellowCard: { required: true },
+    insuranceProvider: { required: true }, 
   };
 
   // Update districts when province changes
@@ -192,6 +194,7 @@ export default function ApplyPage() {
         formData.append('insuranceCategory', formatInsuranceCategory(formState.insuranceCategory));
         formData.append('insuranceType', formatInsuranceType(formState.insuranceType));
         formData.append('insuranceDuration', formatInsuranceDuration(formState.insuranceDuration));
+        formData.append('insuranceProvider', formState.insuranceProvider);
         
         // Append vehicle details if applicable
         if (formState.insuranceCategory === 'car' || formState.insuranceCategory === 'motorbike') {
@@ -246,6 +249,7 @@ export default function ApplyPage() {
           nationalID: null,
           yellowCard: null,
           pastInsuranceCertificate: null,
+           insuranceProvider: 'SONARWA',
         });
         setAvailableDistricts([]);
         setAvailableSectors([]);
@@ -265,6 +269,7 @@ export default function ApplyPage() {
       showToast('Please correct the errors in the form.', 'error');
     }
   };
+
 
   return (
     <MainLayout containerClass="p-0" fullWidth>
@@ -441,6 +446,31 @@ export default function ApplyPage() {
                   )}
                 </div>
 
+                             <div className="md:col-span-2">
+  <label
+    className="block text-sm font-medium mb-1"
+    htmlFor="insuranceProvider"
+  >
+    Insurance Provider{' '}
+    <span className="text-[var(--error-red)] ml-1">*</span>
+  </label>
+  <select
+    id="insuranceProvider"
+    name="insuranceProvider"
+    value={formState.insuranceProvider}
+    onChange={handleInputChange}
+    className="w-full py-2 px-3 rounded-lg focus:outline-none border border-gray-300 focus:border-[var(--main-blue)]"
+    required
+  >
+    <option value="SONARWA">SONARWA</option>
+  </select>
+  {errors.insuranceProvider && (
+    <p className="mt-1 text-sm text-[var(--error-red)]">
+      {errors.insuranceProvider}
+    </p>
+  )}
+</div>
+
                 <div className="md:col-span-2">
                   <label
                     className="block text-sm font-medium mb-1"
@@ -470,6 +500,8 @@ export default function ApplyPage() {
                     </p>
                   )}
                 </div>
+
+   
 
                 {/* Vehicle Type (only shown for car/motorbike insurance) */}
                 {(formState.insuranceCategory === 'car' || formState.insuranceCategory === 'motorbike') && (

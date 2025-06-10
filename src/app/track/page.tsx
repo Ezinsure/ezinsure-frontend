@@ -44,6 +44,7 @@ interface Application {
   invoiceId?: string;
   invoice?: string;
   invoiceAmount?: string;
+  insuranceProvider: string;
   transactionId?: string;
 }
 
@@ -208,6 +209,7 @@ const EditApplicationModal = ({ isOpen, onClose, onSave, application, isLoading 
       province: application.province,
       district: application.district,
       sector: application.sector,
+      insuranceProvider: application.insuranceProvider,
     };
   });
 
@@ -555,6 +557,23 @@ const EditApplicationModal = ({ isOpen, onClose, onSave, application, isLoading 
                       <p className="mt-1 text-sm text-red-600">{errors.sector}</p>
                     )}
                   </div>
+
+                  <div>
+  <label className="block text-sm font-medium mb-1">
+    Insurance Provider <span className="text-red-500">*</span>
+  </label>
+  <select
+    name="insuranceProvider"
+    value={formState.insuranceProvider || ''}
+    onChange={handleInputChange}
+    className="w-full py-2 px-3 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none"
+  >
+    <option value="SONARWA">SONARWA</option>
+  </select>
+  {errors.insuranceProvider && (
+    <p className="mt-1 text-sm text-red-600">{errors.insuranceProvider}</p>
+  )}
+</div>
 
                   <div>
                     <label className="block text-sm font-medium mb-1">
@@ -1040,6 +1059,12 @@ const handleEditSuccess = async (): Promise<void> => {
         <div className="bg-gray-50 p-4 rounded-lg">
           <h3 className="font-medium text-gray-900 mb-3">Insurance Details</h3>
           <div className="space-y-2">
+            {application.insuranceProvider && (
+  <div>
+    <p className="text-sm text-gray-500">Insurance Provider</p>
+    <p className="font-medium">{application.insuranceProvider}</p>
+  </div>
+)}
             <div>
               <p className="text-sm text-gray-500">Insurance Category</p>
               <p className="font-medium">{application.insuranceCategory}</p>

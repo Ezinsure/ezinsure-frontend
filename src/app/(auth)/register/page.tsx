@@ -34,6 +34,8 @@ interface FormState {
   emergencyContact2Name: string;
   emergencyContact2PhoneNumber: string;
   emergencyContact2Relationship: string;
+    bankName: string;
+  bankAccountNumber: string;
 }
 
 
@@ -174,6 +176,8 @@ export default function AgentRegistrationPage() {
     emergencyContact2Name: '',
     emergencyContact2PhoneNumber: '',
     emergencyContact2Relationship: '',
+    bankName: '',
+  bankAccountNumber: '',
   });
 
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
@@ -195,6 +199,8 @@ export default function AgentRegistrationPage() {
     province: { required: true },
     district: { required: true },
     sector: { required: true },
+    bankName: { required: true },
+  bankAccountNumber: { required: true, minLength: 5, pattern: /^[0-9]+$/ },
     emergencyContact1Name: { required: true, minLength: 2 },
     emergencyContact1PhoneNumber: { required: true, pattern: validationPatterns.phone },
     emergencyContact1Relationship: { required: true },
@@ -343,6 +349,8 @@ const handleSubmit = async (e: React.FormEvent) => {
       formData.append('district', formState.district);
       formData.append('sector', formState.sector);
       formData.append('role', formState.role);
+      formData.append('bankName', formState.bankName);
+      formData.append('bankAccountNumber', formState.bankAccountNumber);
       
       // Files
       if (formState.nationalIdDocument) {
@@ -660,12 +668,26 @@ const resetApplicationState = () => {
     emergencyContact2Name: '',
     emergencyContact2PhoneNumber: '',
     emergencyContact2Relationship: '',
+    bankName: '',
+    bankAccountNumber: '',
   });
   
   setApplication(null);
   setTrackingEmail('');
   setErrors({});
 };
+
+  const rwandaBanks = [
+  "Bank of Kigali",
+  "Equity Bank Rwanda",
+  "I&M Bank Rwanda",
+  "KCB Bank Rwanda",
+  "Access Bank Rwanda",
+  "Ecobank Rwanda",
+  "GT Bank Rwanda",
+  "Urwego Opportunity Bank"
+];
+
 
   return (
     <MainLayout>
@@ -757,6 +779,40 @@ const resetApplicationState = () => {
               <p className="mt-2 text-sm text-red-600">{errors.address}</p>
               )}
             </div>
+
+            <div className='md:grid-cols-2 grid grid-cols-1 '>
+            <div >
+      <label className="block text-sm font-medium text-gray-700 mb-1">
+        Bank Name <span className="text-red-500">*</span>
+      </label>
+      <select
+        name="bankName"
+        value={formState.bankName}
+        onChange={handleInputChange}
+        className="w-full mb-4 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--main-blue)] focus:border-transparent"
+        required
+      >
+        <option value="">Select Bank</option>
+        {rwandaBanks.map(bank => (
+          <option key={bank} value={bank}>{bank}</option>
+        ))}
+      </select>
+      {errors.bankName && (
+        <p className="mt-2 text-sm text-red-600">{errors.bankName}</p>
+      )}
+    </div>
+
+    <Input
+      label="Bank Account Number"
+      type="text"
+      name="bankAccountNumber"
+      placeholder="Enter your account number"
+      value={formState.bankAccountNumber}
+      onChange={handleInputChange}
+      error={errors.bankAccountNumber}
+      required
+    />
+    </div>
 
             {/* Location Fields */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
@@ -1129,6 +1185,14 @@ const resetApplicationState = () => {
                 <p className="text-sm text-gray-500">Sector</p>
                 <p className="font-medium">{application.sector}</p>
               </div>
+               <div>
+      <p className="text-sm text-gray-500">Bank Name</p>
+      <p className="font-medium">{application.bankName}</p>
+    </div>
+    <div>
+      <p className="text-sm text-gray-500">Bank Account Number</p>
+      <p className="font-medium">{application.bankAccountNumber}</p>
+    </div>
               </div>
             </div>
 

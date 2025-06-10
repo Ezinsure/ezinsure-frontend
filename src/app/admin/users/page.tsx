@@ -17,13 +17,15 @@ interface User {
   email: string;
   phoneNumber: string;
   role: 'ADMIN' | 'AGENT';
+  password?: string;
+  commissionRate?: string;
   status: 'ACTIVE' | 'DEACTIVATED' | 'SENT_FOR_ACTION' | 'PENDING';
+  createdBy?: string;
+  createdAt?: string;
+  agentCode?: string;
+  passportPhoto?: string;
   dateOfBirth?: string;
   address?: string;
-  province?: string;
-  district?: string;
-  sector?: string;
-  passportPhoto?: string;
   nationalIdDocument?: string;
   criminalRecordCertificate?: string;
   emergencyContacts?: Array<{
@@ -32,18 +34,20 @@ interface User {
     relationship: string;
     _id: string;
   }>;
-  createdAt?: string;
+  otp?: string;
+  otpExpires?: string;
   rejectionReason?: string;
-  agentCode?: string;
-  commissionRate?: string;
-  deactivationReason?: string;
-  deactivationFile?: string;
   deactivationHistory?: Array<{
     deactivationReason: string;
     deactivationFile?: string;
-    _id: string;
     deactivationDate: string;
+    _id: string;
   }>;
+  province?: string;
+  sector?: string;
+  district?: string;
+  bankName?: string;
+  bankAccountNumber?: string;
 }
 
 interface PaginationProps {
@@ -156,6 +160,8 @@ const [formData, setFormData] = useState({
   nationalIdDocument: null as File | null,
   criminalRecordCertificate: null as File | null,
   passportPhoto: null as File | null,
+    bankName: '', 
+  bankAccountNumber: '',
 });
 
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
@@ -224,6 +230,8 @@ const handleCreateUser = async () => {
     formDataToSend.append('district', formData.district);
     formDataToSend.append('sector', formData.sector);
     formDataToSend.append('role', formData.role);
+    formDataToSend.append('bankName', formData.bankName);
+formDataToSend.append('bankAccountNumber', formData.bankAccountNumber);
     
     if (formData.role === 'AGENT') {
       if (formData.nationalIdDocument) {
@@ -265,26 +273,28 @@ const handleCreateUser = async () => {
     setUsers(prev => [...prev, data.data]);
     showToast('User created successfully!', 'success');
     setIsCreatingUser(false);
-    setFormData({
-      fullName: '',
-      email: '',
-      phoneNumber: '',
-      dateOfBirth: '',
-      address: '',
-      province: '',
-      district: '',
-      sector: '',
-      role: 'AGENT',
-      emergencyContact1Name: '',
-      emergencyContact1PhoneNumber: '',
-      emergencyContact1Relationship: '',
-      emergencyContact2Name: '',
-      emergencyContact2PhoneNumber: '',
-      emergencyContact2Relationship: '',
-      nationalIdDocument: null,
-      criminalRecordCertificate: null,
-      passportPhoto: null,
-    });
+ setFormData({
+  fullName: '',
+  email: '',
+  phoneNumber: '',
+  dateOfBirth: '',
+  address: '',
+  province: '',
+  district: '',
+  sector: '',
+  role: 'AGENT',
+  emergencyContact1Name: '',
+  emergencyContact1PhoneNumber: '',
+  emergencyContact1Relationship: '',
+  emergencyContact2Name: '',
+  emergencyContact2PhoneNumber: '',
+  emergencyContact2Relationship: '',
+  nationalIdDocument: null,
+  criminalRecordCertificate: null,
+  passportPhoto: null,
+  bankName: '', 
+  bankAccountNumber: '',
+});
   } catch (error: unknown) {
     console.error('Error creating user:', error);
     if (error && typeof error === 'object' && 'message' in error) {

@@ -31,6 +31,8 @@ interface User {
     _id: string;
     deactivationDate: string;
   }>;
+  bankName?: string;
+  bankAccountNumber?: string;
 }
 
 interface UserViewModalProps {
@@ -216,6 +218,20 @@ export const UserViewModal = ({
           <p className="text-sm text-gray-500">Address</p>
           <p className="font-semibold">{user.address || 'Unknown'}</p>
         </div>
+
+        {user.bankName && (
+  <div className="grid grid-cols-3 gap-4 py-3 border-b">
+    <dt className="text-sm font-medium text-gray-500">Bank Name</dt>
+    <dd className="text-sm text-gray-900 col-span-2">{user.bankName}</dd>
+  </div>
+)}
+
+{user.bankAccountNumber && (
+  <div className="grid grid-cols-3 gap-4 py-3 border-b">
+    <dt className="text-sm font-medium text-gray-500">Bank Account Number</dt>
+    <dd className="text-sm text-gray-900 col-span-2">{user.bankAccountNumber}</dd>
+  </div>
+)}
 
         {user.agentCode && (
           <div className="mt-4">
