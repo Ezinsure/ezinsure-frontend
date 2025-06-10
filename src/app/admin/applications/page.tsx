@@ -76,6 +76,7 @@ export default function ManageApplicationsPage() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [invoiceAmount, setInvoiceAmount] = useState('');
+  const [activeModal, setActiveModal] = useState<'details' | 'review' | 'invoice' | 'verify' | 'issue' | null>(null);
   const [viewingDocument, setViewingDocument] = useState<{
     name: string;
     path: string;
@@ -184,6 +185,7 @@ useEffect(() => {
     setInvoiceAmount('');
     setInvoiceFile(null);
     setSelectedApp(null);
+    setActiveModal(null);
   } catch (error) {
     console.error('Error sending invoice:', error);
     showToast(error instanceof Error ? error.message : 'Failed to send invoice', 'error');
@@ -241,6 +243,7 @@ const handleVerifyPayment = async (action: 'approve' | 'reject') => {
     );
     setRejectionComment('');
     setSelectedApp(null);
+    setActiveModal(null);
   } catch (error) {
     console.error('Error verifying payment:', error);
     showToast(error instanceof Error ? error.message : 'Failed to verify payment', 'error');
@@ -298,6 +301,7 @@ const handleVerifyPayment = async (action: 'approve' | 'reject') => {
       );
       setRejectionComment('');
       setSelectedApp(null);
+      setActiveModal(null);
     } catch (error) {
       console.error('Error rejecting:', error);
       showToast(error instanceof Error ? error.message : 'Failed to reject', 'error');
@@ -348,6 +352,7 @@ const handleVerifyPayment = async (action: 'approve' | 'reject') => {
       showToast(`Insurance issued to ${selectedApp.fullName}`, 'success');
       setInsuranceFile(null);
       setSelectedApp(null);
+      setActiveModal(null);
     } catch (error) {
       console.error('Error issuing insurance:', error);
       showToast(error instanceof Error ? error.message : 'Failed to issue insurance', 'error');
@@ -391,6 +396,7 @@ const handleVerifyPayment = async (action: 'approve' | 'reject') => {
       setApplications(updatedApplications);
       showToast(`Application from ${selectedApp.fullName} approved`, 'success');
       setSelectedApp(null);
+      setActiveModal(null);
     } catch (error) {
       console.error('Error approving application:', error);
       showToast(error instanceof Error ? error.message : 'Failed to approve application', 'error');
@@ -422,71 +428,73 @@ const handleVerifyPayment = async (action: 'approve' | 'reject') => {
   };
 
   // Get action buttons based on application status
-  const getActionButtons = (app: Application) => {
-    switch (app.status.toLowerCase()) {
-      case ApplicationStatus.PENDING:
-        return (
-          <Button 
-            size="xs" 
-            onClick={() => {
-              setSelectedApp(app);
-            }}
-          >
-            Review
-          </Button>
-        );
+const getActionButtons = (app: Application) => {
+  return (
+    <div className="flex space-x-2">
+      {/* Always show View Details button */}
+      <Button 
+        size="xs" 
+        variant="text"
+        onClick={() => {
+          setSelectedApp(app);
+          setActiveModal('details');
+        }}
+      >
+        View Details
+      </Button>
+
+      {/* Show status-specific buttons */}
+      {app.status.toLowerCase() === ApplicationStatus.PENDING && (
+        <Button 
+          size="xs" 
+          onClick={() => {
+            setSelectedApp(app);
+            setActiveModal('review');
+          }}
+        >
+          Review
+        </Button>
+      )}
       
-      case ApplicationStatus.APPLICATION_APPROVED:
-        return (
-          <Button 
-            size="xs" 
-            onClick={() => {
-              setSelectedApp(app);
-              setInvoiceMessage(`Please make your payment to one of the following:\nBank of Kigali: 100000129075 (SONARWA)\nOr via Momo Account: 051499 (SONARWA) \nOr Agency at Kimihurura (KBC) under SOLEKTRA`);
-            }}
-          >
-            Send Invoice
-          </Button>
-        );
+      {app.status.toLowerCase() === ApplicationStatus.APPLICATION_APPROVED && (
+        <Button 
+          size="xs" 
+          onClick={() => {
+            setSelectedApp(app);
+            setActiveModal('invoice');
+            setInvoiceMessage(`Please make your payment to one of the following:\nBank of Kigali: 100000129075 (SONARWA)\nOr via Momo Account: 051499 (SONARWA) \nOr Agency at Kimihurura (KBC) under SOLEKTRA`);
+          }}
+        >
+          Send Invoice
+        </Button>
+      )}
       
-      case ApplicationStatus.REVIEW_PAYMENT:
-        return (
-          <Button 
-            size="xs" 
-            onClick={() => {
-              setSelectedApp(app);
-            }}
-          >
-            Verify Payment
-          </Button>
-        );
+      {app.status.toLowerCase() === ApplicationStatus.REVIEW_PAYMENT && (
+        <Button 
+          size="xs" 
+          onClick={() => {
+            setSelectedApp(app);
+            setActiveModal('verify');
+          }}
+        >
+          Verify Payment
+        </Button>
+      )}
       
-      case ApplicationStatus.PAYMENT_VERIFIED:
-        return (
-          <Button 
-            size="xs" 
-            onClick={() => {
-              setSelectedApp(app);
-            }}
-          >
-            Issue Insurance
-          </Button>
-        );
-      
-      default:
-        return (
-          <Button 
-            size="xs" 
-            variant="text" 
-            onClick={() => {
-              setSelectedApp(app);
-            }}
-          >
-            View Details
-          </Button>
-        );
-    }
-  };
+      {app.status.toLowerCase() === ApplicationStatus.PAYMENT_VERIFIED && (
+        <Button 
+          size="xs" 
+          onClick={() => {
+            setSelectedApp(app);
+            setActiveModal('issue');
+          }}
+        >
+          Issue Insurance
+        </Button>
+      )}
+    </div>
+  );
+};
 
   const Pagination = ({ currentPage, totalPages, onPageChange }: PaginationProps) => {
     const maxVisiblePages = 5;
@@ -764,12 +772,12 @@ const handleVerifyPayment = async (action: 'approve' | 'reject') => {
       </div>
 
    {/* Modal for reviewing pending application */}
-{selectedApp && selectedApp.status.toLowerCase() === ApplicationStatus.PENDING && (
+{selectedApp   && activeModal === 'review' && selectedApp.status.toLowerCase() === ApplicationStatus.PENDING && (
   <div className="fixed inset-0 bg-gray-600/50 flex items-center justify-center z-50">
     <div className="max-h-[90vh] overflow-y-auto bg-white rounded-lg shadow-xl p-6 w-full max-w-3xl mx-4 fade-in">
       <div className="flex justify-between items-center mb-4">
         <h3 className="text-lg font-semibold">Review Application</h3>
-        <button onClick={() => setSelectedApp(null)} className="text-gray-400 hover:text-gray-600">
+        <button onClick={() => {setSelectedApp(null); setActiveModal(null);}} className="text-gray-400 hover:text-gray-600">
           <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
           </svg>
@@ -948,7 +956,7 @@ const handleVerifyPayment = async (action: 'approve' | 'reject') => {
       <div className="flex justify-end gap-2 mt-6">
         <Button 
           variant="text" 
-          onClick={() => setSelectedApp(null)} 
+          onClick={() => {setSelectedApp(null); setActiveModal(null);}} 
           disabled={isProcessing}
         >
           Cancel
@@ -978,7 +986,7 @@ const handleVerifyPayment = async (action: 'approve' | 'reject') => {
 )}
 
       {/* Modal for sending invoice */}
-      {selectedApp && selectedApp.status.toLowerCase() === ApplicationStatus.APPLICATION_APPROVED && (
+      {selectedApp && activeModal === 'invoice' && selectedApp.status.toLowerCase() === ApplicationStatus.APPLICATION_APPROVED && (
   <div className="fixed inset-0 bg-gray-600/50 flex items-center justify-center z-50">
     <div className="max-h-[90vh] overflow-y-auto bg-white rounded-lg shadow-xl p-6 w-full max-w-md mx-4 fade-in">
       <h3 className="text-lg font-semibold mb-4">Send Invoice to {selectedApp.fullName}</h3>
@@ -1036,7 +1044,7 @@ const handleVerifyPayment = async (action: 'approve' | 'reject') => {
       </div>
       
       <div className="flex justify-end gap-2 mt-6">
-        <Button variant="text" onClick={() => setSelectedApp(null)} disabled={isProcessing}>
+        <Button variant="text" onClick={() => {setSelectedApp(null); setActiveModal(null);}} disabled={isProcessing}>
           Cancel
         </Button>
         <Button onClick={handleSendInvoice} disabled={isProcessing || !invoiceMessage || !invoiceAmount}>
@@ -1048,12 +1056,12 @@ const handleVerifyPayment = async (action: 'approve' | 'reject') => {
 )}
 
       {/* Modal for verifying payment */}
-      {selectedApp && selectedApp.status.toLowerCase() === ApplicationStatus.REVIEW_PAYMENT && (
+      {selectedApp && activeModal === 'verify' && selectedApp.status.toLowerCase() === ApplicationStatus.REVIEW_PAYMENT && (
         <div className="fixed inset-0 bg-gray-600/50 flex items-center justify-center z-50">
           <div className="max-h-[90vh] overflow-y-auto bg-white rounded-lg shadow-xl p-6 w-full max-w-md mx-4 fade-in">
             <div className="flex justify-between items-center mb-4">
         <h3 className="text-lg font-semibold">Verify Payment</h3>
-        <button onClick={() => setSelectedApp(null)} className="text-gray-400 hover:text-gray-600">
+        <button onClick={() => {setSelectedApp(null); setActiveModal(null);}} className="text-gray-400 hover:text-gray-600">
           <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
           </svg>
@@ -1120,7 +1128,7 @@ const handleVerifyPayment = async (action: 'approve' | 'reject') => {
         <Button 
           variant="text" 
           size='sm'
-          onClick={() => setSelectedApp(null)} 
+          onClick={() =>{setSelectedApp(null); setActiveModal(null);}} 
           disabled={isProcessing}
         >
           Cancel
@@ -1152,7 +1160,7 @@ const handleVerifyPayment = async (action: 'approve' | 'reject') => {
       )}
 
       {/* Modal for rejecting payment */}
-      {selectedApp && selectedApp.status.toLowerCase() === ApplicationStatus.WAITING_FOR_USER_ACTION && (
+      {/* {selectedApp && selectedApp.status.toLowerCase() === ApplicationStatus.WAITING_FOR_USER_ACTION && (
         <div className="fixed inset-0 bg-gray-600/50 flex items-center justify-center z-50">
           <div className="max-h-[90vh] overflow-y-auto bg-white rounded-lg shadow-xl p-6 w-full max-w-md mx-4 fade-in">
             <h3 className="text-lg font-semibold mb-4">Reject Payment</h3>
@@ -1216,10 +1224,10 @@ const handleVerifyPayment = async (action: 'approve' | 'reject') => {
             </div>
           </div>
         </div>
-      )}
+      )} */}
 
       {/* Modal for issuing insurance */}
-      {selectedApp && selectedApp.status.toLowerCase() === ApplicationStatus.PAYMENT_VERIFIED && (
+      {selectedApp && activeModal === 'issue' && selectedApp.status.toLowerCase() === ApplicationStatus.PAYMENT_VERIFIED && (
         <div className="fixed inset-0 bg-gray-600/50 flex items-center justify-center z-50">
           <div className="max-h-[90vh] overflow-y-auto bg-white rounded-lg shadow-xl p-6 w-full max-w-md mx-4 fade-in">
             <h3 className="text-lg font-semibold mb-4">Issue Insurance</h3>
@@ -1229,6 +1237,19 @@ const handleVerifyPayment = async (action: 'approve' | 'reject') => {
               <p className="font-medium text-[var(--main-blue)]">Application Approved & Payment Verified</p>
               <p className="mt-2 text-sm text-gray-600">The application has been reviewed and the payment has been verified. You can now issue the insurance certificate.</p>
               <div className="mt-2 grid grid-cols-2 gap-2 text-sm">
+                 {selectedApp.proofOfPayment && (
+                  <><span className="text-gray-600">Payment Proof:</span> 
+                    <button 
+                      className="text-[var(--main-blue)] hover:underline ml-1"
+                      onClick={() => setViewingDocument({
+                        name: 'Payment Proof',
+                        path: selectedApp.proofOfPayment || '/File_not_found.jpg'
+                      })}
+                    >
+                      View Document
+                    </button>
+                  </>
+                )}
                 {selectedApp.amount && (
                   <div>
                     <p className="text-gray-600">Invoice Amount:</p>
@@ -1272,7 +1293,7 @@ const handleVerifyPayment = async (action: 'approve' | 'reject') => {
             </div>
             
             <div className="flex justify-end gap-2 mt-6">
-              <Button variant="text" onClick={() => setSelectedApp(null)} disabled={isProcessing}>
+              <Button variant="text" onClick={() => {setSelectedApp(null); setActiveModal(null);}} disabled={isProcessing}>
                 Cancel
               </Button>
               <Button onClick={handleIssueInsurance} disabled={!insuranceFile || isProcessing}>
@@ -1284,17 +1305,12 @@ const handleVerifyPayment = async (action: 'approve' | 'reject') => {
       )}
 
       {/* Modal for viewing details */}
-    {selectedApp && ![
-  ApplicationStatus.PENDING, 
-  ApplicationStatus.APPLICATION_APPROVED, 
-  ApplicationStatus.REVIEW_PAYMENT, 
-  ApplicationStatus.PAYMENT_VERIFIED
-].includes(selectedApp.status.toLowerCase() as ApplicationStatus) && (
+    {selectedApp && activeModal === 'details' && (
   <div className="fixed inset-0 bg-gray-600/50 flex items-center justify-center z-50">
     <div className="max-h-[90vh] overflow-y-auto bg-white rounded-lg shadow-xl p-6 w-full max-w-3xl mx-4 fade-in">
       <div className="flex justify-between items-center mb-4">
         <h3 className="text-lg font-semibold">Application Details</h3>
-        <button onClick={() => setSelectedApp(null)} className="text-gray-400 hover:text-gray-600">
+        <button onClick={() =>{setSelectedApp(null); setActiveModal(null);}} className="text-gray-400 hover:text-gray-600">
           <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
           </svg>
@@ -1421,10 +1437,10 @@ const handleVerifyPayment = async (action: 'approve' | 'reject') => {
       </div>
       
       {/* Rejection Reason (if exists) */}
-      {selectedApp.rejectionReason && (
+      {(selectedApp.rejectionReason ||selectedApp.reasonForPaymentRejection) && (
         <div className="mt-4 bg-red-50 p-4 rounded-lg">
           <h4 className="font-medium text-red-700 mb-2">Rejection Reason</h4>
-          <p className="text-red-600">{selectedApp.rejectionReason}</p>
+          <p className="text-red-600">{selectedApp.rejectionReason || selectedApp.reasonForPaymentRejection}</p>
         </div>
       )}
       
@@ -1536,7 +1552,7 @@ const handleVerifyPayment = async (action: 'approve' | 'reject') => {
       )}
       
       <div className="flex justify-end">
-        <Button variant="text" onClick={() => setSelectedApp(null)}>Close</Button>
+        <Button variant="text" onClick={() =>{setSelectedApp(null); setActiveModal(null);}}>Close</Button>
       </div>
     </div>
   </div>

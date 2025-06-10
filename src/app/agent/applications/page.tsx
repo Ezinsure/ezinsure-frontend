@@ -50,6 +50,8 @@ interface PaginationProps {
   onPageChange: (page: number) => void;
 }
 
+type ModalType = 'view-details' | 'upload-payment' | 'edit-application' | 'none';
+
 const EditApplicationModal = ({ 
   isOpen, 
   onClose, 
@@ -605,6 +607,7 @@ export default function AgentApplicationsPage() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const itemsPerPage = 10;
+  const [activeModal, setActiveModal] = useState<ModalType>('none');
 
   // Fetch applications for the agent
   useEffect(() => {
@@ -705,6 +708,7 @@ export default function AgentApplicationsPage() {
       setPaymentProof(null);
       setTransactionId('');
       setSelectedApp(null);
+      setActiveModal('none');
     } catch (error) {
       console.error('Error submitting payment proof:', error);
       showToast(error instanceof Error ? error.message : 'Failed to submit payment proof', 'error');
@@ -773,76 +777,75 @@ export default function AgentApplicationsPage() {
   };
 
   // Get action buttons based on application status
-  const getActionButtons = (app: Application) => {
-    switch (app.status.toLowerCase()) {
-     case 'waiting_for_user_action':
-      if (app.reasonForPaymentRejection || app.rejectionReason) {
-        return (
+const getActionButtons = (app: Application) => {
+  return (
+    <div className="flex space-x-2">
+      {/* View Details Button - Always shown */}
+      <Button 
+        size="xs" 
+        variant="text"
+        onClick={() => {
+          setSelectedApp(app);
+          setActiveModal('view-details');
+        }}
+      >
+        View Details
+      </Button>
+
+      {/* Status-specific buttons */}
+      {app.status.toLowerCase() === 'waiting_for_user_action' && (
+        app.reasonForPaymentRejection ? (
           <Button 
             size="xs" 
             onClick={() => {
               setSelectedApp(app);
-              setShowEditModal(true);
+              setActiveModal('upload-payment');
             }}
           >
             Upload Payment Proof
           </Button>
-        );
-      }
-      return (
+        ) : (
+          <Button 
+            size="xs" 
+            onClick={() => {
+              setSelectedApp(app);
+              setActiveModal('edit-application');
+            }}
+          >
+            Edit Application
+          </Button>
+        )
+      )}
+
+      {app.status.toLowerCase() === 'invoice_sent' && (
         <Button 
           size="xs" 
           onClick={() => {
             setSelectedApp(app);
-            setShowEditModal(true);
+            setActiveModal('upload-payment');
           }}
         >
-          Edit Application
+          Upload Payment
         </Button>
-      );
-      
-      case 'invoice_sent':
-        return (
-          <Button 
-            size="xs" 
-            onClick={() => {
-              setSelectedApp(app);
-            }}
-          >
-            Upload Payment
-          </Button>
-        );
-      
-      case 'insurance_issued':
-        return (
-          <Button 
-            size="xs" 
-            variant="secondary"
-            onClick={() => {
-              setViewingDocument({
-                name: 'Insurance Certificate',
-                path: app.insuranceCertificate || ''
-              });
-            }}
-          >
-            View Certificate
-          </Button>
-        );
-      
-      default:
-        return (
-          <Button 
-            size="xs" 
-            variant="text" 
-            onClick={() => {
-              setSelectedApp(app);
-            }}
-          >
-            View Details
-          </Button>
-        );
-    }
-  };
+      )}
+
+      {app.status.toLowerCase() === 'insurance_issued' && (
+        <Button 
+          size="xs"
+          variant="secondary"
+          onClick={() => {
+            setViewingDocument({
+              name: 'Insurance Certificate',
+              path: app.insuranceCertificate || ''
+            });
+          }}
+        >
+          View Certificate
+        </Button>
+      )}
+    </div>
+  );
+};
 
   // Calculate total commission
   const totalCommission = applications.reduce((total, app) => {
@@ -1144,7 +1147,7 @@ export default function AgentApplicationsPage() {
       </div>
 
       {/* Modal for uploading payment proof */}
-      {selectedApp && selectedApp.status.toLowerCase() === 'invoice_sent' && (
+      {selectedApp && activeModal === 'upload-payment' &&  (
         <div className="fixed inset-0 bg-gray-600/50 flex items-center justify-center z-50">
           <div className="max-h-[90vh] overflow-y-auto bg-white rounded-lg shadow-xl p-6 w-full max-w-md mx-4 fade-in">
             <h3 className="text-lg font-semibold mb-4">
@@ -1212,6 +1215,7 @@ export default function AgentApplicationsPage() {
                   variant="text"
                   onClick={() => {
                     setSelectedApp(null);
+                    setActiveModal('none');
                     setPaymentProof(null);
                     setTransactionId('');
                   }}
@@ -1232,13 +1236,13 @@ export default function AgentApplicationsPage() {
       )}
 
       {/* Modal for viewing details */}
-      {selectedApp && (selectedApp.status.toLowerCase() !== 'invoice_sent' && selectedApp.status.toLowerCase() !== 'waiting_for_user_action') && (
+      {selectedApp && activeModal === 'view-details' && (
         <div className="fixed inset-0 bg-gray-600/50 flex items-center justify-center z-50">
           <div className="max-h-[90vh] overflow-y-auto bg-white rounded-lg shadow-xl p-6 w-full max-w-3xl mx-4 fade-in">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-semibold">Application Details</h3>
               <button
-                onClick={() => setSelectedApp(null)}
+                onClick={() => {setSelectedApp(null); setActiveModal('none');}}
                 className="text-gray-400 hover:text-gray-600"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1472,7 +1476,7 @@ export default function AgentApplicationsPage() {
             )}
 
             <div className="flex justify-end mt-6">
-              <Button variant="text" onClick={() => setSelectedApp(null)}>
+              <Button variant="text" onClick={() => {setSelectedApp(null); setActiveModal('none');}}>
                 Close
               </Button>
             </div>
@@ -1481,12 +1485,13 @@ export default function AgentApplicationsPage() {
       )}
 
       {/* Edit Application Modal */}
-      {selectedApp && (
+      {selectedApp && activeModal === 'edit-application' && (
         <EditApplicationModal
           isOpen={showEditModal}
           onClose={() => {
             setShowEditModal(false);
             setSelectedApp(null);
+            setActiveModal('none');
           }}
           application={selectedApp}
           onSave={handleEditSuccess}
