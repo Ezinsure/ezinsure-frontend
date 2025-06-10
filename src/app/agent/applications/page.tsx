@@ -63,26 +63,36 @@ const EditApplicationModal = ({
   onSave: () => void;
   isLoading: boolean;
 }) => {
-  const [formState, setFormState] = useState<Partial<Application>>({
-    fullName: application.fullName,
-    email: application.email,
-    phoneNumber: application.phoneNumber,
-    address: application.address,
-    dateOfBirth: application.dateOfBirth,
-    insuranceCategory: application.insuranceCategory,
-    insuranceType: application.insuranceType,
-    insuranceDuration: application.insuranceDuration,
-    vehicleType: application.vehicleType,
-    vehicleAge: application.vehicleAge,
-    province: application.province,
-    district: application.district,
-    sector: application.sector,
+  // Determine if this is a payment rejection case
+  const isPaymentRejection = application.status === 'WAITING_FOR_USER_ACTION' && 
+                           (application.reasonForPaymentRejection || application.rejectionReason);
+
+  const [formState, setFormState] = useState<Partial<Application>>(() => {
+    if (isPaymentRejection) {
+      return {}; // Empty state for payment rejection case
+    }
+    return {
+      fullName: application.fullName,
+      email: application.email,
+      phoneNumber: application.phoneNumber,
+      address: application.address,
+      dateOfBirth: application.dateOfBirth,
+      insuranceCategory: application.insuranceCategory,
+      insuranceType: application.insuranceType,
+      insuranceDuration: application.insuranceDuration,
+      vehicleType: application.vehicleType,
+      vehicleAge: application.vehicleAge,
+      province: application.province,
+      district: application.district,
+      sector: application.sector,
+    };
   });
 
   const [files, setFiles] = useState<Record<string, File | null>>({
     nationalID: null,
     yellowCard: null,
     pastInsuranceCertificate: null,
+    proofOfPayment: null, // Added for payment rejection case
   });
 
   const [availableDistricts, setAvailableDistricts] = useState<{name: string, sectors?: string[]}[]>([]);
@@ -90,10 +100,11 @@ const EditApplicationModal = ({
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { showToast } = useToast();
+  const [transactionId, setTransactionId] = useState(''); // Added for payment rejection case
 
-  // Update districts when province changes
+  // Update districts when province changes (only for regular edit mode)
   useEffect(() => {
-    if (formState.province) {
+    if (!isPaymentRejection && formState.province) {
       const selectedProvince = rwandaProvinces.find(p => p.name === formState.province);
       const districts = selectedProvince?.districts || [];
       setAvailableDistricts(districts);
@@ -103,13 +114,15 @@ const EditApplicationModal = ({
       }
     } else {
       setAvailableDistricts([]);
-      setFormState(prev => ({ ...prev, district: '', sector: '' }));
+      if (!isPaymentRejection) {
+        setFormState(prev => ({ ...prev, district: '', sector: '' }));
+      }
     }
-  }, [formState.province]);
+  }, [formState.province, isPaymentRejection]);
 
-  // Update sectors when district changes
+  // Update sectors when district changes (only for regular edit mode)
   useEffect(() => {
-    if (formState.district) {
+    if (!isPaymentRejection && formState.district) {
       const selectedDistrict = availableDistricts.find(d => d.name === formState.district);
       const sectors = selectedDistrict?.sectors || [];
       setAvailableSectors(sectors);
@@ -119,9 +132,11 @@ const EditApplicationModal = ({
       }
     } else {
       setAvailableSectors([]);
-      setFormState(prev => ({ ...prev, sector: '' }));
+      if (!isPaymentRejection) {
+        setFormState(prev => ({ ...prev, sector: '' }));
+      }
     }
-  }, [formState.district, availableDistricts]);
+  }, [formState.district, availableDistricts, isPaymentRejection]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -148,69 +163,92 @@ const EditApplicationModal = ({
     }
   };
 
- const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
-  setIsSubmitting(true);
-  
-  try {
-    const formData = new FormData();
-    const updatedData: { [key: string]: string | number } = {};
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
     
-    // Only include fields that have been changed and are not empty
-    Object.entries(formState).forEach(([key, value]) => {
-      const originalValue = application[key as keyof Application];
+    try {
+      const formData = new FormData();
       
-      // Check if the value has changed and is not empty
-      if (value !== undefined && value !== originalValue && value !== '') {
-        const formattedValue = key === 'dateOfBirth' && value 
-          ? new Date(value as string).toISOString().split('T')[0]
-          : value;
+      if (isPaymentRejection) {
+        // Payment rejection case - only submit proof of payment and transaction ID
+        if (!files.proofOfPayment || !transactionId) {
+          throw new Error('Please upload proof of payment and enter transaction ID');
+        }
+
+        formData.append('proofOfPayment', files.proofOfPayment);
+        formData.append('transactionId', transactionId);
+
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/sendProofofPayment/${application._id}`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          },
+          body: formData,
+          credentials: 'include'
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || 'Failed to submit payment proof');
+        }
+      } else {
+        // Regular edit case - submit all changed fields
+        const updatedData: { [key: string]: string | number } = {};
         
-        formData.append(key, formattedValue as string);
-        updatedData[key as keyof Application] = formattedValue;
+        Object.entries(formState).forEach(([key, value]) => {
+          const originalValue = application[key as keyof Application];
+          
+          if (value !== undefined && value !== originalValue && value !== '') {
+            const formattedValue = key === 'dateOfBirth' && value 
+              ? new Date(value as string).toISOString().split('T')[0]
+              : value;
+            
+            formData.append(key, formattedValue as string);
+            updatedData[key as keyof Application] = formattedValue;
+          }
+        });
+
+        Object.entries(files).forEach(([key, file]) => {
+          if (file) {
+            formData.append(key, file);
+          }
+        });
+
+        // If no fields were changed, show a message and return
+        if (Object.keys(updatedData).length === 0 && Object.values(files).every(file => !file)) {
+          showToast('No changes were made to the application', 'info');
+          return;
+        }
+
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/updateInsuranceApplication/${application._id}`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          },
+          body: formData,
+          credentials: 'include'
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || 'Failed to update application');
+        }
       }
-    });
 
-    // Only include files that have been changed
-    Object.entries(files).forEach(([key, file]) => {
-      if (file) {
-        formData.append(key, file);
-      }
-    });
-
-    // If no fields were changed, show a message and return
-    if (Object.keys(updatedData).length === 0 && Object.values(files).every(file => !file)) {
-      showToast('No changes were made to the application', 'info');
-      return;
+      showToast('Application updated successfully!', 'success');
+      onSave();
+      onClose();
+    } catch (error) {
+      console.error('Submission error:', error);
+      showToast(
+        error instanceof Error ? error.message : 'Failed to update application',
+        'error'
+      );
+    } finally {
+      setIsSubmitting(false);
     }
-
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/updateInsuranceApplication/${application._id}`, {
-      method: 'PUT',
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`,
-      },
-      body: formData,
-      credentials: 'include'
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.message || 'Failed to update application');
-    }
-
-    showToast('Application updated successfully!', 'success');
-    onSave();
-    onClose();
-  } catch (error) {
-    console.error('Submission error:', error);
-    showToast(
-      error instanceof Error ? error.message : 'Failed to update application',
-      'error'
-    );
-  } finally {
-    setIsSubmitting(false);
-  }
-};
+  };
 
   if (!isOpen) return null;
 
@@ -219,7 +257,9 @@ const EditApplicationModal = ({
       <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         <div className="p-6">
           <div className="flex justify-between items-center mb-6">
-            <h3 className="text-xl font-bold text-gray-900">Edit Application</h3>
+            <h3 className="text-xl font-bold text-gray-900">
+              {isPaymentRejection ? 'Upload Proof of Payment' : 'Edit Application'}
+            </h3>
             <button
               onClick={onClose}
               className="text-gray-400 hover:text-gray-600 transition-colors"
@@ -230,7 +270,7 @@ const EditApplicationModal = ({
             </button>
           </div>
 
-          {application.status === "WAITING_FOR_USER_ACTION" && (application.reasonForPaymentRejection || application.rejectionReason) && (
+          {isPaymentRejection && (
             <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-6">
               <div className="flex">
                 <div className="flex-shrink-0">
@@ -249,257 +289,281 @@ const EditApplicationModal = ({
           )}
 
           <form onSubmit={handleSubmit}>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <Input
-                label="Full Name"
-                name="fullName"
-                value={formState.fullName || ''}
-                onChange={handleInputChange}
-                error={errors.fullName}
-              />
-
-              <Input
-                label="Email Address"
-                type="email"
-                name="email"
-                value={formState.email || ''}
-                onChange={handleInputChange}
-                error={errors.email}
-              />
-
-              <Input
-                label="Phone Number"
-                name="phoneNumber"
-                value={formState.phoneNumber || ''}
-                onChange={handleInputChange}
-                error={errors.phoneNumber}
-              />
-
-              <Input
-                label="Date of Birth"
-                type="date"
-                name="dateOfBirth"
-                value={formState.dateOfBirth ? new Date(formState.dateOfBirth).toISOString().split('T')[0] : ''}
-                onChange={handleInputChange}
-                error={errors.dateOfBirth}
-              />
-
-              <Input
-                label="Address"
-                name="address"
-                value={formState.address || ''}
-                onChange={handleInputChange}
-                error={errors.address}
-              />
-
-              {/* Province Select */}
-              <div>
-                <label className="block text-sm font-medium mb-1">
-                  Province <span className="text-red-500">*</span>
-                </label>
-                <select
-                  name="province"
-                  value={formState.province || ''}
-                  onChange={handleInputChange}
-                  className="w-full py-2 px-3 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none"
-                >
-                  <option value="">Select Province</option>
-                  {rwandaProvinces.map(province => (
-                    <option key={province.name} value={province.name}>{province.name}</option>
-                  ))}
-                </select>
-                {errors.province && (
-                  <p className="mt-1 text-sm text-red-600">{errors.province}</p>
-                )}
+            {isPaymentRejection ? (
+              <div className="space-y-6">
+                <Input
+                  label="Transaction ID"
+                  name="transactionId"
+                  value={transactionId}
+                  onChange={(e) => setTransactionId(e.target.value)}
+                  error={errors.transactionId}
+                  required
+                />
+                <FileInput
+                  label="Proof of Payment"
+                  name="proofOfPayment"
+                  onChange={handleFileChange('proofOfPayment')}
+                  error={errors.proofOfPayment}
+                  accept="image/*,.pdf"
+                  currentFile={application.proofOfPayment?.split('/').pop()}
+                  required
+                />
               </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <Input
+                    label="Full Name"
+                    name="fullName"
+                    value={formState.fullName || ''}
+                    onChange={handleInputChange}
+                    error={errors.fullName}
+                  />
 
-              {/* District Select */}
-              <div>
-                <label className="block text-sm font-medium mb-1">
-                  District <span className="text-red-500">*</span>
-                </label>
-                <select
-                  name="district"
-                  value={formState.district || ''}
-                  onChange={handleInputChange}
-                  disabled={!formState.province}
-                  className="w-full py-2 px-3 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none disabled:bg-gray-100 disabled:cursor-not-allowed"
-                >
-                  <option value="">Select District</option>
-                  {availableDistricts.map(district => (
-                    <option key={district.name} value={district.name}>{district.name}</option>
-                  ))}
-                </select>
-                {errors.district && (
-                  <p className="mt-1 text-sm text-red-600">{errors.district}</p>
-                )}
-              </div>
+                  <Input
+                    label="Email Address"
+                    type="email"
+                    name="email"
+                    value={formState.email || ''}
+                    onChange={handleInputChange}
+                    error={errors.email}
+                  />
 
-              {/* Sector Select */}
-              <div>
-                <label className="block text-sm font-medium mb-1">
-                  Sector <span className="text-red-500">*</span>
-                </label>
-                <select
-                  name="sector"
-                  value={formState.sector || ''}
-                  onChange={handleInputChange}
-                  disabled={!formState.district}
-                  className="w-full py-2 px-3 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none disabled:bg-gray-100 disabled:cursor-not-allowed"
-                >
-                  <option value="">Select Sector</option>
-                  {availableSectors.map(sector => (
-                    <option key={sector} value={sector}>{sector}</option>
-                  ))}
-                </select>
-                {errors.sector && (
-                  <p className="mt-1 text-sm text-red-600">{errors.sector}</p>
-                )}
-              </div>
+                  <Input
+                    label="Phone Number"
+                    name="phoneNumber"
+                    value={formState.phoneNumber || ''}
+                    onChange={handleInputChange}
+                    error={errors.phoneNumber}
+                  />
 
-              <div>
-                <label className="block text-sm font-medium mb-1">
-                  Insurance Category <span className="text-red-500">*</span>
-                </label>
-                <select
-                  name="insuranceCategory"
-                  value={formState.insuranceCategory || ''}
-                  onChange={handleInputChange}
-                  className="w-full py-2 px-3 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none"
-                >
-                  <option value="Car Insurance">Car Insurance</option>
-                  <option value="Motorbike Insurance">Motorbike Insurance</option>
-                  <option value="Building Insurance">Building Insurance</option>
-                  <option value="Travel Insurance">Travel Insurance</option>
-                  <option value="Health Insurance">Health Insurance</option>
-                  <option value="Fire Insurance Coverage">Fire Insurance Coverage</option>
-                </select>
-                {errors.insuranceCategory && (
-                  <p className="mt-1 text-sm text-red-600">{errors.insuranceCategory}</p>
-                )}
-              </div>
+                  <Input
+                    label="Date of Birth"
+                    type="date"
+                    name="dateOfBirth"
+                    value={formState.dateOfBirth ? new Date(formState.dateOfBirth).toISOString().split('T')[0] : ''}
+                    onChange={handleInputChange}
+                    error={errors.dateOfBirth}
+                  />
 
-              <div>
-                <label className="block text-sm font-medium mb-1">
-                  Insurance Type <span className="text-red-500">*</span>
-                </label>
-                <select
-                  name="insuranceType"
-                  value={formState.insuranceType || ''}
-                  onChange={handleInputChange}
-                  className="w-full py-2 px-3 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none"
-                >
-                  <option value="Comprehensive Insurance (covers everything)">Comprehensive Insurance</option>
-                  <option value="Third Party Insurance (covers partial)">Third Party Insurance</option>
-                </select>
-                {errors.insuranceType && (
-                  <p className="mt-1 text-sm text-red-600">{errors.insuranceType}</p>
-                )}
-              </div>
+                  <Input
+                    label="Address"
+                    name="address"
+                    value={formState.address || ''}
+                    onChange={handleInputChange}
+                    error={errors.address}
+                  />
 
-              <div>
-                <label className="block text-sm font-medium mb-1">
-                  Insurance Duration <span className="text-red-500">*</span>
-                </label>
-                <select
-                  name="insuranceDuration"
-                  value={formState.insuranceDuration || ''}
-                  onChange={handleInputChange}
-                  className="w-full py-2 px-3 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none"
-                >
-                  <option value="1 Month">1 Month</option>
-                  <option value="6 Months">6 Months</option>
-                  <option value="12 Months">12 Months</option>
-                </select>
-                {errors.insuranceDuration && (
-                  <p className="mt-1 text-sm text-red-600">{errors.insuranceDuration}</p>
-                )}
-              </div>
-
-              {(formState.insuranceCategory === 'Car Insurance' || formState.insuranceCategory === 'Motorbike Insurance') && (
-                <>
+                  {/* Province Select */}
                   <div>
                     <label className="block text-sm font-medium mb-1">
-                      Vehicle Type <span className="text-red-500">*</span>
+                      Province <span className="text-red-500">*</span>
                     </label>
                     <select
-                      name="vehicleType"
-                      value={formState.vehicleType || ''}
+                      name="province"
+                      value={formState.province || ''}
                       onChange={handleInputChange}
                       className="w-full py-2 px-3 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none"
                     >
-                      <option value="">Select Vehicle Type</option>
-                      {formState.insuranceCategory === 'Car Insurance' ? (
-                        <>
-                          <option value="pickup">Pick Up</option>
-                          <option value="taxi">Taxi</option>
-                          <option value="truck">Truck</option>
-                          <option value="sedan">Sedan</option>
-                          <option value="suv">SUV</option>
-                        </>
-                      ) : (
-                        <>
-                          <option value="moped">Moped</option>
-                          <option value="scooter">Scooter</option>
-                          <option value="motorcycle">Motorcycle</option>
-                        </>
-                      )}
+                      <option value="">Select Province</option>
+                      {rwandaProvinces.map(province => (
+                        <option key={province.name} value={province.name}>{province.name}</option>
+                      ))}
                     </select>
-                    {errors.vehicleType && (
-                      <p className="mt-1 text-sm text-red-600">{errors.vehicleType}</p>
+                    {errors.province && (
+                      <p className="mt-1 text-sm text-red-600">{errors.province}</p>
                     )}
                   </div>
+
+                  {/* District Select */}
                   <div>
                     <label className="block text-sm font-medium mb-1">
-                      Vehicle Year <span className="text-red-500">*</span>
+                      District <span className="text-red-500">*</span>
                     </label>
-                    <input
-                      type="number"
-                      name="vehicleAge"
-                      min="1900"
-                      max={new Date().getFullYear()}
-                      value={formState.vehicleAge || ''}
+                    <select
+                      name="district"
+                      value={formState.district || ''}
                       onChange={handleInputChange}
-                      className="w-full py-2 px-3 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none"
-                    />
-                    {errors.vehicleAge && (
-                      <p className="mt-1 text-sm text-red-600">{errors.vehicleAge}</p>
+                      disabled={!formState.province}
+                      className="w-full py-2 px-3 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none disabled:bg-gray-100 disabled:cursor-not-allowed"
+                    >
+                      <option value="">Select District</option>
+                      {availableDistricts.map(district => (
+                        <option key={district.name} value={district.name}>{district.name}</option>
+                      ))}
+                    </select>
+                    {errors.district && (
+                      <p className="mt-1 text-sm text-red-600">{errors.district}</p>
                     )}
                   </div>
-                </>
-              )}
-            </div>
 
-            <div className="mt-6">
-              <h3 className="text-lg font-semibold mb-4">Documents</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <FileInput
-                  label="National ID Card / Passport"
-                  name="nationalID"
-                  onChange={handleFileChange('nationalID')}
-                  error={errors.nationalID}
-                  accept="image/*,.pdf"
-                  currentFile={application.nationalID?.split('/').pop()}
-                />
+                  {/* Sector Select */}
+                  <div>
+                    <label className="block text-sm font-medium mb-1">
+                      Sector <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      name="sector"
+                      value={formState.sector || ''}
+                      onChange={handleInputChange}
+                      disabled={!formState.district}
+                      className="w-full py-2 px-3 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none disabled:bg-gray-100 disabled:cursor-not-allowed"
+                    >
+                      <option value="">Select Sector</option>
+                      {availableSectors.map(sector => (
+                        <option key={sector} value={sector}>{sector}</option>
+                      ))}
+                    </select>
+                    {errors.sector && (
+                      <p className="mt-1 text-sm text-red-600">{errors.sector}</p>
+                    )}
+                  </div>
 
-                <FileInput
-                  label="Yellow Card"
-                  name="yellowCard"
-                  onChange={handleFileChange('yellowCard')}
-                  error={errors.yellowCard}
-                  accept="image/*,.pdf"
-                  currentFile={application.yellowCard?.split('/').pop()}
-                />
+                  <div>
+                    <label className="block text-sm font-medium mb-1">
+                      Insurance Category <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      name="insuranceCategory"
+                      value={formState.insuranceCategory || ''}
+                      onChange={handleInputChange}
+                      className="w-full py-2 px-3 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none"
+                    >
+                      <option value="Car Insurance">Car Insurance</option>
+                      <option value="Motorbike Insurance">Motorbike Insurance</option>
+                      <option value="Building Insurance">Building Insurance</option>
+                      <option value="Travel Insurance">Travel Insurance</option>
+                      <option value="Health Insurance">Health Insurance</option>
+                      <option value="Fire Insurance Coverage">Fire Insurance Coverage</option>
+                    </select>
+                    {errors.insuranceCategory && (
+                      <p className="mt-1 text-sm text-red-600">{errors.insuranceCategory}</p>
+                    )}
+                  </div>
 
-                <FileInput
-                  label="Past Insurance Certificate (Optional)"
-                  name="pastInsuranceCertificate"
-                  onChange={handleFileChange('pastInsuranceCertificate')}
-                  accept="image/*,.pdf"
-                  currentFile={application.pastInsuranceCertificate?.split('/').pop()}
-                />
-              </div>
-            </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">
+                      Insurance Type <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      name="insuranceType"
+                      value={formState.insuranceType || ''}
+                      onChange={handleInputChange}
+                      className="w-full py-2 px-3 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none"
+                    >
+                      <option value="Comprehensive Insurance (covers everything)">Comprehensive Insurance</option>
+                      <option value="Third Party Insurance (covers partial)">Third Party Insurance</option>
+                    </select>
+                    {errors.insuranceType && (
+                      <p className="mt-1 text-sm text-red-600">{errors.insuranceType}</p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium mb-1">
+                      Insurance Duration <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      name="insuranceDuration"
+                      value={formState.insuranceDuration || ''}
+                      onChange={handleInputChange}
+                      className="w-full py-2 px-3 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none"
+                    >
+                      <option value="1 Month">1 Month</option>
+                      <option value="6 Months">6 Months</option>
+                      <option value="12 Months">12 Months</option>
+                    </select>
+                    {errors.insuranceDuration && (
+                      <p className="mt-1 text-sm text-red-600">{errors.insuranceDuration}</p>
+                    )}
+                  </div>
+
+                  {(formState.insuranceCategory === 'Car Insurance' || formState.insuranceCategory === 'Motorbike Insurance') && (
+                    <>
+                      <div>
+                        <label className="block text-sm font-medium mb-1">
+                          Vehicle Type <span className="text-red-500">*</span>
+                        </label>
+                        <select
+                          name="vehicleType"
+                          value={formState.vehicleType || ''}
+                          onChange={handleInputChange}
+                          className="w-full py-2 px-3 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none"
+                        >
+                          <option value="">Select Vehicle Type</option>
+                          {formState.insuranceCategory === 'Car Insurance' ? (
+                            <>
+                              <option value="pickup">Pick Up</option>
+                              <option value="taxi">Taxi</option>
+                              <option value="truck">Truck</option>
+                              <option value="sedan">Sedan</option>
+                              <option value="suv">SUV</option>
+                            </>
+                          ) : (
+                            <>
+                              <option value="moped">Moped</option>
+                              <option value="scooter">Scooter</option>
+                              <option value="motorcycle">Motorcycle</option>
+                            </>
+                          )}
+                        </select>
+                        {errors.vehicleType && (
+                          <p className="mt-1 text-sm text-red-600">{errors.vehicleType}</p>
+                        )}
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium mb-1">
+                          Vehicle Year <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="number"
+                          name="vehicleAge"
+                          min="1900"
+                          max={new Date().getFullYear()}
+                          value={formState.vehicleAge || ''}
+                          onChange={handleInputChange}
+                          className="w-full py-2 px-3 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none"
+                        />
+                        {errors.vehicleAge && (
+                          <p className="mt-1 text-sm text-red-600">{errors.vehicleAge}</p>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                <div className="mt-6">
+                  <h3 className="text-lg font-semibold mb-4">Documents</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <FileInput
+                      label="National ID Card / Passport"
+                      name="nationalID"
+                      onChange={handleFileChange('nationalID')}
+                      error={errors.nationalID}
+                      accept="image/*,.pdf"
+                      currentFile={application.nationalID?.split('/').pop()}
+                    />
+
+                    <FileInput
+                      label="Yellow Card"
+                      name="yellowCard"
+                      onChange={handleFileChange('yellowCard')}
+                      error={errors.yellowCard}
+                      accept="image/*,.pdf"
+                      currentFile={application.yellowCard?.split('/').pop()}
+                    />
+
+                    <FileInput
+                      label="Past Insurance Certificate (Optional)"
+                      name="pastInsuranceCertificate"
+                      onChange={handleFileChange('pastInsuranceCertificate')}
+                      accept="image/*,.pdf"
+                      currentFile={application.pastInsuranceCertificate?.split('/').pop()}
+                    />
+                  </div>
+                </div>
+              </>
+            )}
 
             <div className="mt-8 flex justify-end space-x-3">
               <Button
@@ -916,7 +980,9 @@ export default function AgentApplicationsPage() {
                   {totalCommission.toLocaleString()} RWF
                 </p>
               </div>
-              <div className="text-orange-500">
+
+              {/* dollar sign */}
+              {/* <div className="text-orange-500">
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
                   className="h-8 w-8"
@@ -931,7 +997,7 @@ export default function AgentApplicationsPage() {
                     d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"
                   />
                 </svg>
-              </div>
+              </div> */}
             </div>
           </div>
         </div>

@@ -1,8 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-const PUBLIC_ROUTES = ['/coming-soon'];
-const POST_TESTER_PUBLIC_ROUTES = ['/', '/apply', '/login', '/register', '/track'];
+const PUBLIC_ROUTES = ['/', '/apply', '/login', '/register', '/track'];
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -16,19 +15,20 @@ export function middleware(request: NextRequest) {
   // console.log('Middleware processing:', pathname);
   // console.log('Cookies:', {
   //   token: request.cookies.get('ezinsure_token')?.value,
-  //   user: request.cookies.get('ezinsure_user')?.value,
-  //   tester: request.cookies.get('ezinsure-tester')?.value
+  //   user: request.cookies.get('ezinsure_user')?.value
   // });
 
+  // Commented out - tester functionality no longer needed
   // Check tester status
-  const isTester = request.cookies.get('ezinsure-tester')?.value === 'solektraRwanda@2025';
+  // const isTester = request.cookies.get('ezinsure-tester')?.value === 'solektraRwanda@2025';
 
+  // Commented out - /coming-soon route no longer needed
   // Handle /coming-soon specially
-  if (pathname === '/coming-soon') {
-    return isTester 
-      ? NextResponse.redirect(new URL('/', request.url))
-      : NextResponse.next();
-  }
+  // if (pathname === '/coming-soon') {
+  //   return isTester 
+  //     ? NextResponse.redirect(new URL('/', request.url))
+  //     : NextResponse.next();
+  // }
 
   // Check authentication
   const token = request.cookies.get('ezinsure_token')?.value;
@@ -46,7 +46,7 @@ export function middleware(request: NextRequest) {
       // console.log('Authenticated user:', user);
 
       // Redirect authenticated users away from public routes
-      if (PUBLIC_ROUTES.includes(pathname) || POST_TESTER_PUBLIC_ROUTES.includes(pathname)) {
+      if (PUBLIC_ROUTES.includes(pathname)) {
         return NextResponse.redirect(new URL(`${rolePrefix}/dashboard`, request.url));
       }
 
@@ -66,14 +66,20 @@ export function middleware(request: NextRequest) {
     }
   }
 
+  // Commented out - tester access no longer needed
   // Handle tester access
-  if (isTester) {
-    if (pathname.startsWith('/admin') || pathname.startsWith('/agent')) {
-      return NextResponse.redirect(new URL('/', request.url));
-    }
+  // if (isTester) {
+  //   if (pathname.startsWith('/admin') || pathname.startsWith('/agent')) {
+  //     return NextResponse.redirect(new URL('/', request.url));
+  //   }
+  //   return NextResponse.next();
+  // }
+
+  // Allow access to public routes without authentication
+  if (PUBLIC_ROUTES.includes(pathname)) {
     return NextResponse.next();
   }
 
-  // Default case: redirect to coming-soon
-  return NextResponse.redirect(new URL('/coming-soon', request.url));
+  // For protected routes, redirect to login if not authenticated
+  return NextResponse.redirect(new URL('/login', request.url));
 }

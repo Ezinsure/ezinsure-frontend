@@ -559,7 +559,7 @@ const handleSubmit = async (e: React.FormEvent) => {
   />
 );
 
-    const getDateLimits = () => {
+const getDateLimits = () => {
   const today = new Date();
   const maxDate = new Date(today.getFullYear() - 18, today.getMonth(), today.getDate());
   const minDate = new Date(today.getFullYear() - 65, today.getMonth(), today.getDate());

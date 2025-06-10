@@ -33,20 +33,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const pathname = usePathname();
 
   const handleRouteProtection = useCallback(() => {
-    const POST_TESTER_PUBLIC_ROUTES = ['/', '/apply', '/login', '/register', '/track'];
+    const PUBLIC_ROUTES = ['/', '/apply', '/login', '/register', '/track'];
     
     // Skip if still loading
     if (isLoading) return;
-
-    // Check for tester cookie (client-side)
-    const isTester = document.cookie.includes('ezinsure-tester=solektraRwanda@2025');
 
     // **1. If logged in (has token & user)**
     if (token && user) {
       const userDashboard = `/${user.role.toLowerCase()}/dashboard`;
 
       // Redirect to dashboard if trying to access public routes
-      if (POST_TESTER_PUBLIC_ROUTES.includes(pathname) || pathname === '/coming-soon') {
+      if (PUBLIC_ROUTES.includes(pathname)) {
         router.push(userDashboard);
         return;
       }
@@ -57,25 +54,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         return;
       }
     }
-    // **2. If tester but not logged in**
-    else if (isTester) {
-      // Redirect to home if trying to access protected routes or `/coming-soon`
-      if (pathname.startsWith('/admin') || pathname.startsWith('/agent') || pathname === '/coming-soon') {
-        router.push('/');
+    // **2. Not logged in - allow access to public routes**
+    else {
+      // Allow access to public routes
+      if (PUBLIC_ROUTES.includes(pathname)) {
         return;
       }
 
-      // Allow access to post-tester public routes
-      if (POST_TESTER_PUBLIC_ROUTES.includes(pathname)) {
+      // For protected routes, redirect to login
+      if (pathname.startsWith('/admin') || pathname.startsWith('/agent')) {
+        router.push('/login');
         return;
       }
 
-      // Default redirect for testers
-      router.push('/');
-    }
-    // **3. Not a tester and not logged in → Only allow `/coming-soon`**
-    else if (pathname !== '/coming-soon') {
-      router.push('/coming-soon');
+      // For any other protected route, redirect to login
+      router.push('/login');
     }
   }, [isLoading, pathname, router, token, user]);
 

@@ -199,7 +199,7 @@ export const Footer = () => {
                   />
                 </svg>
                 <span className="text-gray-300">
-                  info@ezinsure.com / info@solektra.co
+                  info@ezinsure.co / support@ezinsure.co
                 </span>
               </li>
               <li className="flex items-start">
@@ -217,7 +217,7 @@ export const Footer = () => {
                   />
                 </svg>
                 <span className="text-gray-300">
-                  +250 788 1667 700 / +250 782 858 462
+                  Tel: +250 788 1667 700 / Call Center: 1150 Toll-free
                 </span>
               </li>
             </ul>
