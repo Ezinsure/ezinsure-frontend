@@ -442,7 +442,7 @@ const handleVerifyPayment = async (action: 'approve' | 'reject') => {
             size="xs" 
             onClick={() => {
               setSelectedApp(app);
-              setInvoiceMessage(`Please make your payment to one of the following:\nBank: Kigali Bank\nAccount: 1234567890\nOr via MOMO: 0782123456`);
+              setInvoiceMessage(`Please make your payment to one of the following:\nBank of Kigali: 100000129075 (SONARWA)\nOr via Momo Account: 051499 (SONARWA) \nOr Agency at Kimihurura (KBC) under SOLEKTRA`);
             }}
           >
             Send Invoice
