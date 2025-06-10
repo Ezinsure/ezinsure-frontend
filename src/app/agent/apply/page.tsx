@@ -39,6 +39,7 @@ export default function AgentApplyPage() {
     nationalID: null as File | null, 
     yellowCard: null as File | null,
     pastInsuranceCertificate: null as File | null,
+    insuranceProvider: 'SONARWA',
   });
 
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
@@ -60,6 +61,7 @@ export default function AgentApplyPage() {
     vehicleAge: { required: formState.insuranceCategory === 'car' || formState.insuranceCategory === 'motorbike' },
     nationalID: { required: true },
     yellowCard: { required: true },
+      insuranceProvider: { required: true }, 
   };
 
   const getTokenFromStorage = () => {
@@ -213,6 +215,7 @@ export default function AgentApplyPage() {
         formData.append('insuranceCategory', formatInsuranceCategory(formState.insuranceCategory));
         formData.append('insuranceType', formatInsuranceType(formState.insuranceType));
         formData.append('insuranceDuration', formatInsuranceDuration(formState.insuranceDuration));
+         formData.append('insuranceProvider', formState.insuranceProvider);
         
         // Append vehicle details if applicable
         if (formState.insuranceCategory === 'car' || formState.insuranceCategory === 'motorbike') {
@@ -279,6 +282,7 @@ if (!token) {
           nationalID: null,
           yellowCard: null,
           pastInsuranceCertificate: null,
+          insuranceProvider: 'SONARWA',
         });
         setAvailableDistricts([]);
         setAvailableSectors([]);
@@ -475,6 +479,31 @@ if (!token) {
                     <p className="mt-1 text-sm text-[var(--error-red)]">{errors.sector}</p>
                   )}
                 </div>
+
+                            <div className="md:col-span-2">
+  <label
+    className="block text-sm font-medium mb-1"
+    htmlFor="insuranceProvider"
+  >
+    Insurance Provider{' '}
+    <span className="text-[var(--error-red)] ml-1">*</span>
+  </label>
+  <select
+    id="insuranceProvider"
+    name="insuranceProvider"
+    value={formState.insuranceProvider}
+    onChange={handleInputChange}
+    className="w-full py-2 px-3 rounded-lg focus:outline-none border border-gray-300 focus:border-[var(--main-blue)]"
+    required
+  >
+    <option value="SONARWA">SONARWA</option>
+  </select>
+  {errors.insuranceProvider && (
+    <p className="mt-1 text-sm text-[var(--error-red)]">
+      {errors.insuranceProvider}
+    </p>
+  )}
+</div>
 
                 <div className="md:col-span-2">
                   <label
