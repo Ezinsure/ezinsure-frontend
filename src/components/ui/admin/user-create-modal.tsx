@@ -514,11 +514,10 @@ useEffect(() => {
                       className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[var(--main-blue)] focus:border-[var(--main-blue)]"
                     >
                       <option value="">Select relationship</option>
-                      <option value="parent">Parent</option>
-                      <option value="sibling">Sibling</option>
-                      <option value="spouse">Spouse</option>
-                      <option value="friend">Friend</option>
-                      <option value="other">Other</option>
+                      <option value="Parent">Parent</option>
+                      <option value="Sibling">Sibling</option>
+                      <option value="Spouse">Spouse</option>
+                      <option value="Friend">Friend</option>
                     </select>
                     {errors.emergencyContact2Relationship && (
                       <p className="mt-2 text-sm text-red-600">{errors.emergencyContact2Relationship}</p>

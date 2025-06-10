@@ -1514,7 +1514,7 @@ const getActionButtons = (app: Application) => {
               <p className="text-xs text-gray-500">View Document</p>
             </button>
           )}
-          {selectedApp.invoice && (
+          {selectedApp.insuranceCertificate && (
             <button 
               className="bg-white p-3 rounded border text-left hover:bg-gray-50"
               onClick={() => setViewingDocument({

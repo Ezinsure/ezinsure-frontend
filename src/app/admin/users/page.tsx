@@ -253,7 +253,7 @@ formDataToSend.append('bankAccountNumber', formData.bankAccountNumber);
       formDataToSend.append('emergencyContacts2Relationship', formData.emergencyContact2Relationship);
     }
     
-    console.log('Form data to send:', formDataToSend);
+    // console.log('Form data to send:', formDataToSend);
 
     const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/register`, {
       method: 'POST',
@@ -263,7 +263,7 @@ formDataToSend.append('bankAccountNumber', formData.bankAccountNumber);
       body: formDataToSend
     });
 
-    console.log('Response from user creation:', response);
+    // console.log('Response from user creation:', response);
 
     if (!response.ok) {
       const errorData = await response.json();
