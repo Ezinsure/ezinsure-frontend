@@ -245,13 +245,15 @@ formDataToSend.append('bankAccountNumber', formData.bankAccountNumber);
       }
       
       // Emergency contacts - Fixed field names
-      formDataToSend.append('emergencyContacts[0][fullName]', formData.emergencyContact1Name);
-      formDataToSend.append('emergencyContacts[0][phoneNumber]', formData.emergencyContact1PhoneNumber);
-      formDataToSend.append('emergencyContacts[0][relationship]', formData.emergencyContact1Relationship);
-      formDataToSend.append('emergencyContacts[1][fullName]', formData.emergencyContact2Name);
-      formDataToSend.append('emergencyContacts[1][phoneNumber]', formData.emergencyContact2PhoneNumber);
-      formDataToSend.append('emergencyContacts[1][relationship]', formData.emergencyContact2Relationship);
+      formDataToSend.append('emergencyContacts1Name', formData.emergencyContact1Name);
+      formDataToSend.append('emergencyContacts1Phone', formData.emergencyContact1PhoneNumber);
+      formDataToSend.append('emergencyContacts1Relationship', formData.emergencyContact1Relationship);
+      formDataToSend.append('emergencyContacts2Name', formData.emergencyContact2Name);
+      formDataToSend.append('emergencyContacts2Phone', formData.emergencyContact2PhoneNumber);
+      formDataToSend.append('emergencyContacts2Relationship', formData.emergencyContact2Relationship);
     }
+    
+    console.log('Form data to send:', formDataToSend);
 
     const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/register`, {
       method: 'POST',
