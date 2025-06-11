@@ -422,27 +422,85 @@ const confirmDeactivation = async (reason: string, deactivationFile: File | null
 };
 
 
-  const handleEditUser = async (updatedUser: User) => {
-    setIsLoading(true);
-    try {
-      // In a real app, this would be an API call
-      console.log('Updating user:', updatedUser);
-      
-      const updatedUsers = users.map(user => 
-        user._id === updatedUser._id ? updatedUser : user
-      );
-      
-      setUsers(updatedUsers);
-      showToast('User updated successfully', 'success');
-      setIsEditingUser(false);
-      setSelectedUser(null);
-    } catch (error) {
-      console.error('Error updating user:', error);
-      showToast('Failed to update user', 'error');
-    } finally {
-      setIsLoading(false);
+const handleEditUser = async (updatedUser: User) => {
+  setIsLoading(true);
+  try {
+    // Get only the changed fields
+    const originalUser = users.find(u => u._id === updatedUser._id);
+    if (!originalUser) {
+      throw new Error('User not found');
     }
-  };
+
+    const changedFields: Partial<User> = {};
+    
+    // Compare each field and only include changed ones
+    if (originalUser.fullName !== updatedUser.fullName) changedFields.fullName = updatedUser.fullName;
+    if (originalUser.phoneNumber !== updatedUser.phoneNumber) changedFields.phoneNumber = updatedUser.phoneNumber;
+    if (originalUser.dateOfBirth !== updatedUser.dateOfBirth) changedFields.dateOfBirth = updatedUser.dateOfBirth;
+    if (originalUser.address !== updatedUser.address) changedFields.address = updatedUser.address;
+    if (originalUser.province !== updatedUser.province) changedFields.province = updatedUser.province;
+    if (originalUser.district !== updatedUser.district) changedFields.district = updatedUser.district;
+    if (originalUser.sector !== updatedUser.sector) changedFields.sector = updatedUser.sector;
+    if (originalUser.role !== updatedUser.role) changedFields.role = updatedUser.role;
+    // if (originalUser.email !== updatedUser.email) changedFields.email = updatedUser.email;
+    if (originalUser.bankName !== updatedUser.bankName) changedFields.bankName = updatedUser.bankName;
+    if (originalUser.bankAccountNumber !== updatedUser.bankAccountNumber) changedFields.bankAccountNumber = updatedUser.bankAccountNumber;
+    
+    // Compare emergency contacts
+    if (JSON.stringify(originalUser.emergencyContacts) !== JSON.stringify(updatedUser.emergencyContacts)) {
+      changedFields.emergencyContacts = updatedUser.emergencyContacts;
+    }
+
+    // Only proceed if there are actual changes
+    if (Object.keys(changedFields).length > 0) {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/updateUser/${updatedUser._id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(changedFields)
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to update user');
+      }
+
+      // Refresh the users list
+      const fetchResponse = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/users`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!fetchResponse.ok) {
+        throw new Error('Failed to fetch updated users');
+      }
+
+      const data = await fetchResponse.json();
+      // Sort by createdAt in descending order (newest first)
+      const sortedUsers = data.data.sort((a: User, b: User) => {
+        return new Date(b.createdAt || '').getTime() - new Date(a.createdAt || '').getTime();
+      });
+      setUsers(sortedUsers);
+
+      showToast('User updated successfully', 'success');
+    } else {
+      showToast('No changes detected', 'info');
+    }
+
+    setIsEditingUser(false);
+    setSelectedUser(null);
+  } catch (error) {
+    console.error('Error updating user:', error);
+    showToast(error instanceof Error ? error.message : 'Failed to update user', 'error');
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   const Pagination = ({ currentPage, totalPages, onPageChange }: PaginationProps) => {
     const maxVisiblePages = 5;

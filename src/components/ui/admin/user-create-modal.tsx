@@ -29,6 +29,17 @@ interface FormData {
   [key: string]: string | File | null;
 }
 
+const rwandaBanks = [
+  "Bank of Kigali",
+  "Equity Bank Rwanda",
+  "I&M Bank Rwanda",
+  "BPR Bank",
+  "GT Bank Rwanda",
+  "Zigama",
+  "Unguka bank",
+  "VisionFund Rwanda",
+];
+
 interface Errors {
   [key: string]: string;
 }
@@ -51,49 +62,98 @@ const FileUploadField = ({
   file, 
   description,
   onChange
-}: FileUploadFieldProps) => (
-  <div>
-    <label className="block text-sm font-medium text-gray-700 mb-2">
-      {label} <span className="text-red-500">*</span>
-    </label>
-    <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-lg hover:border-[var(--main-blue)] transition-colors">
-      <div className="space-y-1 text-center">
-        <svg
-          className="mx-auto h-12 w-12 text-gray-400"
-          stroke="currentColor"
-          fill="none"
-          viewBox="0 0 48 48"
-        >
-          <path
-            d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02"
-            strokeWidth={2}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
-        <div className="flex text-sm text-gray-600">
-          <label className="relative cursor-pointer bg-white rounded-md font-medium text-[var(--main-blue)] hover:text-[var(--secondary-blue)] focus-within:outline-none">
-            <span>Upload a file</span>
-            <input
-              type="file"
-              className="sr-only"
-              accept={accept}
-              onChange={(e) => onChange(e, name)}
+}: FileUploadFieldProps) => {
+  const [isDragging, setIsDragging] = useState(false);
+
+  const handleDragEnter = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    
+    const droppedFile = e.dataTransfer.files[0];
+    if (droppedFile) {
+      // Directly call onChange with a synthetic event for file input
+      const dataTransfer = new DataTransfer();
+      dataTransfer.items.add(droppedFile);
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.files = dataTransfer.files;
+      const event = {
+        target: input
+      } as React.ChangeEvent<HTMLInputElement>;
+      onChange(event, name);
+    }
+  };
+
+  return (
+    <div>
+      <label className="block text-sm font-medium text-gray-700 mb-2">
+        {label} <span className="text-red-500">*</span>
+      </label>
+      <div 
+        className={`mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-lg transition-colors ${
+          isDragging ? 'border-[var(--main-blue)] bg-blue-50' : 'hover:border-[var(--main-blue)]'
+        }`}
+        onDragEnter={handleDragEnter}
+        onDragLeave={handleDragLeave}
+        onDragOver={handleDragOver}
+        onDrop={handleDrop}
+      >
+        <div className="space-y-1 text-center">
+          <svg
+            className="mx-auto h-12 w-12 text-gray-400"
+            stroke="currentColor"
+            fill="none"
+            viewBox="0 0 48 48"
+          >
+            <path
+              d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02"
+              strokeWidth={2}
+              strokeLinecap="round"
+              strokeLinejoin="round"
             />
-          </label>
-          <p className="pl-1">or drag and drop</p>
+          </svg>
+          <div className="flex text-sm text-gray-600">
+            <label className="relative cursor-pointer bg-white rounded-md font-medium text-[var(--main-blue)] hover:text-[var(--secondary-blue)] focus-within:outline-none">
+              <span>Upload a file</span>
+              <input
+                type="file"
+                className="sr-only"
+                accept={accept}
+                onChange={(e) => onChange(e, name)}
+              />
+            </label>
+            <p className="pl-1">or drag and drop</p>
+          </div>
+          <p className="text-xs text-gray-500">{description}</p>
+          {file && (
+            <p className="text-xs text-green-600 font-medium mt-2">
+              Selected: {file.name}
+            </p>
+          )}
         </div>
-        <p className="text-xs text-gray-500">{description}</p>
-        {file && (
-          <p className="text-xs text-green-600 font-medium mt-2">
-            Selected: {file.name}
-          </p>
-        )}
       </div>
+      {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
     </div>
-    {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
-  </div>
-);
+  );
+};
 
 interface UserCreateModalProps {
   isOpen: boolean;
@@ -123,13 +183,21 @@ const [sectors, setSectors] = useState<string[]>([]);
     email: { required: true, pattern: /^[^\s@]+@[^\s@]+\.[^\s@]+$/ },
     phoneNumber: { required: true, pattern: /^\+?\d{10,15}$/ },
     dateOfBirth: { required: true },
-    address: { required: true, minLength: 10 },
+    address: { required: true, minLength: 4 },
     emergencyContact1Name: { required: true, minLength: 2 },
     emergencyContact1PhoneNumber: { required: true, pattern: /^\+?\d{10,15}$/ },
     emergencyContact1Relationship: { required: true },
     emergencyContact2Name: { required: true, minLength: 2 },
     emergencyContact2PhoneNumber: { required: true, pattern: /^\+?\d{10,15}$/ },
     emergencyContact2Relationship: { required: true },
+    nationalIdDocument: { required: true },
+  criminalRecordCertificate: { required: true },
+  passportPhoto: { required: true },
+    bankName: { required: true },
+    bankAccountNumber: { required: true, pattern: /^\d{10,15}$/ },
+    province: { required: true },
+    district: { required: true }, 
+    sector: { required: true },
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
@@ -145,18 +213,18 @@ const [sectors, setSectors] = useState<string[]>([]);
     }
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, fieldName: string) => {
-    const file = e.target.files?.[0] || null;
-    setFormData((prev: FormData) => ({ ...prev, [fieldName]: file }));
-    
-    if (errors[fieldName]) {
-      setErrors((prev: Errors) => {
-        const newErrors = { ...prev };
-        delete newErrors[fieldName];
-        return newErrors;
-      });
-    }
-  };
+const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, fieldName: string) => {
+  const file = e.target.files?.[0] || null;
+  setFormData((prev: FormData) => ({ ...prev, [fieldName]: file }));
+  
+  if (errors[fieldName]) {
+    setErrors((prev: Errors) => {
+      const newErrors = { ...prev };
+      delete newErrors[fieldName];
+      return newErrors;
+    });
+  }
+};
 
   const validateFiles = () => {
     const fileErrors: Errors = {};
@@ -239,6 +307,18 @@ useEffect(() => {
 
   if (!isOpen) return null;
 
+  const getDateLimits = () => {
+  const today = new Date();
+  const maxDate = new Date(today.getFullYear() - 18, today.getMonth(), today.getDate());
+  const minDate = new Date(today.getFullYear() - 65, today.getMonth(), today.getDate());
+  
+  return {
+    min: minDate.toISOString().split('T')[0],
+    max: maxDate.toISOString().split('T')[0]
+  };
+};
+
+
   return (
     <div className="fixed inset-0 bg-gray-600/50 flex items-center justify-center z-50">
       <div className="max-h-[90vh] overflow-y-auto bg-white rounded-lg shadow-xl p-6 w-full max-w-2xl mx-4">
@@ -299,6 +379,8 @@ useEffect(() => {
               onChange={handleInputChange}
               error={errors.dateOfBirth}
               required
+               min={getDateLimits().min}
+  max={getDateLimits().max}
             />
           </div>
 
@@ -368,20 +450,27 @@ useEffect(() => {
   </div>
 </div>
           
-<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-  <Input
-    label="Bank Name"
-    name="bankName"
-    type="text"
-    value={formData.bankName}
-    onChange={(e) => setFormData({ ...formData, bankName: e.target.value })}
-    error={errors.bankName}
-    required
-  />
+<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+  <div>
+    <label className="block text-sm font-medium text-gray-700 mb-1">
+      Bank Name <span className="text-red-500">*</span>
+    </label>
+    <select
+      className="w-full border border-gray-300 rounded-md p-2"
+      value={formData.bankName}
+      onChange={(e) => setFormData({...formData, bankName: e.target.value})}
+      required
+    >
+      <option value="">Select Bank</option>
+      {rwandaBanks.map(bank => (
+        <option key={bank} value={bank}>{bank}</option>
+      ))}
+    </select>
+  </div>
   <Input
     label="Bank Account Number"
     name="bankAccountNumber"
-    type="text"
+    type="number"
     value={formData.bankAccountNumber}
     onChange={(e) => setFormData({ ...formData, bankAccountNumber: e.target.value })}
     error={errors.bankAccountNumber}
@@ -403,20 +492,18 @@ useEffect(() => {
             </select>
           </div>
 
-          {formData.role === 'AGENT' && (
-            <>
               <div className="bg-gray-50 p-4 rounded-lg">
                 <h4 className="font-medium mb-3">Required Documents</h4>
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  <FileUploadField
-                    label="National ID"
-                    name="nationalIdDocument"
-                    accept=".pdf,.jpg,.jpeg,.png"
-                    error={errors.nationalIdDocument}
-                    file={formData.nationalIdDocument}
-                    description="PDF, JPEG, or PNG up to 5MB"
-                    onChange={handleFileChange}
-                  />
+                 <FileUploadField
+  label="National ID"
+  name="nationalIdDocument"
+  accept=".pdf,.jpg,.jpeg,.png"
+  error={errors.nationalIdDocument}
+  file={formData.nationalIdDocument}
+  description="PDF, JPEG, or PNG up to 5MB"
+  onChange={handleFileChange}
+/>
                   <FileUploadField
                     label="Criminal Record Certificate"
                     name="criminalRecordCertificate"
@@ -456,7 +543,7 @@ useEffect(() => {
                     label="Phone Number"
                     type="tel"
                     name="emergencyContact1PhoneNumber"
-                    placeholder="+250 7XX XXX XXX"
+                    placeholder="07XXXXXXXX"
                     value={formData.emergencyContact1PhoneNumber}
                     onChange={handleInputChange}
                     error={errors.emergencyContact1PhoneNumber}
@@ -497,7 +584,7 @@ useEffect(() => {
                     label="Phone Number"
                     type="tel"
                     name="emergencyContact2PhoneNumber"
-                    placeholder="+250 7XX XXX XXX"
+                    placeholder="07XXXXXXXX"
                     value={formData.emergencyContact2PhoneNumber}
                     onChange={handleInputChange}
                     error={errors.emergencyContact2PhoneNumber}
@@ -525,8 +612,6 @@ useEffect(() => {
                   </div>
                 </div>
               </div>
-            </>
-          )}
 
           <div className="flex justify-end gap-2 mt-6">
             <Button
