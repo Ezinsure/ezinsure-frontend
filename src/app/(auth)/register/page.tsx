@@ -12,6 +12,7 @@ import { DocumentViewer } from '@/components/ui/document-viewer';
 import { rwandaProvinces } from '@/utils/rwanda-administrative';
 import { FileInput } from '@/components/ui/file-input'; 
 import { Application, EditUserOnTrackingPage } from '@/components/ui/admin/EditUserOnTrackingPage';
+import Link from 'next/link';
 
 
 interface FormState {
@@ -1017,28 +1018,38 @@ const resetApplicationState = () => {
             </div>
 
             {/* Terms and Conditions */}
-            <div className="bg-blue-50 p-4 rounded-lg">
-            <div className="flex items-start">
-              <input
-              id="terms"
-              name="terms"
-              type="checkbox"
-              className="h-4 w-4 text-[var(--main-blue)] focus:ring-[var(--main-blue)] border-gray-300 rounded mt-1"
-              required
-              />
-              <label htmlFor="terms" className="ml-3 text-sm text-gray-700">
-              I agree to the{' '}
-              <a href="#" className="text-[var(--main-blue)] hover:text-[var(--secondary-blue)] font-medium">
-                Terms and Conditions
-              </a>{' '}
-              and{' '}
-              <a href="#" className="text-[var(--main-blue)] hover:text-[var(--secondary-blue)] font-medium">
-                Privacy Policy
-              </a>
-              . I understand that this application will be reviewed and I may be contacted for additional information.
-              </label>
-            </div>
-            </div>
+           <div className="bg-blue-50 p-4 rounded-lg">
+  <div className="flex items-start">
+    <input
+      id="terms"
+      name="terms"
+      type="checkbox"
+      className="h-4 w-4 text-[var(--main-blue)] focus:ring-[var(--main-blue)] border-gray-300 rounded mt-1"
+      required
+    />
+    <label htmlFor="terms" className="ml-3 text-sm text-gray-700">
+      I agree to the{' '}
+      <Link 
+        href="/terms-and-conditions" 
+        target="_blank" 
+        rel="noopener noreferrer"
+        className="text-[var(--main-blue)] hover:text-[var(--secondary-blue)] font-medium"
+      >
+        Terms and Conditions
+      </Link>{' '}
+      and{' '}
+      <Link 
+        href="/privacy-policy" 
+        target="_blank" 
+        rel="noopener noreferrer"
+        className="text-[var(--main-blue)] hover:text-[var(--secondary-blue)] font-medium"
+      >
+        Privacy Policy
+      </Link>
+      . I understand that this application will be reviewed and I may be contacted for additional information.
+    </label>
+  </div>
+</div>
 
             <div className="flex justify-between items-center pt-4">
             <Button

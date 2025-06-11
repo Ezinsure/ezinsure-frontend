@@ -33,7 +33,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const pathname = usePathname();
 
   const handleRouteProtection = useCallback(() => {
-    const PUBLIC_ROUTES = ['/', '/apply', '/login', '/register', '/track'];
+    const PUBLIC_ROUTES = ['/', '/apply', '/login', '/register', '/track', '/terms-and-conditions', '/privacy-policy'];
     
     // Skip if still loading
     if (isLoading) return;
