@@ -270,6 +270,17 @@ export default function ApplyPage() {
     }
   };
 
+    const getDateLimits = () => {
+    const today = new Date();
+    const maxDate = new Date(today.getFullYear() - 18, today.getMonth(), today.getDate());
+    const minDate = new Date(today.getFullYear() - 100, today.getMonth(), today.getDate());
+    
+    return {
+      min: minDate.toISOString().split('T')[0],
+      max: maxDate.toISOString().split('T')[0]
+    };
+  };
+
 
   return (
     <MainLayout containerClass="p-0" fullWidth>
@@ -358,15 +369,18 @@ export default function ApplyPage() {
                   }
                 />
 
-                <Input
+               <Input
                   label="Date of Birth"
                   type="date"
                   name="dateOfBirth"
                   value={formState.dateOfBirth}
                   onChange={handleInputChange}
                   error={errors.dateOfBirth}
+                  min={getDateLimits().min}
+                max={getDateLimits().max}
                   required
                 />
+
 
                 <Input
                   label="Address"
