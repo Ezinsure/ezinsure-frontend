@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { MainLayout } from '@/components/ui/main-layout';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -13,6 +13,197 @@ import {
   hasErrors,
 } from '@/components/ui/form-validation';
 import { rwandaProvinces } from '@/utils/rwanda-administrative';
+
+// Device tracking utility types and functions
+interface DeviceInfo {
+  userAgent: string;
+  platform: string;
+  // language: string;
+  // screenResolution: string;
+  timezone: string;
+  // cookieEnabled: boolean;
+  // onlineStatus: boolean;
+  deviceMemory?: number;
+  // hardwareConcurrency: number;
+  // connectionType?: string;
+  devicePixelRatio: number;
+  viewportSize: string;
+  browserName: string;
+  browserVersion: string;
+  operatingSystem: string;
+  // isMobile: boolean;
+  // isTablet: boolean;
+  // touchSupport: boolean;
+}
+
+interface LocationInfo {
+  latitude?: number;
+  longitude?: number;
+  accuracy?: number;
+  timestamp?: number;
+  error?: string;
+  ipLocation?: {
+    country?: string;
+    region?: string;
+    city?: string;
+    timezone?: string;
+  };
+}
+
+interface TrackingData {
+  deviceInfo: DeviceInfo;
+  locationInfo: LocationInfo;
+  sessionId: string;
+  timestamp: number;
+}
+
+// Device info utility
+const getDeviceInfo = (): DeviceInfo => {
+  const ua = navigator.userAgent;
+  
+  const getBrowserInfo = () => {
+    const browsers = [
+      { name: 'Chrome', regex: /Chrome\/([0-9.]+)/ },
+      { name: 'Firefox', regex: /Firefox\/([0-9.]+)/ },
+      { name: 'Safari', regex: /Safari\/([0-9.]+)/ },
+      { name: 'Edge', regex: /Edge\/([0-9.]+)/ },
+      { name: 'Opera', regex: /Opera\/([0-9.]+)/ },
+    ];
+    
+    for (const browser of browsers) {
+      const match = ua.match(browser.regex);
+      if (match) {
+        return { name: browser.name, version: match[1] };
+      }
+    }
+    return { name: 'Unknown', version: 'Unknown' };
+  };
+
+  const getOperatingSystem = () => {
+    if (ua.includes('Windows')) return 'Windows';
+    if (ua.includes('Mac OS X')) return 'macOS';
+    if (ua.includes('Linux')) return 'Linux';
+    if (ua.includes('Android')) return 'Android';
+    if (ua.includes('iOS') || ua.includes('iPhone') || ua.includes('iPad')) return 'iOS';
+    return 'Unknown';
+  };
+
+  // const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua);
+  // const isTablet = /iPad|Android(?=.*\bMobile\b)(?=.*\bSafari\b)|Android(?=.*(?:\b|_)Tablet(?:\b|_))/i.test(ua);
+  const browser = getBrowserInfo();
+  
+  return {
+    userAgent: ua,
+    platform: navigator.platform,
+    // language: navigator.language,
+    // screenResolution: `${screen.width}x${screen.height}`,
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    // cookieEnabled: navigator.cookieEnabled,
+    // onlineStatus: navigator.onLine,
+    deviceMemory: (navigator as unknown as { deviceMemory?: number }).deviceMemory,
+    // hardwareConcurrency: navigator.hardwareConcurrency,
+    // connectionType: (navigator as any).connection?.effectiveType,
+    devicePixelRatio: window.devicePixelRatio,
+    viewportSize: `${window.innerWidth}x${window.innerHeight}`,
+    browserName: browser.name,
+    browserVersion: browser.version,
+    operatingSystem: getOperatingSystem(),
+    // isMobile,
+    // isTablet,
+    // touchSupport: 'ontouchstart' in window || navigator.maxTouchPoints > 0,
+  };
+};
+
+// Location info utility
+const getLocationInfo = async (): Promise<LocationInfo> => {
+  const locationInfo: LocationInfo = {};
+
+  // Try GPS location (silent)
+  try {
+    const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+      if (!navigator.geolocation) {
+        reject(new Error('Geolocation not supported'));
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        resolve,
+        reject,
+        {
+          enableHighAccuracy: false,
+          timeout: 5000,
+          maximumAge: 300000,
+        }
+      );
+    });
+
+    locationInfo.latitude = position.coords.latitude;
+    locationInfo.longitude = position.coords.longitude;
+    locationInfo.accuracy = position.coords.accuracy;
+    locationInfo.timestamp = position.timestamp;
+  } catch (error) {
+    locationInfo.error = error instanceof Error ? error.message : 'Location access denied';
+  }
+
+  // Try IP-based location
+  try {
+    const response = await fetch('https://ipapi.co/json/');
+    if (response.ok) {
+      const ipData = await response.json();
+      locationInfo.ipLocation = {
+        country: ipData.country_name,
+        region: ipData.region,
+        city: ipData.city,
+        timezone: ipData.timezone,
+      };
+    }
+  } catch (error) {
+    console.debug('IP location lookup failed:', error);
+  }
+
+  return locationInfo;
+};
+
+// Session ID utility
+const getSessionId = (): string => {
+  const storageKey = 'ezinsure_session_id';
+  let sessionId;
+  
+  try {
+    sessionId = sessionStorage.getItem(storageKey);
+  } catch (error) {
+    console.log('Session storage access failed:', error);
+    // Handle cases where sessionStorage is not available
+    sessionId = null;
+  }
+  
+  if (!sessionId) {
+    sessionId = `session_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
+    try {
+      sessionStorage.setItem(storageKey, sessionId);
+    } catch (error) {
+      console.log('Failed to set session ID in storage:', error);
+      // Silently handle storage errors
+    }
+  }
+  
+  return sessionId;
+};
+
+// Get complete tracking data
+const getTrackingData = async (): Promise<TrackingData> => {
+  const [deviceInfo, locationInfo] = await Promise.all([
+    Promise.resolve(getDeviceInfo()),
+    getLocationInfo(),
+  ]);
+
+  return {
+    deviceInfo,
+    locationInfo,
+    sessionId: getSessionId(),
+    timestamp: Date.now(),
+  };
+};
 
 export default function AgentApplyPage() {
   const { showToast, ToastContainer } = useToast();
@@ -44,6 +235,22 @@ export default function AgentApplyPage() {
 
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [trackingData, setTrackingData] = useState<TrackingData | null>(null);
+
+  // Initialize tracking data on component mount
+  useEffect(() => {
+    const initializeTracking = async () => {
+      try {
+        const data = await getTrackingData();
+        setTrackingData(data);
+      } catch (error) {
+        console.debug('Tracking initialization failed:', error);
+        // Continue without tracking data if it fails
+      }
+    };
+
+    initializeTracking();
+  }, []);
 
   const validationRules: ValidationRules = {
     fullName: { required: true, minLength: 3, maxLength: 50 },
@@ -61,18 +268,17 @@ export default function AgentApplyPage() {
     vehicleAge: { required: formState.insuranceCategory === 'car' || formState.insuranceCategory === 'motorbike' },
     nationalID: { required: true },
     yellowCard: { required: true },
-      insuranceProvider: { required: true }, 
+    insuranceProvider: { required: true }, 
   };
 
   const getTokenFromStorage = () => {
-  return sessionStorage.getItem('ezinsure_token');
-};
-
-// const getUserFromStorage = () => {
-//   const user = sessionStorage.getItem('ezinsure_user');
-//   return user ? JSON.parse(user) : null;
-// };
-
+    try {
+      return sessionStorage.getItem('ezinsure_token');
+    } catch (error) {
+      console.error('Error accessing sessionStorage:', error);
+      return null;
+    }
+  };
 
   const getDateLimits = () => {
     const today = new Date();
@@ -215,7 +421,7 @@ export default function AgentApplyPage() {
         formData.append('insuranceCategory', formatInsuranceCategory(formState.insuranceCategory));
         formData.append('insuranceType', formatInsuranceType(formState.insuranceType));
         formData.append('insuranceDuration', formatInsuranceDuration(formState.insuranceDuration));
-         formData.append('insuranceProvider', formState.insuranceProvider);
+        formData.append('insuranceProvider', formState.insuranceProvider);
         
         // Append vehicle details if applicable
         if (formState.insuranceCategory === 'car' || formState.insuranceCategory === 'motorbike') {
@@ -234,14 +440,22 @@ export default function AgentApplyPage() {
           formData.append('pastInsuranceCertificate', formState.pastInsuranceCertificate);
         }
 
-        // Add agent ID to the form data
-        // const user = getUserFromStorage();
-const token = getTokenFromStorage();
+        // Append tracking data
+        if (trackingData) {
+          formData.append('trackingData', JSON.stringify(trackingData));
+        }
 
-if (!token) {
-  showToast('Authentication required. Please login again.', 'error');
-  return;
-}
+        const token = getTokenFromStorage();
+
+        if (!token) {
+          showToast('Authentication required. Please login again.', 'error');
+          return;
+        }
+
+        // Display FormData contents before sending
+        // for (const [key, value] of formData.entries()) {
+        //   console.log(`${key}:`, value);
+        // }
 
         const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/apply`, {
           method: 'POST',

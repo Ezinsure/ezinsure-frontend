@@ -418,11 +418,19 @@ const EditApplicationModal = ({ isOpen, onClose, onSave, application, isLoading 
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                 </div>
-                <div className="ml-3">
+                <div className="flex flex-col ml-3">
+                {application.rejectionReason && <div className="ml-3">
                   <h3 className="text-sm font-medium text-red-800">Rejection Reason</h3>
                   <div className="mt-2 text-sm text-red-700">
-                    <p>{application.rejectionReason || application.reasonForPaymentRejection}</p>
+                    <p>{application.rejectionReason }</p>
                   </div>
+                </div>}
+                {application.reasonForPaymentRejection && <div className="ml-3 mt-4">
+                  <h3 className="text-sm font-medium text-red-800">Reason For Payment Rejection</h3>
+                  <div className="mt-2 text-sm text-red-700">
+                    <p>{ application.reasonForPaymentRejection}</p>
+                  </div>
+                </div>}
                 </div>
               </div>
             </div>
@@ -998,11 +1006,19 @@ const handleEditSuccess = async (): Promise<void> => {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </div>
-              <div className="ml-3">
+              <div>
+              {application.rejectionReason  && <div className="ml-3">
                 <h3 className="text-sm font-medium text-red-800">Rejection Reason</h3>
                 <div className="mt-2 text-sm text-red-700">
                   <p>{application.rejectionReason || application.reasonForPaymentRejection}</p>
                 </div>
+              </div>}
+              {application.reasonForPaymentRejection  && <div className="ml-3 mt-4">
+                <h3 className="text-sm font-medium text-red-800">Reason For Payment Rejection</h3>
+                <div className="mt-2 text-sm text-red-700">
+                  <p>{ application.reasonForPaymentRejection}</p>
+                </div>
+              </div>}
               </div>
             </div>
           </div>

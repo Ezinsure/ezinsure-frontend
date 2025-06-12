@@ -805,7 +805,7 @@ const resetApplicationState = () => {
 
     <Input
       label="Bank Account Number"
-      type="text"
+      type="number"
       name="bankAccountNumber"
       placeholder="Enter your account number"
       value={formState.bankAccountNumber}

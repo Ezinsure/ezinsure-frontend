@@ -1354,10 +1354,17 @@ const getActionButtons = (app: Application) => {
             </div>
 
             {/* Rejection Reason (if exists) */}
-            {(selectedApp.rejectionReason || selectedApp.reasonForPaymentRejection) && (
+            {(selectedApp.rejectionReason) && (
               <div className="mt-4 bg-red-50 p-4 rounded-lg">
                 <h4 className="font-medium text-red-700 mb-2">Rejection Reason</h4>
-                <p className="text-red-600">{selectedApp.rejectionReason || selectedApp.reasonForPaymentRejection}</p>
+                <p className="text-red-600">{selectedApp.rejectionReason}</p>
+              </div>
+            )}
+            {/* Reason For Payment Rejection (if exists) */}
+            {(selectedApp.reasonForPaymentRejection) && (
+              <div className=" bg-red-50 p-4 rounded-lg">
+                <h4 className="font-medium text-red-700 mb-2">Reason For Payment Rejection</h4>
+                <p className="text-red-600">{selectedApp.reasonForPaymentRejection}</p>
               </div>
             )}
 

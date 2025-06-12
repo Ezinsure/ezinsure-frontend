@@ -174,14 +174,7 @@ export default function LoginPage() {
             >
               {isSubmitting ? 'Authenticating...' : 'Sign In'}
             </Button>
-
-            <div className="mt-4 p-4 bg-blue-50 rounded-lg">
-              <h4 className="text-sm font-bold text-blue-600 mb-2">Demo Credentials</h4>
-              <div className="text-xs space-y-1 text-gray-600">
-                <p><strong>Admin:</strong> admin@ezinsure.com / Admin@123</p>
-                <p><strong>Agent:</strong> agent1@ezinsure.com / Agent@123</p>
-              </div>
-            </div>
+    
           </form>
 
           <div className="mt-8 text-center">

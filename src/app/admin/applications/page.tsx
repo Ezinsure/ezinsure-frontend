@@ -74,6 +74,8 @@ export default function ManageApplicationsPage() {
   const [rejectionComment, setRejectionComment] = useState('');
   const [insuranceFile, setInsuranceFile] = useState<File | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isApproving, setIsApproving] = useState(false);
+const [isRejecting, setIsRejecting] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [invoiceAmount, setInvoiceAmount] = useState('');
   const [activeModal, setActiveModal] = useState<'details' | 'review' | 'invoice' | 'verify' | 'issue' | null>(null);
@@ -253,62 +255,62 @@ const handleVerifyPayment = async (action: 'approve' | 'reject') => {
 };
 
   // Reject application or payment
-  const handleReject = async (action: 'application' | 'payment') => {
-    if (!selectedApp || !rejectionComment) {
-      showToast('Please enter rejection reason', 'error');
-      return;
-    }
-    
-    setIsProcessing(true);
-    try {
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_BASE_URL}/sendApplicationForAction/${selectedApp._id}`,
-        {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({
-            action: 'reject',
-            rejectionReason: rejectionComment,
-          })
-        }
-      );
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to reject');
+const handleReject = async (action: 'application' | 'payment') => {
+  if (!selectedApp || !rejectionComment) {
+    showToast('Please enter rejection reason', 'error');
+    return;
+  }
+  
+  setIsRejecting(true);
+  try {
+    const response = await fetch(
+      `${process.env.NEXT_PUBLIC_API_BASE_URL}/sendApplicationForAction/${selectedApp._id}`,
+      {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          action: 'reject',
+          rejectionReason: rejectionComment,
+        })
       }
+    );
 
-      const updatedApplications = applications.map(app => {
-        if (app._id === selectedApp._id) {
-          return {
-            ...app,
-            status: ApplicationStatus.WAITING_FOR_USER_ACTION,
-            rejectionReason: rejectionComment
-          };
-        }
-        return app;
-      });
-      
-      setApplications(updatedApplications);
-      showToast(
-        action === 'application' 
-          ? `Application from ${selectedApp.fullName} rejected` 
-          : `Payment from ${selectedApp.fullName} rejected`, 
-        'error'
-      );
-      setRejectionComment('');
-      setSelectedApp(null);
-      setActiveModal(null);
-    } catch (error) {
-      console.error('Error rejecting:', error);
-      showToast(error instanceof Error ? error.message : 'Failed to reject', 'error');
-    } finally {
-      setIsProcessing(false);
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Failed to reject');
     }
-  };
+
+    const updatedApplications = applications.map(app => {
+      if (app._id === selectedApp._id) {
+        return {
+          ...app,
+          status: ApplicationStatus.WAITING_FOR_USER_ACTION,
+          rejectionReason: rejectionComment
+        };
+      }
+      return app;
+    });
+    
+    setApplications(updatedApplications);
+    showToast(
+      action === 'application' 
+        ? `Application from ${selectedApp.fullName} rejected` 
+        : `Payment from ${selectedApp.fullName} rejected`, 
+      'error'
+    );
+    setRejectionComment('');
+    setSelectedApp(null);
+    setActiveModal(null);
+  } catch (error) {
+    console.error('Error rejecting:', error);
+    showToast(error instanceof Error ? error.message : 'Failed to reject', 'error');
+  } finally {
+    setIsRejecting(false);
+  }
+};
 
   // Issue insurance to client
   const handleIssueInsurance = async () => {
@@ -362,48 +364,48 @@ const handleVerifyPayment = async (action: 'approve' | 'reject') => {
   };
 
   // Approve application
-  const handleApproveApplication = async () => {
-    if (!selectedApp) return;
-    
-    setIsProcessing(true);
-    try {
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_BASE_URL}/approveApplication/${selectedApp._id}`,
-        {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          }
+const handleApproveApplication = async () => {
+  if (!selectedApp) return;
+  
+  setIsApproving(true);
+  try {
+    const response = await fetch(
+      `${process.env.NEXT_PUBLIC_API_BASE_URL}/approveApplication/${selectedApp._id}`,
+      {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
         }
-      );
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to approve application');
       }
+    );
 
-      const updatedApplications = applications.map(app => {
-        if (app._id === selectedApp._id) {
-          return {
-            ...app,
-            status: ApplicationStatus.APPLICATION_APPROVED
-          };
-        }
-        return app;
-      });
-      
-      setApplications(updatedApplications);
-      showToast(`Application from ${selectedApp.fullName} approved`, 'success');
-      setSelectedApp(null);
-      setActiveModal(null);
-    } catch (error) {
-      console.error('Error approving application:', error);
-      showToast(error instanceof Error ? error.message : 'Failed to approve application', 'error');
-    } finally {
-      setIsProcessing(false);
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Failed to approve application');
     }
-  };
+
+    const updatedApplications = applications.map(app => {
+      if (app._id === selectedApp._id) {
+        return {
+          ...app,
+          status: ApplicationStatus.APPLICATION_APPROVED
+        };
+      }
+      return app;
+    });
+    
+    setApplications(updatedApplications);
+    showToast(`Application from ${selectedApp.fullName} approved`, 'success');
+    setSelectedApp(null);
+    setActiveModal(null);
+  } catch (error) {
+    console.error('Error approving application:', error);
+    showToast(error instanceof Error ? error.message : 'Failed to approve application', 'error');
+  } finally {
+    setIsApproving(false);
+  }
+};
 
   // Get status badge based on application status
   const getStatusBadge = (status: string) => {
@@ -960,33 +962,29 @@ const getActionButtons = (app: Application) => {
       </div>
       
       <div className="flex justify-end gap-2 mt-6">
-        <Button 
-          variant="text" 
-          onClick={() => {setSelectedApp(null); setActiveModal(null);}} 
-          disabled={isProcessing}
-        >
-          Cancel
-        </Button>
-        <Button 
-          variant="danger" 
-          onClick={() => {
-            setIsProcessing(true);
-            handleReject('application').finally(() => setIsProcessing(false));
-          }}
-          disabled={!rejectionComment || isProcessing}
-        >
-          {isProcessing ? 'Processing...' : 'Reject Application'}
-        </Button>
-        <Button 
-          onClick={() => {
-            setIsProcessing(true);
-            handleApproveApplication().finally(() => setIsProcessing(false));
-          }}
-          disabled={rejectionComment.length > 0 || isProcessing}
-        >
-          {isProcessing ? 'Processing...' : 'Approve Application'}
-        </Button>
-      </div>
+  <Button 
+    variant="text" 
+    onClick={() => {setSelectedApp(null); setActiveModal(null);}} 
+    disabled={isApproving || isRejecting}
+  >
+    Cancel
+  </Button>
+  <Button 
+    variant="danger" 
+    onClick={() => handleReject('application')}
+    disabled={!rejectionComment || isRejecting || isApproving}
+    // loading={isRejecting}
+  >
+    {isRejecting ? 'Processing...' : 'Reject Application'}
+  </Button>
+  <Button 
+    onClick={handleApproveApplication}
+    disabled={rejectionComment.length > 0 || isApproving || isRejecting}
+    // loading={isApproving}
+  >
+    {isApproving ? 'Processing...' : 'Approve Application'}
+  </Button>
+</div>
     </div>
   </div>
 )}
@@ -1443,10 +1441,17 @@ const getActionButtons = (app: Application) => {
       </div>
       
       {/* Rejection Reason (if exists) */}
-      {(selectedApp.rejectionReason ||selectedApp.reasonForPaymentRejection) && (
+      {(selectedApp.rejectionReason) && (
         <div className="mt-4 bg-red-50 p-4 rounded-lg">
           <h4 className="font-medium text-red-700 mb-2">Rejection Reason</h4>
-          <p className="text-red-600">{selectedApp.rejectionReason || selectedApp.reasonForPaymentRejection}</p>
+          <p className="text-red-600">{selectedApp.rejectionReason}</p>
+        </div>
+      )}
+      {/* Reason For Payment rejection (if exists) */}
+      {(selectedApp.reasonForPaymentRejection) && (
+        <div className="mt-4 bg-red-50 p-4 rounded-lg">
+          <h4 className="font-medium text-red-700 mb-2">Reason For Payment Rejection</h4>
+          <p className="text-red-600">{selectedApp.reasonForPaymentRejection}</p>
         </div>
       )}
       
