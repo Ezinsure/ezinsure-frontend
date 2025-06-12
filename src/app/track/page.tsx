@@ -9,6 +9,7 @@ import { useToast } from '@/components/ui/toast';
 import { rwandaProvinces } from '@/utils/rwanda-administrative';
 import { DocumentViewer } from '@/components/ui/document-viewer';
 
+
 interface Application {
   _id: string;
   applicationNumber: string;
@@ -66,7 +67,7 @@ const OTPModal = ({ isOpen, onClose, onVerify, email, isLoading }: OTPModalProps
       setOtp(['', '', '', '', '', '']);
       showToast(`OTP sent to your email: ${email}`, 'success');
     }
-  }, [isOpen]); // Removed email and showToast from dependencies to prevent infinite loops
+  }, [isOpen]);
 
   const handleOtpChange = (index: number, value: string) => {
     if (value.length > 1) return;
@@ -74,12 +75,23 @@ const OTPModal = ({ isOpen, onClose, onVerify, email, isLoading }: OTPModalProps
 
     const newOtp = [...otp];
     newOtp[index] = value;
-    setOtp(newOtp);
-
+    
     // Auto-focus next input
     if (value && index < 5) {
       const nextInput = document.getElementById(`otp-${index + 1}`);
       nextInput?.focus();
+    }
+
+    // Check if all OTP digits are entered using the new state
+    const updatedOtp = [...newOtp];
+    const completeOtp = updatedOtp.join('');
+    
+    // Update state
+    setOtp(newOtp);
+
+    // Verify if all digits are entered
+    if (completeOtp.length === 6) {
+      onVerify(completeOtp);
     }
   };
 

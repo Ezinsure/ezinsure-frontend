@@ -69,26 +69,26 @@ const EditApplicationModal = ({
   const isPaymentRejection = application.status === 'WAITING_FOR_USER_ACTION' && 
                            (application.reasonForPaymentRejection);
 
-  const [formState, setFormState] = useState<Partial<Application>>(() => {
-    if (isPaymentRejection) {
-      return {}; // Empty state for payment rejection case
-    }
-    return {
-      fullName: application.fullName,
-      email: application.email,
-      phoneNumber: application.phoneNumber,
-      address: application.address,
-      dateOfBirth: application.dateOfBirth,
-      insuranceCategory: application.insuranceCategory,
-      insuranceType: application.insuranceType,
-      insuranceDuration: application.insuranceDuration,
-      vehicleType: application.vehicleType,
-      vehicleAge: application.vehicleAge,
-      province: application.province,
-      district: application.district,
-      sector: application.sector,
-    };
-  });
+const [formState, setFormState] = useState<Partial<Application>>(() => {
+  if (isPaymentRejection) {
+    return {}; // Empty state for payment rejection case
+  }
+  return {
+    fullName: application.fullName,
+    email: application.email,
+    phoneNumber: application.phoneNumber,
+    address: application.address,
+    dateOfBirth: application.dateOfBirth,
+    insuranceCategory: application.insuranceCategory,
+    insuranceType: application.insuranceType,
+    insuranceDuration: application.insuranceDuration,
+    vehicleType: application.vehicleType,
+    vehicleAge: application.vehicleAge,
+    province: application.province,
+    district: application.district,
+    sector: application.sector,
+  };
+});
 
   const [files, setFiles] = useState<Record<string, File | null>>({
     nationalID: null,
@@ -139,6 +139,20 @@ const EditApplicationModal = ({
       }
     }
   }, [formState.district, availableDistricts, isPaymentRejection]);
+
+  useEffect(() => {
+  if (!isPaymentRejection && application.province) {
+    // Initialize districts for the current province
+    const selectedProvince = rwandaProvinces.find(p => p.name === application.province);
+    setAvailableDistricts(selectedProvince?.districts || []);
+    
+    if (application.district) {
+      // Initialize sectors for the current district
+      const selectedDistrict = selectedProvince?.districts?.find(d => d.name === application.district);
+      setAvailableSectors(selectedDistrict?.sectors || []);
+    }
+  }
+}, [application.province, application.district, isPaymentRejection]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -405,17 +419,17 @@ const EditApplicationModal = ({
                       Sector <span className="text-red-500">*</span>
                     </label>
                     <select
-                      name="sector"
-                      value={formState.sector || ''}
-                      onChange={handleInputChange}
-                      disabled={!formState.district}
-                      className="w-full py-2 px-3 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none disabled:bg-gray-100 disabled:cursor-not-allowed"
-                    >
-                      <option value="">Select Sector</option>
-                      {availableSectors.map(sector => (
-                        <option key={sector} value={sector}>{sector}</option>
-                      ))}
-                    </select>
+  name="sector"
+  value={formState.sector || ''}
+  onChange={handleInputChange}
+  disabled={!formState.district}
+  className="w-full py-2 px-3 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none disabled:bg-gray-100 disabled:cursor-not-allowed"
+>
+  <option value="">Select Sector</option>
+  {availableSectors.map(sector => (
+    <option key={sector} value={sector}>{sector}</option>
+  ))}
+</select>
                     {errors.sector && (
                       <p className="mt-1 text-sm text-red-600">{errors.sector}</p>
                     )}
@@ -609,41 +623,41 @@ export default function AgentApplicationsPage() {
   const itemsPerPage = 10;
   const [activeModal, setActiveModal] = useState<ModalType>('none');
 
-  // Fetch applications for the agent
-  useEffect(() => {
-    const fetchApplications = async () => {
-      try {
-        setIsLoading(true);
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/getApplicationsByAgent`, {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          }
-        });
-        
-        if (!response.ok) {
-          throw new Error('Failed to fetch applications');
-        }
-        
-        const data = await response.json();
-        // Sort applications by submittedAt in descending order (newest first)
-        const sortedApplications = data.data.sort((a: Application, b: Application) => {
-          return new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime();
-        });
-        setApplications(sortedApplications);
-      } catch (error) {
-        console.error('Error fetching applications:', error);
-        showToast('Failed to load applications', 'error');
-      } finally {
-        setIsLoading(false);
+  const fetchApplications = async () => {
+  try {
+    setIsLoading(true);
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/getApplicationsByAgent`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
       }
-    };
-
-    if (token) {
-      fetchApplications();
+    });
+    
+    if (!response.ok) {
+      throw new Error('Failed to fetch applications');
     }
-  }, [token]);
+    
+    const data = await response.json();
+    // Sort applications by submittedAt in descending order (newest first)
+    const sortedApplications = data.data.sort((a: Application, b: Application) => {
+      return new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime();
+    });
+    setApplications(sortedApplications);
+  } catch (error) {
+    console.error('Error fetching applications:', error);
+    showToast('Failed to load applications', 'error');
+  } finally {
+    setIsLoading(false);
+  }
+};
+
+  // Fetch applications for the agent
+useEffect(() => {
+  if (token) {
+    fetchApplications();
+  }
+}, [token]);
 
   // Filter applications based on search query and tab
   const filteredApplications = applications.filter(app => {
@@ -663,86 +677,63 @@ export default function AgentApplicationsPage() {
   );
 
   // Handle payment proof submission
-  const handleSubmitPayment = async () => {
-    if (!selectedApp || !paymentProof || !transactionId) {
-      showToast('Please fill all required fields', 'error');
-      return;
-    }
+const handleSubmitPayment = async () => {
+  if (!selectedApp || !paymentProof || !transactionId) {
+    showToast('Please fill all required fields', 'error');
+    return;
+  }
 
-    setIsLoading(true);
-    try {
-      const formData = new FormData();
-      formData.append('proofOfPayment', paymentProof);
-      formData.append('transactionId', transactionId);
+  setIsLoading(true);
+  try {
+    const formData = new FormData();
+    formData.append('proofOfPayment', paymentProof);
+    formData.append('transactionId', transactionId);
 
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_BASE_URL}/sendProofofPayment/${selectedApp._id}`,
-        {
-          method: 'PUT',
-          headers: {
-            'Authorization': `Bearer ${token}`
-          },
-          body: formData
-        }
-      );
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to submit payment proof');
+    const response = await fetch(
+      `${process.env.NEXT_PUBLIC_API_BASE_URL}/sendProofofPayment/${selectedApp._id}`,
+      {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData
       }
+    );
 
-      const updatedApplications = applications.map(app => {
-        if (app._id === selectedApp._id) {
-          return {
-            ...app,
-            status: 'REVIEW_PAYMENT',
-            proofOfPayment: URL.createObjectURL(paymentProof),
-            transactionId: transactionId
-          };
-        }
-        return app;
-      });
-      
-      setApplications(updatedApplications);
-      showToast('Payment proof submitted successfully!', 'success');
-      setPaymentProof(null);
-      setTransactionId('');
-      setSelectedApp(null);
-      setActiveModal('none');
-    } catch (error) {
-      console.error('Error submitting payment proof:', error);
-      showToast(error instanceof Error ? error.message : 'Failed to submit payment proof', 'error');
-    } finally {
-      setIsLoading(false);
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Failed to submit payment proof');
     }
-  };
+
+    showToast('Payment proof submitted successfully!', 'success');
+    // Instead of manually updating, refetch all applications
+    await fetchApplications();
+    
+    setPaymentProof(null);
+    setTransactionId('');
+    setSelectedApp(null);
+    setActiveModal('none');
+  } catch (error) {
+    console.error('Error submitting payment proof:', error);
+    showToast(error instanceof Error ? error.message : 'Failed to submit payment proof', 'error');
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   // Handle successful edit
-  const handleEditSuccess = async () => {
-    try {
-      setIsLoading(true);
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/getApplicationsByAgent`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch applications');
-      }
-      
-      const data = await response.json();
-      setApplications(data.data);
-      showToast('Application updated successfully!', 'success');
-    } catch (error) {
-      console.error('Error refreshing applications:', error);
-      showToast('Failed to refresh applications', 'error');
-    } finally {
-      setIsLoading(false);
-    }
-  };
+const handleEditSuccess = async () => {
+  try {
+    setIsLoading(true);
+    await fetchApplications();
+    showToast('Application updated successfully!', 'success');
+  } catch (error) {
+    console.error('Error refreshing applications:', error);
+    showToast('Failed to refresh applications', 'error');
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   // Get status badge based on application status
   const getStatusBadge = (status: string) => {
