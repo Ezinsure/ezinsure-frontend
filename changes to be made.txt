@@ -1,18 +1,9 @@
-1. bank details on /apply need space btn
-2. Need to add terms and contitions page
-3. date of birth not limited on admin page create user
-4. banks are not a select option
-5. emergency contacts placeholder on admin create user
-6. drag and drop on admin create user
-7. in admin page on edit user (province and sector are not select and bankname is not select)
-8. address(remove max length validation) on admin page
-9. when creating admin role on admin page we need the other fields
-10. On edit user on admin, prefill the relationship on emergency contact and also make the province and district prefilled and make them selects
-11. on admin dashboard, loading on all button on approve/reject insurance application
+
+2. Need to add privacy policy page
+
 
 on agent dashboard
 1. edit application prefill sector
-2. on view detail or edit, show both rejection reason and payment rejection reason 
-3. remove demo credentials on login
-4. date of birth limited on /apply page
-5. always fetch applications on admin or agent page after every api call/action
+
+
+

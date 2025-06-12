@@ -65,11 +65,23 @@ const OTPModal = ({ isOpen, onClose, onVerify, email, isLoading }: OTPModalProps
 
     const newOtp = [...otp];
     newOtp[index] = value;
-    setOtp(newOtp);
-
+    
+    // Auto-focus next input
     if (value && index < 5) {
       const nextInput = document.getElementById(`otp-${index + 1}`);
       nextInput?.focus();
+    }
+
+    // Check if all OTP digits are entered using the new state
+    const updatedOtp = [...newOtp];
+    const completeOtp = updatedOtp.join('');
+    
+    // Update state
+    setOtp(newOtp);
+
+    // Verify if all digits are entered
+    if (completeOtp.length === 6) {
+      onVerify(completeOtp);
     }
   };
 
