@@ -220,7 +220,7 @@ export default function SuperAdminUsersPage() {
       formDataToSend.append('bankName', formData.bankName);
       formDataToSend.append('bankAccountNumber', formData.bankAccountNumber);
       
-      if (formData.role === 'AGENT') {
+
         if (formData.nationalIdDocument) {
           formDataToSend.append('nationalIdDocument', formData.nationalIdDocument);
         }
@@ -237,7 +237,6 @@ export default function SuperAdminUsersPage() {
         formDataToSend.append('emergencyContacts2Name', formData.emergencyContact2Name);
         formDataToSend.append('emergencyContacts2Phone', formData.emergencyContact2PhoneNumber);
         formDataToSend.append('emergencyContacts2Relationship', formData.emergencyContact2Relationship);
-      }
 
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/register`, {
         method: 'POST',
