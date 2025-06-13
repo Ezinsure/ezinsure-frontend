@@ -123,14 +123,35 @@ export default function SuperAdminUsersPage() {
     name: string;
     path: string;
   } | null>(null);
-  const [roleFilter, setRoleFilter] = useState<'all' | 'ADMIN' | 'AGENT' | 'SUPER_ADMIN'>('all');
+  const [roleFilter, setRoleFilter] = useState<'all' | 'ADMIN'| 'FINANCE' | 'AGENT' | 'SUPER_ADMIN'>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | User['status']>('all');
   const { token } = useAuth();
   const [isDeactivating, setIsDeactivating] = useState(false);
   const [userToDeactivate, setUserToDeactivate] = useState<string | null>(null);
   const itemsPerPage = 10;
   
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    fullName: string;
+    email: string;
+    phoneNumber: string;
+    dateOfBirth: string;
+    address: string;
+    province: string;
+    district: string;
+    sector: string;
+    role: 'ADMIN' | 'AGENT' | 'FINANCE';
+    emergencyContact1Name: string;
+    emergencyContact1PhoneNumber: string;
+    emergencyContact1Relationship: string;
+    emergencyContact2Name: string;
+    emergencyContact2PhoneNumber: string;
+    emergencyContact2Relationship: string;
+    nationalIdDocument: File | null;
+    criminalRecordCertificate: File | null;
+    passportPhoto: File | null;
+    bankName: string;
+    bankAccountNumber: string;
+  }>({
     fullName: '',
     email: '',
     phoneNumber: '',
@@ -139,7 +160,7 @@ export default function SuperAdminUsersPage() {
     province: '',
     district: '',
     sector: '',
-    role: 'AGENT' as 'ADMIN' | 'AGENT',
+    role: 'AGENT',
     emergencyContact1Name: '',
     emergencyContact1PhoneNumber: '',
     emergencyContact1Relationship: '',
@@ -642,12 +663,13 @@ export default function SuperAdminUsersPage() {
               <div className="flex gap-2">
                 <select
                   value={roleFilter}
-                  onChange={(e) => setRoleFilter(e.target.value as 'all' | 'ADMIN' | 'AGENT' | 'SUPER_ADMIN')}
+                  onChange={(e) => setRoleFilter(e.target.value as 'all' | 'ADMIN' | 'FINANCE' | 'AGENT' | 'SUPER_ADMIN')}
                   className="px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[var(--main-blue)] focus:border-[var(--main-blue)]"
                 >
                   <option value="all">All Roles</option>
                   <option value="ADMIN">Admin</option>
                   <option value="AGENT">Agent</option>
+                  <option value="FINANCE">Finance</option>
                   <option value="SUPER_ADMIN">Super Admin</option>
                 </select>
                 <select

@@ -60,6 +60,11 @@ export function middleware(request: NextRequest) {
         return NextResponse.redirect(new URL('/super_admin/dashboard', request.url));
       }
 
+      // Special handling for finance routes
+      if (user.role === 'FINANCE' && !pathname.startsWith('/finance')) {
+        return NextResponse.redirect(new URL('/finance/dashboard', request.url));
+      }
+
       return NextResponse.next();
     } catch (error) {
       console.error('Authentication error:', error);
