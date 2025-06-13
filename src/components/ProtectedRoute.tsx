@@ -18,7 +18,12 @@ export const ProtectedRoute = ({ children, allowedRoles }: ProtectedRouteProps) 
       if (!isAuthenticated) {
         router.push('/login');
       } else if (allowedRoles && !allowedRoles.includes(user?.role || '')) {
-        router.push(`/${user?.role.toLowerCase()}/dashboard`);
+        // Special handling for finance role
+        if (user?.role === 'FINANCE') {
+          router.push('/finance/dashboard');
+        } else {
+          router.push(`/${user?.role.toLowerCase()}/dashboard`);
+        }
       }
     }
   }, [isLoading, isAuthenticated, user, allowedRoles, router]);

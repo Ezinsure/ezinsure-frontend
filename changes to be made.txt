@@ -5,33 +5,27 @@ As you can see I have three flows:
     3. Admin: after login as admin, they can access the routes starting with /admin/* 
 Learn how I handled route protection in the protected route component, auth context and middleware
 Now I want to add another flow (4th)
-    4. Super_Admin: (since it's next.js the directory will be super_admin: similar to his role)
+    4. finance: (since it's next.js the directory will be finance: similar to his role)
     Now just as for the agent and admin add the flow of super admin and here are the things you will do: 
-    1. Add /super_admin/* route protection in authcontext and middleware just like it is done for admin and agent
-    2. In the navbar component, add navlinks for super_admin.(dashboard, application, uses and then a profile icon just like on other flow which when clicked will show a dropdown having profile settings and logout)
+    1. Add /finance/* route protection in authcontext and middleware just like it is done for admin and agent
+    2. In the navbar component, add navlinks for finance.(dashboard and a profile icon just like on other flow which when clicked will show a dropdown having profile settings and logout)
     3. Now you will have to creaate the directories for all those navlinks
         1.dashboard (make a duplicate, just as admin dashboard)
-        2.applications (refer to how the admin applications page is build and then build one for super admin.)
-            However on super admin's applications page, he will only have the ability to view the application
-            So in the table unlike on admin, super admin will only have the view details button and be able to view the details of an application
-        3.users (also refer to the way the users page of admin is implemented and then create one for super admin)
-            Super admin will also be able to view, edit, and deactivate a user just like the admin
-            Create super_admin view-user, create-user and edit-user components in /components/ui/super_admin/
-            they should be similar to those of the admin but I need to add a few specifications on the super admin's components:
-            1. The super admin's create user component will be just as the admin's no much changes
-            2. However the edit-user component will allow the super admin to edit all the fields of a user (current fields in admin's edit user component /components/ui/admin/edit-user + fields to edit the user's documents)
-                to implement the document's fields you refer to the /components/ui/admin/EditUserOnTrackingPage. the exact fields in this component should be the ones in the super admin's edit user component
-            3. Last but not least is the deactivate modal, it should work exactly as it works on admin's users page.
-                show a popup to add deactivation reason and then buttons to confirm or cancel
-
-        4.Profile: 
+        2.profile: 
             Now also give the super admin a profile page just like admin and agent so that he can change his profile and password
-
-
+        3.history
+            here she will see a table with basic filters where she will be viewing the past month's payments. eg we will display a table displaying the columns:
+                id (count), month/year, total amount (total amount paid to agents in that month), number of agents (who were paid in that month), actions: view(when clicked will show a popup containing a tabe of all agents who were paid in that month and their esential data and amount) and export which when clicked will export the data that is being shown in the popup into an excel/csv file.
+                
 NOTES:
     on super admin pages use these api endpoints instead:
-    for fetching all users use /getAllusers
-    for fetching applications use /getApplications
-    for creating user user /registerSuper
-    then for all other apis use the same as those used on admin flow
+    for fetching all agents and their monthly commission /getAllAgentsMonthlyCommission
+
+
+overview: basically on the finance user dashboard they will be able to fetch and see agents and their monthly commission (commissions they earned in the current month)
+as then she will have a button where she can click to export all the agents and their essential details in an excel file for payment processing. 
+so you will add a few functionalities on the dashboard not necessary all the features in the /admin/dashboard.
+just add a way for the finance user to filter based on dates, the data should be in a table. 
+search for users in the table and also like an overview for the month, quarter and year
+
 
