@@ -4,6 +4,7 @@
 import React, { useState, useEffect } from 'react';
 import { DollarSign, Users, Search, Download, RefreshCw, Calendar, ArrowDownRight, ArrowUpRight } from 'lucide-react';
 import { MainLayout } from '@/components/ui/main-layout';
+import { useAuth } from '@/context/AuthContext';
 
 interface AgentCommission {
   _id: string;
@@ -16,6 +17,12 @@ interface AgentCommission {
   bankAccountNumber: string;
   paid?: boolean;
   paymentDate?: string;
+}
+
+interface PaginationProps {
+  currentPage: number;
+  totalPages: number;
+  onPageChange: (page: number) => void;
 }
 
 interface PaymentHistory {
@@ -35,6 +42,9 @@ const FinanceDashboard = () => {
   const [selectedPeriod, setSelectedPeriod] = useState<'month' | 'quarter' | 'year'>('month');
   const [searchTerm, setSearchTerm] = useState('');
   const [isLoading, setIsLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+  const { token } = useAuth();
   // const [dateRange, setDateRange] = useState({
   //   start: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
   //   end: new Date()
@@ -44,7 +54,29 @@ const FinanceDashboard = () => {
     month: new Date().toLocaleString('default', { month: 'long' }),
     data: []
   });
-  const [paymentHistory, setPaymentHistory] = useState<PaymentHistory[]>([]);
+  const [paymentHistory, setPaymentHistory] = useState<PaymentHistory[]>([
+    {
+      year: "2025",
+      month: "May",
+      totalCommissionForMonth: "11850000",
+      data: [],
+      paid: false
+    },
+    {
+      year: "2025",
+      month: "April",
+      totalCommissionForMonth: "10520000",
+      data: [],
+      paid: true
+    },
+    {
+      year: "2025",
+      month: "March",
+      totalCommissionForMonth: "9850000",
+      data: [],
+      paid: true
+    }
+  ]);
 
   // Calculate current month's total commission
   const currentMonthTotal = currentMonthData.data.reduce((sum, agent) => sum + agent.totalCommission, 0);
@@ -61,7 +93,7 @@ const FinanceDashboard = () => {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
+            'Authorization': `Bearer ${token}`
           }
         });
         
@@ -85,7 +117,7 @@ const FinanceDashboard = () => {
             month: "May",
             totalCommissionForMonth: "11850000",
             data: [],
-            paid: true
+            paid: false
           },
           {
             year: "2025",
@@ -110,12 +142,12 @@ const FinanceDashboard = () => {
     };
 
     fetchCurrentMonthData();
-  }, []);
+  }, [token]);
 
   const statsCards = [
     {
       title: 'Total Commission',
-      value: `${(currentMonthTotal / 1000000).toFixed(2)}M RWF`,
+      value: `${currentMonthTotal.toLocaleString()} RWF`,
       change: '+0%',
       changeType: 'increase',
       icon: <DollarSign className="w-6 h-6" />,
@@ -163,6 +195,120 @@ const FinanceDashboard = () => {
     agent.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     agent.agentId.toLowerCase().includes(searchTerm.toLowerCase())
   ) || [];
+
+  const paginatedAgents = filteredAgents.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
+  const Pagination = ({ currentPage, totalPages, onPageChange }: PaginationProps) => {
+    const maxVisiblePages = 5;
+    let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+    const endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+
+    if (endPage - startPage + 1 < maxVisiblePages) {
+      startPage = Math.max(1, endPage - maxVisiblePages + 1);
+    }
+
+    const pages = [];
+    for (let i = startPage; i <= endPage; i++) {
+      pages.push(i);
+    }
+
+    return (
+      <div className="flex items-center justify-between mt-6">
+        <div className="flex-1 flex justify-between sm:hidden">
+          <button
+            onClick={() => onPageChange(Math.max(1, currentPage - 1))}
+            disabled={currentPage === 1}
+            className="px-3 py-1 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
+          >
+            Previous
+          </button>
+          <button
+            onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
+            disabled={currentPage === totalPages}
+            className="px-3 py-1 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
+          >
+            Next
+          </button>
+        </div>
+        
+        <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+          <div>
+            <p className="text-sm text-gray-700">
+              Showing <span className="font-medium">{(currentPage - 1) * itemsPerPage + 1}</span> to{' '}
+              <span className="font-medium">{Math.min(currentPage * itemsPerPage, filteredAgents.length)}</span> of{' '}
+              <span className="font-medium">{filteredAgents.length}</span> agents
+            </p>
+          </div>
+          <div>
+            <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+              <button
+                onClick={() => onPageChange(1)}
+                disabled={currentPage === 1}
+                className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
+              >
+                <span className="sr-only">First</span>
+                «
+              </button>
+              <button
+                onClick={() => onPageChange(Math.max(1, currentPage - 1))}
+                disabled={currentPage === 1}
+                className="relative inline-flex items-center px-2 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
+              >
+                <span className="sr-only">Previous</span>
+                ‹
+              </button>
+              
+              {startPage > 1 && (
+                <span className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700">
+                  ...
+                </span>
+              )}
+              
+              {pages.map(page => (
+                <button
+                  key={page}
+                  onClick={() => onPageChange(page)}
+                  className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
+                    currentPage === page
+                      ? 'z-10 bg-blue-50 border-blue-500 text-blue-600'
+                      : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
+                  }`}
+                >
+                  {page}
+                </button>
+              ))}
+              
+              {endPage < totalPages && (
+                <span className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700">
+                  ...
+                </span>
+              )}
+              
+              <button
+                onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
+                disabled={currentPage === totalPages}
+                className="relative inline-flex items-center px-2 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
+              >
+                <span className="sr-only">Next</span>
+                ›
+              </button>
+              <button
+                onClick={() => onPageChange(totalPages)}
+                disabled={currentPage === totalPages}
+                className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
+              >
+                <span className="sr-only">Last</span>
+                »
+              </button>
+            </nav>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   const handleExportPayments = () => {
     // Export current month's data as CSV
@@ -367,7 +513,7 @@ const FinanceDashboard = () => {
               </div>
               
               <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
-                <div className="relative w-full">
+                <div className="relative flex items-center  w-full">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                     <Search className="h-4 w-4 text-gray-400" />
                   </div>
@@ -382,7 +528,7 @@ const FinanceDashboard = () => {
                 <button 
                   onClick={() => markAsPaid()}
                   disabled={currentMonthPendingAgents === 0}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold ${
+                  className={`flex text-nowrap items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold ${
                     currentMonthPendingAgents === 0 
                       ? 'bg-gray-200 text-gray-500 cursor-not-allowed' 
                       : 'bg-green-600 text-white hover:bg-green-700'
@@ -408,32 +554,24 @@ const FinanceDashboard = () => {
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Agent ID</th>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">#</th>
                       <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
                       <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Phone</th>
                       <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Bank</th>
                       <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Account</th>
                       <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Commission</th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {filteredAgents.map((agent) => (
+                    {paginatedAgents.map((agent, index) => (
                       <tr key={agent._id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{agent.agentId}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{(currentPage - 1) * itemsPerPage + index + 1}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{agent.name}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{agent.phoneNumber}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{agent.bankName}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{agent.bankAccountNumber}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
                           {agent.totalCommission.toLocaleString()} RWF
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                            agent.paid ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
-                          }`}>
-                            {agent.paid ? 'Paid' : 'Pending'}
-                          </span>
                         </td>
                       </tr>
                     ))}
@@ -442,19 +580,12 @@ const FinanceDashboard = () => {
               )}
             </div>
             
-            <div className="mt-6 flex justify-between items-center">
-              <div className="text-sm text-gray-500">
-                Showing <span className="font-medium">1</span> to <span className="font-medium">{filteredAgents.length}</span> of{' '}
-                <span className="font-medium">{currentMonthData.data.length}</span> agents
-              </div>
-              <div className="flex space-x-2">
-                <button className="px-3 py-1 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
-                  Previous
-                </button>
-                <button className="px-3 py-1 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
-                  Next
-                </button>
-              </div>
+            <div className="mt-6">
+              <Pagination
+                currentPage={currentPage}
+                totalPages={Math.ceil(filteredAgents.length / itemsPerPage)}
+                onPageChange={setCurrentPage}
+              />
             </div>
           </div>
 
@@ -496,7 +627,7 @@ const FinanceDashboard = () => {
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{payment.year}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{payment.month}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-semibold">
-                          {(parseInt(payment.totalCommissionForMonth) / 1000000).toFixed(2)}M RWF
+                          {parseInt(payment.totalCommissionForMonth).toLocaleString()} RWF
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{payment.data.length}</td>
                         <td className="px-6 py-4 whitespace-nowrap">
@@ -562,7 +693,7 @@ const FinanceDashboard = () => {
                     <p className="text-gray-600">Showing payment details for</p>
                     <p className="font-semibold text-gray-900">{showPaymentDetails.month} {showPaymentDetails.year}</p>
                     <p className="text-gray-900 mt-1">
-                      Total Paid: {(showPaymentDetails.data.reduce((sum, agent) => sum + agent.totalCommission, 0) / 1000000).toFixed(2)}M RWF
+                      Total Paid: {showPaymentDetails.data.reduce((sum, agent) => sum + agent.totalCommission, 0).toLocaleString()} RWF
                     </p>
                   </div>
                   <button 
@@ -579,7 +710,7 @@ const FinanceDashboard = () => {
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Agent ID</th>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">#</th>
                       <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
                       <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Phone</th>
                       <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Bank</th>
@@ -588,9 +719,9 @@ const FinanceDashboard = () => {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {showPaymentDetails.data.map((agent) => (
+                    {showPaymentDetails.data.map((agent, index) => (
                       <tr key={agent._id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{agent.agentId}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{index + 1}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{agent.name}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{agent.phoneNumber}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{agent.bankName}</td>
