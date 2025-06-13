@@ -233,7 +233,7 @@ const handleCreateUser = async () => {
     formDataToSend.append('bankName', formData.bankName);
 formDataToSend.append('bankAccountNumber', formData.bankAccountNumber);
     
-    if (formData.role === 'AGENT') {
+   
       if (formData.nationalIdDocument) {
         formDataToSend.append('nationalIdDocument', formData.nationalIdDocument);
       }
@@ -251,7 +251,7 @@ formDataToSend.append('bankAccountNumber', formData.bankAccountNumber);
       formDataToSend.append('emergencyContacts2Name', formData.emergencyContact2Name);
       formDataToSend.append('emergencyContacts2Phone', formData.emergencyContact2PhoneNumber);
       formDataToSend.append('emergencyContacts2Relationship', formData.emergencyContact2Relationship);
-    }
+
     
     // console.log('Form data to send:', formDataToSend);
 
