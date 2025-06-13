@@ -14,7 +14,7 @@ interface FormData {
   province: string;
   district: string;
   sector: string;
-  role: 'ADMIN' | 'AGENT';
+  role: 'ADMIN' | 'FINANCE' | 'AGENT';
   emergencyContact1Name: string;
   emergencyContact1PhoneNumber: string;
   emergencyContact1Relationship: string;
@@ -194,7 +194,7 @@ const [sectors, setSectors] = useState<string[]>([]);
   criminalRecordCertificate: { required: true },
   passportPhoto: { required: true },
     bankName: { required: true },
-    bankAccountNumber: { required: true, pattern: /^\d{10,15}$/ },
+    bankAccountNumber: { required: true, pattern: /^\d{10,16}$/ },
     province: { required: true },
     district: { required: true }, 
     sector: { required: true },
@@ -489,6 +489,7 @@ useEffect(() => {
             >
               <option value="AGENT">Agent</option>
               <option value="ADMIN">Admin</option>
+              <option value="FINANCE">Finance</option>
             </select>
           </div>
 

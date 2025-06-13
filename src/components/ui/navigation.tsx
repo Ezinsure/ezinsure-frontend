@@ -39,13 +39,22 @@ export const Navigation = () => {
       const rolePrefix = `/${user.role.toLowerCase()}`;
       const newLinks = [
         { href: `${rolePrefix}/dashboard`, label: 'Dashboard' },
-        { href: `${rolePrefix}/applications`, label: user.role === 'ADMIN' || user.role === 'SUPER_ADMIN' ? 'Applications' : 'My Applications' },
       ];
 
       if (user.role === 'ADMIN' || user.role === 'SUPER_ADMIN') {
-        newLinks.push({ href: `${rolePrefix}/users`, label: 'Manage Users' });
-      } else {
-        newLinks.push({ href: `${rolePrefix}/apply`, label: 'New Application' });
+        newLinks.push(
+          { href: `${rolePrefix}/applications`, label: 'Applications' },
+          { href: `${rolePrefix}/users`, label: 'Manage Users' }
+        );
+      } else if (user.role === 'AGENT') {
+        newLinks.push(
+          { href: `${rolePrefix}/applications`, label: 'My Applications' },
+          { href: `${rolePrefix}/apply`, label: 'New Application' }
+        );
+      } else if (user.role === 'FINANCE') {
+        newLinks.push(
+          { href: `${rolePrefix}/history`, label: 'Payment History' }
+        );
       }
 
       newLinks.push({ href: `${rolePrefix}/profile`, label: 'Profile' });

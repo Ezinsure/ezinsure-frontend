@@ -414,9 +414,9 @@ export default function ApplyPage() {
         }
 
         // Display FormData contents before sending
-        for (const [key, value] of formData.entries()) {
-          console.log(`${key}:`, value);
-        }
+        // for (const [key, value] of formData.entries()) {
+        //   console.log(`${key}:`, value);
+        // }
 
         const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/apply`, {
           method: 'POST',
