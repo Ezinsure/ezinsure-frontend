@@ -488,7 +488,7 @@ useEffect(() => {
               className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[var(--main-blue)] focus:border-[var(--main-blue)]"
             >
               <option value="AGENT">Agent</option>
-              <option value="ADMIN">Admin</option>
+              {/* <option value="ADMIN">Admin</option> */}
             </select>
           </div>
 
