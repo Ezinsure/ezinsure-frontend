@@ -239,7 +239,7 @@ export default function SuperAdminUsersPage() {
         formDataToSend.append('emergencyContacts2Relationship', formData.emergencyContact2Relationship);
       }
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/registerSuper`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/register`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`
