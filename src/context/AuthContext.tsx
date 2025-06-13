@@ -62,7 +62,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
 
       // For protected routes, redirect to login
-      if (pathname.startsWith('/admin') || pathname.startsWith('/agent')) {
+      if (pathname.startsWith('/admin') || pathname.startsWith('/agent') || pathname.startsWith('/super_admin')) {
         router.push('/login');
         return;
       }

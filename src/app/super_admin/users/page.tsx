@@ -6,9 +6,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/components/ui/toast';
 import { DocumentViewer } from '@/components/ui/document-viewer';
-import { UserCreateModal } from '@/components/ui/admin/user-create-modal';
-import { UserViewModal } from '@/components/ui/admin/user-view-modal';
-import { UserEditModal } from '@/components/ui/admin/user-edit-modal';
+import { UserCreateModal } from '@/components/ui/super_admin/user-create-modal';
+import { UserViewModal } from '@/components/ui/super_admin/user-view-modal';
+import { UserEditModal } from '@/components/ui/super_admin/user-edit-modal';
 import { useAuth } from '@/context/AuthContext';
 
 interface User {
@@ -16,26 +16,23 @@ interface User {
   fullName: string;
   email: string;
   phoneNumber: string;
-  role: 'ADMIN' | 'SUPER_ADMIN' | 'AGENT';
-  password?: string;
-  commissionRate?: string;
+  role: 'ADMIN' | 'AGENT' | 'SUPER_ADMIN';
   status: 'ACTIVE' | 'DEACTIVATED' | 'SENT_FOR_ACTION' | 'PENDING';
-  createdBy?: string;
   createdAt?: string;
-  agentCode?: string;
-  passportPhoto?: string;
   dateOfBirth?: string;
   address?: string;
-  nationalIdDocument?: string;
-  criminalRecordCertificate?: string;
+  province?: string;
+  district?: string;
+  sector?: string;
+  passportPhoto?: string | File;
+  nationalIdDocument?: string | File;
+  criminalRecordCertificate?: string | File;
   emergencyContacts?: Array<{
     fullName: string;
     phoneNumber: string;
     relationship: string;
     _id: string;
   }>;
-  otp?: string;
-  otpExpires?: string;
   rejectionReason?: string;
   deactivationHistory?: Array<{
     deactivationReason: string;
@@ -43,9 +40,6 @@ interface User {
     deactivationDate: string;
     _id: string;
   }>;
-  province?: string;
-  sector?: string;
-  district?: string;
   bankName?: string;
   bankAccountNumber?: string;
 }
@@ -56,7 +50,6 @@ interface PaginationProps {
   onPageChange: (page: number) => void;
 }
 
-// Add this interface near your other interfaces
 interface DeactivationModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -64,7 +57,6 @@ interface DeactivationModalProps {
   isLoading: boolean;
 }
 
-// Add this component near your other components (like Pagination)
 const DeactivationModal = ({ isOpen, onClose, onConfirm, isLoading }: DeactivationModalProps) => {
   const [reason, setReason] = useState('');
   const [file, setFile] = useState<File | null>(null);
@@ -118,7 +110,7 @@ const DeactivationModal = ({ isOpen, onClose, onConfirm, isLoading }: Deactivati
   );
 };
 
-export default function AdminUsersPage() {
+export default function SuperAdminUsersPage() {
   const { showToast, ToastContainer } = useToast();
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -131,71 +123,66 @@ export default function AdminUsersPage() {
     name: string;
     path: string;
   } | null>(null);
-  const [rejectionReason, setRejectionReason] = useState('');
-  const [roleFilter, setRoleFilter] = useState<'all' | 'ADMIN' | 'AGENT'>('all');
+  const [roleFilter, setRoleFilter] = useState<'all' | 'ADMIN' | 'AGENT' | 'SUPER_ADMIN'>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | User['status']>('all');
   const { token } = useAuth();
   const [isDeactivating, setIsDeactivating] = useState(false);
-const [userToDeactivate, setUserToDeactivate] = useState<string | null>(null);
+  const [userToDeactivate, setUserToDeactivate] = useState<string | null>(null);
   const itemsPerPage = 10;
   
-
-  // Form state for creating users
-const [formData, setFormData] = useState({
-  fullName: '',
-  email: '',
-  phoneNumber: '',
-  dateOfBirth: '',
-  address: '',
-  province: '',
-  district: '',
-  sector: '',
-  role: 'AGENT' as 'ADMIN' | 'AGENT',
-  emergencyContact1Name: '',
-  emergencyContact1PhoneNumber: '',
-  emergencyContact1Relationship: '',
-  emergencyContact2Name: '',
-  emergencyContact2PhoneNumber: '',
-  emergencyContact2Relationship: '',
-  nationalIdDocument: null as File | null,
-  criminalRecordCertificate: null as File | null,
-  passportPhoto: null as File | null,
-    bankName: '', 
-  bankAccountNumber: '',
-});
+  const [formData, setFormData] = useState({
+    fullName: '',
+    email: '',
+    phoneNumber: '',
+    dateOfBirth: '',
+    address: '',
+    province: '',
+    district: '',
+    sector: '',
+    role: 'AGENT' as 'ADMIN' | 'AGENT',
+    emergencyContact1Name: '',
+    emergencyContact1PhoneNumber: '',
+    emergencyContact1Relationship: '',
+    emergencyContact2Name: '',
+    emergencyContact2PhoneNumber: '',
+    emergencyContact2Relationship: '',
+    nationalIdDocument: null as File | null,
+    criminalRecordCertificate: null as File | null,
+    passportPhoto: null as File | null,
+    bankName: '',
+    bankAccountNumber: '',
+  });
 
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
-  // Fetch users from API
   useEffect(() => {
-    // Update the fetchUsers function in the useEffect
-const fetchUsers = async () => {
-  try {
-    setIsLoading(true);
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/users`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      }
-    });
-    if (!response.ok) {
-      throw new Error('Failed to fetch users');
-    }
+    const fetchUsers = async () => {
+      try {
+        setIsLoading(true);
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/getAllusers`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        if (!response.ok) {
+          throw new Error('Failed to fetch users');
+        }
 
-const data = await response.json();
-// Sort by createdAt in descending order (newest first)
-const sortedUsers = data.data.sort((a: User, b: User) => {
-  return new Date(b.createdAt || '').getTime() - new Date(a.createdAt || '').getTime();
-});
-setUsers(sortedUsers);
-  } catch (error) {
-    console.error('Error fetching users:', error);
-    showToast('Failed to load users', 'error');
-  } finally {
-    setIsLoading(false);
-  }
-};
+        const data = await response.json();
+        // console.log(data);
+        const sortedUsers = data.data.sort((a: User, b: User) => {
+          return new Date(b.createdAt || '').getTime() - new Date(a.createdAt || '').getTime();
+        });
+        setUsers(sortedUsers);
+      } catch (error) {
+        console.error('Error fetching users:', error);
+        showToast('Failed to load users', 'error');
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
     fetchUsers();
   }, []);
@@ -217,290 +204,275 @@ setUsers(sortedUsers);
     currentPage * itemsPerPage
   );
 
-const handleCreateUser = async () => {
-  setIsLoading(true);
-  try {
-    const formDataToSend = new FormData();
-    formDataToSend.append('fullName', formData.fullName);
-    formDataToSend.append('email', formData.email);
-    formDataToSend.append('phoneNumber', formData.phoneNumber);
-    formDataToSend.append('dateOfBirth', formData.dateOfBirth);
-    formDataToSend.append('address', formData.address);
-    formDataToSend.append('province', formData.province);
-    formDataToSend.append('district', formData.district);
-    formDataToSend.append('sector', formData.sector);
-    formDataToSend.append('role', formData.role);
-    formDataToSend.append('bankName', formData.bankName);
-formDataToSend.append('bankAccountNumber', formData.bankAccountNumber);
-    
-    if (formData.role === 'AGENT') {
-      if (formData.nationalIdDocument) {
-        formDataToSend.append('nationalIdDocument', formData.nationalIdDocument);
-      }
-      if (formData.criminalRecordCertificate) {
-        formDataToSend.append('criminalRecordCertificate', formData.criminalRecordCertificate);
-      }
-      if (formData.passportPhoto) {
-        formDataToSend.append('passportPhoto', formData.passportPhoto);
-      }
+  const handleCreateUser = async () => {
+    setIsLoading(true);
+    try {
+      const formDataToSend = new FormData();
+      formDataToSend.append('fullName', formData.fullName);
+      formDataToSend.append('email', formData.email);
+      formDataToSend.append('phoneNumber', formData.phoneNumber);
+      formDataToSend.append('dateOfBirth', formData.dateOfBirth);
+      formDataToSend.append('address', formData.address);
+      formDataToSend.append('province', formData.province);
+      formDataToSend.append('district', formData.district);
+      formDataToSend.append('sector', formData.sector);
+      formDataToSend.append('role', formData.role);
+      formDataToSend.append('bankName', formData.bankName);
+      formDataToSend.append('bankAccountNumber', formData.bankAccountNumber);
       
-      // Emergency contacts - Fixed field names
-      formDataToSend.append('emergencyContacts1Name', formData.emergencyContact1Name);
-      formDataToSend.append('emergencyContacts1Phone', formData.emergencyContact1PhoneNumber);
-      formDataToSend.append('emergencyContacts1Relationship', formData.emergencyContact1Relationship);
-      formDataToSend.append('emergencyContacts2Name', formData.emergencyContact2Name);
-      formDataToSend.append('emergencyContacts2Phone', formData.emergencyContact2PhoneNumber);
-      formDataToSend.append('emergencyContacts2Relationship', formData.emergencyContact2Relationship);
-    }
-    
-    // console.log('Form data to send:', formDataToSend);
-
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/register`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`
-      },
-      body: formDataToSend
-    });
-
-    // console.log('Response from user creation:', response);
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      console.error('Error response:', errorData); // Added for debugging
-      throw new Error(errorData.message || 'Failed to create user');
-    }
-
-    const data = await response.json();
-    setUsers(prev => [...prev, data.data]);
-    showToast('User created successfully!', 'success');
-    setIsCreatingUser(false);
- setFormData({
-  fullName: '',
-  email: '',
-  phoneNumber: '',
-  dateOfBirth: '',
-  address: '',
-  province: '',
-  district: '',
-  sector: '',
-  role: 'AGENT',
-  emergencyContact1Name: '',
-  emergencyContact1PhoneNumber: '',
-  emergencyContact1Relationship: '',
-  emergencyContact2Name: '',
-  emergencyContact2PhoneNumber: '',
-  emergencyContact2Relationship: '',
-  nationalIdDocument: null,
-  criminalRecordCertificate: null,
-  passportPhoto: null,
-  bankName: '', 
-  bankAccountNumber: '',
-});
-  } catch (error: unknown) {
-    console.error('Error creating user:', error);
-    if (error && typeof error === 'object' && 'message' in error) {
-      showToast((error as { message?: string }).message || 'Failed to create user', 'error');
-    } else {
-      showToast('Failed to create user', 'error');
-    }
-  } finally {
-    setIsLoading(false);
-  }
-};
-
-const handleStatusChange = async (userId: string, status: User['status'], reason?: string) => {
-  setIsLoading(true);
-  try {
-    let endpoint = '';
-    let body: Record<string, unknown> | null = null;
-    const method = 'PUT';
-
-    switch (status) {
-      case 'ACTIVE':
-        endpoint = `approveAgentApplication/${userId}`;
-        break;
-      case 'SENT_FOR_ACTION':
-        endpoint = `sendForAction/${userId}`;
-        body = { rejectionReason: reason }; // Format the reason as 'action' for the backend
-        break;
-      case 'DEACTIVATED':
-        endpoint = `deactivateAgentApplication/${userId}`;
-        break;
-      default:
-        throw new Error('Invalid status change');
-    }
-
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/${endpoint}`, {
-      method,
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
-      body: body ? JSON.stringify(body) : null
-    });
-
-    if (!response.ok) {
-      throw new Error('Failed to update user status');
-    }
-
-    const updatedUsers = users.map(user => {
-      if (user._id === userId) {
-        return { 
-          ...user, 
-          status: status,
-          ...(reason && { rejectionReason: reason })
-        };
+      if (formData.role === 'AGENT') {
+        if (formData.nationalIdDocument) {
+          formDataToSend.append('nationalIdDocument', formData.nationalIdDocument);
+        }
+        if (formData.criminalRecordCertificate) {
+          formDataToSend.append('criminalRecordCertificate', formData.criminalRecordCertificate);
+        }
+        if (formData.passportPhoto) {
+          formDataToSend.append('passportPhoto', formData.passportPhoto);
+        }
+        
+        formDataToSend.append('emergencyContacts1Name', formData.emergencyContact1Name);
+        formDataToSend.append('emergencyContacts1Phone', formData.emergencyContact1PhoneNumber);
+        formDataToSend.append('emergencyContacts1Relationship', formData.emergencyContact1Relationship);
+        formDataToSend.append('emergencyContacts2Name', formData.emergencyContact2Name);
+        formDataToSend.append('emergencyContacts2Phone', formData.emergencyContact2PhoneNumber);
+        formDataToSend.append('emergencyContacts2Relationship', formData.emergencyContact2Relationship);
       }
-      return user;
-    });
 
-    setUsers(updatedUsers as User[]);
-    showToast(`User status updated to ${status.replace('_', ' ').toLowerCase()}`, 'success');
-    setSelectedUser(null);
-  } catch (error) {
-    console.error('Error updating user status:', error);
-    showToast('Failed to update user status', 'error');
-  } finally {
-    setIsLoading(false);
-  }
-};
-
-const handleDeleteUser = async (userId: string) => {
-  setUserToDeactivate(userId);
-  setIsDeactivating(true);
-};
-
-const confirmDeactivation = async (reason: string, deactivationFile: File | null) => {
-  if (!userToDeactivate) return;
-
-  setIsLoading(true);
-  try {
-    const formData = new FormData();
-    formData.append('deactivationReason', reason);
-    if (deactivationFile) {
-      formData.append('deactivationFile', deactivationFile);
-    }
-
-    const response = await fetch(
-      `${process.env.NEXT_PUBLIC_API_BASE_URL}/deactivateAgentApplication/${userToDeactivate}`,
-      {
-        method: 'PATCH',
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/registerSuper`, {
+        method: 'POST',
         headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-        body: formData,
-      }
-    );
-
-    console.log('Response from deactivation:', response);
-    if (!response.ok) {
-      throw new Error('Failed to deactivate user');
-    }
-
-    const updatedUsers = users.map((user) =>
-      user._id === userToDeactivate 
-        ? { 
-            ...user, 
-            status: 'DEACTIVATED' as User['status'],
-            deactivationReason: reason,
-            deactivationFile: deactivationFile ? URL.createObjectURL(deactivationFile) : undefined
-          } 
-        : user
-    );
-
-    setUsers(updatedUsers as User[]);
-    showToast('User deactivated successfully', 'success');
-  } catch (error) {
-    console.error('Error deactivating user:', error);
-    showToast('Failed to deactivate user', 'error');
-  } finally {
-    setIsLoading(false);
-    setIsDeactivating(false);
-    setUserToDeactivate(null);
-  }
-};
-
-
-const handleEditUser = async (updatedUser: User) => {
-  setIsLoading(true);
-  try {
-    // Get only the changed fields
-    const originalUser = users.find(u => u._id === updatedUser._id);
-    if (!originalUser) {
-      throw new Error('User not found');
-    }
-
-    const changedFields: Partial<User> = {};
-    
-    // Compare each field and only include changed ones
-    if (originalUser.fullName !== updatedUser.fullName) changedFields.fullName = updatedUser.fullName;
-    if (originalUser.phoneNumber !== updatedUser.phoneNumber) changedFields.phoneNumber = updatedUser.phoneNumber;
-    if (originalUser.dateOfBirth !== updatedUser.dateOfBirth) changedFields.dateOfBirth = updatedUser.dateOfBirth;
-    if (originalUser.address !== updatedUser.address) changedFields.address = updatedUser.address;
-    if (originalUser.province !== updatedUser.province) changedFields.province = updatedUser.province;
-    if (originalUser.district !== updatedUser.district) changedFields.district = updatedUser.district;
-    if (originalUser.sector !== updatedUser.sector) changedFields.sector = updatedUser.sector;
-    if (originalUser.role !== updatedUser.role) changedFields.role = updatedUser.role;
-    // if (originalUser.email !== updatedUser.email) changedFields.email = updatedUser.email;
-    if (originalUser.bankName !== updatedUser.bankName) changedFields.bankName = updatedUser.bankName;
-    if (originalUser.bankAccountNumber !== updatedUser.bankAccountNumber) changedFields.bankAccountNumber = updatedUser.bankAccountNumber;
-    
-    // Compare emergency contacts
-    if (JSON.stringify(originalUser.emergencyContacts) !== JSON.stringify(updatedUser.emergencyContacts)) {
-      changedFields.emergencyContacts = updatedUser.emergencyContacts;
-    }
-
-    // Only proceed if there are actual changes
-    if (Object.keys(changedFields).length > 0) {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/updateUser/${updatedUser._id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify(changedFields)
+        body: formDataToSend
       });
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to update user');
+        throw new Error(errorData.message || 'Failed to create user');
       }
 
-      // Refresh the users list
-      const fetchResponse = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/users`, {
-        method: 'GET',
+      const data = await response.json();
+      setUsers(prev => [...prev, data.data]);
+      showToast('User created successfully!', 'success');
+      setIsCreatingUser(false);
+      setFormData({
+        fullName: '',
+        email: '',
+        phoneNumber: '',
+        dateOfBirth: '',
+        address: '',
+        province: '',
+        district: '',
+        sector: '',
+        role: 'AGENT',
+        emergencyContact1Name: '',
+        emergencyContact1PhoneNumber: '',
+        emergencyContact1Relationship: '',
+        emergencyContact2Name: '',
+        emergencyContact2PhoneNumber: '',
+        emergencyContact2Relationship: '',
+        nationalIdDocument: null,
+        criminalRecordCertificate: null,
+        passportPhoto: null,
+        bankName: '', 
+        bankAccountNumber: '',
+      });
+    } catch (error: unknown) {
+      console.error('Error creating user:', error);
+      if (error && typeof error === 'object' && 'message' in error) {
+        showToast((error as { message?: string }).message || 'Failed to create user', 'error');
+      } else {
+        showToast('Failed to create user', 'error');
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleStatusChange = async (userId: string, status: User['status'], reason?: string) => {
+    setIsLoading(true);
+    try {
+      let endpoint = '';
+      let body: Record<string, unknown> | null = null;
+      const method = 'PUT';
+
+      switch (status) {
+        case 'ACTIVE':
+          endpoint = `approveAgentApplication/${userId}`;
+          break;
+        case 'SENT_FOR_ACTION':
+          endpoint = `sendForAction/${userId}`;
+          body = { rejectionReason: reason };
+          break;
+        case 'DEACTIVATED':
+          endpoint = `deactivateAgentApplication/${userId}`;
+          break;
+        default:
+          throw new Error('Invalid status change');
+      }
+
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/${endpoint}`, {
+        method,
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
-        }
+        },
+        body: body ? JSON.stringify(body) : null
       });
 
-      if (!fetchResponse.ok) {
-        throw new Error('Failed to fetch updated users');
+      if (!response.ok) {
+        throw new Error('Failed to update user status');
       }
 
-      const data = await fetchResponse.json();
-      // Sort by createdAt in descending order (newest first)
-      const sortedUsers = data.data.sort((a: User, b: User) => {
-        return new Date(b.createdAt || '').getTime() - new Date(a.createdAt || '').getTime();
+      const updatedUsers = users.map(user => {
+        if (user._id === userId) {
+          return { 
+            ...user, 
+            status: status,
+            ...(reason && { rejectionReason: reason })
+          };
+        }
+        return user;
       });
-      setUsers(sortedUsers);
 
-      showToast('User updated successfully', 'success');
-    } else {
-      showToast('No changes detected', 'info');
+      setUsers(updatedUsers as User[]);
+      showToast(`User status updated to ${status.replace('_', ' ').toLowerCase()}`, 'success');
+      setSelectedUser(null);
+    } catch (error) {
+      console.error('Error updating user status:', error);
+      showToast('Failed to update user status', 'error');
+    } finally {
+      setIsLoading(false);
     }
+  };
 
-    setIsEditingUser(false);
-    setSelectedUser(null);
-  } catch (error) {
-    console.error('Error updating user:', error);
-    showToast(error instanceof Error ? error.message : 'Failed to update user', 'error');
-  } finally {
-    setIsLoading(false);
-  }
-};
+  const handleDeleteUser = async (userId: string) => {
+    setUserToDeactivate(userId);
+    setIsDeactivating(true);
+  };
+
+  const confirmDeactivation = async (reason: string, deactivationFile: File | null) => {
+    if (!userToDeactivate) return;
+
+    setIsLoading(true);
+    try {
+      const formData = new FormData();
+      formData.append('deactivationReason', reason);
+      if (deactivationFile) {
+        formData.append('deactivationFile', deactivationFile);
+      }
+
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/deactivateAgentApplication/${userToDeactivate}`,
+        {
+          method: 'PATCH',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+          body: formData,
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to deactivate user');
+      }
+
+      const updatedUsers = users.map((user) =>
+        user._id === userToDeactivate 
+          ? { 
+              ...user, 
+              status: 'DEACTIVATED' as User['status'],
+              deactivationReason: reason,
+              deactivationFile: deactivationFile ? URL.createObjectURL(deactivationFile) : undefined
+            } 
+          : user
+      );
+
+      setUsers(updatedUsers as User[]);
+      showToast('User deactivated successfully', 'success');
+    } catch (error) {
+      console.error('Error deactivating user:', error);
+      showToast('Failed to deactivate user', 'error');
+    } finally {
+      setIsLoading(false);
+      setIsDeactivating(false);
+      setUserToDeactivate(null);
+    }
+  };
+
+  const handleEditUser = async (updatedUser: User) => {
+    setIsLoading(true);
+    try {
+      const originalUser = users.find(u => u._id === updatedUser._id);
+      if (!originalUser) {
+        throw new Error('User not found');
+      }
+
+      const changedFields: Partial<User> = {};
+      
+      if (originalUser.fullName !== updatedUser.fullName) changedFields.fullName = updatedUser.fullName;
+      if (originalUser.phoneNumber !== updatedUser.phoneNumber) changedFields.phoneNumber = updatedUser.phoneNumber;
+      if (originalUser.dateOfBirth !== updatedUser.dateOfBirth) changedFields.dateOfBirth = updatedUser.dateOfBirth;
+      if (originalUser.address !== updatedUser.address) changedFields.address = updatedUser.address;
+      if (originalUser.province !== updatedUser.province) changedFields.province = updatedUser.province;
+      if (originalUser.district !== updatedUser.district) changedFields.district = updatedUser.district;
+      if (originalUser.sector !== updatedUser.sector) changedFields.sector = updatedUser.sector;
+      if (originalUser.role !== updatedUser.role) changedFields.role = updatedUser.role;
+      if (originalUser.bankName !== updatedUser.bankName) changedFields.bankName = updatedUser.bankName;
+      if (originalUser.bankAccountNumber !== updatedUser.bankAccountNumber) changedFields.bankAccountNumber = updatedUser.bankAccountNumber;
+      
+      if (JSON.stringify(originalUser.emergencyContacts) !== JSON.stringify(updatedUser.emergencyContacts)) {
+        changedFields.emergencyContacts = updatedUser.emergencyContacts;
+      }
+
+      if (Object.keys(changedFields).length > 0) {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/updateUser/${updatedUser._id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(changedFields)
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || 'Failed to update user');
+        }
+
+        const fetchResponse = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/getAllusers`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        if (!fetchResponse.ok) {
+          throw new Error('Failed to fetch updated users');
+        }
+
+        const data = await fetchResponse.json();
+        const sortedUsers = data.data.sort((a: User, b: User) => {
+          return new Date(b.createdAt || '').getTime() - new Date(a.createdAt || '').getTime();
+        });
+        setUsers(sortedUsers);
+
+        showToast('User updated successfully', 'success');
+      } else {
+        showToast('No changes detected', 'info');
+      }
+
+      setIsEditingUser(false);
+      setSelectedUser(null);
+    } catch (error) {
+      console.error('Error updating user:', error);
+      showToast(error instanceof Error ? error.message : 'Failed to update user', 'error');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const Pagination = ({ currentPage, totalPages, onPageChange }: PaginationProps) => {
     const maxVisiblePages = 5;
@@ -640,7 +612,6 @@ const handleEditUser = async (updatedUser: User) => {
           <p className="text-gray-600">Manage all system users and agents</p>
         </div>
 
-        {/* Search and actions */}
         <div className="mb-6 bg-white p-4 rounded-lg shadow-sm">
           <div className="flex flex-col md:flex-row justify-between gap-4">
             <div className="w-full md:w-1/3">
@@ -672,12 +643,13 @@ const handleEditUser = async (updatedUser: User) => {
               <div className="flex gap-2">
                 <select
                   value={roleFilter}
-                  onChange={(e) => setRoleFilter(e.target.value as 'all' | 'ADMIN' | 'AGENT')}
+                  onChange={(e) => setRoleFilter(e.target.value as 'all' | 'ADMIN' | 'AGENT' | 'SUPER_ADMIN')}
                   className="px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[var(--main-blue)] focus:border-[var(--main-blue)]"
                 >
                   <option value="all">All Roles</option>
                   <option value="ADMIN">Admin</option>
                   <option value="AGENT">Agent</option>
+                  <option value="SUPER_ADMIN">Super Admin</option>
                 </select>
                 <select
                   value={statusFilter}
@@ -704,7 +676,6 @@ const handleEditUser = async (updatedUser: User) => {
           </div>
         </div>
 
-        {/* Users table */}
         <div className="bg-white rounded-xl shadow-lg overflow-hidden">
           {isLoading ? (
             <div className="p-8 text-center">
@@ -757,12 +728,9 @@ const handleEditUser = async (updatedUser: User) => {
                 <tbody className="divide-y divide-gray-200">
                   {paginatedUsers.map((user) => (
                     <tr key={user._id} className="hover:bg-gray-50">
-                      {/* <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-[var(--main-blue)]">
-                        #{user._id}
-                      </td> */}
                       <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-[var(--main-blue)]">
-  #{(currentPage - 1) * itemsPerPage + paginatedUsers.indexOf(user) + 1}
-</td>
+                        #{(currentPage - 1) * itemsPerPage + paginatedUsers.indexOf(user) + 1}
+                      </td>
                       <td className="px-4 py-4 whitespace-nowrap">
                         <div className="text-sm font-medium text-gray-900">
                           {user.fullName}
@@ -773,7 +741,7 @@ const handleEditUser = async (updatedUser: User) => {
                         {user.email}
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900 capitalize">
-                        {user.role.toLowerCase()}
+                        {user.role.toLowerCase().replace('_', ' ')}
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap">
                         {getStatusBadge(user.status)}
@@ -785,8 +753,6 @@ const handleEditUser = async (updatedUser: User) => {
                             variant="outline"
                             onClick={() => {
                               setSelectedUser(user);
-                              setRejectionReason(user.rejectionReason || '');
-                              console.log(rejectionReason)
                             }}
                           >
                             View
@@ -804,12 +770,12 @@ const handleEditUser = async (updatedUser: User) => {
                                 Edit
                               </Button>
                               <Button
-  size="sm"
-  variant="danger"
-  onClick={() => handleDeleteUser(user._id)}
->
-  Deactivate
-</Button>
+                                size="sm"
+                                variant="danger"
+                                onClick={() => handleDeleteUser(user._id)}
+                              >
+                                Deactivate
+                              </Button>
                             </>
                           )}
                           {(user.status === 'PENDING' || user.status === 'SENT_FOR_ACTION') && (
@@ -818,7 +784,6 @@ const handleEditUser = async (updatedUser: User) => {
                               variant="primary"
                               onClick={() => {
                                 setSelectedUser(user);
-                                setRejectionReason('');
                               }}
                             >
                               Review
@@ -848,7 +813,6 @@ const handleEditUser = async (updatedUser: User) => {
           )}
         </div>
 
-        {/* Create User Modal */}
         <UserCreateModal
           isOpen={isCreatingUser}
           onClose={() => setIsCreatingUser(false)}
@@ -860,18 +824,17 @@ const handleEditUser = async (updatedUser: User) => {
           setErrors={setErrors}
         />
 
-        {/* View User Modal */}
-       {selectedUser && !isEditingUser && (
-  <UserViewModal
-    user={selectedUser}
-    onClose={() => setSelectedUser(null)}
-    onStatusChange={(status, reason) => handleStatusChange(selectedUser._id, status as User['status'], reason)}
-    isLoading={isLoading}
-    setViewingDocument={setViewingDocument}
-  />
-)}
+        {selectedUser && !isEditingUser && (
+          <UserViewModal
+            user={selectedUser}
+            onClose={() => setSelectedUser(null)}
+            onStatusChange={(status, reason) => handleStatusChange(selectedUser._id, status as User['status'], reason)}
+            // isLoading={isLoading}
+            setViewingDocument={setViewingDocument}
+            currentUserRole="SUPER_ADMIN"
+          />
+        )}
 
-        {/* Edit User Modal */}
         {selectedUser && isEditingUser && (
           <UserEditModal
             user={selectedUser}
@@ -881,10 +844,10 @@ const handleEditUser = async (updatedUser: User) => {
             }}
             onSave={handleEditUser}
             isLoading={isLoading}
+            currentUserRole="SUPER_ADMIN"
           />
         )}
 
-        {/* Document viewer modal */}
         {viewingDocument && (
           <DocumentViewer
             documentName={viewingDocument.name}
@@ -894,11 +857,11 @@ const handleEditUser = async (updatedUser: User) => {
         )}
 
         <DeactivationModal
-  isOpen={isDeactivating}
-  onClose={() => setIsDeactivating(false)}
-  onConfirm={confirmDeactivation}
-  isLoading={isLoading}
-/>
+          isOpen={isDeactivating}
+          onClose={() => setIsDeactivating(false)}
+          onConfirm={confirmDeactivation}
+          isLoading={isLoading}
+        />
 
         <ToastContainer />
       </div>

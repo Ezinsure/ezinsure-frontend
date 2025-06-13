@@ -57,7 +57,7 @@ const OTPModal = ({ isOpen, onClose, onVerify, email, isLoading }: OTPModalProps
       setOtp(['', '', '', '', '', '']);
       showToast(`OTP sent to your email: ${email}`, 'success');
     }
-  }, [isOpen]);
+  }, [isOpen, email, showToast]);
 
   const handleOtpChange = (index: number, value: string) => {
     if (value.length > 1) return;

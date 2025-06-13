@@ -39,10 +39,10 @@ export const Navigation = () => {
       const rolePrefix = `/${user.role.toLowerCase()}`;
       const newLinks = [
         { href: `${rolePrefix}/dashboard`, label: 'Dashboard' },
-        { href: `${rolePrefix}/applications`, label: user.role === 'ADMIN' ? 'Applications' : 'My Applications' },
+        { href: `${rolePrefix}/applications`, label: user.role === 'ADMIN' || user.role === 'SUPER_ADMIN' ? 'Applications' : 'My Applications' },
       ];
 
-      if (user.role === 'ADMIN') {
+      if (user.role === 'ADMIN' || user.role === 'SUPER_ADMIN') {
         newLinks.push({ href: `${rolePrefix}/users`, label: 'Manage Users' });
       } else {
         newLinks.push({ href: `${rolePrefix}/apply`, label: 'New Application' });

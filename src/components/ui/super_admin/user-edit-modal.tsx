@@ -1,8 +1,10 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { FileInput } from "@/components/ui/file-input";
 import { useState, useEffect } from "react";
 import { AdministrativeDivision, rwandaProvinces } from '@/utils/rwanda-administrative';
 import { ValidationRules, validateForm } from "@/components/ui/form-validation";
+// import { FileUploadField } from "@/components/ui/file-upload";
 
 interface User {
   _id: string;
@@ -14,14 +16,14 @@ interface User {
   status: 'ACTIVE' | 'DEACTIVATED' | 'SENT_FOR_ACTION' | 'PENDING';
   createdAt?: string;
   agentCode?: string;
-  passportPhoto?: string;
+  passportPhoto?: string | File;
   dateOfBirth?: string;
   address?: string;
   province?: string;
   district?: string;
   sector?: string;
-  nationalIdDocument?: string;
-  criminalRecordCertificate?: string;
+  nationalIdDocument?: string | File;
+  criminalRecordCertificate?: string | File;
   emergencyContacts?: Array<{
     fullName: string;
     phoneNumber: string;
@@ -53,9 +55,10 @@ interface UserEditModalProps {
   onClose: () => void;
   onSave: (updatedUser: User) => void;
   isLoading: boolean;
+  currentUserRole: 'ADMIN' | 'AGENT' | 'SUPER_ADMIN';
 }
 
-export const UserEditModal = ({ user, onClose, onSave, isLoading }: UserEditModalProps) => {
+export const UserEditModal = ({ user, onClose, onSave, isLoading, currentUserRole }: UserEditModalProps) => {
   const [formData, setFormData] = useState<User>(() => ({
     ...user!,
     emergencyContacts: user?.emergencyContacts || [
@@ -153,6 +156,19 @@ export const UserEditModal = ({ user, onClose, onSave, isLoading }: UserEditModa
       }
     }
   };
+
+  const handlePassportPhotoChange = (file: File | null) => {
+    setFormData(prev => ({ ...prev, passportPhoto: file || undefined }));
+  };
+  
+  const handleNationalIdChange = (file: File | null) => {
+    setFormData(prev => ({ ...prev, nationalIdDocument: file || undefined }));
+  };
+  
+  const handleCriminalRecordChange = (file: File | null) => {
+    setFormData(prev => ({ ...prev, criminalRecordCertificate: file || undefined }));
+  };
+  
 
   if (!user) return null;
 
@@ -368,8 +384,7 @@ export const UserEditModal = ({ user, onClose, onSave, isLoading }: UserEditModa
               className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[var(--main-blue)] focus:border-[var(--main-blue)]"
             >
               <option value="AGENT">Agent</option>
-              {/* <option value="ADMIN">Admin</option>
-              <option value="SUPER_ADMIN">Super Admin</option> */}
+              <option value="ADMIN">Admin</option>
             </select>
           </div>
 
@@ -446,6 +461,35 @@ export const UserEditModal = ({ user, onClose, onSave, isLoading }: UserEditModa
               </div>
             </div>
           </div>
+
+          {currentUserRole === 'SUPER_ADMIN' && (
+  <div className="mt-6 bg-gray-50 p-4 rounded-lg">
+    <h4 className="font-medium mb-3">Update Documents</h4>
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <FileInput
+        label="Update National ID"
+        name="nationalIdDocument"
+        accept=".pdf,.jpg,.jpeg,.png"
+        currentFile={formData.nationalIdDocument as string}
+        onChange={handleNationalIdChange}
+      />
+      <FileInput
+        label="Update Criminal Record Certificate"
+        name="criminalRecordCertificate"
+        accept=".pdf,.jpg,.jpeg,.png"
+        currentFile={formData.criminalRecordCertificate as string}
+        onChange={handleCriminalRecordChange}
+      />
+      <FileInput
+        label="Update Passport Photo"
+        name="passportPhoto"
+        accept=".jpg,.jpeg,.png"
+        currentFile={formData.passportPhoto as string}
+        onChange={handlePassportPhotoChange}
+      />
+    </div>
+  </div>
+)}
 
           <div className="flex justify-end gap-2 mt-6">
             <Button

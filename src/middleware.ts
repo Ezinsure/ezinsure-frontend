@@ -55,6 +55,11 @@ export function middleware(request: NextRequest) {
         return NextResponse.redirect(new URL(`${rolePrefix}/dashboard`, request.url));
       }
 
+      // Special handling for super_admin routes
+      if (user.role === 'SUPER_ADMIN' && !pathname.startsWith('/super_admin')) {
+        return NextResponse.redirect(new URL('/super_admin/dashboard', request.url));
+      }
+
       return NextResponse.next();
     } catch (error) {
       console.error('Authentication error:', error);

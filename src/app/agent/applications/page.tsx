@@ -106,7 +106,7 @@ const [formState, setFormState] = useState<Partial<Application>>(() => {
 
   // Update districts when province changes (only for regular edit mode)
   useEffect(() => {
-    if (!isPaymentRejection && formState.province) {
+    if (formState.province) {
       const selectedProvince = rwandaProvinces.find(p => p.name === formState.province);
       const districts = selectedProvince?.districts || [];
       setAvailableDistricts(districts);
@@ -120,7 +120,7 @@ const [formState, setFormState] = useState<Partial<Application>>(() => {
         setFormState(prev => ({ ...prev, district: '', sector: '' }));
       }
     }
-  }, [formState.province, isPaymentRejection]);
+  }, [formState.province, isPaymentRejection, formState.district]);
 
   // Update sectors when district changes (only for regular edit mode)
   useEffect(() => {
@@ -138,21 +138,19 @@ const [formState, setFormState] = useState<Partial<Application>>(() => {
         setFormState(prev => ({ ...prev, sector: '' }));
       }
     }
-  }, [formState.district, availableDistricts, isPaymentRejection]);
+  }, [formState.district, availableDistricts, isPaymentRejection, formState.sector]);
 
   useEffect(() => {
-  if (!isPaymentRejection && application.province) {
-    // Initialize districts for the current province
-    const selectedProvince = rwandaProvinces.find(p => p.name === application.province);
-    setAvailableDistricts(selectedProvince?.districts || []);
-    
-    if (application.district) {
-      // Initialize sectors for the current district
-      const selectedDistrict = selectedProvince?.districts?.find(d => d.name === application.district);
-      setAvailableSectors(selectedDistrict?.sectors || []);
+    if (!isPaymentRejection && application.province) {
+      const selectedProvince = rwandaProvinces.find(p => p.name === application.province);
+      setAvailableDistricts(selectedProvince?.districts || []);
+      
+      if (application.district) {
+        const selectedDistrict = selectedProvince?.districts?.find(d => d.name === application.district);
+        setAvailableSectors(selectedDistrict?.sectors || []);
+      }
     }
-  }
-}, [application.province, application.district, isPaymentRejection]);
+  }, [application.province, application.district, isPaymentRejection]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
