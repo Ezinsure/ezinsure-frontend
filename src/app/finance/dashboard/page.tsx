@@ -79,7 +79,7 @@ const FinanceDashboard = () => {
     data: []
   });
   const [paymentHistory, setPaymentHistory] = useState<PaymentHistory[]>([]);
-  const [isModalLoading, setIsModalLoading] = useState(false);
+  // const [isModalLoading, setIsModalLoading] = useState(false);
  
 
   // Calculate current month's total commission
@@ -140,7 +140,7 @@ const FinanceDashboard = () => {
         if (!response.ok) throw new Error('Failed to fetch payment history');
         
         const data = await response.json();
-        setPaymentHistory(data.results.map((item: any) => ({
+        setPaymentHistory(data.results.map((item: PaymentHistory) => ({
           ...item,
           paid: false // Assuming all items in history are not paid, this field will be coming from db
         })));
