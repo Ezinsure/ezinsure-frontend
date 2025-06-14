@@ -6,6 +6,29 @@ import { DollarSign, Users, Search, Download, RefreshCw, Calendar, ArrowDownRigh
 import { MainLayout } from '@/components/ui/main-layout';
 import { useAuth } from '@/context/AuthContext';
 
+interface PaymentHistory {
+  month: string;
+  year: number;
+  totalAmount: number;
+  agentsPaid: number;
+  paid?: boolean;
+  totalCommissionForMonth?: string;
+  data?: AgentCommission[];
+}
+
+interface PaymentHistoryDetails {
+  month: string;
+  year: number;
+  totalPaid: string;
+  data: {
+    agentId: string;
+    name: string;
+    region: string;
+    clients: number;
+    amount: string;
+  }[];
+}
+
 interface AgentCommission {
   _id: string;
   agentId: string;
@@ -25,18 +48,19 @@ interface PaginationProps {
   onPageChange: (page: number) => void;
 }
 
-interface PaymentHistory {
-  year: string;
-  month: string;
-  totalCommissionForMonth: string;
-  data: AgentCommission[];
-  paid?: boolean;
-}
 
 interface CurrentMonthData {
   month: string;
   data: AgentCommission[];
 }
+
+const getMonthName = (month: string | number) => {
+  if (typeof month === 'number') {
+    return new Date(2000, month - 1, 1).toLocaleString('default', { month: 'long' });
+  }
+  return month;
+};
+
 
 const FinanceDashboard = () => {
   const [selectedPeriod, setSelectedPeriod] = useState<'month' | 'quarter' | 'year'>('month');
@@ -49,34 +73,14 @@ const FinanceDashboard = () => {
   //   start: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
   //   end: new Date()
   // });
-  const [showPaymentDetails, setShowPaymentDetails] = useState<{month: string, year: string, data: AgentCommission[]} | null>(null);
+  const [showPaymentDetails, setShowPaymentDetails] = useState<{month: string, year: string, data: AgentCommission[], isLoading: boolean} | null>(null);
   const [currentMonthData, setCurrentMonthData] = useState<CurrentMonthData>({
     month: new Date().toLocaleString('default', { month: 'long' }),
     data: []
   });
-  const [paymentHistory, setPaymentHistory] = useState<PaymentHistory[]>([
-    {
-      year: "2025",
-      month: "May",
-      totalCommissionForMonth: "11850000",
-      data: [],
-      paid: false
-    },
-    {
-      year: "2025",
-      month: "April",
-      totalCommissionForMonth: "10520000",
-      data: [],
-      paid: true
-    },
-    {
-      year: "2025",
-      month: "March",
-      totalCommissionForMonth: "9850000",
-      data: [],
-      paid: true
-    }
-  ]);
+  const [paymentHistory, setPaymentHistory] = useState<PaymentHistory[]>([]);
+  // const [isModalLoading, setIsModalLoading] = useState(false);
+ 
 
   // Calculate current month's total commission
   const currentMonthTotal = currentMonthData.data.reduce((sum, agent) => sum + agent.totalCommission, 0);
@@ -110,30 +114,7 @@ const FinanceDashboard = () => {
           })
         });
         
-        // For now, using mock data for history
-        setPaymentHistory([
-          {
-            year: "2025",
-            month: "May",
-            totalCommissionForMonth: "11850000",
-            data: [],
-            paid: false
-          },
-          {
-            year: "2025",
-            month: "April",
-            totalCommissionForMonth: "10520000",
-            data: [],
-            paid: true
-          },
-          {
-            year: "2025",
-            month: "March",
-            totalCommissionForMonth: "9850000",
-            data: [],
-            paid: true
-          }
-        ]);
+        
       } catch (error) {
         console.error('Error fetching data:', error);
       } finally {
@@ -142,6 +123,33 @@ const FinanceDashboard = () => {
     };
 
     fetchCurrentMonthData();
+  }, [token]);
+
+  useEffect(() => {
+    const fetchPaymentHistory = async () => {
+      try {
+        setIsLoading(true);
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/getAllCommissionSummaries`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        
+        if (!response.ok) throw new Error('Failed to fetch payment history');
+        
+        const data = await response.json();
+        setPaymentHistory(data.results.map((item: PaymentHistory) => ({
+          ...item,
+          paid: false // Assuming all items in history are not paid, this field will be coming from db
+        })));
+      } catch (error) {
+        console.error('Error fetching payment history:', error);
+      }
+    };
+  
+    fetchPaymentHistory();
   }, [token]);
 
   const statsCards = [
@@ -336,36 +344,39 @@ const FinanceDashboard = () => {
     document.body.removeChild(link);
   };
 
-  const exportHistoryPayments = (month: string, year: string) => {
-    // Find the history item to export
-    const historyItem = paymentHistory.find(item => item.month === month && item.year === year);
-    if (!historyItem) return;
+  const exportHistoryPayments = async (month: string, year: number) => {
+    try {
+      if (showPaymentDetails) {
+        // Export the formatted data that's already displayed
+        const headers = ['Agent ID', 'Name', 'Phone', 'Email', 'Bank Name', 'Account Number', 'Commission'];
+        const csvContent = [
+          headers.join(','),
+          ...showPaymentDetails.data.map(agent => [
+            agent.agentId,
+            `"${agent.name}"`,
+            agent.phoneNumber,
+            agent.email,
+            agent.bankName,
+            agent.bankAccountNumber,
+            agent.totalCommission
+          ].join(','))
+        ].join('\n');
 
-    const headers = ['Agent ID', 'Name', 'Phone', 'Email', 'Bank Name', 'Account Number', 'Commission'];
-    const csvContent = [
-      headers.join(','),
-      ...historyItem.data.map(agent => [
-        agent.agentId,
-        `"${agent.name}"`,
-        agent.phoneNumber,
-        agent.email,
-        agent.bankName,
-        agent.bankAccountNumber,
-        agent.totalCommission
-      ].join(','))
-    ].join('\n');
-
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.setAttribute('href', url);
-    link.setAttribute('download', `${year}_${month}_ezinsure_monthly_commissions.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.setAttribute('href', url);
+        link.setAttribute('download', `${year}_${month}_ezinsure_monthly_commissions.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
+    } catch (error) {
+      console.error('Error exporting payment history:', error);
+    }
   };
 
-  const markAsPaid = async (month?: string, year?: string) => {
+  const markAsPaid = async (month?: string, year?: number) => {
     if (month && year) {
       // Mark a historical month as paid
       setPaymentHistory(paymentHistory.map(item => 
@@ -384,11 +395,13 @@ const FinanceDashboard = () => {
       
       // Add to payment history
       const currentMonth = new Date().toLocaleString('default', { month: 'long' });
-      const currentYear = new Date().getFullYear().toString();
+      const currentYear = new Date().getFullYear();
       
       setPaymentHistory([{
         year: currentYear,
         month: currentMonth,
+        totalAmount: currentMonthTotal,
+        agentsPaid: currentMonthPaidAgents,
         totalCommissionForMonth: currentMonthTotal.toString(),
         data: [...currentMonthData.data],
         paid: true
@@ -396,14 +409,56 @@ const FinanceDashboard = () => {
     }
   };
 
-  const viewPaymentDetails = (month: string, year: string) => {
-    const historyItem = paymentHistory.find(item => item.month === month && item.year === year);
-    if (historyItem) {
+  const viewPaymentDetails = async (month: string, year: number) => {
+    try {
+      // Show modal immediately with loading state
       setShowPaymentDetails({
         month,
-        year,
-        data: historyItem.data
+        year: year.toString(),
+        data: [],
+        isLoading: true
       });
+      
+      // Convert month name to number if needed
+      const monthNumber = new Date(`${month} 1, ${year}`).getMonth() + 1;
+      
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/getMonthlyCommissionHistoryDetails?month=${monthNumber}&year=${year}`, 
+        {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          }
+        }
+      );
+      
+      if (!response.ok) throw new Error('Failed to fetch payment details');
+      
+      const data: PaymentHistoryDetails = await response.json();
+      
+      // Convert the data to match what the modal expects
+      const formattedData = data.data.map(agent => ({
+        _id: agent.agentId,
+        agentId: agent.agentId,
+        name: agent.name,
+        phoneNumber: '', // These fields might not be available in the API response
+        email: '',
+        bankName: '',
+        bankAccountNumber: '',
+        totalCommission: parseFloat(agent.amount.replace(/[^0-9.-]+/g,"")),
+        paid: true
+      }));
+      
+      setShowPaymentDetails({
+        month: data.month,
+        year: data.year.toString(),
+        data: formattedData,
+        isLoading: false
+      });
+    } catch (error) {
+      console.error('Error fetching payment details:', error);
+      setShowPaymentDetails(null);
     }
   };
 
@@ -625,11 +680,13 @@ const FinanceDashboard = () => {
                     {paymentHistory.map((payment) => (
                       <tr key={`${payment.year}-${payment.month}`} className="hover:bg-gray-50">
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{payment.year}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{payment.month}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-semibold">
-                          {parseInt(payment.totalCommissionForMonth).toLocaleString()} RWF
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                          {getMonthName(payment.month)}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{payment.data.length}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-semibold">
+                          {payment.totalAmount.toLocaleString()} RWF
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{payment.agentsPaid}</td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
                             payment.paid ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
@@ -640,20 +697,14 @@ const FinanceDashboard = () => {
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
                           <button
                             onClick={() => viewPaymentDetails(payment.month, payment.year)}
-                            className="text-blue-600 hover:text-blue-900"
+                            className="text-blue-600 hover:text-blue-900 cursor-pointer"
                           >
                             View
-                          </button>
-                          <button
-                            onClick={() => exportHistoryPayments(payment.month, payment.year)}
-                            className="text-gray-600 hover:text-gray-900"
-                          >
-                            Export
                           </button>
                           {!payment.paid && (
                             <button
                               onClick={() => markAsPaid(payment.month, payment.year)}
-                              className="text-green-600 hover:text-green-900"
+                              className="ml-2 text-green-600 hover:text-green-900 cursor-pointer"
                             >
                               Mark as Paid
                             </button>
@@ -678,7 +729,7 @@ const FinanceDashboard = () => {
                 <h3 className="text-2xl font-bold text-gray-900">Payment Details</h3>
                 <button 
                   onClick={() => setShowPaymentDetails(null)}
-                  className="text-gray-400 cursor-pointer hover:text-gray-500"
+                  className="text-gray-400 hover:text-gray-500 cursor-pointer"
                 >
                   <span className="sr-only">Close</span>
                   <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -687,62 +738,73 @@ const FinanceDashboard = () => {
                 </button>
               </div>
               
-              <div className="mb-6">
-                <div className="flex justify-between items-center">
-                  <div>
-                    <p className="text-gray-600">Showing payment details for</p>
-                    <p className="font-semibold text-gray-900">{showPaymentDetails.month} {showPaymentDetails.year}</p>
-                    <p className="text-gray-900 mt-1">
-                      Total Paid: {showPaymentDetails.data.reduce((sum, agent) => sum + agent.totalCommission, 0).toLocaleString()} RWF
-                    </p>
+              {showPaymentDetails.isLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="text-center">
+                    <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-blue-200 border-t-blue-600 mb-4"></div>
+                    <p className="text-gray-600">Loading payment details...</p>
                   </div>
-                  <button 
-                    onClick={() => exportHistoryPayments(showPaymentDetails.month, showPaymentDetails.year)}
-                    className="flex items-center cursor-pointer gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                  >
-                    <Download className="w-4 h-4" />
-                    Export This Data
-                  </button>
                 </div>
-              </div>
-              
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">#</th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Phone</th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Bank</th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Account</th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {showPaymentDetails.data.map((agent, index) => (
-                      <tr key={agent._id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{index + 1}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{agent.name}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{agent.phoneNumber}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{agent.bankName}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{agent.bankAccountNumber}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
-                          {agent.totalCommission.toLocaleString()} RWF
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              
-              <div className="mt-6 flex justify-end">
-                <button
-                  onClick={() => setShowPaymentDetails(null)}
-                  className="px-4 py-2 border cursor-pointer border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
-                >
-                  Close
-                </button>
-              </div>
+              ) : (
+                <>
+                  <div className="mb-6">
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <p className="text-gray-600">Showing payment details for</p>
+                        <p className="font-semibold text-gray-900">{showPaymentDetails.month} {showPaymentDetails.year}</p>
+                        <p className="text-gray-900 mt-1">
+                          Total Paid: {showPaymentDetails.data.reduce((sum, agent) => sum + agent.totalCommission, 0).toLocaleString()} RWF
+                        </p>
+                      </div>
+                      <button 
+                        onClick={() => exportHistoryPayments(showPaymentDetails.month, parseInt(showPaymentDetails.year))}
+                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors cursor-pointer"
+                      >
+                        <Download className="w-4 h-4" />
+                        Export This Data
+                      </button>
+                    </div>
+                  </div>
+                  
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">#</th>
+                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Phone</th>
+                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Bank</th>
+                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Account</th>
+                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {showPaymentDetails.data.map((agent, index) => (
+                          <tr key={agent._id} className="hover:bg-gray-50">
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{index + 1}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{agent.name}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{agent.phoneNumber}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{agent.bankName}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{agent.bankAccountNumber}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
+                              {agent.totalCommission.toLocaleString()} RWF
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  
+                  <div className="mt-6 flex justify-end">
+                    <button
+                      onClick={() => setShowPaymentDetails(null)}
+                      className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 cursor-pointer"
+                    >
+                      Close
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>
