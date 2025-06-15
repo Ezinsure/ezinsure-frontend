@@ -385,7 +385,7 @@ const confirmDeactivation = async (reason: string, deactivationFile: File | null
     const response = await fetch(
       `${process.env.NEXT_PUBLIC_API_BASE_URL}/deactivateAgentApplication/${userToDeactivate}`,
       {
-        method: 'PATCH',
+        method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
         },
