@@ -21,11 +21,14 @@ interface PaymentHistoryDetails {
   year: number;
   totalPaid: string;
   data: {
-    agentId: string;
+    _id: string;
     name: string;
-    region: string;
-    clients: number;
-    amount: string;
+    agentId: string;
+    email: string;
+    bankName: string;
+    bankAccountNumber: string;
+    phoneNumber: string;
+    totalCommission: string;
   }[];
 }
 
@@ -439,14 +442,18 @@ const FinanceDashboard = () => {
       
       // Convert the data to match what the modal expects
       const formattedData = data.data.map(agent => ({
-        _id: agent.agentId,
+        _id: agent._id,
         agentId: agent.agentId,
         name: agent.name,
-        phoneNumber: '', // These fields might not be available in the API response
-        email: '',
-        bankName: '',
-        bankAccountNumber: '',
-        totalCommission: parseFloat(agent.amount.replace(/[^0-9.-]+/g,"")),
+        phoneNumber: agent.phoneNumber || '',
+        email: agent.email || '',
+        bankName: agent.bankName || '',
+        bankAccountNumber: agent.bankAccountNumber || '',
+        totalCommission: typeof agent.totalCommission === 'string' 
+          ? parseFloat(agent.totalCommission.replace(/[^0-9.-]+/g,"")) 
+          : typeof agent.totalCommission === 'number' 
+            ? agent.totalCommission 
+            : 0,
         paid: true
       }));
       
@@ -773,6 +780,7 @@ const FinanceDashboard = () => {
                           <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">#</th>
                           <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
                           <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Phone</th>
+                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
                           <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Bank</th>
                           <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Account</th>
                           <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
@@ -784,6 +792,7 @@ const FinanceDashboard = () => {
                             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{index + 1}</td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{agent.name}</td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{agent.phoneNumber}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{agent.email}</td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{agent.bankName}</td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{agent.bankAccountNumber}</td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
