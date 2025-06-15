@@ -1,9 +1,10 @@
 // app/finance/history/page.tsx
 "use client"
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { MainLayout } from '@/components/ui/main-layout';
-import { Search, Download, RefreshCw } from 'lucide-react';
+import { Search, Download, RefreshCw, Calendar } from 'lucide-react';
+import { useAuth } from '@/context/AuthContext';
 
 interface PaginationProps {
   currentPage: number;
@@ -22,47 +23,90 @@ interface PaymentDetails {
   }>;
 }
 
+interface PaymentHistory {
+  month: string;
+  year: number;
+  totalAmount: number;
+  agentsPaid: number;
+  paid: boolean;
+  totalCommissionForMonth?: string;
+  data?: Array<{
+    agentId: string;
+    name: string;
+    region: string;
+    clients: number;
+    amount: string;
+  }>;
+}
+
+interface PaymentHistoryDetails {
+  month: string;
+  year: string;
+  data: Array<{
+    agentId: string;
+    name: string;
+    region: string;
+    clients: number;
+    amount: string;
+  }>;
+}
+
+interface PaymentDetailsModal {
+  month: string;
+  year: string;
+  data: Array<{
+    _id: string;
+    agentId: string;
+    name: string;
+    phoneNumber: string;
+    email: string;
+    bankName: string;
+    bankAccountNumber: string;
+    totalCommission: number;
+    paid: boolean;
+  }>;
+  isLoading: boolean;
+}
+
 const PaymentHistory = () => {
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedYear, setSelectedYear] = useState('2023');
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
   const [showDetails, setShowDetails] = useState<PaymentDetails | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const [isLoading, setIsLoading] = useState(true);
+  const [paymentHistory, setPaymentHistory] = useState<PaymentHistory[]>([]);
   const itemsPerPage = 10;
+  const { token } = useAuth();
+  const [showPaymentDetails, setShowPaymentDetails] = useState<PaymentDetailsModal | null>(null);
 
-  // Mock data for payment history
-  const paymentHistory = [
-    { 
-      id: 'PY001', 
-      monthYear: 'June 2023', 
-      totalAmount: 12450000, 
-      agentsPaid: 342,
-      details: [
-        { id: 'AG001', name: 'Jean Uwimana', region: 'Kigali', clients: 45, amount: 285000 },
-        { id: 'AG002', name: 'Marie Mukamana', region: 'Southern Province', clients: 38, amount: 242000 },
-        { id: 'AG003', name: 'Paul Nshimiyimana', region: 'Northern Province', clients: 35, amount: 198000 },
-        { id: 'AG004', name: 'Grace Uwizeyimana', region: 'Eastern Province', clients: 32, amount: 185000 },
-        { id: 'AG005', name: 'David Habimana', region: 'Western Province', clients: 29, amount: 167000 },
-      ]
-    },
-    { 
-      id: 'PY002', 
-      monthYear: 'May 2023', 
-      totalAmount: 11850000, 
-      agentsPaid: 325,
-      details: [
-        { id: 'AG001', name: 'Jean Uwimana', region: 'Kigali', clients: 42, amount: 265000 },
-        { id: 'AG002', name: 'Marie Mukamana', region: 'Southern Province', clients: 36, amount: 232000 },
-        { id: 'AG003', name: 'Paul Nshimiyimana', region: 'Northern Province', clients: 32, amount: 188000 },
-        { id: 'AG004', name: 'Grace Uwizeyimana', region: 'Eastern Province', clients: 30, amount: 175000 },
-        { id: 'AG005', name: 'David Habimana', region: 'Western Province', clients: 27, amount: 157000 },
-      ]
-    },
-    // Add more months as needed
-  ];
+  useEffect(() => {
+    fetchPaymentHistory();
+  }, [token, selectedYear]);
+
+  const fetchPaymentHistory = async () => {
+    try {
+      setIsLoading(true);
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/getAllCommissionSummaries?year=${selectedYear}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (!response.ok) throw new Error('Failed to fetch payment history');
+      
+      const data = await response.json();
+      setPaymentHistory(data.results);
+    } catch (error) {
+      console.error('Error fetching payment history:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const filteredHistory = paymentHistory.filter(item =>
-    item.monthYear.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    item.id.toLowerCase().includes(searchTerm.toLowerCase())
+    `${item.month} ${item.year}`.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const paginatedHistory = filteredHistory.slice(
@@ -70,37 +114,136 @@ const PaymentHistory = () => {
     currentPage * itemsPerPage
   );
 
-  const handleExport = (monthYear: string) => {
-    const payment = paymentHistory.find(item => item.monthYear === monthYear);
-    if (!payment) return;
+  const handleExport = async (monthYear: string) => {
+    try {
+      const [month, year] = monthYear.split(' ');
+      const monthNumber = new Date(`${month} 1, ${year}`).getMonth() + 1;
+      
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/getMonthlyCommissionHistoryDetails?month=${monthNumber}&year=${year}`,
+        {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          }
+        }
+      );
 
-    const headers = ['Agent ID', 'Name', 'Region', 'Clients', 'Amount'];
-    const csvContent = [
-      headers.join(','),
-      ...payment.details.map(agent => [
-        agent.id,
-        `"${agent.name}"`,
-        `"${agent.region}"`,
-        agent.clients,
-        agent.amount
-      ].join(','))
-    ].join('\n');
+      if (!response.ok) throw new Error('Failed to fetch payment details');
+      
+      const data = await response.json();
+      
+      const headers = ['Agent ID', 'Name', 'Phone', 'Email', 'Bank Name', 'Account Number', 'Commission'];
+      const csvContent = [
+        headers.join(','),
+        ...data.data.map((agent: { agentId: string; name: string; phoneNumber: string; email: string; bankName: string; bankAccountNumber: string; amount: string }) => [
+          agent.agentId,
+          `"${agent.name}"`,
+          agent.phoneNumber || '',
+          agent.email || '',
+          agent.bankName || '',
+          agent.bankAccountNumber || '',
+          agent.amount
+        ].join(','))
+      ].join('\n');
 
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.setAttribute('href', url);
-    link.setAttribute('download', `${monthYear.replace(' ', '_')}_ezinsure_payment_details.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.setAttribute('href', url);
+      link.setAttribute('download', `${monthYear.replace(' ', '_')}_ezinsure_payment_details.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (error) {
+      console.error('Error exporting payment details:', error);
+    }
   };
 
-  const toggleDetails = (payment: typeof paymentHistory[0]) => {
-    setShowDetails(showDetails?.monthYear === payment.monthYear ? null : {
-      monthYear: payment.monthYear,
-      data: payment.details
-    });
+  const markAsPaid = async (month: string, year: number) => {
+    try {
+      // Update the payment history state to mark the selected month as paid
+      setPaymentHistory(paymentHistory.map(item => 
+        item.month === month && item.year === year ? {...item, paid: true} : item
+      ));
+
+      // Make API call to update the payment status
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/markMonthlyCommissionAsPaid`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            month,
+            year
+          })
+        }
+      );
+
+      if (!response.ok) throw new Error('Failed to mark payment as paid');
+      
+      // Refresh the payment history to get the updated data
+      await fetchPaymentHistory();
+    } catch (error) {
+      console.error('Error marking payment as paid:', error);
+    }
+  };
+
+  const viewPaymentDetails = async (month: string, year: number) => {
+    try {
+      // Show modal immediately with loading state
+      setShowPaymentDetails({
+        month,
+        year: year.toString(),
+        data: [],
+        isLoading: true
+      });
+      
+      // Convert month name to number if needed
+      const monthNumber = new Date(`${month} 1, ${year}`).getMonth() + 1;
+      
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/getMonthlyCommissionHistoryDetails?month=${monthNumber}&year=${year}`, 
+        {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          }
+        }
+      );
+      
+      if (!response.ok) throw new Error('Failed to fetch payment details');
+      
+      const data: PaymentHistoryDetails = await response.json();
+      
+      // Convert the data to match what the modal expects
+      const formattedData = data.data.map(agent => ({
+        _id: agent.agentId,
+        agentId: agent.agentId,
+        name: agent.name,
+        phoneNumber: '', // These fields might not be available in the API response
+        email: '',
+        bankName: '',
+        bankAccountNumber: '',
+        totalCommission: parseFloat(agent.amount.replace(/[^0-9.-]+/g,"")),
+        paid: true
+      }));
+      
+      setShowPaymentDetails({
+        month: data.month,
+        year: data.year,
+        data: formattedData,
+        isLoading: false
+      });
+    } catch (error) {
+      console.error('Error fetching payment details:', error);
+      setShowPaymentDetails(null);
+    }
   };
 
   const Pagination = ({ currentPage, totalPages, onPageChange }: PaginationProps) => {
@@ -123,14 +266,14 @@ const PaymentHistory = () => {
           <button
             onClick={() => onPageChange(Math.max(1, currentPage - 1))}
             disabled={currentPage === 1}
-            className="px-3 py-1 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
+            className="px-3 py-1 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 cursor-pointer"
           >
             Previous
           </button>
           <button
             onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
             disabled={currentPage === totalPages}
-            className="px-3 py-1 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
+            className="px-3 py-1 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 cursor-pointer"
           >
             Next
           </button>
@@ -149,7 +292,7 @@ const PaymentHistory = () => {
               <button
                 onClick={() => onPageChange(1)}
                 disabled={currentPage === 1}
-                className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
+                className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 cursor-pointer"
               >
                 <span className="sr-only">First</span>
                 «
@@ -157,7 +300,7 @@ const PaymentHistory = () => {
               <button
                 onClick={() => onPageChange(Math.max(1, currentPage - 1))}
                 disabled={currentPage === 1}
-                className="relative inline-flex items-center px-2 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
+                className="relative inline-flex items-center px-2 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 cursor-pointer"
               >
                 <span className="sr-only">Previous</span>
                 ‹
@@ -173,7 +316,7 @@ const PaymentHistory = () => {
                 <button
                   key={page}
                   onClick={() => onPageChange(page)}
-                  className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
+                  className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium cursor-pointer ${
                     currentPage === page
                       ? 'z-10 bg-blue-50 border-blue-500 text-blue-600'
                       : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
@@ -192,7 +335,7 @@ const PaymentHistory = () => {
               <button
                 onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
                 disabled={currentPage === totalPages}
-                className="relative inline-flex items-center px-2 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
+                className="relative inline-flex items-center px-2 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 cursor-pointer"
               >
                 <span className="sr-only">Next</span>
                 ›
@@ -200,7 +343,7 @@ const PaymentHistory = () => {
               <button
                 onClick={() => onPageChange(totalPages)}
                 disabled={currentPage === totalPages}
-                className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
+                className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 cursor-pointer"
               >
                 <span className="sr-only">Last</span>
                 »
@@ -233,26 +376,19 @@ const PaymentHistory = () => {
                     onChange={(e) => setSelectedYear(e.target.value)}
                     className="px-4 py-2 border border-blue-300 rounded-lg bg-white/90 backdrop-blur text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400"
                   >
-                    <option value="2023">2023</option>
-                    <option value="2022">2022</option>
-                    <option value="2021">2021</option>
+                    {[2023, 2022, 2021].map(year => (
+                      <option key={year} value={year}>{year}</option>
+                    ))}
                   </select>
                 </div>
                 
                 <div className="flex gap-3">
                   <button 
-                    onClick={() => window.location.reload()}
-                    className="flex items-center gap-2 px-4 py-2 bg-white/20 backdrop-blur text-white rounded-lg hover:bg-white/30 transition-all border border-white/30"
+                    onClick={fetchPaymentHistory}
+                    className="flex items-center gap-2 px-4 py-2 bg-white/20 backdrop-blur text-white rounded-lg hover:bg-white/30 transition-all border border-white/30 cursor-pointer"
                   >
                     <RefreshCw className="w-4 h-4" />
                     Refresh
-                  </button>
-                  <button 
-                    onClick={() => handleExport('all')}
-                    className="flex items-center gap-2 px-4 py-2 bg-white text-blue-600 rounded-lg hover:bg-blue-50 transition-colors font-semibold"
-                  >
-                    <Download className="w-4 h-4" />
-                    Export
                   </button>
                 </div>
               </div>
@@ -275,62 +411,95 @@ const PaymentHistory = () => {
               </div>
             </div>
             
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Month/Year</th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Amount</th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Agents Paid</th>
-                    <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {paginatedHistory.map((payment) => (
-                    <tr key={payment.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{payment.monthYear}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-semibold">
-                        {(payment.totalAmount / 1000000).toFixed(2)}M RWF
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{payment.agentsPaid}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <button
-                          onClick={() => toggleDetails(payment)}
-                          className="text-blue-600 hover:text-blue-900 mr-4"
-                        >
-                          View Details
-                        </button>
-                        <button
-                          onClick={() => handleExport(payment.monthYear)}
-                          className="text-gray-600 hover:text-gray-900"
-                        >
-                          Export
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            
-            <Pagination
-              currentPage={currentPage}
-              totalPages={Math.ceil(filteredHistory.length / itemsPerPage)}
-              onPageChange={setCurrentPage}
-            />
+            {isLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="text-center">
+                  <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-blue-200 border-t-blue-600 mb-4"></div>
+                  <p className="text-gray-600">Loading payment history...</p>
+                </div>
+              </div>
+            ) : paymentHistory.length === 0 ? (
+              <div className="text-center py-12">
+                <div className="mx-auto w-24 h-24 text-gray-400">
+                  <Calendar className="w-full h-full" />
+                </div>
+                <h3 className="mt-4 text-lg font-medium text-gray-900">No payment history</h3>
+                <p className="mt-2 text-sm text-gray-500">
+                  Payment history will appear here once payments are marked as paid.
+                </p>
+              </div>
+            ) : (
+              <>
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Year</th>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Month</th>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Amount</th>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Agents Count</th>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                        <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {paginatedHistory.map((payment) => (
+                        <tr key={`${payment.year}-${payment.month}`} className="hover:bg-gray-50">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{payment.year}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{payment.month}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-semibold">
+                            {payment.totalAmount.toLocaleString()} RWF
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{payment.agentsPaid}</td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                              payment.paid ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
+                            }`}>
+                              {payment.paid ? 'Paid' : 'Pending'}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <button
+                              onClick={() => viewPaymentDetails(payment.month, payment.year)}
+                              className="text-blue-600 hover:text-blue-900 cursor-pointer"
+                            >
+                              View
+                            </button>
+                            {!payment.paid && (
+                              <button
+                                onClick={() => markAsPaid(payment.month, payment.year)}
+                                className="ml-2 text-green-600 hover:text-green-900 cursor-pointer"
+                              >
+                                Mark as Paid
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                
+                <Pagination
+                  currentPage={currentPage}
+                  totalPages={Math.ceil(filteredHistory.length / itemsPerPage)}
+                  onPageChange={setCurrentPage}
+                />
+              </>
+            )}
           </div>
         </div>
       </div>
 
       {/* Payment Details Modal */}
-      {showDetails && (
+      {showPaymentDetails && (
         <div className="fixed inset-0 bg-gray-600/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6">
               <div className="flex justify-between items-center mb-6">
                 <h3 className="text-2xl font-bold text-gray-900">Payment Details</h3>
                 <button 
-                  onClick={() => setShowDetails(null)}
+                  onClick={() => setShowPaymentDetails(null)}
                   className="text-gray-400 cursor-pointer hover:text-gray-500"
                 >
                   <span className="sr-only">Close</span>
@@ -343,13 +512,13 @@ const PaymentHistory = () => {
               <div className="flex justify-between items-center mb-6">
                 <div>
                   <p className="text-gray-600">Showing payment details for</p>
-                  <p className="font-semibold text-gray-900">{showDetails.monthYear}</p>
+                  <p className="font-semibold text-gray-900">{showPaymentDetails.month} {showPaymentDetails.year}</p>
                   <p className="text-gray-900 mt-1">
-                    Total Paid: {showDetails.data.reduce((sum, agent) => sum + agent.amount, 0).toLocaleString()} RWF
+                    Total Paid: {showPaymentDetails.data.reduce((sum, agent) => sum + agent.totalCommission, 0).toLocaleString()} RWF
                   </p>
                 </div>
                 <button 
-                  onClick={() => handleExport(showDetails.monthYear)}
+                  onClick={() => handleExport(`${showPaymentDetails.month} ${showPaymentDetails.year}`)}
                   className="flex items-center cursor-pointer gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                 >
                   <Download className="w-4 h-4" />
@@ -358,37 +527,46 @@ const PaymentHistory = () => {
               </div>
               
               <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">#</th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Agent ID</th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Region</th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Clients</th>
-                      <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {showDetails.data.map((agent, index) => (
-                      <tr key={agent.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{index + 1}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{agent.id}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{agent.name}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{agent.region}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{agent.clients}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-semibold text-right">
-                          {agent.amount.toLocaleString()} RWF
-                        </td>
+                {showPaymentDetails.isLoading ? (
+                  <div className="flex items-center justify-center py-12">
+                    <div className="text-center">
+                      <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-blue-200 border-t-blue-600 mb-4"></div>
+                      <p className="text-gray-600">Loading payment details...</p>
+                    </div>
+                  </div>
+                ) : (
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">#</th>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Phone</th>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Bank Name</th>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Account Number</th>
+                        <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {showPaymentDetails.data.map((agent, index) => (
+                        <tr key={agent._id} className="hover:bg-gray-50">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{index + 1}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{agent.name}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{agent.phoneNumber || '-'}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{agent.bankName || '-'}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{agent.bankAccountNumber || '-'}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-semibold text-right">
+                            {agent.totalCommission.toLocaleString()} RWF
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
               </div>
               
               <div className="mt-6 flex justify-end">
                 <button
-                  onClick={() => setShowDetails(null)}
+                  onClick={() => setShowPaymentDetails(null)}
                   className="px-4 py-2 border cursor-pointer border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
                 >
                   Close
