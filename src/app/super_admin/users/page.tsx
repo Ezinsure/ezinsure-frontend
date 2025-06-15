@@ -386,7 +386,7 @@ export default function SuperAdminUsersPage() {
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_BASE_URL}/deactivateAgentApplication/${userToDeactivate}`,
         {
-          method: 'PATCH',
+          method: 'PUT',
           headers: {
             'Authorization': `Bearer ${token}`,
           },
