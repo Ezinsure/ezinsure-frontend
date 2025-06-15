@@ -12,16 +12,6 @@ interface PaginationProps {
   onPageChange: (page: number) => void;
 }
 
-interface PaymentDetails {
-  monthYear: string;
-  data: Array<{
-    id: string;
-    name: string;
-    region: string;
-    clients: number;
-    amount: number;
-  }>;
-}
 
 interface PaymentHistory {
   month: string;
@@ -41,13 +31,17 @@ interface PaymentHistory {
 
 interface PaymentHistoryDetails {
   month: string;
-  year: string;
+  year: number;
+  totalPaid: string;
   data: Array<{
-    agentId: string;
+    _id: string;
     name: string;
-    region: string;
-    clients: number;
-    amount: string;
+    agentId: string;
+    email: string;
+    bankName: string;
+    bankAccountNumber: string;
+    phoneNumber: string;
+    totalCommission: string;
   }>;
 }
 
@@ -71,7 +65,7 @@ interface PaymentDetailsModal {
 const PaymentHistory = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
-  const [showDetails, setShowDetails] = useState<PaymentDetails | null>(null);
+  // const [showDetails, setShowDetails] = useState<PaymentDetails | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
   const [paymentHistory, setPaymentHistory] = useState<PaymentHistory[]>([]);
@@ -137,14 +131,14 @@ const PaymentHistory = () => {
       const headers = ['Agent ID', 'Name', 'Phone', 'Email', 'Bank Name', 'Account Number', 'Commission'];
       const csvContent = [
         headers.join(','),
-        ...data.data.map((agent: { agentId: string; name: string; phoneNumber: string; email: string; bankName: string; bankAccountNumber: string; amount: string }) => [
+        ...data.data.map((agent: PaymentHistoryDetails['data'][0]) => [
           agent.agentId,
           `"${agent.name}"`,
           agent.phoneNumber || '',
           agent.email || '',
           agent.bankName || '',
           agent.bankAccountNumber || '',
-          agent.amount
+          agent.totalCommission
         ].join(','))
       ].join('\n');
 
@@ -223,20 +217,24 @@ const PaymentHistory = () => {
       
       // Convert the data to match what the modal expects
       const formattedData = data.data.map(agent => ({
-        _id: agent.agentId,
+        _id: agent._id,
         agentId: agent.agentId,
         name: agent.name,
-        phoneNumber: '', // These fields might not be available in the API response
-        email: '',
-        bankName: '',
-        bankAccountNumber: '',
-        totalCommission: parseFloat(agent.amount.replace(/[^0-9.-]+/g,"")),
+        phoneNumber: agent.phoneNumber || '',
+        email: agent.email || '',
+        bankName: agent.bankName || '',
+        bankAccountNumber: agent.bankAccountNumber || '',
+        totalCommission: typeof agent.totalCommission === 'string' 
+          ? parseFloat(agent.totalCommission.replace(/[^0-9.-]+/g,"")) 
+          : typeof agent.totalCommission === 'number' 
+            ? agent.totalCommission 
+            : 0,
         paid: true
       }));
       
       setShowPaymentDetails({
         month: data.month,
-        year: data.year,
+        year: data.year.toString(),
         data: formattedData,
         isLoading: false
       });
