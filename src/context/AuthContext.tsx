@@ -25,18 +25,28 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// Helper function to get cookie value
+const getCookie = (name: string): string | null => {
+  if (typeof document === 'undefined') return null;
+  const value = `; ${document.cookie}`;
+  const parts = value.split(`; ${name}=`);
+  if (parts.length === 2) return parts.pop()?.split(';').shift() || null;
+  return null;
+};
+
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isInitialized, setIsInitialized] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
 
   const handleRouteProtection = useCallback(() => {
     const PUBLIC_ROUTES = ['/', '/apply', '/login', '/register', '/track', '/terms-and-conditions', '/privacy-policy'];
     
-    // Skip if still loading
-    if (isLoading) return;
+    // Skip if still loading or not initialized
+    if (isLoading || !isInitialized) return;
 
     // **1. If logged in (has token & user)**
     if (token && user) {
@@ -62,7 +72,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
 
       // For protected routes, redirect to login
-      if (pathname.startsWith('/admin') || pathname.startsWith('/agent') || pathname.startsWith('/super_admin')) {
+      if (pathname.startsWith('/admin') || pathname.startsWith('/agent') || pathname.startsWith('/super_admin') || pathname.startsWith('/finance')) {
         router.push('/login');
         return;
       }
@@ -70,7 +80,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       // For any other protected route, redirect to login
       router.push('/login');
     }
-  }, [isLoading, pathname, router, token, user]);
+  }, [isLoading, isInitialized, pathname, router, token, user]);
 
   const login = async (email: string, password: string) => {
     try {
@@ -115,6 +125,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setToken(token);
       setUser(data);
       
+      // Notify other tabs about login
+      localStorage.setItem('auth_event', JSON.stringify({
+        type: 'login',
+        token,
+        user: data,
+        timestamp: Date.now()
+      }));
+      
       // Redirect based on role
       router.push(`/${data.role.toLowerCase()}/dashboard`);
     } catch (error) {
@@ -135,7 +153,43 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     document.cookie = 'ezinsure_token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT';
     document.cookie = 'ezinsure_user=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT';
     
+    // Notify other tabs about logout
+    localStorage.setItem('auth_event', JSON.stringify({
+      type: 'logout',
+      timestamp: Date.now()
+    }));
+    
     router.push('/login');
+  }, [router]);
+
+  // Listen for storage events (cross-tab communication)
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'auth_event' && e.newValue) {
+        try {
+          const event = JSON.parse(e.newValue);
+          
+          if (event.type === 'login') {
+            setToken(event.token);
+            setUser(event.user);
+            // Update sessionStorage in this tab
+            sessionStorage.setItem('ezinsure_token', event.token);
+            sessionStorage.setItem('ezinsure_user', JSON.stringify(event.user));
+          } else if (event.type === 'logout') {
+            setToken(null);
+            setUser(null);
+            sessionStorage.removeItem('ezinsure_token');
+            sessionStorage.removeItem('ezinsure_user');
+            router.push('/login');
+          }
+        } catch (error) {
+          console.error('Failed to process auth event:', error);
+        }
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
   }, [router]);
 
   const value = {
@@ -150,34 +204,61 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     const initializeAuth = async () => {
       try {
-        const storedToken = sessionStorage.getItem('ezinsure_token');
-        const storedUser = sessionStorage.getItem('ezinsure_user');
+        // First, try to get from sessionStorage
+        let storedToken = sessionStorage.getItem('ezinsure_token');
+        let storedUser = sessionStorage.getItem('ezinsure_user');
+        
+        // If not in sessionStorage, check cookies (for new tabs)
+        if (!storedToken || !storedUser) {
+          const cookieToken = getCookie('ezinsure_token');
+          const cookieUser = getCookie('ezinsure_user');
+          
+          if (cookieToken && cookieUser) {
+            storedToken = cookieToken;
+            storedUser = decodeURIComponent(cookieUser);
+            
+            // Sync to sessionStorage
+            sessionStorage.setItem('ezinsure_token', storedToken);
+            sessionStorage.setItem('ezinsure_user', storedUser);
+          }
+        }
         
         if (storedToken && storedUser) {
+          const userData = JSON.parse(storedUser);
           setToken(storedToken);
-          setUser(JSON.parse(storedUser));
+          setUser(userData);
         }
       } catch (error) {
         console.error('Failed to initialize auth', error);
-        logout();
+        // Clear invalid data
+        sessionStorage.removeItem('ezinsure_token');
+        sessionStorage.removeItem('ezinsure_user');
+        document.cookie = 'ezinsure_token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT';
+        document.cookie = 'ezinsure_user=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT';
       } finally {
         setIsLoading(false);
+        setIsInitialized(true);
       }
     };
 
     initializeAuth();
-  }, [logout]);
+  }, []);
   
   useEffect(() => {
-    // Add a small delay to prevent race conditions during login
-    const timeoutId = setTimeout(() => {
-      if (!isLoading) {
-        handleRouteProtection();
-      }
-    }, 100);
+    // Only handle route protection after initialization is complete
+    if (isInitialized && !isLoading) {
+      handleRouteProtection();
+    }
+  }, [isInitialized, isLoading, pathname, user, token, handleRouteProtection]);
 
-    return () => clearTimeout(timeoutId);
-  }, [isLoading, pathname, user, token, handleRouteProtection]);
+  // Show loading state only if truly loading
+  if (isLoading || !isInitialized) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

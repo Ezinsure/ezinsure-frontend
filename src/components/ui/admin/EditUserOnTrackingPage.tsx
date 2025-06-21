@@ -95,13 +95,24 @@ export const EditUserOnTrackingPage = ({
       // Set up districts based on current province
       if (application.province) {
         const selectedProvince = rwandaProvinces.find(p => p.name === application.province);
-        setAvailableDistricts(selectedProvince?.districts || []);
+        const districts = selectedProvince?.districts || [];
+        // Transform districts to match expected format
+        const transformedDistricts = districts.map(district => ({
+          name: district.name,
+          sectors: district.sectors?.map(sector => sector.name) || []
+        }));
+        setAvailableDistricts(transformedDistricts);
       }
 
       // Set up sectors based on current district
       if (application.district && application.province) {
         const selectedProvince = rwandaProvinces.find(p => p.name === application.province);
-        const selectedDistrict = selectedProvince?.districts?.find(d => d.name === application.district);
+        const districts = selectedProvince?.districts || [];
+        const transformedDistricts = districts.map(district => ({
+          name: district.name,
+          sectors: district.sectors?.map(sector => sector.name) || []
+        }));
+        const selectedDistrict = transformedDistricts.find(d => d.name === application.district);
         setAvailableSectors(selectedDistrict?.sectors || []);
       }
     }
@@ -112,9 +123,14 @@ export const EditUserOnTrackingPage = ({
     if (formState.province) {
       const selectedProvince = rwandaProvinces.find(p => p.name === formState.province);
       const districts = selectedProvince?.districts || [];
-      setAvailableDistricts(districts);
+      // Transform districts to match expected format
+      const transformedDistricts = districts.map(district => ({
+        name: district.name,
+        sectors: district.sectors?.map(sector => sector.name) || []
+      }));
+      setAvailableDistricts(transformedDistricts);
       
-      if (!districts.some(d => d.name === formState.district)) {
+      if (!transformedDistricts.some(d => d.name === formState.district)) {
         setFormState(prev => ({ ...prev, district: '', sector: '' }));
       }
     } else {

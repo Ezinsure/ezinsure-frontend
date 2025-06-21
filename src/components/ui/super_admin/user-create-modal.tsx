@@ -297,7 +297,10 @@ const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, fieldName: str
 useEffect(() => {
   if (formData.district) {
     const selectedDistrict = districts.find(d => d.name === formData.district);
-    setSectors(selectedDistrict?.sectors || []);
+    const sectors = selectedDistrict?.sectors || [];
+    // Extract sector names as strings
+    const sectorNames = sectors.map(sector => sector.name);
+    setSectors(sectorNames);
     setFormData(prev => ({ ...prev, sector: '' }));
   } else {
     setSectors([]);

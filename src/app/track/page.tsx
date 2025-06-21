@@ -249,10 +249,15 @@ const EditApplicationModal = ({ isOpen, onClose, onSave, application, isLoading 
     if (formState.province) {
       const selectedProvince = rwandaProvinces.find(p => p.name === formState.province);
       const districts = selectedProvince?.districts || [];
-      setAvailableDistricts(districts);
+      // Transform districts to match expected format
+      const transformedDistricts = districts.map(district => ({
+        name: district.name,
+        sectors: district.sectors?.map(sector => sector.name) || []
+      }));
+      setAvailableDistricts(transformedDistricts);
       
       // Reset district and sector if they're not in the new province
-      if (!districts.some(d => d.name === formState.district)) {
+      if (!transformedDistricts.some(d => d.name === formState.district)) {
         setFormState(prev => ({ ...prev, district: '', sector: '' }));
       }
     } else {
