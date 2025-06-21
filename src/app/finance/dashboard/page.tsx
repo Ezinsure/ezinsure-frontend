@@ -5,6 +5,7 @@ import React, { useState, useEffect } from 'react';
 import { DollarSign, Users, Search, Download, RefreshCw, Calendar, ArrowDownRight, ArrowUpRight } from 'lucide-react';
 import { MainLayout } from '@/components/ui/main-layout';
 import { useAuth } from '@/context/AuthContext';
+import { Toast } from '@/components/ui/toast';
 
 interface PaymentHistory {
   month: string;
@@ -82,7 +83,7 @@ const FinanceDashboard = () => {
     data: []
   });
   const [paymentHistory, setPaymentHistory] = useState<PaymentHistory[]>([]);
-  // const [isModalLoading, setIsModalLoading] = useState(false);
+  const [toast, setToast] = useState({ show: false, message: '', isError: false });
  
 
   // Calculate current month's total commission
@@ -91,68 +92,72 @@ const FinanceDashboard = () => {
   const currentMonthPendingAgents = currentMonthData.data.filter(agent => !agent.paid).length;
   const avgCommission = currentMonthData.data.length > 0 ? currentMonthTotal / currentMonthData.data.length : 0;
 
-  // Fetch current month's data
-  useEffect(() => {
-    const fetchCurrentMonthData = async () => {
-      try {
-        setIsLoading(true);
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/getAllAgentsMonthlyCommissions`, {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          }
-        });
-        
-        if (!response.ok) throw new Error('Failed to fetch data');
-        
-        const data = await response.json();
-        setCurrentMonthData({
-          month: new Date().toLocaleString('default', { month: 'long' }),
-          data: data.data.map((agent: AgentCommission) => {
-            return ({
-              ...agent,
-              paid: false // Initially set all agents as unpaid
-            });
-          })
-        });
-        
-        
-      } catch (error) {
-        console.error('Error fetching data:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
+  const fetchCurrentMonthData = async () => {
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/getAllAgentsMonthlyCommissions`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (!response.ok) throw new Error('Failed to fetch data');
+      
+      const data = await response.json();
+      setCurrentMonthData({
+        month: new Date().toLocaleString('default', { month: 'long' }),
+        data: data.data.map((agent: AgentCommission) => {
+          return ({
+            ...agent,
+            paid: false // Initially set all agents as unpaid
+          });
+        })
+      });
+      
+      
+    } catch (error) {
+      console.error('Error fetching data:', error);
+      setToast({ show: true, message: 'Error fetching current month data.', isError: true });
+    }
+  };
 
-    fetchCurrentMonthData();
-  }, [token]);
+  const fetchPaymentHistory = async () => {
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/getAllCommissionSummaries`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (!response.ok) throw new Error('Failed to fetch payment history');
+      
+      const data = await response.json();
+      setPaymentHistory(data.results.map((item: PaymentHistory) => ({
+        ...item,
+        paid: !!item.paid // Assuming all items in history are not paid, this field will be coming from db
+      })));
+    } catch (error) {
+      console.error('Error fetching payment history:', error);
+      setToast({ show: true, message: 'Error fetching payment history.', isError: true });
+    }
+  };
 
   useEffect(() => {
-    const fetchPaymentHistory = async () => {
-      try {
-        setIsLoading(true);
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/getAllCommissionSummaries`, {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          }
-        });
-        
-        if (!response.ok) throw new Error('Failed to fetch payment history');
-        
-        const data = await response.json();
-        setPaymentHistory(data.results.map((item: PaymentHistory) => ({
-          ...item,
-          paid: false // Assuming all items in history are not paid, this field will be coming from db
-        })));
-      } catch (error) {
-        console.error('Error fetching payment history:', error);
-      }
-    };
-  
-    fetchPaymentHistory();
+    const loadInitialData = async () => {
+      setIsLoading(true);
+      await Promise.all([
+        fetchCurrentMonthData(),
+        fetchPaymentHistory()
+      ]);
+      setIsLoading(false);
+    }
+
+    if (token) {
+      loadInitialData();
+    }
   }, [token]);
 
   const statsCards = [
@@ -380,35 +385,46 @@ const FinanceDashboard = () => {
   };
 
   const markAsPaid = async (month?: string, year?: number) => {
+    let monthNumber;
+    let targetYear;
+
     if (month && year) {
       // Mark a historical month as paid
-      setPaymentHistory(paymentHistory.map(item => 
-        item.month === month && item.year === year ? {...item, paid: true} : item
-      ));
+      targetYear = year;
+      monthNumber = new Date(`${month} 1, ${year}`).getMonth() + 1;
     } else {
       // Mark current month as paid
-      setCurrentMonthData({
-        ...currentMonthData,
-        data: currentMonthData.data.map(agent => ({
-          ...agent,
-          paid: true,
-          paymentDate: new Date().toISOString().split('T')[0]
-        }))
+      const now = new Date();
+      monthNumber = now.getMonth() + 1;
+      targetYear = now.getFullYear();
+    }
+
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/markAsPaid?month=${monthNumber}&year=${targetYear}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
       });
-      
-      // Add to payment history
-      const currentMonth = new Date().toLocaleString('default', { month: 'long' });
-      const currentYear = new Date().getFullYear();
-      
-      setPaymentHistory([{
-        year: currentYear,
-        month: currentMonth,
-        totalAmount: currentMonthTotal,
-        agentsPaid: currentMonthPaidAgents,
-        totalCommissionForMonth: currentMonthTotal.toString(),
-        data: [...currentMonthData.data],
-        paid: true
-      }, ...paymentHistory]);
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: 'Failed to mark as paid' }));
+        throw new Error(errorData.message);
+      }
+
+      const result = await response.json();
+      setToast({ show: true, message: result.message, isError: false });
+
+      // After successful API call, update the UI.
+      if (month && year) {
+        await fetchPaymentHistory();
+      } else {
+        await Promise.all([fetchCurrentMonthData(), fetchPaymentHistory()]);
+      }
+    } catch (error: unknown) {
+      console.error('Error marking as paid:', error);
+      setToast({ show: true, message: error instanceof Error ? error.message : 'An unknown error occurred', isError: true });
     }
   };
 
@@ -483,6 +499,13 @@ const FinanceDashboard = () => {
 
   return (
     <MainLayout containerClass="p-0" fullWidth>
+      {toast.show && (
+        <Toast
+          message={toast.message}
+          type={toast.isError ? 'error' : 'success'}
+          onClose={() => setToast({ ...toast, show: false })}
+        />
+      )}
       <div className="container mx-auto px-4 py-8">
         <div className="absolute top-0 left-0 w-full h-[10vh] overflow-hidden z-0 bg-gradient-to-br from-[#0A2540] to-[#126BB3]"></div>
         

@@ -109,9 +109,14 @@ const [formState, setFormState] = useState<Partial<Application>>(() => {
     if (formState.province) {
       const selectedProvince = rwandaProvinces.find(p => p.name === formState.province);
       const districts = selectedProvince?.districts || [];
-      setAvailableDistricts(districts);
+      // Transform districts to match expected format with sector names as strings
+      const transformedDistricts = districts.map(district => ({
+        name: district.name,
+        sectors: district.sectors?.map(sector => sector.name) || []
+      }));
+      setAvailableDistricts(transformedDistricts);
       
-      if (!districts.some(d => d.name === formState.district)) {
+      if (!transformedDistricts.some(d => d.name === formState.district)) {
         setFormState(prev => ({ ...prev, district: '', sector: '' }));
       }
     } else {
@@ -143,10 +148,16 @@ const [formState, setFormState] = useState<Partial<Application>>(() => {
   useEffect(() => {
     if (!isPaymentRejection && application.province) {
       const selectedProvince = rwandaProvinces.find(p => p.name === application.province);
-      setAvailableDistricts(selectedProvince?.districts || []);
+      const districts = selectedProvince?.districts || [];
+      // Transform districts to match expected format
+      const transformedDistricts = districts.map(district => ({
+        name: district.name,
+        sectors: district.sectors?.map(sector => sector.name) || []
+      }));
+      setAvailableDistricts(transformedDistricts);
       
       if (application.district) {
-        const selectedDistrict = selectedProvince?.districts?.find(d => d.name === application.district);
+        const selectedDistrict = transformedDistricts.find(d => d.name === application.district);
         setAvailableSectors(selectedDistrict?.sectors || []);
       }
     }

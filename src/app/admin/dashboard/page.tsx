@@ -5,9 +5,91 @@ import { Area, BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tool
 import { TrendingUp, Users, DollarSign, Download, Search, UserCheck, Target, Award, Activity, Briefcase, Shield, Globe, ArrowUpRight, ArrowDownRight, Eye, EyeOff, RefreshCw } from 'lucide-react';
 import type { TooltipProps } from 'recharts';
 import { MainLayout } from '@/components/ui/main-layout';
+import { useAuth } from '@/context/AuthContext';
 
+// API service functions
+const fetchActiveAgentsCount = async (token: string) => {
+  try {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/getActiveAgentsCount`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    const data = await response.json();
+    return data.data || 0;
+  } catch (error) {
+    console.error('Error fetching active agents count:', error);
+    return 0;
+  }
+};
+
+const fetchApplicationsThisMonth = async (token: string) => {
+  try {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/countApplicationsThisMonth`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    const data = await response.json();
+    return data.data || 0;
+  } catch (error) {
+    console.error('Error fetching applications count:', error);
+    return 0;
+  }
+};
+
+const fetchCoveredProvinces = async (token: string) => {
+  try {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/countCoveredProvinces`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    const data = await response.json();
+    return data.data || 0;
+  } catch (error) {
+    console.error('Error fetching covered provinces:', error);
+    return 0;
+  }
+};
+
+const fetchTotalCommission = async (token: string) => {
+  try {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/getTotalCompanyCommissionThisMonth`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    const data = await response.json();
+    return data.data || 0;
+  } catch (error) {
+    console.error('Error fetching total commission:', error);
+    return 0;
+  }
+};
 
 const AdminDashboard = () => {
+  const { token } = useAuth();
   const [selectedPeriod, setSelectedPeriod] = useState('this_month');
   const [selectedRegion, setSelectedRegion] = useState('all');
   const [selectedInsuranceType, setSelectedInsuranceType] = useState('all');
@@ -15,6 +97,20 @@ const AdminDashboard = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState('overview');
+  
+  // State for stats cards data
+  const [statsData, setStatsData] = useState({
+    activeAgents: 0,
+    applications: 0,
+    coveredProvinces: 0,
+    totalCommission: 0,
+    loading: {
+      activeAgents: true,
+      applications: true,
+      coveredProvinces: true,
+      totalCommission: true
+    }
+  });
 
   // Mock data for admin dashboard
   const mockData = {
@@ -65,6 +161,54 @@ const AdminDashboard = () => {
     ]
   };
 
+ // Fetch stats data on component mount
+  useEffect(() => {
+    const fetchStatsData = async () => {
+      if (!token) {
+        console.error('No token available');
+        return;
+      }
+
+      try {
+        const [activeAgents, applications, coveredProvinces, totalCommission] = await Promise.all([
+          fetchActiveAgentsCount(token),
+          fetchApplicationsThisMonth(token),
+          fetchCoveredProvinces(token),
+          fetchTotalCommission(token)
+        ]);
+
+        setStatsData({
+          activeAgents: activeAgents || 0,
+          applications: applications || 0,
+          coveredProvinces: coveredProvinces || 0,
+          totalCommission: totalCommission || 0,
+          loading: {
+            activeAgents: false,
+            applications: false,
+            coveredProvinces: false,
+            totalCommission: false
+          }
+        });
+      } catch (error) {
+        console.error('Error fetching stats data:', error);
+        // Set default values on error
+        setStatsData(prev => ({
+          ...prev,
+          loading: {
+            activeAgents: false,
+            applications: false,
+            coveredProvinces: false,
+            totalCommission: false
+          }
+        }));
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchStatsData();
+  }, [token]);
+
   const statsCards = [
     {
       title: 'Total Revenue',
@@ -79,14 +223,15 @@ const AdminDashboard = () => {
     },
     {
       title: 'Active Agents',
-      value: '342',
+      value: statsData.loading.activeAgents ? '' : (statsData.activeAgents || 0).toLocaleString(),
       change: '+12.3%',
       changeType: 'increase',
       icon: <UserCheck className="w-6 h-6" />,
       color: 'from-blue-500 to-blue-600',
       bgColor: 'bg-blue-50',
       textColor: 'text-blue-600',
-      subtitle: 'Currently active'
+      subtitle: 'Currently active',
+      loading: statsData.loading.activeAgents
     },
     {
       title: 'Total Clients',
@@ -101,14 +246,15 @@ const AdminDashboard = () => {
     },
     {
       title: 'Applications',
-      value: '2,847',
+      value: statsData.loading.applications ? '' : (statsData.applications || 0).toLocaleString(),
       change: '+8.2%',
       changeType: 'increase',
       icon: <Briefcase className="w-6 h-6" />,
       color: 'from-amber-500 to-amber-600',
       bgColor: 'bg-amber-50',
       textColor: 'text-amber-600',
-      subtitle: 'This month'
+      subtitle: 'This month',
+      loading: statsData.loading.applications
     },
     {
       title: 'Conversion Rate',
@@ -123,14 +269,15 @@ const AdminDashboard = () => {
     },
     {
       title: 'Avg Commission',
-      value: '21,500 RWF',
+      value: statsData.loading.totalCommission ? '' : `${((statsData.totalCommission || 0) / ((statsData.activeAgents || 0) || 1)).toLocaleString()} RWF`,
       change: '+5.8%',
       changeType: 'increase',
       icon: <Award className="w-6 h-6" />,
       color: 'from-indigo-500 to-indigo-600',
       bgColor: 'bg-indigo-50',
       textColor: 'text-indigo-600',
-      subtitle: 'Per agent/month'
+      subtitle: 'Per agent/month',
+      loading: statsData.loading.totalCommission
     },
     {
       title: 'Policy Claims',
@@ -145,19 +292,21 @@ const AdminDashboard = () => {
     },
     {
       title: 'Coverage Areas',
-      value: '5',
+      value: statsData.loading.coveredProvinces ? '' : (statsData.coveredProvinces || 0),
       change: '0%',
       changeType: 'neutral',
       icon: <Globe className="w-6 h-6" />,
       color: 'from-cyan-500 to-cyan-600',
       bgColor: 'bg-cyan-50',
       textColor: 'text-cyan-600',
-      subtitle: 'Provinces covered'
+      subtitle: 'Provinces covered',
+      loading: statsData.loading.coveredProvinces
     }
   ];
 
+
   useEffect(() => {
-    setTimeout(() => setIsLoading(false), 800);
+    setTimeout(() => setIsLoading(false), 500);
   }, []);
 
 
@@ -266,35 +415,41 @@ const CustomTooltip: React.FC<TooltipProps<number, string>> = ({ active, payload
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Stats Cards Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          {statsCards.map((card, index) => (
-            <div 
-              key={index} 
-              className="bg-white rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2 border border-gray-100 group"
-              style={{ animationDelay: `${index * 50}ms` }}
-            >
-              <div className="flex items-center justify-between mb-4">
-                <div className={`p-3 rounded-xl ${card.bgColor} group-hover:scale-110 transition-transform`}>
-                  <div className={card.textColor}>{card.icon}</div>
-                </div>
-                <div className={`flex items-center gap-1 text-sm font-semibold px-2 py-1 rounded-full ${
-                  card.changeType === 'increase' ? 'text-emerald-600 bg-emerald-50' :
-                  card.changeType === 'decrease' ? 'text-red-600 bg-red-50' :
-                  'text-gray-600 bg-gray-50'
-                }`}>
-                  {card.changeType === 'increase' ? <ArrowUpRight className="w-3 h-3" /> :
-                   card.changeType === 'decrease' ? <ArrowDownRight className="w-3 h-3" /> : null}
-                  {card.change}
-                </div>
-              </div>
-              
-              <h3 className="text-gray-500 text-sm font-medium mb-1">{card.title}</h3>
-              <div className="space-y-1">
-                <p className="text-2xl font-bold text-gray-900">{card.value}</p>
-                <p className="text-gray-600 text-sm">{card.subtitle}</p>
-              </div>
-            </div>
-          ))}
+    {statsCards.map((card, index) => (
+      <div 
+        key={index} 
+        className="bg-white rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2 border border-gray-100 group relative overflow-hidden"
+        style={{ animationDelay: `${index * 50}ms` }}
+      >
+        {card.loading && (
+          <div className="absolute inset-0 bg-white/80 flex items-center justify-center z-10">
+            <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
+          </div>
+        )}
+        
+        <div className="flex items-center justify-between mb-4">
+          <div className={`p-3 rounded-xl ${card.bgColor} group-hover:scale-110 transition-transform`}>
+            <div className={card.textColor}>{card.icon}</div>
+          </div>
+          <div className={`flex items-center gap-1 text-sm font-semibold px-2 py-1 rounded-full ${
+            card.changeType === 'increase' ? 'text-emerald-600 bg-emerald-50' :
+            card.changeType === 'decrease' ? 'text-red-600 bg-red-50' :
+            'text-gray-600 bg-gray-50'
+          }`}>
+            {card.changeType === 'increase' ? <ArrowUpRight className="w-3 h-3" /> :
+             card.changeType === 'decrease' ? <ArrowDownRight className="w-3 h-3" /> : null}
+            {card.change}
+          </div>
         </div>
+        
+        <h3 className="text-gray-500 text-sm font-medium mb-1">{card.title}</h3>
+        <div className="space-y-1">
+          <p className="text-2xl font-bold text-gray-900">{card.value}</p>
+          <p className="text-gray-600 text-sm">{card.subtitle}</p>
+        </div>
+      </div>
+    ))}
+  </div>
 
         {/* Main Analytics Section */}
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-8 mb-8">
@@ -402,7 +557,7 @@ const CustomTooltip: React.FC<TooltipProps<number, string>> = ({ active, payload
                   <Tooltip 
                     formatter={(value, name, props) => [
                       `${value}%`,
-                      `${props.payload.revenue.toLocaleString()} RWF`
+                      `${(props.payload.revenue || 0).toLocaleString()} RWF`
                     ]}
                   />
                 </PieChart>
@@ -419,7 +574,7 @@ const CustomTooltip: React.FC<TooltipProps<number, string>> = ({ active, payload
                     />
                     <div>
                       <span className="text-sm font-medium text-gray-900">{type.name}</span>
-                      <p className="text-xs text-gray-500">{type.revenue.toLocaleString()} RWF</p>
+                      <p className="text-xs text-gray-500">{(type.revenue || 0).toLocaleString()} RWF</p>
                     </div>
                   </div>
                   <span className="text-sm font-bold text-gray-900">{type.value}%</span>
@@ -445,7 +600,7 @@ const CustomTooltip: React.FC<TooltipProps<number, string>> = ({ active, payload
                       <p className="text-sm text-gray-600">{region.agents} agents • {region.clients} clients</p>
                     </div>
                     <div className="text-right">
-                      <p className="font-bold text-gray-900">{region.revenue.toLocaleString()} RWF</p>
+                      <p className="font-bold text-gray-900">{(region.revenue || 0).toLocaleString()} RWF</p>
                       <span className="text-xs text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full">
                         +{region.growth}%
                       </span>
@@ -534,8 +689,8 @@ const CustomTooltip: React.FC<TooltipProps<number, string>> = ({ active, payload
                   </div>
                   
                   <div className="text-right">
-                    <p className="font-bold text-gray-900">{agent.revenue.toLocaleString()} RWF</p>
-                    <p className="text-sm text-gray-600">Commission: {agent.commission.toLocaleString()} RWF</p>
+                    <p className="font-bold text-gray-900">{(agent.revenue || 0).toLocaleString()} RWF</p>
+                    <p className="text-sm text-gray-600">Commission: {(agent.commission || 0).toLocaleString()} RWF</p>
                   </div>
                 </div>
               ))}
