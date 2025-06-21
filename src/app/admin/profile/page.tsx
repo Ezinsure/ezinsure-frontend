@@ -130,7 +130,9 @@ const availableDistricts = useMemo(() => {
 const availableSectors = useMemo(() => {
   if (!profile.district) return [];
   const district = availableDistricts.find(d => d.name === profile.district);
-  return district?.sectors || [];
+  const sectors = district?.sectors || [];
+  // Extract sector names as strings
+  return sectors.map(sector => sector.name);
 }, [profile.district, availableDistricts]);
 
   // Get user initials

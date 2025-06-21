@@ -135,14 +135,21 @@ export default function SuperAdminProfilePage() {
   const availableDistricts = useMemo(() => {
     if (!profile.province) return [];
     const province = rwandaProvinces.find(p => p.name === profile.province);
-    return province?.districts || [];
+    const districts = province?.districts || [];
+    // Transform districts to match expected format
+    return districts.map(district => ({
+      name: district.name,
+      sectors: district.sectors?.map(sector => sector.name) || []
+    }));
   }, [profile.province]);
 
   // Get available sectors based on selected district
   const availableSectors = useMemo(() => {
     if (!profile.district) return [];
     const district = availableDistricts.find(d => d.name === profile.district);
-    return district?.sectors || [];
+    const sectors = district?.sectors || [];
+    // Return sector names as strings
+    return sectors;
   }, [profile.district, availableDistricts]);
 
   // Get user initials

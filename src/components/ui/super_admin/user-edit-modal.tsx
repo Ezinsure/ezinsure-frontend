@@ -94,7 +94,10 @@ export const UserEditModal = ({ user, onClose, onSave, isLoading, currentUserRol
   useEffect(() => {
     if (formData.district) {
       const selectedDistrict = districts.find(d => d.name === formData.district);
-      setSectors(selectedDistrict?.sectors || []);
+      const sectors = selectedDistrict?.sectors || [];
+      // Extract sector names as strings
+      const sectorNames = sectors.map(sector => sector.name);
+      setSectors(sectorNames);
     }
   }, [formData.district, districts]);
 

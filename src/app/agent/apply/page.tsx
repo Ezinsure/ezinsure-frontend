@@ -303,7 +303,13 @@ export default function AgentApplyPage() {
 
     if (value) {
       const selectedProvince = rwandaProvinces.find(p => p.name === value);
-      setAvailableDistricts(selectedProvince?.districts || []);
+      const districts = selectedProvince?.districts || [];
+      // Transform districts to match expected format
+      const transformedDistricts = districts.map(district => ({
+        name: district.name,
+        sectors: district.sectors?.map(sector => sector.name) || []
+      }));
+      setAvailableDistricts(transformedDistricts);
     } else {
       setAvailableDistricts([]);
     }
