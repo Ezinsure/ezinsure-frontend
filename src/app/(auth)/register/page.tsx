@@ -55,9 +55,15 @@ const OTPModal = ({ isOpen, onClose, onVerify, email, isLoading }: OTPModalProps
   useEffect(() => {
     if (isOpen) {
       setOtp(['', '', '', '', '', '']);
+    }
+  }, [isOpen]);
+
+  // Show toast when modal opens
+  useEffect(() => {
+    if (isOpen) {
       showToast(`OTP sent to your email: ${email}`, 'success');
     }
-  }, [isOpen, email, showToast]);
+  }, [isOpen, email]);
 
   const handleOtpChange = (index: number, value: string) => {
     if (value.length > 1) return;
@@ -396,6 +402,7 @@ const handleSubmit = async (e: React.FormEvent) => {
         method: 'POST',
         body: formData,
       });
+      console.log("Response:", response)
 
       if (!response.ok) {
         const errorData = await response.json();
@@ -407,6 +414,7 @@ const handleSubmit = async (e: React.FormEvent) => {
       setApplication(data.data);
       setMode('track');
     } catch (error: unknown) {
+      console.error('Registration error:', error);
       const errorMessage = error instanceof Error ? error.message : 'Registration failed. Please try again.';
       showToast(errorMessage, 'error');
     } finally {
