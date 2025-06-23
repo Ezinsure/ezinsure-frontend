@@ -30,6 +30,10 @@ interface Application {
   insuranceCategory: string;
   insuranceType: string;
   insuranceDuration: string;
+  isCOMESA?: boolean;
+  vehicleUse?: string;
+  otherVehicleUse?: string;
+  insuranceProvider?: string;
   status: string;
   nationalID: string;
   yellowCard: string;
@@ -872,6 +876,18 @@ const getActionButtons = (app: Application) => {
               <p className="font-semibold">{selectedApp.amount.toLocaleString()} RWF</p>
             </div>
           )}
+          {selectedApp.insuranceProvider && (
+            <div>
+              <p className="text-sm text-gray-500">Insurance Provider</p>
+              <p className="font-semibold">{selectedApp.insuranceProvider}</p>
+            </div>
+          )}
+          {selectedApp.isCOMESA !== undefined && (
+            <div>
+              <p className="text-sm text-gray-500">COMESA Coverage</p>
+              <p className="font-semibold">{selectedApp.isCOMESA ? 'Yes' : 'No'}</p>
+            </div>
+          )}
         </div>
         
         {/* Vehicle Info (if applicable) */}
@@ -887,6 +903,16 @@ const getActionButtons = (app: Application) => {
               <div>
                 <p className="text-sm text-gray-500">Vehicle Year</p>
                 <p className="font-semibold">{selectedApp.vehicleAge}</p>
+              </div>
+            )}
+            {selectedApp.vehicleUse && (
+              <div>
+                <p className="text-sm text-gray-500">Vehicle Use</p>
+                <p className="font-semibold">
+                  {selectedApp.vehicleUse === 'Other' 
+                    ? selectedApp.otherVehicleUse 
+                    : selectedApp.vehicleUse}
+                </p>
               </div>
             )}
           </div>
@@ -1163,73 +1189,6 @@ const getActionButtons = (app: Application) => {
         </div>
       )}
 
-      {/* Modal for rejecting payment */}
-      {/* {selectedApp && selectedApp.status.toLowerCase() === ApplicationStatus.WAITING_FOR_USER_ACTION && (
-        <div className="fixed inset-0 bg-gray-600/50 flex items-center justify-center z-50">
-          <div className="max-h-[90vh] overflow-y-auto bg-white rounded-lg shadow-xl p-6 w-full max-w-md mx-4 fade-in">
-            <h3 className="text-lg font-semibold mb-4">Reject Payment</h3>
-            <p className="text-gray-600 mb-4">Please provide a reason for rejecting this payment:</p>
-            
-            <div className="border rounded-lg p-4 mb-4 bg-gray-50">
-              <p className="font-medium">Payment Details:</p>
-              <ul className="mt-2 space-y-1 text-sm">
-                {selectedApp.invoiceId && (
-                  <li><span className="text-gray-600">Invoice ID:</span> {selectedApp.invoiceId}</li>
-                )}
-                {selectedApp.invoiceAmount && (
-                  <li><span className="text-gray-600">Amount Expected:</span> {selectedApp.invoiceAmount} RWF</li>
-                )}
-                {selectedApp.transactionId && (
-                  <li><span className="text-gray-600">Transaction ID:</span> {selectedApp.transactionId}</li>
-                )}
-                {selectedApp.proofOfPayment && (
-                  <li><span className="text-gray-600">Payment Proof:</span> 
-                    <button 
-                      className="text-[var(--main-blue)] hover:underline ml-1"
-                      onClick={() => setViewingDocument({
-                        name: 'Payment Proof',
-                        path: selectedApp.proofOfPayment || ''
-                      })}
-                    >
-                      View Document
-                    </button>
-                  </li>
-                )}
-              </ul>
-            </div>
-            
-            <div className="mt-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Rejection Reason *</label>
-              <textarea
-                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[var(--main-blue)] focus:border-[var(--main-blue)] sm:text-sm"
-                rows={4}
-                value={rejectionComment}
-                onChange={(e) => setRejectionComment(e.target.value)}
-                placeholder="Enter reason for rejecting this payment..."
-                required
-              />
-            </div>
-            
-            <div className="flex justify-end gap-2 mt-6">
-              <Button 
-                variant="text" 
-                onClick={() => setSelectedApp({...selectedApp, status: ApplicationStatus.REVIEW_PAYMENT})}
-                disabled={isProcessing}
-              >
-                Back
-              </Button>
-              <Button 
-                variant="danger" 
-                onClick={() => handleReject('payment')} 
-                disabled={!rejectionComment || isProcessing}
-              >
-                {isProcessing ? 'Processing...' : 'Confirm Rejection'}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )} */}
-
       {/* Modal for issuing insurance */}
       {selectedApp && activeModal === 'issue' && selectedApp.status.toLowerCase() === ApplicationStatus.PAYMENT_VERIFIED && (
         <div className="fixed inset-0 bg-gray-600/50 flex items-center justify-center z-50">
@@ -1401,10 +1360,22 @@ const getActionButtons = (app: Application) => {
               <p className="font-semibold">{selectedApp.amount.toLocaleString()} RWF</p>
             </div>
           )}
+          {selectedApp.insuranceProvider && (
+            <div>
+              <p className="text-sm text-gray-500">Insurance Provider</p>
+              <p className="font-semibold">{selectedApp.insuranceProvider}</p>
+            </div>
+          )}
+          {selectedApp.isCOMESA !== undefined && (
+            <div>
+              <p className="text-sm text-gray-500">COMESA Coverage</p>
+              <p className="font-semibold">{selectedApp.isCOMESA ? 'Yes' : 'No'}</p>
+            </div>
+          )}
         </div>
         
         {/* Vehicle Information (if applicable) */}
-        {(selectedApp.insuranceCategory === 'Car Insurance' || selectedApp.insuranceCategory === 'Motorbike Insurance') && (
+        {(selectedApp.insuranceCategory === 'Car Insurance' || selectedApp.insuranceCategory === 'MotorBike Insurance') && (
           <div className="space-y-2">
             {selectedApp.vehicleType && (
               <div>
@@ -1416,6 +1387,16 @@ const getActionButtons = (app: Application) => {
               <div>
                 <p className="text-sm text-gray-500">Vehicle Year</p>
                 <p className="font-semibold">{selectedApp.vehicleAge}</p>
+              </div>
+            )}
+            {selectedApp.vehicleUse && (
+              <div>
+                <p className="text-sm text-gray-500">Vehicle Use</p>
+                <p className="font-semibold">
+                  {selectedApp.vehicleUse === 'Other' 
+                    ? selectedApp.otherVehicleUse 
+                    : selectedApp.vehicleUse}
+                </p>
               </div>
             )}
           </div>
