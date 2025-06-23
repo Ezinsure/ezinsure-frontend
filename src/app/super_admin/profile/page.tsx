@@ -90,7 +90,7 @@ export default function SuperAdminProfilePage() {
   const [systemSettings, setSystemSettings] = useState<SystemSettings>({
     maintenanceMode: false,
     allowNewRegistrations: true,
-    defaultCommissionRate: 15,
+    defaultCommissionRate: 5,
     passwordResetExpiry: 24
   });
   const [isSavingSettings, setIsSavingSettings] = useState(false);
@@ -135,12 +135,7 @@ export default function SuperAdminProfilePage() {
   const availableDistricts = useMemo(() => {
     if (!profile.province) return [];
     const province = rwandaProvinces.find(p => p.name === profile.province);
-    const districts = province?.districts || [];
-    // Transform districts to match expected format
-    return districts.map(district => ({
-      name: district.name,
-      sectors: district.sectors?.map(sector => sector.name) || []
-    }));
+    return province?.districts || [];
   }, [profile.province]);
 
   // Get available sectors based on selected district
@@ -148,8 +143,8 @@ export default function SuperAdminProfilePage() {
     if (!profile.district) return [];
     const district = availableDistricts.find(d => d.name === profile.district);
     const sectors = district?.sectors || [];
-    // Return sector names as strings
-    return sectors;
+    // Extract sector names as strings
+    return sectors.map(sector => sector.name);
   }, [profile.district, availableDistricts]);
 
   // Get user initials
@@ -640,6 +635,12 @@ export default function SuperAdminProfilePage() {
                                 {district.name}
                               </option>
                             ))}
+                            {/* Show user's district if it exists but not in available districts (e.g., when province is not selected) */}
+                            {profile.district && !availableDistricts.find(d => d.name === profile.district) && (
+                              <option value={profile.district}>
+                                {profile.district}
+                              </option>
+                            )}
                           </select>
                         </div>
 
@@ -660,6 +661,12 @@ export default function SuperAdminProfilePage() {
                                 {sector}
                               </option>
                             ))}
+                            {/* Show user's sector if it exists but not in available sectors (e.g., when district is not selected) */}
+                            {profile.sector && !availableSectors.includes(profile.sector) && (
+                              <option value={profile.sector}>
+                                {profile.sector}
+                              </option>
+                            )}
                           </select>
                         </div>
                       </div>
