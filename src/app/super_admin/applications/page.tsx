@@ -29,6 +29,10 @@ interface Application {
   insuranceCategory: string;
   insuranceType: string;
   insuranceDuration: string;
+  isCOMESA?: boolean;
+  vehicleUse?: string;
+  otherVehicleUse?: string;
+  insuranceProvider?: string;
   status: string;
   nationalID: string;
   yellowCard: string;
@@ -51,7 +55,6 @@ interface Application {
   province?: string;
   district?: string;
   sector?: string;
-  insuranceProvider?: string;
   deviceInfo?: {
     deviceType: string;
     os: string;
@@ -100,7 +103,11 @@ export default function SuperAdminApplicationsPage() {
           throw new Error('Failed to fetch applications');
         }
         const data = await response.json();
-        setApplications(data.data);
+        // Sort applications by submittedAt in descending order (newest first)
+        const sortedApplications = data.data.sort((a: Application, b: Application) => {
+          return new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime();
+        });
+        setApplications(sortedApplications);
       } catch (error) {
         console.error('Error fetching applications:', error);
         showToast('Failed to load applications', 'error');
@@ -541,11 +548,23 @@ export default function SuperAdminApplicationsPage() {
                       <p className="font-medium text-gray-900">{selectedApp.amount.toLocaleString()} RWF</p>
                     </div>
                   )}
+                  {selectedApp.insuranceProvider && (
+                    <div>
+                      <p className="text-sm text-gray-500 mb-1">Insurance Provider</p>
+                      <p className="font-medium text-gray-900">{selectedApp.insuranceProvider}</p>
+                    </div>
+                  )}
+                  {selectedApp.isCOMESA !== undefined && (
+                    <div>
+                      <p className="text-sm text-gray-500 mb-1">COMESA Coverage</p>
+                      <p className="font-medium text-gray-900">{selectedApp.isCOMESA ? 'Yes' : 'No'}</p>
+                    </div>
+                  )}
                 </div>
               </div>
               
               {/* Vehicle Information (if applicable) */}
-              {(selectedApp.insuranceCategory === 'Car Insurance' || selectedApp.insuranceCategory === 'Motorbike Insurance') && (
+              {(selectedApp.insuranceCategory === 'Car Insurance' || selectedApp.insuranceCategory === 'MotorBike Insurance') && (
                 <div className="bg-white rounded-lg border border-gray-200 p-6">
                   <h4 className="text-base font-semibold text-gray-900 mb-4">Vehicle Information</h4>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -559,6 +578,16 @@ export default function SuperAdminApplicationsPage() {
                       <div>
                         <p className="text-sm text-gray-500 mb-1">Vehicle Year</p>
                         <p className="font-medium text-gray-900">{selectedApp.vehicleAge}</p>
+                      </div>
+                    )}
+                    {selectedApp.vehicleUse && (
+                      <div>
+                        <p className="text-sm text-gray-500 mb-1">Vehicle Use</p>
+                        <p className="font-medium text-gray-900">
+                          {selectedApp.vehicleUse === 'Other' 
+                            ? selectedApp.otherVehicleUse 
+                            : selectedApp.vehicleUse}
+                        </p>
                       </div>
                     )}
                   </div>
