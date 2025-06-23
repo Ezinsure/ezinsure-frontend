@@ -9,6 +9,28 @@ import { useToast } from '@/components/ui/toast';
 import { rwandaProvinces } from '@/utils/rwanda-administrative';
 import { DocumentViewer } from '@/components/ui/document-viewer';
 
+// Vehicle type and use options
+const carTypes = ['Jeep', 'Voiture', 'Camionette', 'Poid Lourds', 'Remorque', 'Daihatsu', 'Ambulance', 'Pickup', 'Other'];
+const motoTypes = ['Electric', 'Moped', 'Scooter', 'Motorcycle', 'Other'];
+const carUses = [
+  'Private', 
+  'PSV', 
+  'Commercial - Transport of Goods', 
+  'Commercial - Auto Ecole', 
+  'Commercial - School Bus', 
+  'Commercial - Ambulance', 
+  'Commercial - Transport of Fuel', 
+  'Commercial - For Hire', 
+  'Commercial - Mechanic', 
+  'Commercial - Specific Use',
+  'Other'
+];
+const motoUses = [
+  'Private',
+  'PSV',
+  'Commercial - Transport of Goods',
+  'Other'
+];
 
 interface Application {
   _id: string;
@@ -26,6 +48,9 @@ interface Application {
   insuranceDuration: string;
   vehicleType?: string;
   vehicleAge?: string;
+  isCOMESA?: boolean;
+  vehicleUse?: string;
+  otherVehicleUse?: string;
   status: string;
   nationalID: string;
   yellowCard: string;
@@ -183,15 +208,6 @@ interface EditApplicationModalProps {
   isLoading: boolean;
 }
 
-
-interface EditApplicationModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  application: Application;
-  onSave?: (updatedData: Partial<Application>, files: Record<string, File | null>) => Promise<void>;
-  isLoading: boolean;
-}
-
 const EditApplicationModal = ({ isOpen, onClose, onSave, application, isLoading }: EditApplicationModalProps) => {
   const isInvoiceSent = application.status === 'INVOICE_SENT' || (application.status === 'WAITING_FOR_USER_ACTION' && application.reasonForPaymentRejection);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -202,6 +218,21 @@ const EditApplicationModal = ({ isOpen, onClose, onSave, application, isLoading 
   const [availableSectors, setAvailableSectors] = useState<string[]>([]);
   const [transactionId, setTransactionId] = useState('');
 
+  // Parse vehicle use to handle "Other - [description]" format
+  const parseVehicleUse = (vehicleUse: string | undefined) => {
+    if (!vehicleUse) return { vehicleUse: '', otherVehicleUse: '' };
+    
+    if (vehicleUse.startsWith('Other - ')) {
+      return {
+        vehicleUse: 'Other',
+        otherVehicleUse: vehicleUse.substring(8) // Remove "Other - " prefix
+      };
+    }
+    
+    return { vehicleUse, otherVehicleUse: '' };
+  };
+
+  const { vehicleUse: parsedVehicleUse, otherVehicleUse: parsedOtherVehicleUse } = parseVehicleUse(application.vehicleUse);
 
   const [formState, setFormState] = useState<Partial<Application>>(() => {
     if (isInvoiceSent) {
@@ -222,6 +253,9 @@ const EditApplicationModal = ({ isOpen, onClose, onSave, application, isLoading 
       district: application.district,
       sector: application.sector,
       insuranceProvider: application.insuranceProvider,
+      vehicleUse: parsedVehicleUse,
+      otherVehicleUse: parsedOtherVehicleUse,
+      isCOMESA: application.isCOMESA,
     };
   });
 
@@ -244,10 +278,10 @@ const EditApplicationModal = ({ isOpen, onClose, onSave, application, isLoading 
 
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
-  // Update districts when province changes
+  // Initialize districts and sectors when component mounts or application changes
   useEffect(() => {
-    if (formState.province) {
-      const selectedProvince = rwandaProvinces.find(p => p.name === formState.province);
+    if (!isInvoiceSent && application.province) {
+      const selectedProvince = rwandaProvinces.find(p => p.name === application.province);
       const districts = selectedProvince?.districts || [];
       // Transform districts to match expected format
       const transformedDistricts = districts.map(district => ({
@@ -256,32 +290,73 @@ const EditApplicationModal = ({ isOpen, onClose, onSave, application, isLoading 
       }));
       setAvailableDistricts(transformedDistricts);
       
-      // Reset district and sector if they're not in the new province
+      if (application.district) {
+        const selectedDistrict = transformedDistricts.find(d => d.name === application.district);
+        const sectors = selectedDistrict?.sectors || [];
+        setAvailableSectors(sectors);
+      }
+    }
+  }, [application.province, application.district, isInvoiceSent]);
+
+  // Update form state when application changes
+  useEffect(() => {
+    if (!isInvoiceSent) {
+      const { vehicleUse: parsedVehicleUse, otherVehicleUse: parsedOtherVehicleUse } = parseVehicleUse(application.vehicleUse);
+      
+      setFormState({
+        fullName: application.fullName,
+        email: application.email,
+        phoneNumber: application.phoneNumber,
+        address: application.address,
+        dateOfBirth: application.dateOfBirth,
+        insuranceCategory: application.insuranceCategory,
+        insuranceType: application.insuranceType,
+        insuranceDuration: application.insuranceDuration,
+        vehicleType: application.vehicleType,  
+        vehicleAge: application.vehicleAge, 
+        province: application.province,
+        district: application.district,
+        sector: application.sector,
+        insuranceProvider: application.insuranceProvider,
+        vehicleUse: parsedVehicleUse,
+        otherVehicleUse: parsedOtherVehicleUse,
+        isCOMESA: application.isCOMESA,
+      });
+    }
+  }, [application, isInvoiceSent]);
+
+  // Update districts when province changes (only for regular edit mode)
+  useEffect(() => {
+    if (formState.province && formState.province !== application.province) {
+      const selectedProvince = rwandaProvinces.find(p => p.name === formState.province);
+      const districts = selectedProvince?.districts || [];
+      // Transform districts to match expected format with sector names as strings
+      const transformedDistricts = districts.map(district => ({
+        name: district.name,
+        sectors: district.sectors?.map(sector => sector.name) || []
+      }));
+      setAvailableDistricts(transformedDistricts);
+      
+      // Only clear district and sector if the current district is not in the new province
       if (!transformedDistricts.some(d => d.name === formState.district)) {
         setFormState(prev => ({ ...prev, district: '', sector: '' }));
       }
-    } else {
-      setAvailableDistricts([]);
-      setFormState(prev => ({ ...prev, district: '', sector: '' }));
     }
-  }, [formState.province]);
+  }, [formState.province, application.province]);
 
-  // Update sectors when district changes
+  // Update sectors when district changes (only for regular edit mode)
   useEffect(() => {
-    if (formState.district) {
+    if (!isInvoiceSent && formState.district && formState.district !== application.district) {
       const selectedDistrict = availableDistricts.find(d => d.name === formState.district);
       const sectors = selectedDistrict?.sectors || [];
       setAvailableSectors(sectors);
       
-      // Reset sector if it's not in the new district
-      if (!sectors.includes(formState.sector || '')) {
+      // Only clear sector if the current sector is not in the new district
+      if (formState.sector && !sectors.includes(formState.sector)) {
         setFormState(prev => ({ ...prev, sector: '' }));
       }
-    } else {
-      setAvailableSectors([]);
-      setFormState(prev => ({ ...prev, sector: '' }));
     }
-  }, [formState.district, availableDistricts]);
+  }, [formState.district, availableDistricts, isInvoiceSent, application.district]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -345,10 +420,15 @@ const EditApplicationModal = ({ isOpen, onClose, onSave, application, isLoading 
       }
 
       const formData = new FormData();
-      const updatedData: { [key: string]: string | number } = {};
+      const updatedData: { [key: string]: string | number | boolean } = {};
       const updatedFiles: Record<string, File | null> = {};
       
       Object.entries(formState).forEach(([key, value]) => {
+        // Skip vehicleUse, otherVehicleUse, and isCOMESA as they are handled separately
+        if (key === 'vehicleUse' || key === 'otherVehicleUse' || key === 'isCOMESA') {
+          return;
+        }
+        
         const originalValue = application[key as keyof Application];
         if (value !== undefined && value !== originalValue) {
           const formattedValue = key === 'dateOfBirth' && value 
@@ -361,6 +441,23 @@ const EditApplicationModal = ({ isOpen, onClose, onSave, application, isLoading 
           }
         }
       });
+
+      // Handle COMESA status
+      if (formState.isCOMESA !== undefined && formState.isCOMESA !== application.isCOMESA) {
+        formData.append('isCOMESA', formState.isCOMESA.toString());
+        updatedData.isCOMESA = formState.isCOMESA;
+      }
+
+      // Handle vehicle use with "Other" option
+      const currentVehicleUse = application.vehicleUse || '';
+      const newVehicleUse = formState.vehicleUse === 'Other'
+        ? `Other - ${formState.otherVehicleUse || ''}`
+        : formState.vehicleUse;
+      
+      if (formState.vehicleUse !== undefined && newVehicleUse !== currentVehicleUse && newVehicleUse !== undefined) {
+        formData.append('vehicleUse', newVehicleUse);
+        updatedData.vehicleUse = newVehicleUse;
+      }
 
       Object.entries(files).forEach(([key, file]) => {
         if (file) {
@@ -387,7 +484,7 @@ const EditApplicationModal = ({ isOpen, onClose, onSave, application, isLoading 
       showToast('Application updated successfully!', 'success');
       
       if (onSave) {
-        await onSave(updatedData, updatedFiles);
+        await onSave(updatedData as Partial<Application>, updatedFiles);
       }
       
       onClose();
@@ -611,7 +708,7 @@ const EditApplicationModal = ({ isOpen, onClose, onSave, application, isLoading 
                       className="w-full py-2 px-3 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none"
                     >
                       <option value="Car Insurance">Car Insurance</option>
-                      <option value="Motorbike Insurance">Motorbike Insurance</option>
+                      <option value="MotorBike Insurance">MotorBike Insurance</option>
                       <option value="Building Insurance">Building Insurance</option>
                       <option value="Travel Insurance">Travel Insurance</option>
                       <option value="Health Insurance">Health Insurance</option>
@@ -651,6 +748,7 @@ const EditApplicationModal = ({ isOpen, onClose, onSave, application, isLoading 
                       className="w-full py-2 px-3 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none"
                     >
                       <option value="1 Month">1 Month</option>
+                      <option value="3 Months">3 Months</option>
                       <option value="6 Months">6 Months</option>
                       <option value="12 Months">12 Months</option>
                     </select>
@@ -658,7 +756,7 @@ const EditApplicationModal = ({ isOpen, onClose, onSave, application, isLoading 
                       <p className="mt-1 text-sm text-red-600">{errors.insuranceDuration}</p>
                     )}
                   </div>
-{(formState.insuranceCategory === 'Car Insurance' || formState.insuranceCategory === 'Motorbike Insurance') && (
+{(formState.insuranceCategory === 'Car Insurance' || formState.insuranceCategory === 'MotorBike Insurance') && (
   <>
     <div>
       <label className="block text-sm font-medium mb-1">
@@ -672,19 +770,13 @@ const EditApplicationModal = ({ isOpen, onClose, onSave, application, isLoading 
       >
         <option value="">Select Vehicle Type</option>
         {formState.insuranceCategory === 'Car Insurance' ? (
-          <>
-            <option value="pickup">Pick Up</option>
-            <option value="taxi">Taxi</option>
-            <option value="truck">Truck</option>
-            <option value="sedan">Sedan</option>
-            <option value="suv">SUV</option>
-          </>
+          carTypes.map(type => (
+            <option key={type} value={type}>{type}</option>
+          ))
         ) : (
-          <>
-            <option value="moped">Moped</option>
-            <option value="scooter">Scooter</option>
-            <option value="motorcycle">Motorcycle</option>
-          </>
+          motoTypes.map(type => (
+            <option key={type} value={type}>{type}</option>
+          ))
         )}
       </select>
       {errors.vehicleType && (
@@ -707,6 +799,57 @@ const EditApplicationModal = ({ isOpen, onClose, onSave, application, isLoading 
       {errors.vehicleAge && (
         <p className="mt-1 text-sm text-red-600">{errors.vehicleAge}</p>
       )}
+    </div>
+    <div>
+      <label className="block text-sm font-medium mb-1">
+        Vehicle Use <span className="text-red-500">*</span>
+      </label>
+      <select
+        name="vehicleUse"
+        value={formState.vehicleUse || ''}
+        onChange={handleInputChange}
+        className="w-full py-2 px-3 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none"
+      >
+        <option value="">Select Vehicle Use</option>
+        {formState.insuranceCategory === 'Car Insurance' ? (
+          carUses.map(use => (
+            <option key={use} value={use}>{use}</option>
+          ))
+        ) : (
+          motoUses.map(use => (
+            <option key={use} value={use}>{use}</option>
+          ))
+        )}
+      </select>
+      {errors.vehicleUse && (
+        <p className="mt-1 text-sm text-red-600">{errors.vehicleUse}</p>
+      )}
+    </div>
+
+    {formState.vehicleUse === 'Other' && (
+      <div className="md:col-span-2">
+        <Input
+          label="Specify Vehicle Use"
+          name="otherVehicleUse"
+          value={formState.otherVehicleUse || ''}
+          onChange={handleInputChange}
+          error={errors.otherVehicleUse}
+          required
+        />
+      </div>
+    )}
+
+    <div className="flex items-center">
+      <input
+        type="checkbox"
+        name="isCOMESA"
+        checked={formState.isCOMESA || false}
+        onChange={(e) => setFormState(prev => ({ ...prev, isCOMESA: e.target.checked }))}
+        className="h-4 w-4 rounded border-gray-300 text-[var(--main-blue)] focus:ring-[var(--main-blue)]"
+      />
+      <label className="ml-2 block text-sm text-gray-700">
+        COMESA Coverage
+      </label>
     </div>
   </>
 )}
@@ -1110,7 +1253,7 @@ const handleEditSuccess = async (): Promise<void> => {
               <p className="text-sm text-gray-500">Duration</p>
               <p className="font-medium">{application.insuranceDuration}</p>
             </div>
-            {(application.insuranceCategory === 'Car Insurance' || application.insuranceCategory === 'Motorbike Insurance') && (
+            {(application.insuranceCategory === 'Car Insurance' || application.insuranceCategory === 'MotorBike Insurance') && (
               <>
                 {application.vehicleType && (
                   <div>
@@ -1122,6 +1265,22 @@ const handleEditSuccess = async (): Promise<void> => {
                   <div>
                     <p className="text-sm text-gray-500">Vehicle Year</p>
                     <p className="font-medium">{application.vehicleAge}</p>
+                  </div>
+                )}
+                {application.vehicleUse && (
+                  <div>
+                    <p className="text-sm text-gray-500">Vehicle Use</p>
+                    <p className="font-medium">
+                      {application.vehicleUse === 'Other' 
+                        ? application.otherVehicleUse 
+                        : application.vehicleUse}
+                    </p>
+                  </div>
+                )}
+                {application.isCOMESA !== undefined && (
+                  <div>
+                    <p className="text-sm text-gray-500">COMESA Coverage</p>
+                    <p className="font-medium">{application.isCOMESA ? 'Yes' : 'No'}</p>
                   </div>
                 )}
               </>

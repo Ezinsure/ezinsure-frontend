@@ -1,18 +1,18 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/toast';
 import { validateForm, ValidationRules, validationPatterns } from '@/components/ui/form-validation';
 import Link from 'next/link';
-// import { useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 
 export default function LoginPage() {
-  // const router = useRouter();
+  const router = useRouter();
   const { showToast, ToastContainer } = useToast();
-  const { login } = useAuth();
+  const { login, isAuthenticated, user } = useAuth();
 
   const [formState, setFormState] = useState({
     email: '',
@@ -32,6 +32,12 @@ export default function LoginPage() {
       minLength: 8,
     },
   };
+
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      router.push(`/${user.role.toLowerCase()}/dashboard`);
+    }
+  }, [isAuthenticated, user, router]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;

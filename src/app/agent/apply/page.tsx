@@ -18,22 +18,13 @@ import { rwandaProvinces } from '@/utils/rwanda-administrative';
 interface DeviceInfo {
   userAgent: string;
   platform: string;
-  // language: string;
-  // screenResolution: string;
   timezone: string;
-  // cookieEnabled: boolean;
-  // onlineStatus: boolean;
   deviceMemory?: number;
-  // hardwareConcurrency: number;
-  // connectionType?: string;
   devicePixelRatio: number;
   viewportSize: string;
   browserName: string;
   browserVersion: string;
   operatingSystem: string;
-  // isMobile: boolean;
-  // isTablet: boolean;
-  // touchSupport: boolean;
 }
 
 interface LocationInfo {
@@ -88,29 +79,18 @@ const getDeviceInfo = (): DeviceInfo => {
     return 'Unknown';
   };
 
-  // const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua);
-  // const isTablet = /iPad|Android(?=.*\bMobile\b)(?=.*\bSafari\b)|Android(?=.*(?:\b|_)Tablet(?:\b|_))/i.test(ua);
   const browser = getBrowserInfo();
   
   return {
     userAgent: ua,
     platform: navigator.platform,
-    // language: navigator.language,
-    // screenResolution: `${screen.width}x${screen.height}`,
     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-    // cookieEnabled: navigator.cookieEnabled,
-    // onlineStatus: navigator.onLine,
     deviceMemory: (navigator as unknown as { deviceMemory?: number }).deviceMemory,
-    // hardwareConcurrency: navigator.hardwareConcurrency,
-    // connectionType: (navigator as any).connection?.effectiveType,
     devicePixelRatio: window.devicePixelRatio,
     viewportSize: `${window.innerWidth}x${window.innerHeight}`,
     browserName: browser.name,
     browserVersion: browser.version,
     operatingSystem: getOperatingSystem(),
-    // isMobile,
-    // isTablet,
-    // touchSupport: 'ontouchstart' in window || navigator.maxTouchPoints > 0,
   };
 };
 
@@ -173,7 +153,6 @@ const getSessionId = (): string => {
     sessionId = sessionStorage.getItem(storageKey);
   } catch (error) {
     console.log('Session storage access failed:', error);
-    // Handle cases where sessionStorage is not available
     sessionId = null;
   }
   
@@ -183,7 +162,6 @@ const getSessionId = (): string => {
       sessionStorage.setItem(storageKey, sessionId);
     } catch (error) {
       console.log('Failed to set session ID in storage:', error);
-      // Silently handle storage errors
     }
   }
   
@@ -205,9 +183,33 @@ const getTrackingData = async (): Promise<TrackingData> => {
   };
 };
 
+// Vehicle type and use options
+const carTypes = ['Jeep', 'Voiture', 'Camionette', 'Poid Lourds', 'Remorque', 'Daihatsu', 'Ambulance', 'Pickup', 'Other'];
+const motoTypes = ['Electric', 'Moped', 'Scooter', 'Motorcycle', 'Other'];
+const carUses = [
+  'Private', 
+  'PSV', 
+  'Commercial - Transport of Goods', 
+  'Commercial - Auto Ecole', 
+  'Commercial - School Bus', 
+  'Commercial - Ambulance', 
+  'Commercial - Transport of Fuel', 
+  'Commercial - For Hire', 
+  'Commercial - Mechanic', 
+  'Commercial - Specific Use',
+  'Other'
+];
+const motoUses = [
+  'Private',
+  'PSV',
+  'Commercial - Transport of Goods',
+  'Other'
+];
+
 export default function AgentApplyPage() {
   const { showToast, ToastContainer } = useToast();
   const [formKey, setFormKey] = useState(Date.now());
+  const [trackingData, setTrackingData] = useState<TrackingData | null>(null);
 
   // State for administrative divisions
   const [availableDistricts, setAvailableDistricts] = useState<{name: string, sectors?: string[]}[]>([]);
@@ -227,6 +229,9 @@ export default function AgentApplyPage() {
     insuranceDuration: '12',
     vehicleType: '',
     vehicleAge: '',
+    vehicleUse: '',
+    otherVehicleUse: '',
+    isCOMESA: false,
     nationalID: null as File | null, 
     yellowCard: null as File | null,
     pastInsuranceCertificate: null as File | null,
@@ -235,7 +240,6 @@ export default function AgentApplyPage() {
 
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [trackingData, setTrackingData] = useState<TrackingData | null>(null);
 
   // Initialize tracking data on component mount
   useEffect(() => {
@@ -245,7 +249,6 @@ export default function AgentApplyPage() {
         setTrackingData(data);
       } catch (error) {
         console.debug('Tracking initialization failed:', error);
-        // Continue without tracking data if it fails
       }
     };
 
@@ -266,6 +269,9 @@ export default function AgentApplyPage() {
     insuranceDuration: { required: true },
     vehicleType: { required: formState.insuranceCategory === 'car' || formState.insuranceCategory === 'motorbike' },
     vehicleAge: { required: formState.insuranceCategory === 'car' || formState.insuranceCategory === 'motorbike' },
+    vehicleUse: { required: formState.insuranceCategory === 'car' || formState.insuranceCategory === 'motorbike' },
+    otherVehicleUse: { required: formState.vehicleUse === 'Other' },
+    isCOMESA: { required: true },
     nationalID: { required: true },
     yellowCard: { required: true },
     insuranceProvider: { required: true }, 
@@ -336,7 +342,8 @@ export default function AgentApplyPage() {
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
-    const { name, value } = e.target;
+    const { name, value, type } = e.target;
+    const checked = type === 'checkbox' ? (e.target as HTMLInputElement).checked : undefined;
     
     // Special handling for province and district changes
     if (name === 'province') {
@@ -347,11 +354,14 @@ export default function AgentApplyPage() {
       return;
     }
     
-    setFormState((prev) => ({ ...prev, [name]: value }));
+    setFormState(prev => ({
+      ...prev,
+      [name]: type === 'checkbox' ? checked : value
+    }));
 
     // Clear error when typing
     if (errors[name]) {
-      setErrors((prev) => {
+      setErrors(prev => {
         const newErrors = { ...prev };
         delete newErrors[name];
         return newErrors;
@@ -360,11 +370,11 @@ export default function AgentApplyPage() {
   };
 
   const handleFileChange = (name: string) => (file: File | null) => {
-    setFormState((prev) => ({ ...prev, [name]: file }));
+    setFormState(prev => ({ ...prev, [name]: file }));
 
     // Clear error when selecting file
     if (errors[name]) {
-      setErrors((prev) => {
+      setErrors(prev => {
         const newErrors = { ...prev };
         delete newErrors[name];
         return newErrors;
@@ -406,7 +416,10 @@ export default function AgentApplyPage() {
     e.preventDefault();
 
     // Validate form
-    const formErrors = validateForm(formState, validationRules);
+    const formErrors = validateForm(
+      { ...formState, isCOMESA: formState.isCOMESA ? 'true' : 'false' },
+      validationRules
+    );
     setErrors(formErrors);
 
     if (!hasErrors(formErrors)) {
@@ -433,7 +446,16 @@ export default function AgentApplyPage() {
         if (formState.insuranceCategory === 'car' || formState.insuranceCategory === 'motorbike') {
           formData.append('vehicleType', formState.vehicleType);
           formData.append('vehicleAge', formState.vehicleAge);
+          
+          // Handle vehicle use with "Other" option
+          const vehicleUse = formState.vehicleUse === 'Other' 
+            ? `Other - ${formState.otherVehicleUse}`
+            : formState.vehicleUse;
+          formData.append('vehicleUse', vehicleUse);
         }
+        
+        // Append COMESA status
+        formData.append('isCOMESA', formState.isCOMESA.toString());
         
         // Append files
         if (formState.nationalID) {
@@ -458,10 +480,15 @@ export default function AgentApplyPage() {
           return;
         }
 
-        // Display FormData contents before sending
-        // for (const [key, value] of formData.entries()) {
-        //   console.log(`${key}:`, value);
-        // }
+        // Log FormData contents before sending
+        // This will log all key-value pairs, including files (as File objects)
+        // const formDataEntries = Array.from(formData.entries()).map(([key, value]) => {
+        //   if (value instanceof File) {
+        //     return [key, `File: ${value.name} (${value.type}, ${value.size} bytes)`];
+        //   }
+        //   return [key, value];
+        // });
+        // console.log('Submitting FormData:', Object.fromEntries(formDataEntries));
 
         const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/apply`, {
           method: 'POST',
@@ -499,6 +526,9 @@ export default function AgentApplyPage() {
           insuranceDuration: '12',
           vehicleType: '',
           vehicleAge: '',
+          vehicleUse: '',
+          otherVehicleUse: '',
+          isCOMESA: false,
           nationalID: null,
           yellowCard: null,
           pastInsuranceCertificate: null,
@@ -618,7 +648,7 @@ export default function AgentApplyPage() {
                   onChange={handleInputChange}
                   error={errors.dateOfBirth}
                   min={getDateLimits().min}
-                max={getDateLimits().max}
+                  max={getDateLimits().max}
                   required
                 />
 
@@ -700,30 +730,30 @@ export default function AgentApplyPage() {
                   )}
                 </div>
 
-                            <div className="md:col-span-2">
-  <label
-    className="block text-sm font-medium mb-1"
-    htmlFor="insuranceProvider"
-  >
-    Insurance Provider{' '}
-    <span className="text-[var(--error-red)] ml-1">*</span>
-  </label>
-  <select
-    id="insuranceProvider"
-    name="insuranceProvider"
-    value={formState.insuranceProvider}
-    onChange={handleInputChange}
-    className="w-full py-2 px-3 rounded-lg focus:outline-none border border-gray-300 focus:border-[var(--main-blue)]"
-    required
-  >
-    <option value="SONARWA">SONARWA</option>
-  </select>
-  {errors.insuranceProvider && (
-    <p className="mt-1 text-sm text-[var(--error-red)]">
-      {errors.insuranceProvider}
-    </p>
-  )}
-</div>
+                <div className="md:col-span-2">
+                  <label
+                    className="block text-sm font-medium mb-1"
+                    htmlFor="insuranceProvider"
+                  >
+                    Insurance Provider{' '}
+                    <span className="text-[var(--error-red)] ml-1">*</span>
+                  </label>
+                  <select
+                    id="insuranceProvider"
+                    name="insuranceProvider"
+                    value={formState.insuranceProvider}
+                    onChange={handleInputChange}
+                    className="w-full py-2 px-3 rounded-lg focus:outline-none border border-gray-300 focus:border-[var(--main-blue)]"
+                    required
+                  >
+                    <option value="SONARWA">SONARWA</option>
+                  </select>
+                  {errors.insuranceProvider && (
+                    <p className="mt-1 text-sm text-[var(--error-red)]">
+                      {errors.insuranceProvider}
+                    </p>
+                  )}
+                </div>
 
                 <div className="md:col-span-2">
                   <label
@@ -770,19 +800,13 @@ export default function AgentApplyPage() {
                     >
                       <option value="">Select Vehicle Type</option>
                       {formState.insuranceCategory === 'car' ? (
-                        <>
-                          <option value="pickup">Pick Up</option>
-                          <option value="taxi">Taxi</option>
-                          <option value="truck">Truck</option>
-                          <option value="sedan">Sedan</option>
-                          <option value="suv">SUV</option>
-                        </>
+                        carTypes.map(type => (
+                          <option key={type} value={type}>{type}</option>
+                        ))
                       ) : (
-                        <>
-                          <option value="moped">Moped</option>
-                          <option value="scooter">Scooter</option>
-                          <option value="motorcycle">Motorcycle</option>
-                        </>
+                        motoTypes.map(type => (
+                          <option key={type} value={type}>{type}</option>
+                        ))
                       )}
                     </select>
                     {errors.vehicleType && (
@@ -808,6 +832,72 @@ export default function AgentApplyPage() {
                     />
                   </div>
                 )}
+
+                {/* Vehicle Use (only shown for car/motorbike insurance) */}
+                {(formState.insuranceCategory === 'car' || formState.insuranceCategory === 'motorbike') && (
+                  <>
+                    <div>
+                      <label className="block text-sm font-medium mb-1">
+                        Vehicle Use <span className="text-[var(--error-red)]">*</span>
+                      </label>
+                      <select
+                        name="vehicleUse"
+                        value={formState.vehicleUse}
+                        onChange={handleInputChange}
+                        className="w-full py-2 px-3 rounded-lg focus:outline-none border border-gray-300 focus:border-[var(--main-blue)]"
+                        required
+                      >
+                        <option value="">Select Vehicle Use</option>
+                        {formState.insuranceCategory === 'car' ? (
+                          carUses.map(use => (
+                            <option key={use} value={use}>{use}</option>
+                          ))
+                        ) : (
+                          motoUses.map(use => (
+                            <option key={use} value={use}>{use}</option>
+                          ))
+                        )}
+                      </select>
+                      {errors.vehicleUse && (
+                        <p className="mt-1 text-sm text-[var(--error-red)]">{errors.vehicleUse}</p>
+                      )}
+                    </div>
+
+                    {/* Other Vehicle Use Input (only shown when 'Other' is selected) */}
+                    {formState.vehicleUse === 'Other' && (
+                      <div className="md:col-span-2">
+                        <Input
+                          label="Specify Vehicle Use"
+                          name="otherVehicleUse"
+                          placeholder="Please specify how you use your vehicle..."
+                          value={formState.otherVehicleUse}
+                          onChange={handleInputChange}
+                          error={errors.otherVehicleUse}
+                          required
+                        />
+                      </div>
+                    )}
+                  </>
+                )}
+
+                {/* COMESA Checkbox */}
+                <div className="md:col-span-2">
+                  <label className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      name="isCOMESA"
+                      checked={formState.isCOMESA}
+                      onChange={handleInputChange}
+                      className="rounded h-4 border-gray-300 text-[var(--main-blue)] focus:ring-[var(--main-blue)]"
+                    />
+                    <span className="text-sm font-medium">
+                      Ext. Territorial (COMESA)
+                    </span>
+                  </label>
+                  {errors.isCOMESA && (
+                    <p className="mt-1 text-sm text-[var(--error-red)]">{errors.isCOMESA}</p>
+                  )}
+                </div>
 
                 <div className="md:col-span-2">
                   <label
