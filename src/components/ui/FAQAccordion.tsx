@@ -93,13 +93,13 @@ const FAQAccordion = () => {
             id={`faq-content-${index}`}
             className={`px-6 pb-6 ${activeIndex === index ? 'block' : 'hidden'}`}
           >
-            <p className="mb-4 text-gray-600">
+            <div className="mb-4 text-gray-600">
               <ol className="list-decimal list-inside space-y-1">
                 {item.answer.map((step: string, idx: number) => (
                   <li key={idx}>{step}</li>
                 ))}
               </ol>
-            </p>
+            </div>
             <div className="aspect-w-16 aspect-h-9 mb-4">
               <iframe
                 width="100%"
