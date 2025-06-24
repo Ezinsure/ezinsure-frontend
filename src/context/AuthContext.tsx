@@ -43,42 +43,51 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const pathname = usePathname();
 
   const handleRouteProtection = useCallback(() => {
-    const PUBLIC_ROUTES = ['/', '/apply', '/login', '/register', '/track', '/terms-and-conditions', '/privacy-policy'];
+    const PUBLIC_ROUTES = ['/', '/apply', '/login', '/register', '/track', '/terms-and-conditions', '/privacy-policy', '/FAQ', '/reset-password'];
     
     // Skip if still loading or not initialized
     if (isLoading || !isInitialized) return;
-
+  
+    // Extract pathname without query parameters
+    const cleanPathname = pathname.split('?')[0];
+  
     // **1. If logged in (has token & user)**
     if (token && user) {
       const userDashboard = `/${user.role.toLowerCase()}/dashboard`;
-
+  
       // Redirect to dashboard if trying to access public routes
-      if (PUBLIC_ROUTES.includes(pathname)) {
+      if (PUBLIC_ROUTES.includes(cleanPathname)) {
         router.push(userDashboard);
         return;
       }
-
+  
       // Ensure they stay in their role's routes
-      if (!pathname.startsWith(`/${user.role.toLowerCase()}`)) {
+      if (!cleanPathname.startsWith(`/${user.role.toLowerCase()}`)) {
         router.push(userDashboard);
         return;
       }
     }
     // **2. Not logged in - allow access to public routes**
     else {
-      // Allow access to public routes
-      if (PUBLIC_ROUTES.includes(pathname)) {
+      // Allow access to public routes (using clean pathname)
+      if (PUBLIC_ROUTES.includes(cleanPathname)) {
         return;
       }
-
+  
       // For protected routes, redirect to login
-      if (pathname.startsWith('/admin') || pathname.startsWith('/agent') || pathname.startsWith('/super_admin') || pathname.startsWith('/finance')) {
+      const protectedRoutePatterns = ['/admin', '/agent', '/super_admin', '/finance'];
+      const isProtectedRoute = protectedRoutePatterns.some(pattern => cleanPathname.startsWith(pattern));
+  
+      if (isProtectedRoute) {
         router.push('/login');
         return;
       }
-
-      // For any other protected route, redirect to login
-      router.push('/login');
+  
+      // For any other unknown route, redirect to home or 404
+      // You can customize this behavior based on your needs
+      if (cleanPathname !== '/' && !PUBLIC_ROUTES.includes(cleanPathname)) {
+        router.push('/');
+      }
     }
   }, [isLoading, isInitialized, pathname, router, token, user]);
 

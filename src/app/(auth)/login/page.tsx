@@ -22,6 +22,12 @@ export default function LoginPage() {
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Forgot password modal state
+  const [showForgotPasswordModal, setShowForgotPasswordModal] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotError, setForgotError] = useState('');
+  const [forgotSubmitting, setForgotSubmitting] = useState(false);
+
   const validationRules: ValidationRules = {
     email: { 
       required: true, 
@@ -74,8 +80,97 @@ export default function LoginPage() {
     }
   };
 
+  // Forgot password submit handler
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setForgotError('');
+    if (!forgotEmail.match(validationPatterns.email)) {
+      setForgotError('Please enter a valid email address.');
+      return;
+    }
+    setForgotSubmitting(true);
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/forgotPassword`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: forgotEmail }),
+      });
+      const data = await res.json();
+      if (res.ok && data.message === 'Reset link sent to email') {
+        showToast('Check your email for a link to reset your password.', 'success');
+        setShowForgotPasswordModal(false);
+        setForgotEmail('');
+      } else if (data.message === 'User not found') {
+        showToast('User not found. Please verify your email address.', 'error');
+      } else {
+        showToast('Failed to send reset link. Please try again.', 'error');
+      }
+    } catch (err) {
+      console.log('Error calling backend', err)
+      showToast('An error occurred. Please try again.', 'error');
+    } finally {
+      setForgotSubmitting(false);
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-900 to-blue-600 flex items-center justify-center px-4 py-12">
+    <div className="min-h-screen bg-gradient-to-br from-blue-900 to-blue-600 flex items-center justify-center px-4 py-12 relative">
+      {/* Back to Home link */}
+      <div className="absolute left-0 top-0 w-full flex justify-start p-4 z-20">
+        <Button as="a" href="/" variant="text" size="md" className="text-blue-700 bg-white/80 hover:bg-white">
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+          Back to Home
+        </Button>
+      </div>
+
+      {/* Forgot Password Modal */}
+      {showForgotPasswordModal && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center bg-gray-800/75">
+          <div className="bg-white rounded-lg shadow-xl mt-12 w-full max-w-md mx-4 p-6 relative animate-fadeInDown">
+            <button
+              onClick={() => setShowForgotPasswordModal(false)}
+              className="absolute top-3 cursor-pointer right-3 text-gray-400 hover:text-gray-600"
+              aria-label="Close"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+            </button>
+            <h3 className="text-lg font-semibold mb-2 text-center">Forgot Password</h3>
+            <p className="text-gray-600 text-sm mb-4 text-center">Enter your email address and we&apos;ll send you a link to reset your password.</p>
+            <form onSubmit={handleForgotPassword} className="space-y-4">
+              <Input
+                label="Email Address"
+                type="email"
+                name="forgot-email"
+                placeholder="your.email@company.com"
+                value={forgotEmail}
+                onChange={e => setForgotEmail(e.target.value)}
+                error={forgotError}
+                required
+                icon={
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="20"
+                    height="20"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+                    <polyline points="22,6 12,13 2,6"></polyline>
+                  </svg>
+                }
+              />
+              <Button type="submit" variant="primary" fullWidth disabled={forgotSubmitting}>
+                {forgotSubmitting ? 'Sending...' : 'Send Reset Link'}
+              </Button>
+            </form>
+          </div>
+        </div>
+      )}
+
       <div className="max-w-md w-full space-y-8 bg-white rounded-xl shadow-xl overflow-hidden">
         <div className="p-6 bg-gradient-to-r from-blue-600 to-blue-500 text-white text-center">
           <h2 className="text-2xl font-bold">Agent & Admin Login</h2>
@@ -165,9 +260,13 @@ export default function LoginPage() {
               </div>
 
               <div className="text-sm">
-                <a href="#" className="font-medium text-blue-600 hover:text-blue-500">
+                <button
+                  type="button"
+                  className="font-medium cursor-pointer text-blue-600 hover:text-blue-500 focus:outline-none"
+                  onClick={() => setShowForgotPasswordModal(true)}
+                >
                   Forgot your password?
-                </a>
+                </button>
               </div>
             </div>
 

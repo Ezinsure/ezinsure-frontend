@@ -5,6 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { MainLayout } from '@/components/ui/main-layout';
 import { Button } from '@/components/ui/button';
+import FAQAccordion from '@/components/ui/FAQAccordion';
 
 export default function Home() {
   const statsRef = useRef<HTMLDivElement>(null);
@@ -536,6 +537,31 @@ export default function Home() {
           </div>
         </div>
       </section>
+     
+    {/* FAQ Section */}
+<section className="py-16 bg-white">
+  <div className="container mx-auto px-4">
+    <div className="text-center mb-12 animate-on-scroll">
+      <h2 className="text-3xl md:text-4xl font-bold mb-4">
+        How to Use EZINSURE
+      </h2>
+      <p className="text-gray-600 max-w-2xl mx-auto">
+        Get started quickly with our step-by-step guides. Watch our tutorial videos to learn how to navigate our platform.
+      </p>
+    </div>
+
+    <div className="max-w-4xl mx-auto">
+      <FAQAccordion />
+      <div className="text-center mt-8">
+        <Link href="/FAQ">
+          <Button variant="outline" size="lg">
+            View More FAQs
+          </Button>
+        </Link>
+      </div>
+    </div>
+  </div>
+</section>
     </MainLayout>
   );
 }
