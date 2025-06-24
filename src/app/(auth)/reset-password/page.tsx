@@ -13,8 +13,6 @@ export default function ResetPasswordPage() {
 
   // Try to get token from query (?token=...) or from path (/reset-password/[token])
   const token = searchParams.get("token");
-  
-
 
   const [formState, setFormState] = useState({
     newPassword: "",
