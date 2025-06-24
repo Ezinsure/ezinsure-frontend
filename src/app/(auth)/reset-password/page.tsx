@@ -13,9 +13,6 @@ export default function ResetPasswordPage() {
 
   // Try to get token from query (?token=...) or from path (/reset-password/[token])
   const token = searchParams.get("token");
-  
-  // Debug: Log the extracted token
-  console.log("Extracted token:", token);
 
   const [formState, setFormState] = useState({
     newPassword: "",
@@ -68,12 +65,17 @@ export default function ResetPasswordPage() {
     }
     setIsSubmitting(true);
     try {
-      const formData = new FormData();
-      formData.append("newPassword", formState.newPassword);
-      formData.append("confirmPassword", formState.confirmPassword);
+      const requestBody = {
+        newPassword: formState.newPassword,
+        confirmPassword: formState.confirmPassword,
+      };
+      
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/changePassword/${token}`, {
         method: "PUT",
-        body: formData,
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(requestBody),
       });
       const data = await res.json();
       if (res.ok && data.message && data.message.toLowerCase().includes("success")) {
