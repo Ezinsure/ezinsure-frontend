@@ -39,14 +39,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isInitialized, setIsInitialized] = useState(false);
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
 
   const handleRouteProtection = useCallback(() => {
     const PUBLIC_ROUTES = ['/', '/apply', '/login', '/register', '/track', '/terms-and-conditions', '/privacy-policy', '/FAQ', '/reset-password'];
     
-    // Skip if still loading or not initialized
-    if (isLoading || !isInitialized) return;
+    // Skip if still loading, not initialized, or currently logging in
+    if (isLoading || !isInitialized || isLoggingIn) return;
   
     // Extract pathname without query parameters
     const cleanPathname = pathname.split('?')[0];
@@ -89,10 +90,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         router.push('/');
       }
     }
-  }, [isLoading, isInitialized, pathname, router, token, user]);
+  }, [isLoading, isInitialized, isLoggingIn, pathname, router, token, user]);
 
   const login = async (email: string, password: string) => {
     try {
+      setIsLoggingIn(true);
+      
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -142,10 +145,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         timestamp: Date.now()
       }));
       
-      // Redirect based on role
-      router.push(`/${data.role.toLowerCase()}/dashboard`);
+      // Use window.location.href for more reliable redirect
+      const dashboardUrl = `/${data.role.toLowerCase()}/dashboard`;
+      window.location.href = dashboardUrl;
     } catch (error) {
       console.error('Login error:', error);
+      setIsLoggingIn(false);
       throw error;
     }
   };
@@ -258,7 +263,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (isInitialized && !isLoading) {
       handleRouteProtection();
     }
-  }, [isInitialized, isLoading, pathname, user, token, handleRouteProtection]);
+  }, [isInitialized, isLoading, isLoggingIn, pathname, user, token, handleRouteProtection]);
 
   // Show loading state only if truly loading
   if (isLoading || !isInitialized) {
