@@ -15,6 +15,7 @@
     "next": "15.3.2",
     "pdfjs-dist": "^5.3.31",
     "react": "^19.0.0",
+    "react-accordion": "^0.3.0",
     "react-dom": "^19.0.0",
     "react-pdf": "^9.2.1",
     "recharts": "^2.15.3"
