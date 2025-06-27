@@ -270,6 +270,7 @@ export default function ApplyPage() {
 
         // Append tracking data
         if (trackingData) {
+          // console.log('Tracking data:', trackingData);
           formData.append('trackingData', JSON.stringify(trackingData));
         }
 

@@ -97,21 +97,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     try {
       setIsLoggingIn(true);
       
-      // Use FormData to send trackingData
-      const formData = new FormData();
-      formData.append('email', email);
-      formData.append('password', password);
-      if (trackingData) {
-        formData.append('trackingData', JSON.stringify(trackingData));
-      }
-      // Log all FormData entries
-      // for (const [key, value] of formData.entries()) {
-      //   console.log('FormData entry:', key, value);
-      // }
+      // Prepare JSON body
+      const body = {
+        email,
+        password,
+        ...(trackingData ? { trackingData } : {})
+      };
+
+      // console.log('Login body:', body.trackingData);
 
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/login`, {
         method: 'POST',
-        body: formData,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
       });
 
       if (!response.ok) throw new Error('Login failed');
