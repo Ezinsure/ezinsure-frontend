@@ -615,59 +615,71 @@ export default function SuperAdminApplicationsPage() {
                 </div>
               )}
               
-              {/* Tracking Information */}
-              {selectedApp.deviceInfo && (
-                <div className="bg-white rounded-lg border border-gray-200 p-6">
-                  <h4 className="text-base font-semibold text-gray-900 mb-4">Device Information</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <p className="text-sm text-gray-500 mb-1">Device Type</p>
-                      <p className="font-medium text-gray-900">{selectedApp.deviceInfo.deviceType || 'N/A'}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-500 mb-1">Operating System</p>
-                      <p className="font-medium text-gray-900">{selectedApp.deviceInfo.os || 'N/A'}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-500 mb-1">Browser</p>
-                      <p className="font-medium text-gray-900">{selectedApp.deviceInfo.browser || 'N/A'}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-500 mb-1">IP Address</p>
-                      <p className="font-medium text-gray-900">{selectedApp.deviceInfo.ipAddress || 'N/A'}</p>
-                    </div>
+              {/* Device Information (always show) */}
+              <div className="bg-white rounded-lg border border-gray-200 p-6">
+                <h4 className="text-base font-semibold text-gray-900 mb-4">Device Information</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <p className="text-sm text-gray-500 mb-1">Device Type</p>
+                    <p className="font-medium text-gray-900">{selectedApp.deviceInfo?.deviceType || 'Unknown'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500 mb-1">Operating System</p>
+                    <p className="font-medium text-gray-900">{selectedApp.deviceInfo?.os || 'Unknown'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500 mb-1">Browser</p>
+                    <p className="font-medium text-gray-900">{selectedApp.deviceInfo?.browser || 'Unknown'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500 mb-1">IP Address</p>
+                    <p className="font-medium text-gray-900">{selectedApp.deviceInfo?.ipAddress || 'Unknown'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500 mb-1">User Agent</p>
+                    <p className="font-medium text-gray-900 break-all">{selectedApp.deviceInfo?.userAgent || 'Unknown'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500 mb-1">City</p>
+                    <p className="font-medium text-gray-900">{selectedApp.deviceInfo?.city || 'Unknown'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500 mb-1">Country</p>
+                    <p className="font-medium text-gray-900">{selectedApp.deviceInfo?.country || 'Unknown'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500 mb-1">Region</p>
+                    <p className="font-medium text-gray-900">{selectedApp.deviceInfo?.regionName || 'Unknown'}</p>
                   </div>
                 </div>
-              )}
+              </div>
               
-              {/* Location Information */}
-              {selectedApp.locationInfo && (
-                <div className="bg-white rounded-lg border border-gray-200 p-6">
-                  <h4 className="text-base font-semibold text-gray-900 mb-4">Location Information</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <p className="text-sm text-gray-500 mb-1">City</p>
-                      <p className="font-medium text-gray-900">{selectedApp.locationInfo.city || 'N/A'}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-500 mb-1">Region</p>
-                      <p className="font-medium text-gray-900">{selectedApp.locationInfo.region || 'N/A'}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-500 mb-1">Country</p>
-                      <p className="font-medium text-gray-900">{selectedApp.locationInfo.country || 'N/A'}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-500 mb-1">Coordinates</p>
-                      <p className="font-medium text-gray-900">
-                        {selectedApp.locationInfo.latitude && selectedApp.locationInfo.longitude 
-                          ? `${selectedApp.locationInfo.latitude}, ${selectedApp.locationInfo.longitude}`
-                          : 'N/A'}
-                      </p>
-                    </div>
+              {/* Location Information (always show) */}
+              <div className="bg-white rounded-lg border border-gray-200 p-6">
+                <h4 className="text-base font-semibold text-gray-900 mb-4">Location Information</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <p className="text-sm text-gray-500 mb-1">City</p>
+                    <p className="font-medium text-gray-900">{selectedApp.locationInfo?.city || 'Unknown'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500 mb-1">Region</p>
+                    <p className="font-medium text-gray-900">{selectedApp.locationInfo?.region || 'Unknown'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500 mb-1">Country</p>
+                    <p className="font-medium text-gray-900">{selectedApp.locationInfo?.country || 'Unknown'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500 mb-1">Coordinates</p>
+                    <p className="font-medium text-gray-900">
+                      {(selectedApp.locationInfo?.latitude && selectedApp.locationInfo?.longitude)
+                        ? `${selectedApp.locationInfo.latitude}, ${selectedApp.locationInfo.longitude}`
+                        : 'Unknown'}
+                    </p>
                   </div>
                 </div>
-              )}
+              </div>
             </div>
             
             {/* Rejection Reason (if exists) */}
