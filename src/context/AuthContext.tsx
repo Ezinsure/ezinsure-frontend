@@ -3,6 +3,7 @@
 import { createContext, useContext, ReactNode, useState, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useCallback } from 'react';
+import { TrackingData } from '@/utils/tracking';
 
 interface User {
   _id: string;
@@ -17,7 +18,7 @@ interface User {
 interface AuthContextType {
   user: User | null;
   token: string | null;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string, trackingData?: TrackingData) => Promise<void>;
   logout: () => void;
   isLoading: boolean;
   isAuthenticated: boolean;
@@ -92,14 +93,25 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [isLoading, isInitialized, isLoggingIn, pathname, router, token, user]);
 
-  const login = async (email: string, password: string) => {
+  const login = async (email: string, password: string, trackingData?: TrackingData) => {
     try {
       setIsLoggingIn(true);
       
+      // Use FormData to send trackingData
+      const formData = new FormData();
+      formData.append('email', email);
+      formData.append('password', password);
+      if (trackingData) {
+        formData.append('trackingData', JSON.stringify(trackingData));
+      }
+      // Log all FormData entries
+      // for (const [key, value] of formData.entries()) {
+      //   console.log('FormData entry:', key, value);
+      // }
+
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/login`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+        body: formData,
       });
 
       if (!response.ok) throw new Error('Login failed');

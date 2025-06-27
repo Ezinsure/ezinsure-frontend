@@ -8,6 +8,7 @@ import { validateForm, ValidationRules, validationPatterns } from '@/components/
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
+import { getTrackingData, TrackingData } from '@/utils/tracking';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -67,7 +68,10 @@ export default function LoginPage() {
     if (Object.keys(formErrors).length === 0) {
       setIsSubmitting(true);
       try {
-        await login(formState.email, formState.password);
+        // Collect tracking data before login
+        const trackingData: TrackingData = await getTrackingData();
+        // console.log('Tracking data (login page):', trackingData);
+        await login(formState.email, formState.password, trackingData);
         showToast('Login successful! Redirecting...', 'success');
       } catch (error) {
         console.error('Login error:', error);
