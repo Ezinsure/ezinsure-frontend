@@ -16,6 +16,7 @@ export const Navigation = () => {
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
   const { user, logout } = useAuth();
   const pathname = usePathname();
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   // Default navigation links for non-logged in users
   const [navLinks, setNavLinks] = useState<NavLink[]>([
@@ -77,10 +78,10 @@ export const Navigation = () => {
     setIsProfileDropdownOpen(!isProfileDropdownOpen);
   };
 
-  const handleLogout = () => {
-    logout();
-    // Redirect to home page
-    window.location.href = '/';
+  const handleLogout = async () => {
+    setIsLoggingOut(true);
+    await logout();
+    setIsLoggingOut(false);
   };
 
   // Function to get user initials
@@ -152,7 +153,7 @@ export const Navigation = () => {
                       Profile Settings
                     </Link>
                     <button 
-                      className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100"
+                      className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100 cursor-pointer"
                       onClick={handleLogout}
                     >
                       Logout
@@ -246,6 +247,12 @@ export const Navigation = () => {
           )}
         </div>
       </div>
+
+      {isLoggingOut && (
+        <div className="fixed inset-0 bg-gray-800/25 flex items-center justify-center z-50">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        </div>
+      )}
     </nav>
   );
 };

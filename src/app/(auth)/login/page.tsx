@@ -8,7 +8,18 @@ import { validateForm, ValidationRules, validationPatterns } from '@/components/
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
-import { getTrackingData, TrackingData } from '@/utils/tracking';
+import { getTrackingData } from '@/utils/tracking';
+
+// Define DeviceInfo type
+interface DeviceInfo {
+  operatingSystem?: string;
+  os?: string;
+  platform?: string;
+  ipAddress?: string;
+  browser?: string;
+  timezone?: string;
+  lastUsedAt?: string | number | Date;
+}
 
 export default function LoginPage() {
   const router = useRouter();
@@ -28,6 +39,11 @@ export default function LoginPage() {
   const [forgotEmail, setForgotEmail] = useState('');
   const [forgotError, setForgotError] = useState('');
   const [forgotSubmitting, setForgotSubmitting] = useState(false);
+
+  const [showDeviceModal, setShowDeviceModal] = useState(false);
+  const [forceLogout, setForceLogout] = useState(false);
+  const [deviceInfo, setDeviceInfo] = useState<DeviceInfo | null>(null);
+  const [pendingLogin, setPendingLogin] = useState<{ email: string; password: string } | null>(null);
 
   const validationRules: ValidationRules = {
     email: { 
@@ -59,23 +75,87 @@ export default function LoginPage() {
     }
   };
 
+  const handleDeviceModalConfirm = () => {
+    setShowDeviceModal(false);
+    if (pendingLogin) {
+      handleSubmitWithDevice(pendingLogin.email, pendingLogin.password);
+    }
+  };
+
+  const handleSubmitWithDevice = async (email: string, password: string) => {
+    setIsSubmitting(true);
+    try {
+      const trackingData = await getTrackingData();
+      const payload: Record<string, unknown> = { ...trackingData, forceLogout };
+      const result: Record<string, unknown> = await login(email, password, payload);
+      if (result?.specialCase) {
+        setDeviceInfo(result.deviceInfo as DeviceInfo);
+        setShowDeviceModal(true);
+        setPendingLogin({ email, password });
+        setIsSubmitting(false);
+        return;
+      }
+      showToast('Login successful! Redirecting...', 'success');
+      setForceLogout(false);
+      setPendingLogin(null);
+    } catch (error) {
+      console.log('error checking', error);
+      let errorMessage = 'Login failed. Please try again.';
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      } else if (typeof error === 'string') {
+        errorMessage = error;
+      } else if (
+        typeof error === 'object' &&
+        error !== null &&
+        'message' in error &&
+        typeof (error as { message?: unknown }).message === 'string'
+      ) {
+        errorMessage = (error as { message: string }).message;
+      }
+      showToast(errorMessage, 'error');
+      setPendingLogin(null);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
     const formErrors = validateForm(formState, validationRules);
     setErrors(formErrors);
-
     if (Object.keys(formErrors).length === 0) {
       setIsSubmitting(true);
       try {
-        // Collect tracking data before login
-        const trackingData: TrackingData = await getTrackingData();
-        // console.log('Tracking data (login page):', trackingData);
-        await login(formState.email, formState.password, trackingData);
+        const trackingData = await getTrackingData();
+        const payload: Record<string, unknown> = { ...trackingData };
+        const result: Record<string, unknown> = await login(formState.email, formState.password, payload);
+        if (result?.specialCase) {
+          setDeviceInfo(result.deviceInfo as DeviceInfo);
+          setShowDeviceModal(true);
+          setPendingLogin({ email: formState.email, password: formState.password });
+          setIsSubmitting(false);
+          return;
+        }
         showToast('Login successful! Redirecting...', 'success');
+        setForceLogout(false);
+        setPendingLogin(null);
       } catch (error) {
-        console.error('Login error:', error);
-        showToast('Invalid email or password. Please try again.', 'error');
+        let errorMessage = 'Login failed. Please try again.';
+        if (error instanceof Error) {
+          errorMessage = error.message;
+        } else if (typeof error === 'string') {
+          errorMessage = error;
+        } else if (
+          typeof error === 'object' &&
+          error !== null &&
+          'message' in error &&
+          typeof (error as { message?: unknown }).message === 'string'
+        ) {
+          errorMessage = (error as { message: string }).message;
+        }
+        showToast(errorMessage, 'error');
+        setPendingLogin(null);
       } finally {
         setIsSubmitting(false);
       }
@@ -171,6 +251,43 @@ export default function LoginPage() {
                 {forgotSubmitting ? 'Sending...' : 'Send Reset Link'}
               </Button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {showDeviceModal && deviceInfo && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center bg-gray-800/75">
+          <div className="bg-white rounded-lg shadow-xl mt-12 w-full max-w-md mx-4 p-6 relative animate-fadeInDown">
+            <button
+              onClick={() => setShowDeviceModal(false)}
+              className="absolute top-3 cursor-pointer right-3 text-gray-400 hover:text-gray-600"
+              aria-label="Close"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+            </button>
+            <h3 className="text-lg font-semibold mb-2 text-center">Another Device Detected</h3>
+            <div className="text-gray-700 text-sm mb-4">
+              <div className="mb-2">You&apos;re already logged in on another device. Do you want to log out from all other devices and continue logging in here?</div>
+              <div><b>OS:</b> {(deviceInfo.operatingSystem || 'unknown')} {(deviceInfo.os || '')}</div>
+              <div><b>Platform:</b> {deviceInfo.platform || 'unknown'}</div>
+              <div><b>IP Address:</b> {deviceInfo.ipAddress || 'unknown'}</div>
+              <div><b>Browser:</b> {deviceInfo.browser || 'unknown'}</div>
+              <div><b>Timezone:</b> {deviceInfo.timezone || 'unknown'}</div>
+              <div><b>Last Used:</b> {deviceInfo.lastUsedAt ? new Date(deviceInfo.lastUsedAt).toLocaleString() : 'unknown'}</div>
+            </div>
+            <div className="flex items-center mb-4">
+              <input
+                id="forceLogout"
+                type="checkbox"
+                checked={forceLogout}
+                onChange={e => setForceLogout(e.target.checked)}
+                className="mr-2"
+              />
+              <label htmlFor="forceLogout" className="text-sm">Yes, log out from all other devices and continue</label>
+            </div>
+            <Button type="button" variant="primary" fullWidth onClick={handleDeviceModalConfirm}>
+              Continue
+            </Button>
           </div>
         </div>
       )}
