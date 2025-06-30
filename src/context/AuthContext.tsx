@@ -3,7 +3,6 @@
 import { createContext, useContext, ReactNode, useState, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useCallback } from 'react';
-import { TrackingData } from '@/utils/tracking';
 
 interface User {
   _id: string;
@@ -18,7 +17,7 @@ interface User {
 interface AuthContextType {
   user: User | null;
   token: string | null;
-  login: (email: string, password: string, trackingData?: TrackingData) => Promise<void>;
+  login: (email: string, password: string, payload?: Record<string, unknown>) => Promise<Record<string, unknown>>;
   logout: () => void;
   isLoading: boolean;
   isAuthenticated: boolean;
@@ -93,26 +92,38 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [isLoading, isInitialized, isLoggingIn, pathname, router, token, user]);
 
-  const login = async (email: string, password: string, trackingData?: TrackingData) => {
+  const login = async (email: string, password: string, payload?: Record<string, unknown>): Promise<Record<string, unknown>> => {
     try {
       setIsLoggingIn(true);
       
-      // Prepare JSON body
-      const body = {
-        email,
-        password,
-        ...(trackingData ? { trackingData } : {})
-      };
-
-      // console.log('Login body:', body.trackingData);
-
+      const formData = new URLSearchParams();
+      formData.append('email', email);
+      formData.append('password', password);
+      if (payload && typeof payload.forceLogout !== 'undefined') {
+        formData.append('forceLogout', (payload.forceLogout as boolean) ? 'true' : 'false');
+      }
+      
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/login`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: formData.toString(),
       });
 
-      if (!response.ok) throw new Error('Login failed');
+      // console.log('response', response);
+
+      if (!response.ok) {
+        let errorMessage = 'Login failed';
+        try {
+          const errorData: Record<string, unknown> = await response.json();
+          errorMessage = (errorData.error as string) || (errorData.message as string) || errorMessage;
+          if (response.status === 403 && errorData.device) {
+            return { specialCase: true, message: errorMessage, deviceInfo: errorData.device };
+          }
+        } catch (e) {
+          // If parsing fails, keep errorMessage as 'Login failed'
+        }
+        throw new Error(errorMessage);
+      }
 
       const { data, token } = await response.json();
 
@@ -158,6 +169,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       // Use window.location.href for more reliable redirect
       const dashboardUrl = `/${data.role.toLowerCase()}/dashboard`;
       window.location.href = dashboardUrl;
+      return { success: true, data, token };
     } catch (error) {
       console.error('Login error:', error);
       setIsLoggingIn(false);
@@ -165,26 +177,53 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const logout = useCallback(() => {
-    setToken(null);
-    setUser(null);
-    
-    // Clear sessionStorage
-    sessionStorage.removeItem('ezinsure_token');
-    sessionStorage.removeItem('ezinsure_user');
-    
-    // Clear cookies
-    document.cookie = 'ezinsure_token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT';
-    document.cookie = 'ezinsure_user=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT';
-    
-    // Notify other tabs about logout
-    localStorage.setItem('auth_event', JSON.stringify({
-      type: 'logout',
-      timestamp: Date.now()
-    }));
-    
-    router.push('/login');
-  }, [router]);
+  const logout = useCallback(async (): Promise<void> => {
+    try {
+      // Call the logout API with token
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/logout`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+        },
+      });
+
+      let responseData: Record<string, unknown> = {};
+      try {
+        responseData = await response.json();
+      } catch {}
+
+      if (response.ok && responseData.message === 'Logged out successfully.') {
+        // Only clear everything if logout API succeeded
+        setToken(null);
+        setUser(null);
+        sessionStorage.removeItem('ezinsure_token');
+        sessionStorage.removeItem('ezinsure_user');
+        document.cookie = 'ezinsure_token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT';
+        document.cookie = 'ezinsure_user=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT';
+        localStorage.setItem('auth_event', JSON.stringify({
+          type: 'logout',
+          timestamp: Date.now()
+        }));
+        router.push('/login');
+        // Optionally, show a toast for success
+        return;
+      } else if (responseData.error) {
+        // Handle known error from backend
+        console.error('Logout API error:', responseData.error);
+        // Optionally, show a toast or alert here
+        return;
+      } else {
+        // Handle unknown error
+        console.error('Logout API error:', responseData);
+        // Optionally, show a toast or alert here
+        return;
+      }
+    } catch (error) {
+      console.error('Logout error:', error);
+      // Optionally, show a toast or alert here
+    }
+  }, [router, token]);
 
   // Listen for storage events (cross-tab communication)
   useEffect(() => {
