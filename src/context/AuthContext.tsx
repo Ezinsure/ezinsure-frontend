@@ -121,6 +121,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           }
         } catch (e) {
           // If parsing fails, keep errorMessage as 'Login failed'
+          console.log("Error: ", e)
         }
         throw new Error(errorMessage);
       }

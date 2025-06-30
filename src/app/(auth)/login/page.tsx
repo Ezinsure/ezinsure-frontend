@@ -105,8 +105,13 @@ export default function LoginPage() {
         errorMessage = error.message;
       } else if (typeof error === 'string') {
         errorMessage = error;
-      } else if (typeof error === 'object' && error && 'message' in error) {
-        errorMessage = (error as any).message;
+      } else if (
+        typeof error === 'object' &&
+        error !== null &&
+        'message' in error &&
+        typeof (error as { message?: unknown }).message === 'string'
+      ) {
+        errorMessage = (error as { message: string }).message;
       }
       showToast(errorMessage, 'error');
       setPendingLogin(null);
@@ -141,8 +146,13 @@ export default function LoginPage() {
           errorMessage = error.message;
         } else if (typeof error === 'string') {
           errorMessage = error;
-        } else if (typeof error === 'object' && error && 'message' in error) {
-          errorMessage = (error as any).message;
+        } else if (
+          typeof error === 'object' &&
+          error !== null &&
+          'message' in error &&
+          typeof (error as { message?: unknown }).message === 'string'
+        ) {
+          errorMessage = (error as { message: string }).message;
         }
         showToast(errorMessage, 'error');
         setPendingLogin(null);
