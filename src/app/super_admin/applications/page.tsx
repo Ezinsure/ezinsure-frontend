@@ -397,7 +397,7 @@ export default function SuperAdminApplicationsPage() {
       <div className="flex items-center">
         <div>
           <div className="text-xs font-medium text-gray-900">{app.fullName}</div>
-          <div className="text-xs text-gray-500">{app.email}</div>
+          <div className="text-xs text-gray-500">{app.email ? app.email : 'Empty'}</div>
         </div>
       </div>
     </td>
@@ -487,7 +487,7 @@ export default function SuperAdminApplicationsPage() {
                   </div>
                   <div>
                     <p className="text-sm text-gray-500 mb-1">Email</p>
-                    <p className="font-medium text-gray-900">{selectedApp.email}</p>
+                    <p className="font-medium text-gray-900">{selectedApp.email ? selectedApp.email : 'Empty'}</p>
                   </div>
                   <div>
                     <p className="text-sm text-gray-500 mb-1">Phone</p>

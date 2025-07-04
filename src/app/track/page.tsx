@@ -1199,7 +1199,7 @@ const handleEditSuccess = async (): Promise<void> => {
             </div>
             <div>
               <p className="text-sm text-gray-500">Email</p>
-              <p className="font-medium">{application.email || 'Unknown'}</p>
+              <p className="font-medium">{application.email ? application.email : 'Empty'}</p>
             </div>
             <div>
               <p className="text-sm text-gray-500">Phone</p>

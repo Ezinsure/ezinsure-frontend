@@ -1383,7 +1383,7 @@ const getActionButtons = (app: Application) => {
                 </div>
                 <div>
                   <p className="text-sm text-gray-500">Email</p>
-                  <p className="font-semibold">{selectedApp.email}</p>
+                  <p className="font-semibold">{selectedApp.email ? selectedApp.email : 'Empty'}</p>
                 </div>
                 <div>
                   <p className="text-sm text-gray-500">Phone</p>
