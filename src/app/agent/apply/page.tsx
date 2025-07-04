@@ -257,7 +257,7 @@ export default function AgentApplyPage() {
 
   const validationRules: ValidationRules = {
     fullName: { required: true, minLength: 3, maxLength: 50 },
-    email: { required: true, pattern: validationPatterns.email },
+    email: { required: false, pattern: validationPatterns.email },
     phoneNumber: { required: true, pattern: validationPatterns.phone },
     address: { required: true, minLength: 5, maxLength: 100 },
     dateOfBirth: { required: true },
@@ -430,7 +430,9 @@ export default function AgentApplyPage() {
         
         // Append basic information
         formData.append('fullName', formState.fullName);
-        formData.append('email', formState.email);
+        if (formState.email) {
+          formData.append('email', formState.email);
+        }
         formData.append('phoneNumber', formState.phoneNumber);
         formData.append('address', formState.address);
         formData.append('dateOfBirth', formState.dateOfBirth);
@@ -596,7 +598,6 @@ export default function AgentApplyPage() {
                   value={formState.email}
                   onChange={handleInputChange}
                   error={errors.email}
-                  required
                   icon={
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
