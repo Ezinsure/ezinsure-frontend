@@ -57,6 +57,9 @@ interface Application {
   province?: string;
   district?: string;
   sector?: string;
+  contract?: string;
+  receipt?: string;
+  ebm?: string;
 }
 
 interface PaginationProps {
@@ -77,6 +80,9 @@ export default function ManageApplicationsPage() {
   const [invoiceFile, setInvoiceFile] = useState<File | null>(null);
   const [rejectionComment, setRejectionComment] = useState('');
   const [insuranceFile, setInsuranceFile] = useState<File | null>(null);
+  const [contractFile, setContractFile] = useState<File | null>(null);
+  const [receiptFile, setReceiptFile] = useState<File | null>(null);
+  const [ebmFile, setEbmFile] = useState<File | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isApproving, setIsApproving] = useState(false);
 const [isRejecting, setIsRejecting] = useState(false);
@@ -327,6 +333,9 @@ const handleReject = async (action: 'application' | 'payment') => {
     try {
       const formData = new FormData();
       formData.append('insuranceCertificate', insuranceFile);
+      if (contractFile) formData.append('contract', contractFile);
+      if (receiptFile) formData.append('receipt', receiptFile);
+      if (ebmFile) formData.append('ebm', ebmFile);
 
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_BASE_URL}/issueInsurance/${selectedApp._id}`,
@@ -357,6 +366,9 @@ const handleReject = async (action: 'application' | 'payment') => {
       setApplications(updatedApplications);
       showToast(`Insurance issued to ${selectedApp.fullName}`, 'success');
       setInsuranceFile(null);
+      setContractFile(null);
+      setReceiptFile(null);
+      setEbmFile(null);
       setSelectedApp(null);
       setActiveModal(null);
     } catch (error) {
@@ -1254,9 +1266,86 @@ const getActionButtons = (app: Application) => {
                 </button>
               )}
             </div>
-            
+            {/* Contract file (optional) */}
+            <div className="mt-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Contract (Optional)</label>
+              <input
+                type="file"
+                onChange={(e) => setContractFile(e.target.files?.[0] || null)}
+                className="block w-full text-sm text-gray-500
+                  file:mr-4 file:py-2 file:px-4
+                  file:rounded-md file:border-0
+                  file:text-sm file:font-semibold
+                  file:bg-[var(--main-blue)] file:text-white
+                  hover:file:bg-[var(--secondary-blue)]
+                "
+              />
+              {contractFile && (
+                <button 
+                  className="mt-2 text-sm text-[var(--main-blue)] hover:underline"
+                  onClick={() => setViewingDocument({
+                    name: contractFile.name,
+                    path: URL.createObjectURL(contractFile)
+                  })}
+                >
+                  View: {contractFile.name}
+                </button>
+              )}
+            </div>
+            {/* Receipt file (optional) */}
+            <div className="mt-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Receipt (Optional)</label>
+              <input
+                type="file"
+                onChange={(e) => setReceiptFile(e.target.files?.[0] || null)}
+                className="block w-full text-sm text-gray-500
+                  file:mr-4 file:py-2 file:px-4
+                  file:rounded-md file:border-0
+                  file:text-sm file:font-semibold
+                  file:bg-[var(--main-blue)] file:text-white
+                  hover:file:bg-[var(--secondary-blue)]
+                "
+              />
+              {receiptFile && (
+                <button 
+                  className="mt-2 text-sm text-[var(--main-blue)] hover:underline"
+                  onClick={() => setViewingDocument({
+                    name: receiptFile.name,
+                    path: URL.createObjectURL(receiptFile)
+                  })}
+                >
+                  View: {receiptFile.name}
+                </button>
+              )}
+            </div>
+            {/* EBM file (optional) */}
+            <div className="mt-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">EBM (Optional)</label>
+              <input
+                type="file"
+                onChange={(e) => setEbmFile(e.target.files?.[0] || null)}
+                className="block w-full text-sm text-gray-500
+                  file:mr-4 file:py-2 file:px-4
+                  file:rounded-md file:border-0
+                  file:text-sm file:font-semibold
+                  file:bg-[var(--main-blue)] file:text-white
+                  hover:file:bg-[var(--secondary-blue)]
+                "
+              />
+              {ebmFile && (
+                <button 
+                  className="mt-2 text-sm text-[var(--main-blue)] hover:underline"
+                  onClick={() => setViewingDocument({
+                    name: ebmFile.name,
+                    path: URL.createObjectURL(ebmFile)
+                  })}
+                >
+                  View: {ebmFile.name}
+                </button>
+              )}
+            </div>
             <div className="flex justify-end gap-2 mt-6">
-              <Button variant="text" onClick={() => {setSelectedApp(null); setActiveModal(null);}} disabled={isProcessing}>
+              <Button variant="text" onClick={() => {setSelectedApp(null); setActiveModal(null); setInsuranceFile(null); setContractFile(null); setReceiptFile(null); setEbmFile(null);}} disabled={isProcessing}>
                 Cancel
               </Button>
               <Button onClick={handleIssueInsurance} disabled={!insuranceFile || isProcessing}>
@@ -1509,6 +1598,42 @@ const getActionButtons = (app: Application) => {
               })}
             >
               <p className="text-sm font-medium">Insurance Certificate</p>
+              <p className="text-xs text-gray-500">View Document</p>
+            </button>
+          )}
+          {selectedApp.contract && (
+            <button 
+              className="bg-white p-3 rounded border text-left hover:bg-gray-50"
+              onClick={() => setViewingDocument({
+                name: 'Contract',
+                path: selectedApp.contract || ''
+              })}
+            >
+              <p className="text-sm font-medium">Contract</p>
+              <p className="text-xs text-gray-500">View Document</p>
+            </button>
+          )}
+          {selectedApp.receipt && (
+            <button 
+              className="bg-white p-3 rounded border text-left hover:bg-gray-50"
+              onClick={() => setViewingDocument({
+                name: 'Receipt',
+                path: selectedApp.receipt || ''
+              })}
+            >
+              <p className="text-sm font-medium">Receipt</p>
+              <p className="text-xs text-gray-500">View Document</p>
+            </button>
+          )}
+          {selectedApp.ebm && (
+            <button 
+              className="bg-white p-3 rounded border text-left hover:bg-gray-50"
+              onClick={() => setViewingDocument({
+                name: 'EBM',
+                path: selectedApp.ebm || ''
+              })}
+            >
+              <p className="text-sm font-medium">EBM</p>
               <p className="text-xs text-gray-500">View Document</p>
             </button>
           )}

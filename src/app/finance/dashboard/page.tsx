@@ -84,6 +84,7 @@ const FinanceDashboard = () => {
   });
   const [paymentHistory, setPaymentHistory] = useState<PaymentHistory[]>([]);
   const [toast, setToast] = useState({ show: false, message: '', isError: false });
+  const [markingAsPaid, setMarkingAsPaid] = useState<{month: string | number, year: number} | null>(null);
  
 
   // Calculate current month's total commission
@@ -135,10 +136,12 @@ const FinanceDashboard = () => {
       if (!response.ok) throw new Error('Failed to fetch payment history');
       
       const data = await response.json();
-      setPaymentHistory(data.results.map((item: PaymentHistory) => ({
-        ...item,
-        paid: !!item.paid // Assuming all items in history are not paid, this field will be coming from db
-      })));
+      setPaymentHistory(
+        (data.results || []).map((item: PaymentHistory) => ({
+          ...item,
+          paid: data.isPaid || item.paid || false // Use isPaid from API if available
+        }))
+      );
     } catch (error) {
       console.error('Error fetching payment history:', error);
       setToast({ show: true, message: 'Error fetching payment history.', isError: true });
@@ -384,14 +387,19 @@ const FinanceDashboard = () => {
     }
   };
 
-  const markAsPaid = async (month?: string, year?: number) => {
+  const markAsPaid = async (month?: string | number, year?: number) => {
     let monthNumber;
     let targetYear;
+    setMarkingAsPaid(month && year ? { month, year } : { month: new Date().toLocaleString('default', { month: 'long' }), year: new Date().getFullYear() });
 
     if (month && year) {
-      // Mark a historical month as paid
+      // Convert month name to number if needed
+      if (typeof month === 'string' && isNaN(Number(month))) {
+        monthNumber = new Date(`${month} 1, ${year}`).getMonth() + 1;
+      } else {
+        monthNumber = Number(month);
+      }
       targetYear = year;
-      monthNumber = new Date(`${month} 1, ${year}`).getMonth() + 1;
     } else {
       // Mark current month as paid
       const now = new Date();
@@ -425,6 +433,8 @@ const FinanceDashboard = () => {
     } catch (error: unknown) {
       console.error('Error marking as paid:', error);
       setToast({ show: true, message: error instanceof Error ? error.message : 'An unknown error occurred', isError: true });
+    } finally {
+      setMarkingAsPaid(null);
     }
   };
 
@@ -732,12 +742,18 @@ const FinanceDashboard = () => {
                             View
                           </button>
                           {!payment.paid && (
-                            <button
-                              onClick={() => markAsPaid(payment.month, payment.year)}
-                              className="ml-2 text-green-600 hover:text-green-900 cursor-pointer"
-                            >
-                              Mark as Paid
-                            </button>
+                            markingAsPaid && markingAsPaid.month === payment.month && markingAsPaid.year === payment.year ? (
+                              <span className="inline-block w-6 h-6 align-middle">
+                                <span className="inline-block animate-spin rounded-full h-6 w-6 border-2 border-green-200 border-t-green-600"></span>
+                              </span>
+                            ) : (
+                              <button
+                                onClick={() => markAsPaid(payment.month, payment.year)}
+                                className="ml-2 text-green-600 hover:text-green-900 cursor-pointer"
+                              >
+                                Mark as Paid
+                              </button>
+                            )
                           )}
                         </td>
                       </tr>

@@ -72,6 +72,7 @@ const PaymentHistory = () => {
   const itemsPerPage = 10;
   const { token } = useAuth();
   const [showPaymentDetails, setShowPaymentDetails] = useState<PaymentDetailsModal | null>(null);
+  const [markingAsPaid, setMarkingAsPaid] = useState<{month: string | number, year: number} | null>(null);
 
   useEffect(() => {
     fetchPaymentHistory();
@@ -91,7 +92,12 @@ const PaymentHistory = () => {
       if (!response.ok) throw new Error('Failed to fetch payment history');
       
       const data = await response.json();
-      setPaymentHistory(data.results);
+      setPaymentHistory(
+        (data.results || []).map((item: PaymentHistory) => ({
+          ...item,
+          paid: data.isPaid || item.paid || false // Use isPaid from API if available
+        }))
+      );
     } catch (error) {
       console.error('Error fetching payment history:', error);
     } finally {
@@ -155,35 +161,31 @@ const PaymentHistory = () => {
     }
   };
 
-  const markAsPaid = async (month: string, year: number) => {
+  const markAsPaid = async (month: string | number, year: number) => {
+    let monthNumber;
+    setMarkingAsPaid({ month, year });
+    if (typeof month === 'string' && isNaN(Number(month))) {
+      monthNumber = new Date(`${month} 1, ${year}`).getMonth() + 1;
+    } else {
+      monthNumber = Number(month);
+    }
     try {
-      // Update the payment history state to mark the selected month as paid
-      setPaymentHistory(paymentHistory.map(item => 
-        item.month === month && item.year === year ? {...item, paid: true} : item
-      ));
-
-      // Make API call to update the payment status
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_BASE_URL}/markMonthlyCommissionAsPaid`,
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/markAsPaid?month=${monthNumber}&year=${year}`,
         {
-          method: 'POST',
+          method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({
-            month,
-            year
-          })
+          }
         }
       );
-
       if (!response.ok) throw new Error('Failed to mark payment as paid');
-      
-      // Refresh the payment history to get the updated data
       await fetchPaymentHistory();
     } catch (error) {
       console.error('Error marking payment as paid:', error);
+    } finally {
+      setMarkingAsPaid(null);
     }
   };
 
@@ -464,12 +466,18 @@ const PaymentHistory = () => {
                               View
                             </button>
                             {!payment.paid && (
-                              <button
-                                onClick={() => markAsPaid(payment.month, payment.year)}
-                                className="ml-2 text-green-600 hover:text-green-900 cursor-pointer"
-                              >
-                                Mark as Paid
-                              </button>
+                              markingAsPaid && markingAsPaid.month === payment.month && markingAsPaid.year === payment.year ? (
+                                <span className="inline-block w-6 h-6 align-middle">
+                                  <span className="inline-block animate-spin rounded-full h-6 w-6 border-2 border-green-200 border-t-green-600"></span>
+                                </span>
+                              ) : (
+                                <button
+                                  onClick={() => markAsPaid(payment.month, payment.year)}
+                                  className="ml-2 text-green-600 hover:text-green-900 cursor-pointer"
+                                >
+                                  Mark as Paid
+                                </button>
+                              )
                             )}
                           </td>
                         </tr>
