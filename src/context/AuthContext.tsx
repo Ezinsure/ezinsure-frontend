@@ -206,7 +206,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           type: 'logout',
           timestamp: Date.now()
         }));
-        router.push('/login');
+        window.location.href = '/login'; // Use hard redirect
         // Optionally, show a toast for success
         return;
       } else if (responseData.error) {
