@@ -73,6 +73,9 @@ interface Application {
     country: string;
   };
   createdAt: string;
+  contract?: string;
+  receipt?: string;
+  ebm?: string;
 }
 
 export default function SuperAdminApplicationsPage() {
@@ -788,6 +791,42 @@ export default function SuperAdminApplicationsPage() {
                     })}
                   >
                     <p className="text-sm font-medium text-gray-900">Insurance Certificate</p>
+                    <p className="text-xs text-gray-500 mt-1">View Document</p>
+                  </button>
+                )}
+                {selectedApp.contract && (
+                  <button 
+                    className="bg-white p-4 rounded-lg border border-gray-200 text-left hover:bg-gray-50 transition-colors"
+                    onClick={() => setViewingDocument({
+                      name: 'Contract',
+                      path: selectedApp.contract || ''
+                    })}
+                  >
+                    <p className="text-sm font-medium text-gray-900">Contract</p>
+                    <p className="text-xs text-gray-500 mt-1">View Document</p>
+                  </button>
+                )}
+                {selectedApp.receipt && (
+                  <button 
+                    className="bg-white p-4 rounded-lg border border-gray-200 text-left hover:bg-gray-50 transition-colors"
+                    onClick={() => setViewingDocument({
+                      name: 'Receipt',
+                      path: selectedApp.receipt || ''
+                    })}
+                  >
+                    <p className="text-sm font-medium text-gray-900">Receipt</p>
+                    <p className="text-xs text-gray-500 mt-1">View Document</p>
+                  </button>
+                )}
+                {selectedApp.ebm && (
+                  <button 
+                    className="bg-white p-4 rounded-lg border border-gray-200 text-left hover:bg-gray-50 transition-colors"
+                    onClick={() => setViewingDocument({
+                      name: 'EBM',
+                      path: selectedApp.ebm || ''
+                    })}
+                  >
+                    <p className="text-sm font-medium text-gray-900">EBM</p>
                     <p className="text-xs text-gray-500 mt-1">View Document</p>
                   </button>
                 )}
