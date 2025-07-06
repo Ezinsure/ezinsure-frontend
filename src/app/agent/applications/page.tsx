@@ -46,6 +46,9 @@ interface Application {
   amount?: number;
   agentCommission?: number;
   agentId?: string;
+  contract?: string;
+  receipt?: string;
+  ebm?: string;
 }
 
 interface PaginationProps {
@@ -1380,7 +1383,7 @@ const getActionButtons = (app: Application) => {
                 </div>
                 <div>
                   <p className="text-sm text-gray-500">Email</p>
-                  <p className="font-semibold">{selectedApp.email}</p>
+                  <p className="font-semibold">{selectedApp.email ? selectedApp.email : 'Empty'}</p>
                 </div>
                 <div>
                   <p className="text-sm text-gray-500">Phone</p>
@@ -1567,6 +1570,42 @@ const getActionButtons = (app: Application) => {
                     })}
                   >
                     <p className="text-sm font-medium">Insurance Certificate</p>
+                    <p className="text-xs text-gray-500">View Document</p>
+                  </button>
+                )}
+                {selectedApp.contract && (
+                  <button 
+                    className="bg-white p-3 rounded border text-left hover:bg-gray-50"
+                    onClick={() => setViewingDocument({
+                      name: 'Contract',
+                      path: selectedApp.contract || ''
+                    })}
+                  >
+                    <p className="text-sm font-medium">Contract</p>
+                    <p className="text-xs text-gray-500">View Document</p>
+                  </button>
+                )}
+                {selectedApp.receipt && (
+                  <button 
+                    className="bg-white p-3 rounded border text-left hover:bg-gray-50"
+                    onClick={() => setViewingDocument({
+                      name: 'Receipt',
+                      path: selectedApp.receipt || ''
+                    })}
+                  >
+                    <p className="text-sm font-medium">Receipt</p>
+                    <p className="text-xs text-gray-500">View Document</p>
+                  </button>
+                )}
+                {selectedApp.ebm && (
+                  <button 
+                    className="bg-white p-3 rounded border text-left hover:bg-gray-50"
+                    onClick={() => setViewingDocument({
+                      name: 'EBM',
+                      path: selectedApp.ebm || ''
+                    })}
+                  >
+                    <p className="text-sm font-medium">EBM</p>
                     <p className="text-xs text-gray-500">View Document</p>
                   </button>
                 )}

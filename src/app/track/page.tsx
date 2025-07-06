@@ -72,6 +72,9 @@ interface Application {
   invoiceAmount?: string;
   insuranceProvider: string;
   transactionId?: string;
+  contract?: string;
+  receipt?: string;
+  ebm?: string;
 }
 
 interface OTPModalProps {
@@ -1196,7 +1199,7 @@ const handleEditSuccess = async (): Promise<void> => {
             </div>
             <div>
               <p className="text-sm text-gray-500">Email</p>
-              <p className="font-medium">{application.email || 'Unknown'}</p>
+              <p className="font-medium">{application.email ? application.email : 'Empty'}</p>
             </div>
             <div>
               <p className="text-sm text-gray-500">Phone</p>
@@ -1392,6 +1395,51 @@ const handleEditSuccess = async (): Promise<void> => {
                 variant="text" 
                 size="sm"
                 onClick={() => handleViewDocument('Insurance Certificate', application.insuranceCertificate!)}
+              >
+                View
+              </Button>
+            </div>
+          )}
+          {application.contract && (
+            <div className="flex items-center justify-between bg-white p-3 rounded border">
+              <div>
+                <p className="text-sm font-medium">Contract</p>
+                <p className="text-xs text-gray-500">Insurance contract document</p>
+              </div>
+              <Button 
+                variant="text" 
+                size="sm"
+                onClick={() => handleViewDocument('Contract', application.contract!)}
+              >
+                View
+              </Button>
+            </div>
+          )}
+          {application.receipt && (
+            <div className="flex items-center justify-between bg-white p-3 rounded border">
+              <div>
+                <p className="text-sm font-medium">Receipt</p>
+                <p className="text-xs text-gray-500">Payment receipt document</p>
+              </div>
+              <Button 
+                variant="text" 
+                size="sm"
+                onClick={() => handleViewDocument('Receipt', application.receipt!)}
+              >
+                View
+              </Button>
+            </div>
+          )}
+          {application.ebm && (
+            <div className="flex items-center justify-between bg-white p-3 rounded border">
+              <div>
+                <p className="text-sm font-medium">EBM</p>
+                <p className="text-xs text-gray-500">EBM document</p>
+              </div>
+              <Button 
+                variant="text" 
+                size="sm"
+                onClick={() => handleViewDocument('EBM', application.ebm!)}
               >
                 View
               </Button>
