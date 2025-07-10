@@ -2,14 +2,15 @@
 
 import React, { useState, useEffect } from 'react';
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { TrendingUp, Users, DollarSign, Calendar, Download, Eye, EyeOff } from 'lucide-react';
+import { TrendingUp, Users, DollarSign, Calendar, Eye, EyeOff } from 'lucide-react';
 import Link from 'next/link';
 import { MainLayout } from '@/components/ui/main-layout';
 import type { TooltipProps } from 'recharts';
+import { useAuth } from '@/context/AuthContext';
 
 
 const Dashboard = () => {
-  const [selectedPeriod, setSelectedPeriod] = useState('this_month');
+  const { user, token } = useAuth();
   const [showCommissionChart, setShowCommissionChart] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -47,48 +48,80 @@ const Dashboard = () => {
     ]
   };
 
-  const statsCards = [
+  const statsConfig = [
     {
       title: 'Today',
-      commission: '24,500 RWF',
-      clients: 7,
-      growth: '+12%',
+      range: 'day',
       icon: <Calendar className="w-6 h-6" />,
-      color: 'from-blue-500 to-blue-600',
       bgColor: 'bg-blue-50',
-      textColor: 'text-blue-600'
+      textColor: 'text-blue-600',
     },
     {
       title: 'This Week',
-      commission: '168,500 RWF',
-      clients: 21,
-      growth: '+8%',
+      range: 'week',
       icon: <TrendingUp className="w-6 h-6" />,
-      color: 'from-emerald-500 to-emerald-600',
       bgColor: 'bg-emerald-50',
-      textColor: 'text-emerald-600'
+      textColor: 'text-emerald-600',
     },
     {
       title: 'This Month',
-      commission: '658,000 RWF',
-      clients: 89,
-      growth: '+15%',
+      range: 'month',
       icon: <DollarSign className="w-6 h-6" />,
-      color: 'from-amber-500 to-amber-600',
       bgColor: 'bg-amber-50',
-      textColor: 'text-amber-600'
+      textColor: 'text-amber-600',
     },
     {
       title: 'This Year',
-      commission: '6,890,000 RWF',
-      clients: 892,
-      growth: '+23%',
+      range: 'year',
       icon: <Users className="w-6 h-6" />,
-      color: 'from-purple-500 to-purple-600',
       bgColor: 'bg-purple-50',
-      textColor: 'text-purple-600'
-    }
+      textColor: 'text-purple-600',
+    },
   ];
+
+  const [statsData, setStatsData] = useState([
+    { loading: true, commission: 0, count: 0 },
+    { loading: true, commission: 0, count: 0 },
+    { loading: true, commission: 0, count: 0 },
+    { loading: true, commission: 0, count: 0 },
+  ]);
+
+  useEffect(() => {
+    if (!user?._id || !token) return;
+    statsConfig.forEach((stat, idx) => {
+      setStatsData(prev => {
+        const newStats = [...prev];
+        newStats[idx] = { ...newStats[idx], loading: true };
+        return newStats;
+      });
+      fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/agent-clients?agentId=${user._id}&range=${stat.range}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+      })
+        .then(res => res.json())
+        .then(data => {
+          setStatsData(prev => {
+            const newStats = [...prev];
+            newStats[idx] = {
+              loading: false,
+              commission: data.totalCommission || 0,
+              count: data.count || 0,
+            };
+            return newStats;
+          });
+        })
+        .catch(() => {
+          setStatsData(prev => {
+            const newStats = [...prev];
+            newStats[idx] = { ...newStats[idx], loading: false };
+            return newStats;
+          });
+        });
+    });
+  }, [user?._id, token]);
 
   useEffect(() => {
     setTimeout(() => setIsLoading(false), 500);
@@ -145,23 +178,7 @@ const CustomTooltip = ({ active, payload, label }: TooltipProps<number, string>)
               <p className="text-gray-600">Welcome back! Here&apos;s what&apos;s happening with your business.</p>
             </div>
             
-            <div className="flex flex-col sm:flex-row gap-3">
-              <select 
-                value={selectedPeriod}
-                onChange={(e) => setSelectedPeriod(e.target.value)}
-                className="px-4 py-2 border border-gray-300 rounded-lg bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="today">Today</option>
-                <option value="this_week">This Week</option>
-                <option value="this_month">This Month</option>
-                <option value="this_year">This Year</option>
-              </select>
-              
-              <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
-                <Download className="w-4 h-4" />
-                Export
-              </button>
-            </div>
+            
           </div>
         </div>
       </div>
@@ -169,9 +186,9 @@ const CustomTooltip = ({ active, payload, label }: TooltipProps<number, string>)
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Stats Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          {statsCards.map((card, index) => (
-            <div 
-              key={index} 
+          {statsConfig.map((card, index) => (
+            <div
+              key={index}
               className="bg-white rounded-2xl p-6 shadow-sm hover:shadow-md transition-all duration-300 transform hover:-translate-y-1 border border-gray-100"
               style={{ animationDelay: `${index * 100}ms` }}
             >
@@ -179,15 +196,26 @@ const CustomTooltip = ({ active, payload, label }: TooltipProps<number, string>)
                 <div className={`p-3 rounded-xl ${card.bgColor}`}>
                   <div className={card.textColor}>{card.icon}</div>
                 </div>
-                <span className="text-emerald-600 text-sm font-semibold bg-emerald-50 px-2 py-1 rounded-full">
+                {/* <span className="text-emerald-600 text-sm font-semibold bg-emerald-50 px-2 py-1 rounded-full">
                   {card.growth}
-                </span>
+                </span> */}
               </div>
-              
               <h3 className="text-gray-500 text-sm font-medium mb-1">{card.title}</h3>
               <div className="space-y-1">
-                <p className="text-2xl font-bold text-gray-900">{card.commission}</p>
-                <p className="text-gray-600 text-sm">{card.clients} clients</p>
+                {statsData[index].loading ? (
+                  <div className="h-6 w-24 bg-gray-300 rounded animate-pulse mb-1" />
+                ) : (
+                  <p className="text-2xl font-bold text-gray-900">
+                    {statsData[index].commission.toLocaleString()} RWF
+                  </p>
+                )}
+                {statsData[index].loading ? (
+                  <div className="h-4 w-20 bg-gray-200 rounded animate-pulse" />
+                ) : (
+                  <p className="text-gray-600 text-sm">
+                    {statsData[index].count.toLocaleString()} client(s)/applications
+                  </p>
+                )}
               </div>
             </div>
           ))}
