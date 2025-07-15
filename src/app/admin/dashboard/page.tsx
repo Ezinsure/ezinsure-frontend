@@ -6,6 +6,7 @@ import { TrendingUp, Users, DollarSign, Download, Search, UserCheck, Target, Awa
 import type { TooltipProps } from 'recharts';
 import { MainLayout } from '@/components/ui/main-layout';
 import { useAuth } from '@/context/AuthContext';
+import Link from 'next/link';
 
 // API service functions
 const fetchActiveAgentsCount = async (token: string) => {
@@ -88,6 +89,55 @@ const fetchTotalCommission = async (token: string) => {
   }
 };
 
+const fetchRecentApplications = async (token: string) => {
+  try {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/getRecentApplications`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    const data = await response.json();
+    return data.data || [];
+  } catch (error) {
+    console.error('Error fetching recent applications:', error);
+    return [];
+  }
+};
+
+const fetchInsuranceDistribution = async (token: string) => {
+  try {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/getInsuranceDistribution`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    const data = await response.json();
+    return data.data || [];
+  } catch (error) {
+    console.error('Error fetching insurance distribution:', error);
+    return [];
+  }
+};
+
+const INSURANCE_COLORS: Record<string, string> = {
+  'Car Insurance': '#3B82F6',
+  'Health Insurance': '#10B981',
+  'Travel Insurance': '#F59E0B',
+  'Building Insurance': '#EF4444',
+  'Fire Insurance': '#8B5CF6',
+  'MotorBike Insurance': '#6366F1',
+};
+
 const AdminDashboard = () => {
   const { token } = useAuth();
   const [selectedPeriod, setSelectedPeriod] = useState('this_month');
@@ -112,6 +162,10 @@ const AdminDashboard = () => {
     }
   });
 
+  const [recentApplications, setRecentApplications] = useState<any[]>([]);
+  const [insuranceDistribution, setInsuranceDistribution] = useState<any[]>([]);
+  const [isInsuranceDistributionLoading, setIsInsuranceDistributionLoading] = useState(true);
+
   // Mock data for admin dashboard
   const mockData = {
     revenueData: [
@@ -131,13 +185,6 @@ const AdminDashboard = () => {
       { day: 'Sat', revenue: 123000, applications: 18, agents: 6, clients: 28 },
       { day: 'Sun', revenue: 89000, applications: 12, agents: 4, clients: 19 },
     ],
-    insuranceDistribution: [
-      { name: 'Car Insurance', value: 42, revenue: 1850000, color: '#3B82F6' },
-      { name: 'Health Insurance', value: 28, revenue: 1450000, color: '#10B981' },
-      { name: 'Travel Insurance', value: 15, revenue: 680000, color: '#F59E0B' },
-      { name: 'Building Insurance', value: 10, revenue: 520000, color: '#EF4444' },
-      { name: 'Fire Insurance', value: 5, revenue: 390000, color: '#8B5CF6' },
-    ],
     regionData: [
       { region: 'Kigali', agents: 45, clients: 342, revenue: 1850000, growth: 23.5 },
       { region: 'Northern Province', agents: 28, clients: 198, revenue: 980000, growth: 18.2 },
@@ -151,13 +198,6 @@ const AdminDashboard = () => {
       { id: 'AG003', name: 'Paul Nshimiyimana', clients: 35, revenue: 198000, commission: 19800, status: 'active', region: 'Northern Province' },
       { id: 'AG004', name: 'Grace Uwizeyimana', clients: 32, revenue: 185000, commission: 18500, status: 'active', region: 'Eastern Province' },
       { id: 'AG005', name: 'David Habimana', clients: 29, revenue: 167000, commission: 16700, status: 'active', region: 'Western Province' },
-    ],
-    recentApplications: [
-      { id: 'APP001', client: 'Alice Mukamana', agent: 'Jean Uwimana', type: 'Car', amount: '125,000 RWF', status: 'approved', time: '2 hours ago', region: 'Kigali' },
-      { id: 'APP002', client: 'Bob Nshimiyimana', agent: 'Marie Mukamana', type: 'Health', amount: '89,000 RWF', status: 'pending', time: '4 hours ago', region: 'Southern Province' },
-      { id: 'APP003', client: 'Carol Uwimana', agent: 'Paul Nshimiyimana', type: 'Travel', amount: '45,000 RWF', status: 'approved', time: '6 hours ago', region: 'Northern Province' },
-      { id: 'APP004', client: 'David Habimana', agent: 'Grace Uwizeyimana', type: 'Building', amount: '245,000 RWF', status: 'completed', time: '1 day ago', region: 'Eastern Province' },
-      { id: 'APP005', client: 'Eva Mukamana', agent: 'David Habimana', type: 'Fire', amount: '189,000 RWF', status: 'review', time: '1 day ago', region: 'Western Province' },
     ]
   };
 
@@ -209,17 +249,53 @@ const AdminDashboard = () => {
     fetchStatsData();
   }, [token]);
 
+  useEffect(() => {
+    if (!token) return;
+    fetchRecentApplications(token).then((apps) => {
+      // Map API response to UI format
+      const mapped = (apps || []).map((app: any) => ({
+        id: app.applicationNumber || app._id,
+        client: app.fullName,
+        // agent: app.agentId || 'N/A',
+        type: app.insuranceCategory,
+        amount: app.amount || '-', // No amount in API, fallback
+        status: app.status,
+        time: app.submittedAt ? new Date(app.submittedAt).toLocaleString() : '',
+        region: app.province || '',
+      }));
+      setRecentApplications(mapped);
+    });
+  }, [token]);
+
+  useEffect(() => {
+    if (!token) return;
+    setIsInsuranceDistributionLoading(true);
+    fetchInsuranceDistribution(token).then((dist) => {
+      // Calculate total for percentage
+      const total = dist.reduce((sum: number, item: any) => sum + (item.count || 0), 0);
+      const mapped = dist.map((item: any) => ({
+        name: item.category,
+        value: item.count,
+        color: INSURANCE_COLORS[item.category] || '#A3A3A3',
+        percent: total > 0 ? Math.round((item.count / total) * 100) : 0,
+      }));
+      setInsuranceDistribution(mapped);
+      setIsInsuranceDistributionLoading(false);
+    });
+  }, [token]);
+
   const statsCards = [
     {
       title: 'Total Revenue',
-      value: '24,890,000 RWF',
+      value: statsData.loading.totalCommission ? '' : `${(statsData.totalCommission || 0).toLocaleString()} RWF`,
       change: '+23.5%',
       changeType: 'increase',
       icon: <DollarSign className="w-6 h-6" />,
       color: 'from-emerald-500 to-emerald-600',
       bgColor: 'bg-emerald-50',
       textColor: 'text-emerald-600',
-      subtitle: 'This month'
+      subtitle: 'This month',
+      loading: statsData.loading.totalCommission
     },
     {
       title: 'Active Agents',
@@ -269,7 +345,7 @@ const AdminDashboard = () => {
     },
     {
       title: 'Avg Commission',
-      value: statsData.loading.totalCommission ? '' : `${((statsData.totalCommission || 0) / ((statsData.activeAgents || 0) || 1)).toLocaleString()} RWF`,
+      value: '100,1000 RWF',
       change: '+5.8%',
       changeType: 'increase',
       icon: <Award className="w-6 h-6" />,
@@ -277,7 +353,7 @@ const AdminDashboard = () => {
       bgColor: 'bg-indigo-50',
       textColor: 'text-indigo-600',
       subtitle: 'Per agent/month',
-      loading: statsData.loading.totalCommission
+      loading: false
     },
     {
       title: 'Policy Claims',
@@ -337,11 +413,42 @@ const CustomTooltip: React.FC<TooltipProps<number, string>> = ({ active, payload
   return null;
 };
 
-  const filteredApplications = mockData.recentApplications.filter(app =>
-    app.client.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    app.agent.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    app.type.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Filter for recent applications based on search and type
+  const filteredApplications = recentApplications.filter(app => {
+    const matchesSearch =
+      app.client.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      app.type.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesType = selectedInsuranceType === 'all' ||
+      (selectedInsuranceType === 'car' && app.type.toLowerCase().includes('car')) ||
+      (selectedInsuranceType === 'health' && app.type.toLowerCase().includes('health')) ||
+      (selectedInsuranceType === 'travel' && app.type.toLowerCase().includes('travel')) ||
+      (selectedInsuranceType === 'building' && app.type.toLowerCase().includes('building')) ||
+      (selectedInsuranceType === 'fire' && app.type.toLowerCase().includes('fire')) ||
+      (selectedInsuranceType === 'motorbike' && app.type.toLowerCase().includes('motorbike'));
+    return matchesSearch && matchesType;
+  });
+
+  // Add getStatusBadge helper for status styling
+  const getStatusBadge = (status: string) => {
+    switch (status.toLowerCase()) {
+      case 'pending':
+        return <span className="px-2 py-1 rounded-full bg-blue-100 text-blue-700 text-xs font-medium">Pending</span>;
+      case 'application_approved':
+        return <span className="px-2 py-1 rounded-full bg-green-100 text-green-700 text-xs font-medium">Application Approved</span>;
+      case 'waiting_for_user_action':
+        return <span className="px-2 py-1 rounded-full bg-orange-100 text-orange-700 text-xs font-medium">Waiting for User Action</span>;
+      case 'invoice_sent':
+        return <span className="px-2 py-1 rounded-full bg-indigo-100 text-indigo-700 text-xs font-medium">Invoice Sent</span>;
+      case 'review_payment':
+        return <span className="px-2 py-1 rounded-full bg-purple-100 text-purple-700 text-xs font-medium">Review Payment</span>;
+      case 'payment_verified':
+        return <span className="px-2 py-1 rounded-full bg-green-100 text-green-700 text-xs font-medium">Payment Verified</span>;
+      case 'insurance_issued':
+        return <span className="px-2 py-1 rounded-full bg-emerald-100 text-emerald-700 text-xs font-medium">Insurance Issued</span>;
+      default:
+        return <span className="px-2 py-1 rounded-full bg-gray-100 text-gray-700 text-xs font-medium">{status.charAt(0).toUpperCase() + status.slice(1)}</span>;
+    }
+  };
 
   if (isLoading) {
     return (
@@ -539,33 +646,42 @@ const CustomTooltip: React.FC<TooltipProps<number, string>> = ({ active, payload
             <p className="text-gray-600 text-sm mb-6">Revenue distribution by policy type</p>
             
             <div className="h-64 mb-6">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={mockData.insuranceDistribution}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={50}
-                    outerRadius={90}
-                    paddingAngle={5}
-                    dataKey="value"
-                  >
-                    {mockData.insuranceDistribution.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip 
-                    formatter={(value, name, props) => [
-                      `${value}%`,
-                      `${(props.payload.revenue || 0).toLocaleString()} RWF`
-                    ]}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
+              {isInsuranceDistributionLoading ? (
+                <div className="h-full w-full flex flex-col items-center justify-center animate-pulse">
+                  <div className="rounded-full bg-gray-200" style={{ width: 120, height: 120 }} />
+                  <div className="mt-6 w-2/3 h-4 bg-gray-200 rounded mb-2" />
+                  <div className="w-1/2 h-4 bg-gray-200 rounded" />
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={insuranceDistribution}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={50}
+                      outerRadius={90}
+                      paddingAngle={5}
+                      dataKey="value"
+                      nameKey="name"
+                    >
+                      {insuranceDistribution.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip 
+                      formatter={(value, name, props) => [
+                        `${value} applications`,
+                        `${(props.payload.percent || 0)}%`
+                      ]}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              )}
             </div>
             
             <div className="space-y-3">
-              {mockData.insuranceDistribution.map((type, index) => (
+              {insuranceDistribution.map((type, index) => (
                 <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                   <div className="flex items-center gap-3">
                     <div 
@@ -574,10 +690,10 @@ const CustomTooltip: React.FC<TooltipProps<number, string>> = ({ active, payload
                     />
                     <div>
                       <span className="text-sm font-medium text-gray-900">{type.name}</span>
-                      <p className="text-xs text-gray-500">{(type.revenue || 0).toLocaleString()} RWF</p>
+                      <p className="text-xs text-gray-500">{type.value.toLocaleString()} applications</p>
                     </div>
                   </div>
-                  <span className="text-sm font-bold text-gray-900">{type.value}%</span>
+                  <span className="text-sm font-bold text-gray-900">{type.percent}%</span>
                 </div>
               ))}
             </div>
@@ -667,9 +783,9 @@ const CustomTooltip: React.FC<TooltipProps<number, string>> = ({ active, payload
                 <h3 className="text-2xl font-bold text-gray-900 mb-1">Top Agents</h3>
                 <p className="text-gray-600 text-sm">Best performing agents this month</p>
               </div>
-              <button className="text-blue-600 text-sm font-semibold hover:text-blue-700 transition-colors">
-                View All
-              </button>
+              <Link href="/applications" legacyBehavior>
+                <a className="text-blue-600 text-sm font-semibold hover:text-blue-700 transition-colors">View All</a>
+              </Link>
             </div>
             
             <div className="space-y-4">
@@ -727,38 +843,35 @@ const CustomTooltip: React.FC<TooltipProps<number, string>> = ({ active, payload
                   <option value="travel">Travel Insurance</option>
                   <option value="building">Building Insurance</option>
                   <option value="fire">Fire Insurance</option>
+                  <option value="motorbike">MotorBike Insurance</option>
                 </select>
               </div>
             </div>
             
             <div className="space-y-3 max-h-96 overflow-y-auto">
-              {filteredApplications.map((app, index) => (
-                <div key={index} className="flex items-center justify-between p-4 bg-gradient-to-r from-gray-50 to-blue-50 rounded-xl hover:shadow-md transition-all">
-                  <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-600 rounded-full flex items-center justify-center text-white font-semibold text-sm">
-                      {app.client.split(' ').map(n => n[0]).join('')}
+              {filteredApplications.length === 0 ? (
+                <div className="text-center text-gray-500 py-8">No matching applications found for the selected filter or search in the top 5.</div>
+              ) : (
+                filteredApplications.map((app, index) => (
+                  <div key={index} className="flex items-center justify-between p-4 bg-gradient-to-r from-gray-50 to-blue-50 rounded-xl hover:shadow-md transition-all">
+                    <div className="flex items-center gap-4">
+                      <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-600 rounded-full flex items-center justify-center text-white font-semibold text-sm">
+                        {app.client.split(' ').map((n: string) => n[0]).join('')}
+                      </div>
+                      <div>
+                        <p className="font-semibold text-gray-900">{app.client}</p>
+                        <p className="text-sm text-gray-600">{app.type} • {app.time}</p>
+                        <p className="text-xs text-gray-500">{app.region}</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="font-semibold text-gray-900">{app.client}</p>
-                      <p className="text-sm text-gray-600">{app.type} • {app.agent} • {app.time}</p>
-                      <p className="text-xs text-gray-500">{app.region}</p>
+                    
+                    <div className="text-right">
+                      <p className="font-bold text-gray-900">{app.amount}</p>
+                      {getStatusBadge(app.status)}
                     </div>
                   </div>
-                  
-                  <div className="text-right">
-                    <p className="font-bold text-gray-900">{app.amount}</p>
-                    <span className={`text-xs px-3 py-1 rounded-full font-medium ${
-                      app.status === 'completed' ? 'bg-emerald-100 text-emerald-700' :
-                      app.status === 'approved' ? 'bg-blue-100 text-blue-700' :
-                      app.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
-                      app.status === 'review' ? 'bg-purple-100 text-purple-700' :
-                      'bg-gray-100 text-gray-700'
-                    }`}>
-                      {app.status.charAt(0).toUpperCase() + app.status.slice(1)}
-                    </span>
-                  </div>
-                </div>
-              ))}
+                ))
+              )}
             </div>
           </div>
         </div>
