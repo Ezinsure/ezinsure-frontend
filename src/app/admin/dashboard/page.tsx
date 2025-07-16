@@ -7,6 +7,30 @@ import type { TooltipProps } from 'recharts';
 import { MainLayout } from '@/components/ui/main-layout';
 import { useAuth } from '@/context/AuthContext';
 import Link from 'next/link';
+import type { Application as TrackApplication } from "../../track/page";
+
+// Define types for the data
+interface Application {
+  id: string;
+  client: string;
+  type: string;
+  amount: string;
+  status: string;
+  time: string;
+  region: string;
+}
+interface InsuranceDistribution {
+  name: string;
+  value: number;
+  color: string;
+  percent: number;
+}
+
+// Define types for API data
+interface InsuranceDistributionAPI {
+  category: string;
+  count: number;
+}
 
 // API service functions
 const fetchActiveAgentsCount = async (token: string) => {
@@ -162,8 +186,8 @@ const AdminDashboard = () => {
     }
   });
 
-  const [recentApplications, setRecentApplications] = useState<any[]>([]);
-  const [insuranceDistribution, setInsuranceDistribution] = useState<any[]>([]);
+  const [recentApplications, setRecentApplications] = useState<Application[]>([]);
+  const [insuranceDistribution, setInsuranceDistribution] = useState<InsuranceDistribution[]>([]);
   const [isInsuranceDistributionLoading, setIsInsuranceDistributionLoading] = useState(true);
 
   // Mock data for admin dashboard
@@ -251,14 +275,12 @@ const AdminDashboard = () => {
 
   useEffect(() => {
     if (!token) return;
-    fetchRecentApplications(token).then((apps) => {
-      // Map API response to UI format
-      const mapped = (apps || []).map((app: any) => ({
+    fetchRecentApplications(token).then((apps: TrackApplication[] = []) => {
+      const mapped: Application[] = apps.map((app) => ({
         id: app.applicationNumber || app._id,
         client: app.fullName,
-        // agent: app.agentId || 'N/A',
         type: app.insuranceCategory,
-        amount: app.amount || '-', // No amount in API, fallback
+        amount: app.amount ? app.amount.toString() : '-',
         status: app.status,
         time: app.submittedAt ? new Date(app.submittedAt).toLocaleString() : '',
         region: app.province || '',
@@ -270,10 +292,10 @@ const AdminDashboard = () => {
   useEffect(() => {
     if (!token) return;
     setIsInsuranceDistributionLoading(true);
-    fetchInsuranceDistribution(token).then((dist) => {
+    fetchInsuranceDistribution(token).then((dist: InsuranceDistributionAPI[]) => {
       // Calculate total for percentage
-      const total = dist.reduce((sum: number, item: any) => sum + (item.count || 0), 0);
-      const mapped = dist.map((item: any) => ({
+      const total = dist.reduce((sum, item) => sum + (item.count || 0), 0);
+      const mapped = dist.map((item) => ({
         name: item.category,
         value: item.count,
         color: INSURANCE_COLORS[item.category] || '#A3A3A3',
@@ -414,7 +436,7 @@ const CustomTooltip: React.FC<TooltipProps<number, string>> = ({ active, payload
 };
 
   // Filter for recent applications based on search and type
-  const filteredApplications = recentApplications.filter(app => {
+  const filteredApplications = recentApplications.filter((app: Application) => {
     const matchesSearch =
       app.client.toLowerCase().includes(searchTerm.toLowerCase()) ||
       app.type.toLowerCase().includes(searchTerm.toLowerCase());

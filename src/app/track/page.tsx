@@ -32,7 +32,7 @@ const motoUses = [
   'Other'
 ];
 
-interface Application {
+export interface Application {
   _id: string;
   applicationNumber: string;
   fullName: string;
