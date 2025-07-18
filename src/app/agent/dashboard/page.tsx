@@ -2,97 +2,215 @@
 
 import React, { useState, useEffect } from 'react';
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { TrendingUp, Users, DollarSign, Calendar, Download, Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff } from 'lucide-react';
 import Link from 'next/link';
 import { MainLayout } from '@/components/ui/main-layout';
 import type { TooltipProps } from 'recharts';
+import { useAuth } from '@/context/AuthContext';
 
 
 const Dashboard = () => {
-  const [selectedPeriod, setSelectedPeriod] = useState('this_month');
+  const { user, token } = useAuth();
   const [showCommissionChart, setShowCommissionChart] = useState(true);
-  const [isLoading, setIsLoading] = useState(true);
+  // Remove global isLoading state
+  // const [isLoading, setIsLoading] = useState(true);
 
-  // Mock data for demonstration
-  const mockData = {
-    commissionData: [
-      { month: 'Jan', commission: 45000, clients: 12 },
-      { month: 'Feb', commission: 52000, clients: 15 },
-      { month: 'Mar', commission: 48000, clients: 14 },
-      { month: 'Apr', commission: 61000, clients: 18 },
-      { month: 'May', commission: 58000, clients: 16 },
-      { month: 'Jun', commission: 67000, clients: 20 },
-    ],
-    weeklyData: [
-      { day: 'Mon', commission: 8500, clients: 3 },
-      { day: 'Tue', commission: 12000, clients: 4 },
-      { day: 'Wed', commission: 9500, clients: 2 },
-      { day: 'Thu', commission: 15500, clients: 5 },
-      { day: 'Fri', commission: 11000, clients: 4 },
-      { day: 'Sat', commission: 7500, clients: 2 },
-      { day: 'Sun', commission: 4500, clients: 1 },
-    ],
-    insuranceTypes: [
-      { name: 'Car Insurance', value: 35, color: '#3B82F6' },
-      { name: 'Health Insurance', value: 25, color: '#10B981' },
-      { name: 'Travel Insurance', value: 20, color: '#F59E0B' },
-      { name: 'Building Insurance', value: 12, color: '#EF4444' },
-      { name: 'SME Insurance', value: 8, color: '#8B5CF6' },
-    ],
-    recentApplications: [
-      { id: 'AG007', client: 'Alice Johnson', type: 'Car', amount: '5,000 RWF', status: 'completed', time: '2 hours ago' },
-      { id: 'AG008', client: 'Bob Wilson', type: 'Health', amount: '4,000 RWF', status: 'pending', time: '4 hours ago' },
-      { id: 'AG009', client: 'Carol Brown', type: 'Travel', amount: '2,500 RWF', status: 'approved', time: '6 hours ago' },
-      { id: 'AG010', client: 'David Lee', type: 'Building', amount: '12,000 RWF', status: 'completed', time: '1 day ago' },
-    ]
+  // INSURANCE_COLORS mapping (copied from admin dashboard)
+  const INSURANCE_COLORS: Record<string, string> = {
+    'Car Insurance': '#3B82F6',
+    'Health Insurance': '#10B981',
+    'Travel Insurance': '#F59E0B',
+    'Building Insurance': '#EF4444',
+    'Fire Insurance Coverage': '#8B5CF6',
+    'MotorBike Insurance': '#6366F1',
   };
 
-  const statsCards = [
-    {
-      title: 'Today',
-      commission: '24,500 RWF',
-      clients: 7,
-      growth: '+12%',
-      icon: <Calendar className="w-6 h-6" />,
-      color: 'from-blue-500 to-blue-600',
-      bgColor: 'bg-blue-50',
-      textColor: 'text-blue-600'
-    },
-    {
-      title: 'This Week',
-      commission: '168,500 RWF',
-      clients: 21,
-      growth: '+8%',
-      icon: <TrendingUp className="w-6 h-6" />,
-      color: 'from-emerald-500 to-emerald-600',
-      bgColor: 'bg-emerald-50',
-      textColor: 'text-emerald-600'
-    },
-    {
-      title: 'This Month',
-      commission: '658,000 RWF',
-      clients: 89,
-      growth: '+15%',
-      icon: <DollarSign className="w-6 h-6" />,
-      color: 'from-amber-500 to-amber-600',
-      bgColor: 'bg-amber-50',
-      textColor: 'text-amber-600'
-    },
-    {
-      title: 'This Year',
-      commission: '6,890,000 RWF',
-      clients: 892,
-      growth: '+23%',
-      icon: <Users className="w-6 h-6" />,
-      color: 'from-purple-500 to-purple-600',
-      bgColor: 'bg-purple-50',
-      textColor: 'text-purple-600'
+  // getStatusBadge helper (copied from admin dashboard)
+  const getStatusBadge = (status: string) => {
+    switch (status?.toLowerCase()) {
+      case 'pending':
+        return <span className="px-2 py-1 rounded-full bg-blue-100 text-blue-700 text-xs font-medium">Pending</span>;
+      case 'application_approved':
+        return <span className="px-2 py-1 rounded-full bg-green-100 text-green-700 text-xs font-medium">Application Approved</span>;
+      case 'waiting_for_user_action':
+        return <span className="px-2 py-1 rounded-full bg-orange-100 text-orange-700 text-xs font-medium">Waiting for User Action</span>;
+      case 'invoice_sent':
+        return <span className="px-2 py-1 rounded-full bg-indigo-100 text-indigo-700 text-xs font-medium">Invoice Sent</span>;
+      case 'review_payment':
+        return <span className="px-2 py-1 rounded-full bg-purple-100 text-purple-700 text-xs font-medium">Review Payment</span>;
+      case 'payment_verified':
+        return <span className="px-2 py-1 rounded-full bg-green-100 text-green-700 text-xs font-medium">Payment Verified</span>;
+      case 'insurance_issued':
+        return <span className="px-2 py-1 rounded-full bg-emerald-100 text-emerald-700 text-xs font-medium">Insurance Issued</span>;
+      default:
+        return <span className="px-2 py-1 rounded-full bg-gray-100 text-gray-700 text-xs font-medium">{status?.charAt(0).toUpperCase() + status?.slice(1)}</span>;
     }
-  ];
+  };
 
+  // Define types for the data
+  interface Application {
+    id: string;
+    client: string;
+    type: string;
+    amount: string;
+    status: string;
+    time: string;
+  }
+  interface RecentApplicationAPI {
+    fullName: string;
+    insuranceCategory: string;
+    amount?: number;
+    status: string;
+    submittedAt?: string;
+  }
+  interface InsuranceDistribution {
+    name: string;
+    value: number;
+    color: string;
+    percent: number;
+  }
+  interface WeeklyStat {
+    day: string;
+    clients: number;
+    commission: number;
+  }
+  interface MonthlyStat {
+    month: string;
+    clients: number;
+    commission: number;
+  }
+
+  // Define types for API data
+  interface InsuranceDistributionAPI {
+    category: string;
+    count: number;
+  }
+
+  // Add state for fetched data
+  const [recentApplications, setRecentApplications] = useState<Application[]>([]);
+  const [insuranceDistribution, setInsuranceDistribution] = useState<InsuranceDistribution[]>([]);
+  const [weeklyStats, setWeeklyStats] = useState<WeeklyStat[]>([]);
+  const [monthlyStats, setMonthlyStats] = useState<MonthlyStat[]>([]);
+  const [isInsuranceDistributionLoading, setIsInsuranceDistributionLoading] = useState(true);
+  const [isRecentApplicationsLoading, setIsRecentApplicationsLoading] = useState(true);
+  const [isWeeklyStatsLoading, setIsWeeklyStatsLoading] = useState(true);
+  const [isMonthlyStatsLoading, setIsMonthlyStatsLoading] = useState(true);
+
+  // Fetch data on mount
   useEffect(() => {
-    setTimeout(() => setIsLoading(false), 500);
-  }, []);
+    if (!user?._id || !token) return;
+
+    // Fetch recent applications
+    const fetchRecentApplications = async () => {
+      setIsRecentApplicationsLoading(true);
+      try {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/getRecentAgentApplications?agentId=${user._id}`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+        const data = await res.json();
+        console.log("Recent: ", data)
+        // Map API data to the expected structure for the dashboard
+        const mapped = (data.data || []).map((item: RecentApplicationAPI) => ({
+          client: item.fullName,
+          type: item.insuranceCategory,
+          amount: item.amount ? `${Number(item.amount).toLocaleString()} RWF` : 'N/A',
+          status: item.status,
+          time: item.submittedAt ? new Date(item.submittedAt).toLocaleDateString() : '',
+        }));
+        setRecentApplications(mapped);
+      } catch (error) {
+        console.error('Error fetching recent applications:', error);
+        setRecentApplications([]);
+      } finally {
+        setIsRecentApplicationsLoading(false);
+      }
+    };
+
+    // Fetch insurance distribution
+    const fetchInsuranceDistribution = async () => {
+      setIsInsuranceDistributionLoading(true);
+      try {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/getAgentInsuranceDistribution?agentId=${user._id}`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+        const data = await res.json();
+        const dist: InsuranceDistributionAPI[] = data.data || [];
+        const total = dist.reduce((sum, item) => sum + (item.count || 0), 0);
+        setInsuranceDistribution(
+          dist.map((item) => ({
+            name: item.category,
+            value: item.count,
+            color: INSURANCE_COLORS[item.category] || '#A3A3A3',
+            percent: total > 0 ? Math.round((item.count / total) * 100) : 0,
+          }))
+        );
+      } catch (error) {
+        console.error('Error fetching insurance distribution:', error);
+        setInsuranceDistribution([]);
+      } finally {
+        setIsInsuranceDistributionLoading(false);
+      }
+    };
+
+    // Fetch weekly stats
+    const fetchWeeklyStats = async () => {
+      setIsWeeklyStatsLoading(true);
+      try {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/getWeeklyAgentStats?agentId=${user._id}`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+        const data = await res.json();
+        console.log("Data for week: ", data)
+        setWeeklyStats(data.data || []);
+      } catch (error) {
+        console.error('Error fetching weekly stats:', error);
+        setWeeklyStats([]);
+      } finally {
+        setIsWeeklyStatsLoading(false);
+      }
+    };
+
+    // Fetch monthly stats
+    const fetchMonthlyStats = async () => {
+      setIsMonthlyStatsLoading(true);
+      try {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/getMonthlyAgentStats?agentId=${user._id}`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+        const data = await res.json();
+        setMonthlyStats(data.data || []);
+      } catch (error) {
+        console.error('Error fetching monthly stats:', error);
+        setMonthlyStats([]);
+      } finally {
+        setIsMonthlyStatsLoading(false);
+      }
+    };
+
+    fetchRecentApplications();
+    fetchInsuranceDistribution();
+    fetchWeeklyStats();
+    fetchMonthlyStats();
+  }, [user?._id, token]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Add a combined loading state
+  const isAnyLoading = isWeeklyStatsLoading || isMonthlyStatsLoading || isRecentApplicationsLoading || isInsuranceDistributionLoading;
 
 
 const CustomTooltip = ({ active, payload, label }: TooltipProps<number, string>) => {
@@ -120,7 +238,8 @@ const CustomTooltip = ({ active, payload, label }: TooltipProps<number, string>)
   return null;
 };
 
-  if (isLoading) {
+  // Replace the global isLoading check with isAnyLoading
+  if (isAnyLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center">
         <div className="text-center">
@@ -145,53 +264,14 @@ const CustomTooltip = ({ active, payload, label }: TooltipProps<number, string>)
               <p className="text-gray-600">Welcome back! Here&apos;s what&apos;s happening with your business.</p>
             </div>
             
-            <div className="flex flex-col sm:flex-row gap-3">
-              <select 
-                value={selectedPeriod}
-                onChange={(e) => setSelectedPeriod(e.target.value)}
-                className="px-4 py-2 border border-gray-300 rounded-lg bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="today">Today</option>
-                <option value="this_week">This Week</option>
-                <option value="this_month">This Month</option>
-                <option value="this_year">This Year</option>
-              </select>
-              
-              <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
-                <Download className="w-4 h-4" />
-                Export
-              </button>
-            </div>
+            
           </div>
         </div>
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          {statsCards.map((card, index) => (
-            <div 
-              key={index} 
-              className="bg-white rounded-2xl p-6 shadow-sm hover:shadow-md transition-all duration-300 transform hover:-translate-y-1 border border-gray-100"
-              style={{ animationDelay: `${index * 100}ms` }}
-            >
-              <div className="flex items-center justify-between mb-4">
-                <div className={`p-3 rounded-xl ${card.bgColor}`}>
-                  <div className={card.textColor}>{card.icon}</div>
-                </div>
-                <span className="text-emerald-600 text-sm font-semibold bg-emerald-50 px-2 py-1 rounded-full">
-                  {card.growth}
-                </span>
-              </div>
-              
-              <h3 className="text-gray-500 text-sm font-medium mb-1">{card.title}</h3>
-              <div className="space-y-1">
-                <p className="text-2xl font-bold text-gray-900">{card.commission}</p>
-                <p className="text-gray-600 text-sm">{card.clients} clients</p>
-              </div>
-            </div>
-          ))}
-        </div>
+        {/* Remove statsConfig, statsData, and related stats cards rendering */}
 
         {/* Charts Section */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -216,55 +296,64 @@ const CustomTooltip = ({ active, payload, label }: TooltipProps<number, string>)
 
             <div className="h-80">
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={mockData.commissionData}>
-                  <defs>
-                    <linearGradient id="commissionGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.3}/>
-                      <stop offset="95%" stopColor="#3B82F6" stopOpacity={0}/>
-                    </linearGradient>
-                    <linearGradient id="clientsGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#10B981" stopOpacity={0.3}/>
-                      <stop offset="95%" stopColor="#10B981" stopOpacity={0}/>
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-                  <XAxis 
-                    dataKey="month" 
-                    stroke="#9CA3AF"
-                    fontSize={12}
-                    tickLine={false}
-                    axisLine={false}
-                  />
-                  <YAxis 
-                    stroke="#9CA3AF"
-                    fontSize={12}
-                    tickLine={false}
-                    axisLine={false}
-                  />
-                  <Tooltip content={<CustomTooltip />} />
-                  
-                  {showCommissionChart && (
+                {isMonthlyStatsLoading ? (
+                  <div className="h-96 flex items-center justify-center">
+                    <div className="w-full h-full flex flex-col items-center justify-center animate-pulse">
+                      <div className="w-1/2 h-10 bg-gray-300 rounded mb-6" />
+                      <div className="w-full h-80 bg-gray-200 rounded-xl" />
+                    </div>
+                  </div>
+                ) : (
+                  <AreaChart data={monthlyStats}>
+                    <defs>
+                      <linearGradient id="commissionGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.3}/>
+                        <stop offset="95%" stopColor="#3B82F6" stopOpacity={0}/>
+                      </linearGradient>
+                      <linearGradient id="clientsGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#10B981" stopOpacity={0.3}/>
+                        <stop offset="95%" stopColor="#10B981" stopOpacity={0}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                    <XAxis 
+                      dataKey="month" 
+                      stroke="#9CA3AF"
+                      fontSize={12}
+                      tickLine={false}
+                      axisLine={false}
+                    />
+                    <YAxis 
+                      stroke="#9CA3AF"
+                      fontSize={12}
+                      tickLine={false}
+                      axisLine={false}
+                    />
+                    <Tooltip content={<CustomTooltip />} />
+                    
+                    {showCommissionChart && (
+                      <Area 
+                        type="monotone" 
+                        dataKey="commission" 
+                        stroke="#3B82F6" 
+                        strokeWidth={3}
+                        fill="url(#commissionGradient)"
+                        dot={{ fill: '#3B82F6', strokeWidth: 2, r: 4 }}
+                        activeDot={{ r: 6, stroke: '#3B82F6', strokeWidth: 2 }}
+                      />
+                    )}
+                    
                     <Area 
                       type="monotone" 
-                      dataKey="commission" 
-                      stroke="#3B82F6" 
+                      dataKey="clients" 
+                      stroke="#10B981" 
                       strokeWidth={3}
-                      fill="url(#commissionGradient)"
-                      dot={{ fill: '#3B82F6', strokeWidth: 2, r: 4 }}
-                      activeDot={{ r: 6, stroke: '#3B82F6', strokeWidth: 2 }}
+                      fill="url(#clientsGradient)"
+                      dot={{ fill: '#10B981', strokeWidth: 2, r: 4 }}
+                      activeDot={{ r: 6, stroke: '#10B981', strokeWidth: 2 }}
                     />
-                  )}
-                  
-                  <Area 
-                    type="monotone" 
-                    dataKey="clients" 
-                    stroke="#10B981" 
-                    strokeWidth={3}
-                    fill="url(#clientsGradient)"
-                    dot={{ fill: '#10B981', strokeWidth: 2, r: 4 }}
-                    activeDot={{ r: 6, stroke: '#10B981', strokeWidth: 2 }}
-                  />
-                </AreaChart>
+                  </AreaChart>
+                )}
               </ResponsiveContainer>
             </div>
           </div>
@@ -276,30 +365,41 @@ const CustomTooltip = ({ active, payload, label }: TooltipProps<number, string>)
             
             <div className="h-64">
               <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={mockData.insuranceTypes}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={40}
-                    outerRadius={80}
-                    paddingAngle={5}
-                    dataKey="value"
-                  >
-                    {mockData.insuranceTypes.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip 
-                    formatter={(value) => [`${value}%`, 'Percentage']}
-                    labelStyle={{ color: '#374151' }}
-                  />
-                </PieChart>
+                {isInsuranceDistributionLoading ? (
+                  <div className="h-80 flex items-center justify-center">
+                    <div className="w-full h-full flex flex-col items-center justify-center animate-pulse">
+                      <div className="w-1/2 h-10 bg-gray-300 rounded mb-6" />
+                      <div className="w-40 h-40 bg-gray-200 rounded-full mb-4" />
+                      <div className="w-2/3 h-6 bg-gray-200 rounded mb-2" />
+                      <div className="w-1/2 h-6 bg-gray-200 rounded" />
+                    </div>
+                  </div>
+                ) : (
+                  <PieChart>
+                    <Pie
+                      data={insuranceDistribution}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={40}
+                      outerRadius={80}
+                      paddingAngle={5}
+                      dataKey="value"
+                    >
+                      {insuranceDistribution.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip 
+                      formatter={(value) => [`${value}%`, 'Percentage']}
+                      labelStyle={{ color: '#374151' }}
+                    />
+                  </PieChart>
+                )}
               </ResponsiveContainer>
             </div>
             
             <div className="space-y-2 mt-4">
-              {mockData.insuranceTypes.map((type, index) => (
+              {insuranceDistribution.map((type, index) => (
                 <div key={index} className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <div 
@@ -308,7 +408,7 @@ const CustomTooltip = ({ active, payload, label }: TooltipProps<number, string>)
                     />
                     <span className="text-sm text-gray-600">{type.name}</span>
                   </div>
-                  <span className="text-sm font-semibold text-gray-900">{type.value}%</span>
+                  <span className="text-sm font-semibold text-gray-900">{type.percent}%</span>
                 </div>
               ))}
             </div>
@@ -324,29 +424,38 @@ const CustomTooltip = ({ active, payload, label }: TooltipProps<number, string>)
             
             <div className="h-64">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={mockData.weeklyData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-                  <XAxis 
-                    dataKey="day" 
-                    stroke="#9CA3AF"
-                    fontSize={12}
-                    tickLine={false}
-                    axisLine={false}
-                  />
-                  <YAxis 
-                    stroke="#9CA3AF"
-                    fontSize={12}
-                    tickLine={false}
-                    axisLine={false}
-                  />
-                  <Tooltip content={<CustomTooltip />} />
-                  <Bar 
-                    dataKey="commission" 
-                    fill="#3B82F6" 
-                    radius={[4, 4, 0, 0]}
-                    name="Commission"
-                  />
-                </BarChart>
+                {isWeeklyStatsLoading ? (
+                  <div className="h-80 flex items-center justify-center">
+                    <div className="w-full h-full flex flex-col items-center justify-center animate-pulse">
+                      <div className="w-1/2 h-10 bg-gray-300 rounded mb-6" />
+                      <div className="w-full h-72 bg-gray-200 rounded-xl" />
+                    </div>
+                  </div>
+                ) : (
+                  <BarChart data={weeklyStats}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                    <XAxis 
+                      dataKey="day" 
+                      stroke="#9CA3AF"
+                      fontSize={12}
+                      tickLine={false}
+                      axisLine={false}
+                    />
+                    <YAxis 
+                      stroke="#9CA3AF"
+                      fontSize={12}
+                      tickLine={false}
+                      axisLine={false}
+                    />
+                    <Tooltip content={<CustomTooltip />} />
+                    <Bar 
+                      dataKey="commission" 
+                      fill="#3B82F6" 
+                      radius={[4, 4, 0, 0]}
+                      name="Commission"
+                    />
+                  </BarChart>
+                )}
               </ResponsiveContainer>
             </div>
           </div>
@@ -364,35 +473,61 @@ const CustomTooltip = ({ active, payload, label }: TooltipProps<number, string>)
             </div>
             
             <div className="space-y-4">
-              {mockData.recentApplications.map((app, index) => (
-                <div 
-                  key={index} 
-                  className="flex items-center justify-between p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                      <span className="text-blue-600 font-semibold text-sm">
-                        {app.client.split(' ').map(n => n[0]).join('')}
+              {isRecentApplicationsLoading ? (
+                <div className="space-y-4 animate-pulse">
+                  {[...Array(4)].map((_, idx) => (
+                    <div key={idx} className="flex items-center justify-between p-6 bg-gray-100 rounded-xl">
+                      <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 bg-gray-300 rounded-full" />
+                        <div>
+                          <div className="w-32 h-5 bg-gray-300 rounded mb-2" />
+                          <div className="w-24 h-4 bg-gray-200 rounded" />
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="w-20 h-5 bg-gray-300 rounded mb-2" />
+                        <div className="w-16 h-4 bg-gray-200 rounded" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : recentApplications.length === 0 ? (
+                <div className="text-center py-8">
+                  <p className="text-gray-500">No recent applications found.</p>
+                </div>
+              ) : (
+                recentApplications.map((app, index) => (
+                  <div 
+                    key={index} 
+                    className="flex items-center justify-between p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                        <span className="text-blue-600 font-semibold text-sm">
+                          {typeof app.client === 'string' && app.client.trim()
+                            ? app.client.split(' ').map((n: string) => n[0]).join('')
+                            : '--'}
+                        </span>
+                      </div>
+                      <div>
+                        <p className="font-medium text-gray-900">{app.client}</p>
+                        <p className="text-sm text-gray-500">{app.type} Insurance • {app.time}</p>
+                      </div>
+                    </div>
+                    
+                    <div className="text-right">
+                      <p className="font-semibold text-gray-900">{app.amount}</p>
+                      <span className={`text-xs px-2 py-1 rounded-full ${
+                        app.status === 'completed' ? 'bg-green-100 text-green-700' :
+                        app.status === 'approved' ? 'bg-blue-100 text-blue-700' :
+                        'bg-yellow-100 text-yellow-700'
+                      }`}>
+                        {getStatusBadge(app.status)}
                       </span>
                     </div>
-                    <div>
-                      <p className="font-medium text-gray-900">{app.client}</p>
-                      <p className="text-sm text-gray-500">{app.type} Insurance • {app.time}</p>
-                    </div>
                   </div>
-                  
-                  <div className="text-right">
-                    <p className="font-semibold text-gray-900">{app.amount}</p>
-                    <span className={`text-xs px-2 py-1 rounded-full ${
-                      app.status === 'completed' ? 'bg-green-100 text-green-700' :
-                      app.status === 'approved' ? 'bg-blue-100 text-blue-700' :
-                      'bg-yellow-100 text-yellow-700'
-                    }`}>
-                      {app.status}
-                    </span>
-                  </div>
-                </div>
-              ))}
+                ))
+              )}
             </div>
           </div>
         </div>
