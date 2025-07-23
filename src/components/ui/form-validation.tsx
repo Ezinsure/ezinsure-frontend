@@ -80,7 +80,7 @@ export const validateForm = (
 // Predefined validation patterns
 export const validationPatterns = {
   email: /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/,
-  phone: /^(\+\d{1,3})?\s?\d{9,12}$/,
+ phone: /^250\d{9}$/,
   numbers: /^\d+$/,
   noSpecialChars: /^[a-zA-Z0-9\s]+$/,
   zipCode: /^\d{5}(-\d{4})?$/,
