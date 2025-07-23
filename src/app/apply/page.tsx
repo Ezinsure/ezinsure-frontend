@@ -432,7 +432,7 @@ export default function ApplyPage() {
                 <Input
                   label="Phone Number"
                   name="phoneNumber"
-                  placeholder="0781234567"
+                  placeholder="250781234567"
                   value={formState.phoneNumber}
                   onChange={handleInputChange}
                   error={errors.phoneNumber}
