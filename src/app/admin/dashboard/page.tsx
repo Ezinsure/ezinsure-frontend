@@ -401,14 +401,24 @@ const AdminDashboard = () => {
       .finally(() => setIsTotalClientsLoading(false));
   }, [token]);
 
-  // Simulate fetching for demo (replace with real fetch logic if available)
+  // Fetch Revenue Analytics
   useEffect(() => {
+    if (!token) return;
     setIsRevenueLoading(true);
-    setTimeout(() => {
-      setRevenueData([]); // Set to [] or real data
-      setIsRevenueLoading(false);
-    }, 1000);
-  }, []);
+    fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/getRevenueAnalytics`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      }
+    })
+      .then(res => res.json())
+      .then(data => {
+        setRevenueData(data.data || []);
+      })
+      .catch(() => setRevenueData([]))
+      .finally(() => setIsRevenueLoading(false));
+  }, [token]);
 
   useEffect(() => {
     setIsDailyMetricsLoading(true);
@@ -994,6 +1004,8 @@ const CustomTooltip: React.FC<TooltipProps<number, string>> = ({ active, payload
                     </div>
                   </div>
                 ))
+              ): topAgents.length === 0 ? (
+                <div className="text-center text-gray-500 my-[30%]">No top agents data available</div>
               ) : (
                 topAgents.map((agent, index) => (
                   <div key={index} className="flex items-center justify-between p-4 bg-gradient-to-r from-gray-50 to-blue-50 rounded-xl hover:shadow-md transition-all">
