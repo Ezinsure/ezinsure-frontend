@@ -71,7 +71,7 @@ export const UserEditModal = ({ user, onClose, onSave, isLoading }: UserEditModa
   const validationRules: ValidationRules = {
     fullName: { required: true, minLength: 3 },
     email: { required: true, pattern: /^[^\s@]+@[^\s@]+\.[^\s@]+$/ },
-    phoneNumber: { required: true, pattern: /^\+?\d{10,15}$/ },
+    phoneNumber: { required: true, pattern: /^250\d{9}$/ },
     dateOfBirth: { required: true },
     address: { required: true, minLength: 4 },
     province: { required: true },
@@ -391,7 +391,7 @@ export const UserEditModal = ({ user, onClose, onSave, isLoading }: UserEditModa
                 label="Phone Number"
                 type="tel"
                 name="emergencyContact1PhoneNumber"
-                placeholder="07XXXXXXXX"
+                placeholder="2507XXXXXXXX"
                 value={formData.emergencyContacts?.[0]?.phoneNumber || ''}
                 onChange={(e) => handleEmergencyContactChange(0, 'phoneNumber', e.target.value)}
                 required
@@ -426,7 +426,7 @@ export const UserEditModal = ({ user, onClose, onSave, isLoading }: UserEditModa
                 label="Phone Number"
                 type="tel"
                 name="emergencyContact2PhoneNumber"
-                placeholder="07XXXXXXXX"
+                placeholder="2507XXXXXXXX"
                 value={formData.emergencyContacts?.[1]?.phoneNumber || ''}
                 onChange={(e) => handleEmergencyContactChange(1, 'phoneNumber', e.target.value)}
                 required

@@ -571,7 +571,7 @@ export default function SuperAdminProfilePage() {
                         value={profile.phoneNumber || ''}
                         onChange={handleInputChange}
                         error={errors.phoneNumber}
-                        placeholder="0788123456"
+                        placeholder="250788123456"
                         disabled={!isEditMode}
                       />
                       

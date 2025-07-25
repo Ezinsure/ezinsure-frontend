@@ -181,14 +181,14 @@ const [sectors, setSectors] = useState<string[]>([]);
   const validationRules: ValidationRules = {
     fullName: { required: true, minLength: 3 },
     email: { required: true, pattern: /^[^\s@]+@[^\s@]+\.[^\s@]+$/ },
-    phoneNumber: { required: true, pattern: /^\+?\d{10,15}$/ },
+    phoneNumber: { required: true, pattern: /^250\d{9}$/ },
     dateOfBirth: { required: true },
     address: { required: true, minLength: 4 },
     emergencyContact1Name: { required: true, minLength: 2 },
-    emergencyContact1PhoneNumber: { required: true, pattern: /^\+?\d{10,15}$/ },
+    emergencyContact1PhoneNumber: { required: true, pattern: /^250\d{9}$/ },
     emergencyContact1Relationship: { required: true },
     emergencyContact2Name: { required: true, minLength: 2 },
-    emergencyContact2PhoneNumber: { required: true, pattern: /^\+?\d{10,15}$/ },
+    emergencyContact2PhoneNumber: { required: true, pattern: /^250\d{9}$/ },
     emergencyContact2Relationship: { required: true },
     nationalIdDocument: { required: true },
   criminalRecordCertificate: { required: true },
@@ -546,7 +546,7 @@ useEffect(() => {
                     label="Phone Number"
                     type="tel"
                     name="emergencyContact1PhoneNumber"
-                    placeholder="07XXXXXXXX"
+                    placeholder="2507XXXXXXXX"
                     value={formData.emergencyContact1PhoneNumber}
                     onChange={handleInputChange}
                     error={errors.emergencyContact1PhoneNumber}
@@ -587,7 +587,7 @@ useEffect(() => {
                     label="Phone Number"
                     type="tel"
                     name="emergencyContact2PhoneNumber"
-                    placeholder="07XXXXXXXX"
+                    placeholder="2507XXXXXXXX"
                     value={formData.emergencyContact2PhoneNumber}
                     onChange={handleInputChange}
                     error={errors.emergencyContact2PhoneNumber}

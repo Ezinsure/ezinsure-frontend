@@ -769,7 +769,7 @@ const resetApplicationState = () => {
               label="Phone Number"
               type="tel"
               name="phoneNumber"
-              placeholder="071234568"
+              placeholder="25071234568"
               value={formState.phoneNumber}
               onChange={handleInputChange}
               error={errors.phoneNumber}
@@ -963,7 +963,7 @@ const resetApplicationState = () => {
                 label="Phone Number"
                 type="tel"
                 name="emergencyContact1PhoneNumber"
-                placeholder="0712345678"
+                placeholder="250712345678"
                 value={formState.emergencyContact1PhoneNumber}
                 onChange={handleInputChange}
                 error={errors.emergencyContact1PhoneNumber}
@@ -1011,7 +1011,7 @@ const resetApplicationState = () => {
                 label="Phone Number"
                 type="tel"
                 name="emergencyContact2PhoneNumber"
-                placeholder="0712345678"
+                placeholder="250712345678"
                 value={formState.emergencyContact2PhoneNumber}
                 onChange={handleInputChange}
                 error={errors.emergencyContact2PhoneNumber}
