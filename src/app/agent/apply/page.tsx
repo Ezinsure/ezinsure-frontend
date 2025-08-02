@@ -385,8 +385,10 @@ export default function AgentApplyPage() {
   const formatInsuranceDuration = (duration: string) => {
     switch (duration) {
       case '1': return '1 Month';
+      case '2': return '2 Montha';
       case '3': return '3 Months';
       case '6': return '6 Months';
+      case '9': return '9 Months';
       case '12': return '12 Months';
       default: return '12 Months';
     }
@@ -882,6 +884,7 @@ export default function AgentApplyPage() {
                 )}
 
                 {/* COMESA Checkbox */}
+                {(formState.insuranceCategory === 'car' || formState.insuranceCategory === 'motorbike') && (
                 <div className="md:col-span-2">
                   <label className="flex items-center space-x-2">
                     <input
@@ -899,6 +902,8 @@ export default function AgentApplyPage() {
                     <p className="mt-1 text-sm text-[var(--error-red)]">{errors.isCOMESA}</p>
                   )}
                 </div>
+
+                 )}
 
                 <div className="md:col-span-2">
                   <label
@@ -925,6 +930,8 @@ export default function AgentApplyPage() {
                     </p>
                   )}
                 </div>
+              
+             
 
                 <div className="md:col-span-2">
                   <label
@@ -943,8 +950,10 @@ export default function AgentApplyPage() {
                     required
                   >
                     <option value="1">1 Month</option>
+                    <option value="2">2 Month</option>
                     <option value="3">3 Months</option>
                     <option value="6">6 Months</option>
+                    <option value="9">9 Months</option>
                     <option value="12">12 Months</option>
                   </select>
                   {errors.insuranceDuration && (

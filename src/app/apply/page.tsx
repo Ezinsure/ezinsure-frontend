@@ -174,8 +174,10 @@ export default function ApplyPage() {
   const formatInsuranceDuration = (duration: string) => {
     switch (duration) {
       case '1': return '1 Month';
+      case '2': return '2 Months';
       case '3': return '3 Months';
       case '6': return '6 Months';
+      case '9': return '9 Months';
       case '12': return '12 Months';
       default: return '12 Months';
     }
@@ -544,6 +546,7 @@ export default function ApplyPage() {
                   )}
                 </div>
 
+                  {/* insurance provider */}
                 <div className="md:col-span-2">
                   <label
                     className="block text-sm font-medium mb-1"
@@ -692,24 +695,28 @@ export default function ApplyPage() {
       )}
     </>
   )}
+
                 {/* COMESA Checkbox */}
-                <div className="md:col-span-2">
-                  <label className="flex items-center space-x-2">
-                    <input
-                      type="checkbox"
-                      name="isCOMESA"
-                      checked={formState.isCOMESA}
-                      onChange={handleInputChange}
-                      className="rounded h-4 border-gray-300 text-[var(--main-blue)] focus:ring-[var(--main-blue)]"
-                    />
-                    <span className="text-sm font-medium">
-                      Ext. Territorial (COMESA)
-                    </span>
-                  </label>
-                  {errors.isCOMESA && (
-                    <p className="mt-1 text-sm text-[var(--error-red)]">{errors.isCOMESA}</p>
-                  )}
-                </div>
+                {(formState.insuranceCategory === 'car' || formState.insuranceCategory === 'motorbike') && (
+                  <div className="md:col-span-2">
+                    <label className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        name="isCOMESA"
+                        checked={formState.isCOMESA}
+                        onChange={handleInputChange}
+                        className="rounded h-4 border-gray-300 text-[var(--main-blue)] focus:ring-[var(--main-blue)]"
+                      />
+                      <span className="text-sm font-medium">
+                        Ext. Territorial (COMESA)
+                      </span>
+                    </label>
+                    {errors.isCOMESA && (
+                      <p className="mt-1 text-sm text-[var(--error-red)]">{errors.isCOMESA}</p>
+                    )}
+                  </div>
+                )}
+
 
                 <div className="md:col-span-2">
                   <label
@@ -754,8 +761,10 @@ export default function ApplyPage() {
                     required
                   >
                     <option value="1">1 Month</option>
+                    <option value="2">2 Month</option>
                     <option value="3">3 Months</option>
                     <option value="6">6 Months</option>
+                    <option value="9">9 Months</option>
                     <option value="12">12 Months</option>
                   </select>
                   {errors.insuranceDuration && (
