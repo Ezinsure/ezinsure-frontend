@@ -166,37 +166,37 @@ const [formData, setFormData] = useState({
 
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
-  // Fetch users from API
-  useEffect(() => {
-    // Update the fetchUsers function in the useEffect
+  // Update the fetchUsers function in the useEffect
 const fetchUsers = async () => {
-  try {
-    setIsLoading(true);
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/users`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      }
-    });
-    if (!response.ok) {
-      throw new Error('Failed to fetch users');
+try {
+  setIsLoading(true);
+  const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/users`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
     }
+  });
+  if (!response.ok) {
+    throw new Error('Failed to fetch users');
+  }
 
 const data = await response.json();
 // Sort by createdAt in descending order (newest first)
 const sortedUsers = data.data.sort((a: User, b: User) => {
-  return new Date(b.createdAt || '').getTime() - new Date(a.createdAt || '').getTime();
+return new Date(b.createdAt || '').getTime() - new Date(a.createdAt || '').getTime();
 });
 setUsers(sortedUsers);
-  } catch (error) {
-    console.error('Error fetching users:', error);
-    showToast('Failed to load users', 'error');
-  } finally {
-    setIsLoading(false);
-  }
+} catch (error) {
+  console.error('Error fetching users:', error);
+  showToast('Failed to load users', 'error');
+} finally {
+  setIsLoading(false);
+}
 };
 
+  // Fetch users from API
+  useEffect(() => {
     fetchUsers();
   }, []);
 
@@ -306,6 +306,7 @@ formDataToSend.append('bankAccountNumber', formData.bankAccountNumber);
     }
   } finally {
     setIsLoading(false);
+    fetchUsers();
   }
 };
 
