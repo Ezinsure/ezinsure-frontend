@@ -658,7 +658,7 @@ export default function AgentApplyPage() {
                 <Input
                   label="Address"
                   name="address"
-                  placeholder="KN 5 RD, Kigali - Rwanda"
+                  placeholder="eg: KN 5 RD, Kigali - Rwanda"
                   value={formState.address}
                   onChange={handleInputChange}
                   error={errors.address}
