@@ -742,6 +742,79 @@ export default function ApplyPage() {
                       {errors.insuranceType}
                     </p>
                   )}
+                  
+                  {/* Insurance Type Information */}
+                  {formState.insuranceType && (
+                    <div className="mt-3 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                      <h4 className="font-semibold text-yellow-800 mb-2">
+                        Insurance Type Information
+                      </h4>
+                      {formState.insuranceType === 'comprehensive' ? (
+                        <div className="text-sm text-yellow-700">
+                          <div className="flex items-center mb-2">
+                            <span className="text-green-600 mr-2">✅</span>
+                            <span className="font-medium">Comprehensive Insurance</span>
+                          </div>
+                          <div className="ml-6 space-y-2">
+                            <div>
+                              <span className="font-medium">Covers:</span>
+                              <ul className="ml-4 mt-1 space-y-1">
+                                <li>• Theft of the vehicle or accessories (with police report)</li>
+                                <li>• Third-party accidents</li>
+                                <li>• Constructive total loss (with salvage assessment)</li>
+                                <li>• Total loss, if full annual premium is paid</li>
+                                <li>• Car radio covered up to 80,000 Rwf</li>
+                              </ul>
+                            </div>
+                            <div>
+                              <span className="font-medium">Does not cover:</span>
+                              <ul className="ml-4 mt-1 space-y-1">
+                                <li>• Accidents due to poor maintenance or brake failure</li>
+                                <li>• Accidents involving employee injury or property under your care</li>
+                                <li>• Driving under influence (alcohol/drugs)</li>
+                                <li>• Driving without valid license or category</li>
+                                <li>• Uninsured accessories (unless specifically included)</li>
+                                <li>• Policy becomes void upon vehicle sale unless endorsed</li>
+                                <li>• Claims without official police report or accident abstract</li>
+                                <li>• Vehicles with unpaid premium or duty-free status without RRA proof</li>
+                                <li>• Damage from driving the car before making necessary repairs</li>
+                              </ul>
+                            </div>
+                            <div className="mt-2 p-2 bg-yellow-100 rounded text-xs">
+                              <strong>Note:</strong> The insured must maintain and safeguard the vehicle. Failure to comply may reduce or void your claim.
+                            </div>
+                          </div>
+                        </div>
+                      ) : formState.insuranceType === 'thirdParty' ? (
+                        <div className="text-sm text-yellow-700">
+                          <div className="flex items-center mb-2">
+                            <span className="text-blue-600 mr-2">🚗</span>
+                            <span className="font-medium">Partial Insurance</span>
+                          </div>
+                          <div className="ml-6 space-y-2">
+                            <div>
+                              <span className="font-medium">Covers:</span>
+                              <ul className="ml-4 mt-1 space-y-1">
+                                <li>• Theft of the vehicle or accessories (with police report)</li>
+                                <li>• Third-party accidents</li>
+                                <li>• Constructive total loss (with salvage assessment)</li>
+                                <li>• Total loss, if full annual premium is paid</li>
+                              </ul>
+                            </div>
+                            <div>
+                              <span className="font-medium">Does not cover:</span>
+                              <ul className="ml-4 mt-1 space-y-1">
+                                <li>• Accidents due to poor maintenance or brake failure</li>
+                                <li>• Accidents involving employee injury or property under your care</li>
+                                <li>• Driving under influence (alcohol/drugs)</li>
+                                <li>• Driving without valid license or category</li>
+                              </ul>
+                            </div>
+                          </div>
+                        </div>
+                      ) : null}
+                    </div>
+                  )}
                 </div>
 
                 <div className="md:col-span-2">
