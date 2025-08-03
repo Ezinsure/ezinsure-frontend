@@ -264,46 +264,78 @@ const SuperAdminDashboard = () => {
               
               <div className="h-64 mb-6">
                 <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={mockData.insuranceDistribution}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={50}
-                      outerRadius={90}
-                      paddingAngle={5}
-                      dataKey="value"
-                    >
-                      {mockData.insuranceDistribution.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip 
-                      formatter={(value, name, props) => [
-                        `${value}%`,
-                        `${props.payload.revenue.toLocaleString()} RWF`
-                      ]}
-                    />
-                  </PieChart>
+                  {mockData.insuranceDistribution.length === 0 || mockData.insuranceDistribution.every(d => !d.value) ? (
+                    <PieChart>
+                      <Pie
+                        data={[{ name: 'No Data', value: 1 }]}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={50}
+                        outerRadius={90}
+                        paddingAngle={5}
+                        dataKey="value"
+                      >
+                        <Cell fill="#E5E7EB" />
+                      </Pie>
+                      <Tooltip 
+                        formatter={() => ['No data available', '']}
+                      />
+                    </PieChart>
+                  ) : (
+                    <PieChart>
+                      <Pie
+                        data={mockData.insuranceDistribution}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={50}
+                        outerRadius={90}
+                        paddingAngle={5}
+                        dataKey="value"
+                      >
+                        {mockData.insuranceDistribution.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip 
+                        formatter={(value, name, props) => [
+                          `${value}%`,
+                          `${props.payload.revenue.toLocaleString()} RWF`
+                        ]}
+                      />
+                    </PieChart>
+                  )}
                 </ResponsiveContainer>
               </div>
               
               <div className="space-y-3">
-                {mockData.insuranceDistribution.map((type, index) => (
-                  <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                {mockData.insuranceDistribution.length === 0 || mockData.insuranceDistribution.every(d => !d.value) ? (
+                  <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                     <div className="flex items-center gap-3">
-                      <div 
-                        className="w-4 h-4 rounded-full" 
-                        style={{ backgroundColor: type.color }}
-                      />
+                      <div className="w-4 h-4 rounded-full bg-gray-300" />
                       <div>
-                        <span className="text-sm font-medium text-gray-900">{type.name}</span>
-                        <p className="text-xs text-gray-500">{type.revenue.toLocaleString()} RWF</p>
+                        <span className="text-sm font-medium text-gray-500">No data available</span>
+                        <p className="text-xs text-gray-400">No insurance distribution data</p>
                       </div>
                     </div>
-                    <span className="text-sm font-bold text-gray-900">{type.value}%</span>
+                    <span className="text-sm font-bold text-gray-400">0%</span>
                   </div>
-                ))}
+                ) : (
+                  mockData.insuranceDistribution.map((type, index) => (
+                    <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                      <div className="flex items-center gap-3">
+                        <div 
+                          className="w-4 h-4 rounded-full" 
+                          style={{ backgroundColor: type.color }}
+                        />
+                        <div>
+                          <span className="text-sm font-medium text-gray-900">{type.name}</span>
+                          <p className="text-xs text-gray-500">{type.revenue.toLocaleString()} RWF</p>
+                        </div>
+                      </div>
+                      <span className="text-sm font-bold text-gray-900">{type.value}%</span>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
           </div>

@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/toast';
 import { validateForm, ValidationRules, validationPatterns } from '@/components/ui/form-validation';
 import { useAuth } from '@/context/AuthContext';
-import { Trash2, FileText, Eye } from 'lucide-react';
+import { Trash2, FileText, Eye, EyeClosed } from 'lucide-react';
 import { rwandaProvinces } from '@/utils/rwanda-administrative';
 
 interface User {
@@ -70,6 +70,9 @@ export default function ProfilePage() {
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [originalProfile, setOriginalProfile] = useState<User | null>(null);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmNewPassword, setShowConfirmNewPassword] = useState(false);
   const [passwordData, setPasswordData] = useState<PasswordChangeData>({
     currentPassword: '',
     newPassword: '',
@@ -382,6 +385,9 @@ export default function ProfilePage() {
         setShowPasswordModal(false);
         setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
         setPasswordErrors({});
+        setShowCurrentPassword(false);
+        setShowNewPassword(false);
+        setShowConfirmNewPassword(false);
       } catch (error) {
         console.log("error changing pass: ", error);
         showToast(error instanceof Error ? error.message : String(error), 'error');
@@ -800,26 +806,52 @@ export default function ProfilePage() {
               <h3 className="text-lg font-semibold mb-4">Change Password</h3>
               
               <form onSubmit={handlePasswordChange} className="space-y-4">
-                <Input
-                  label="Current Password"
-                  name="currentPassword"
-                  type="password"
-                  value={passwordData.currentPassword}
-                  onChange={handlePasswordInputChange}
-                  error={passwordErrors.currentPassword}
-                  required
-                />
-                
-                <div className="space-y-2">
+                <div className='relative w-full'>
                   <Input
-                    label="New Password"
-                    name="newPassword"
-                    type="password"
-                    value={passwordData.newPassword}
+                    label="Current Password"
+                    name="currentPassword"
+                    type={showCurrentPassword ? "text" : "password"}
+                    value={passwordData.currentPassword}
                     onChange={handlePasswordInputChange}
-                    error={passwordErrors.newPassword}
+                    error={passwordErrors.currentPassword}
                     required
                   />
+                  {showCurrentPassword ? (
+                    <EyeClosed
+                      className="absolute top-9 right-3 cursor-pointer text-gray-500"
+                      onClick={() => setShowCurrentPassword(false)}
+                    />
+                  ) : (
+                    <Eye
+                      className="absolute top-9 right-3 cursor-pointer text-gray-500"
+                      onClick={() => setShowCurrentPassword(true)}
+                    />
+                  )}
+                </div>
+                
+                <div className="space-y-2">
+                  <div className='relative w-full'>
+                    <Input
+                      label="New Password"
+                      name="newPassword"
+                      type={showNewPassword ? "text" : "password"}
+                      value={passwordData.newPassword}
+                      onChange={handlePasswordInputChange}
+                      error={passwordErrors.newPassword}
+                      required
+                    />
+                    {showNewPassword ? (
+                      <EyeClosed
+                        className="absolute top-9 right-3 cursor-pointer text-gray-500"
+                        onClick={() => setShowNewPassword(false)}
+                      />
+                    ) : (
+                      <Eye
+                        className="absolute top-9 right-3 cursor-pointer text-gray-500"
+                        onClick={() => setShowNewPassword(true)}
+                      />
+                    )}
+                  </div>
                   
                   {/* Password Requirements */}
                   {passwordData.newPassword && (
@@ -851,15 +883,28 @@ export default function ProfilePage() {
                   )}
                 </div>
                 
-                <Input
-                  label="Confirm New Password"
-                  name="confirmPassword"
-                  type="password"
-                  value={passwordData.confirmPassword}
-                  onChange={handlePasswordInputChange}
-                  error={passwordErrors.confirmPassword}
-                  required
-                />
+                <div className='relative w-full'>
+                  <Input
+                    label="Confirm New Password"
+                    name="confirmPassword"
+                    type={showConfirmNewPassword ? "text" : "password"}
+                    value={passwordData.confirmPassword}
+                    onChange={handlePasswordInputChange}
+                    error={passwordErrors.confirmPassword}
+                    required
+                  />
+                  {showConfirmNewPassword ? (
+                    <EyeClosed
+                      className="absolute top-9 right-3 cursor-pointer text-gray-500"
+                      onClick={() => setShowConfirmNewPassword(false)}
+                    />
+                  ) : (
+                    <Eye
+                      className="absolute top-9 right-3 cursor-pointer text-gray-500"
+                      onClick={() => setShowConfirmNewPassword(true)}
+                    />
+                  )}
+                </div>
                 
                 <div className="flex justify-end space-x-3 pt-4">
                   <Button
@@ -869,6 +914,9 @@ export default function ProfilePage() {
                       setShowPasswordModal(false);
                       setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
                       setPasswordErrors({});
+                      setShowCurrentPassword(false);
+                      setShowNewPassword(false);
+                      setShowConfirmNewPassword(false);
                     }}
                     disabled={isChangingPassword}
                   >
@@ -891,8 +939,8 @@ export default function ProfilePage() {
         {/* Document Viewer Modal */}
         {showDocumentViewer && selectedDocument && (
           <div className="fixed inset-0 bg-gray-600/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg w-full max-w-4xl h-[90vh] flex flex-col">
-              <div className="flex justify-between items-center p-4 border-b">
+            <div className="bg-white rounded-lg w-full max-w-6xl h-[90vh] flex flex-col overflow-hidden">
+              <div className="flex justify-between items-center p-4 border-b flex-shrink-0">
                 <h3 className="text-lg font-semibold">Document Viewer</h3>
                 <Button
                   variant="outline"
@@ -905,20 +953,24 @@ export default function ProfilePage() {
                 </Button>
               </div>
               
-              <div className="flex-1 p-4">
-                <div className="w-full h-full flex items-center justify-center bg-gray-50 rounded-lg overflow-hidden">
+              <div className="flex-1 p-4 overflow-hidden">
+                <div className="w-full h-full bg-gray-50 rounded-lg overflow-auto">
                   {selectedDocument.toLowerCase().includes('.pdf') ? (
                     <iframe
                       src={selectedDocument}
-                      className="w-full h-full"
+                      className="w-full h-full min-h-[500px]"
                       title="Document Viewer"
+                      frameBorder="0"
                     />
                   ) : (
-                    <img
-                      src={selectedDocument}
-                      alt="Document"
-                      className="max-w-full max-h-full object-contain"
-                    />
+                    <div className="w-full h-full flex items-center justify-center p-4">
+                      <img
+                        src={selectedDocument}
+                        alt="Document"
+                        className="max-w-full max-h-full object-contain"
+                        style={{ maxHeight: 'calc(90vh - 120px)' }}
+                      />
+                    </div>
                   )}
                 </div>
               </div>

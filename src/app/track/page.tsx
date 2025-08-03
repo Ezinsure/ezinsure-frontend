@@ -751,8 +751,10 @@ const EditApplicationModal = ({ isOpen, onClose, onSave, application, isLoading 
                       className="w-full py-2 px-3 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none"
                     >
                       <option value="1 Month">1 Month</option>
+                      <option value="2 Months">2 Months</option>
                       <option value="3 Months">3 Months</option>
                       <option value="6 Months">6 Months</option>
+                      <option value="9 Months">9 Months</option>
                       <option value="12 Months">12 Months</option>
                     </select>
                     {errors.insuranceDuration && (

@@ -85,6 +85,56 @@ const generalFaqItems = [
   }
 ];
 
+// Agent-specific FAQ items
+const agentFaqItems = [
+  {
+    question: 'How do I submit insurance applications for clients?',
+    answer: [
+      'Log into your agent account.',
+      'Click on "New Application" and fill in the application on behalf of your client.',
+      'Submit to initiate the review process.'
+    ],
+    videoLink: 'https://www.youtube.com/watch?v=qB9GpOy_N98'
+  },
+  {
+    question: 'How can I edit a client\'s rejected application?',
+    answer: [
+      'Log in and go to "My Applications" from the navbar.',
+      'Find the rejected application and click "Edit".',
+      'Update the details as per feedback and resubmit.'
+    ],
+    videoLink: 'https://www.youtube.com/watch?v=qB9GpOy_N98'
+  },
+  {
+    question: 'How do I upload proof of payment for a client?',
+    answer: [
+      'Go to "My Applications" → locate the relevant application.',
+      'Click "Upload Proof" and submit the payment confirmation document.'
+    ],
+    videoLink: 'https://www.youtube.com/watch?v=qB9GpOy_N98'
+  },
+  {
+    question: 'How do I download final client documents?',
+    answer: [
+      'Once the admin uploads them, you will be notified.',
+      'Go to "My Applications" → download the certificate, EBM, contract, and receipt.'
+    ],
+    videoLink: 'https://www.youtube.com/watch?v=qB9GpOy_N98'
+  },
+  {
+    question: 'How do I change my password?',
+    answer: [
+      'Click on your profile dropdown.',
+      'Select "Change Password".',
+      'Enter your current password, followed by the new password and confirmation.'
+    ],
+    videoLink: 'https://www.youtube.com/watch?v=qB9GpOy_N98'
+  }
+];
+
+// Combine general and agent FAQ items
+const allAgentFaqItems = [...generalFaqItems, ...agentFaqItems];
+
 const getEmbedUrl = (url: string) => {
   const match = url.match(/(?:https?:\/\/)?(?:www\.)?youtube\.com\/watch\?v=([^&]+)/);
   if (match && match[1]) {
@@ -93,7 +143,7 @@ const getEmbedUrl = (url: string) => {
   return url;
 };
 
-export default function FAQPage() {
+export default function AgentFAQPage() {
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
 
   const toggleAccordion = (index: number) => {
@@ -105,10 +155,10 @@ export default function FAQPage() {
       <div className="max-w-4xl mx-auto py-10 px-4">
         <div className="absolute top-0 left-0 w-full h-[10vh] overflow-hidden z-0 bg-gradient-to-br from-[#0A2540] to-[#126BB3]"></div>
         <h1 className="text-3xl font-bold mb-8 text-center text-[var(--secondary-blue)] relative z-10">
-          Frequently Asked Questions
+          Agent FAQ
         </h1>
         <div className="space-y-4 relative z-10">
-          {generalFaqItems.map((item, index) => (
+          {allAgentFaqItems.map((item, index) => (
             <div key={index} className="border border-gray-200 rounded-lg overflow-hidden bg-white shadow-sm">
               <button
                 className="w-full flex justify-between items-center p-6 text-left hover:bg-gray-50 transition-colors group"

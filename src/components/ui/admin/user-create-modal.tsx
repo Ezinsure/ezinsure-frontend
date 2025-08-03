@@ -3,6 +3,8 @@ import { Input } from "@/components/ui/input";
 import { ValidationRules, validateForm } from "@/components/ui/form-validation";
 import { AdministrativeDivision, rwandaProvinces } from '@/utils/rwanda-administrative';
 import { useEffect, useState } from "react";
+import { useToast } from "../toast";
+
 // import { useState } from "react";
 
 interface FormData {
@@ -176,6 +178,7 @@ export const UserCreateModal = ({
   setFormData,
   setErrors
 }: UserCreateModalProps) => {
+  const { showToast, ToastContainer } = useToast();
   const [districts, setDistricts] = useState<AdministrativeDivision[]>([]);
 const [sectors, setSectors] = useState<string[]>([]);
   const validationRules: ValidationRules = {
@@ -280,6 +283,8 @@ const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, fieldName: str
 
     if (Object.keys(allErrors).length === 0) {
       onCreate(formData);
+    }else {
+      showToast('Please correct the errors in the form.', 'error');
     }
   };
 
@@ -641,6 +646,7 @@ useEffect(() => {
           </div>
         </div>
       </div>
+      <ToastContainer />
     </div>
   );
 };
