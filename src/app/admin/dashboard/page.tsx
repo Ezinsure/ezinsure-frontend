@@ -819,7 +819,25 @@ const CustomTooltip: React.FC<TooltipProps<number, string>> = ({ active, payload
                   <div className="w-1/2 h-4 bg-gray-200 rounded" />
                 </div>
               ) : insuranceDistribution.length === 0 || insuranceDistribution.every(d => !d.value) ? (
-                <div className="h-full flex items-center justify-center text-gray-400 text-lg">No insurance distribution data to display.</div>
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={[{ name: 'No Data', value: 1 }]}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={50}
+                      outerRadius={90}
+                      paddingAngle={5}
+                      dataKey="value"
+                      nameKey="name"
+                    >
+                      <Cell fill="#E5E7EB" />
+                    </Pie>
+                    <Tooltip 
+                      formatter={(value, name) => ['No data available', '']}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
               ) : (
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
@@ -849,21 +867,34 @@ const CustomTooltip: React.FC<TooltipProps<number, string>> = ({ active, payload
             </div>
             
             <div className="space-y-3">
-              {insuranceDistribution.map((type, index) => (
-                <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+              {insuranceDistribution.length === 0 || insuranceDistribution.every(d => !d.value) ? (
+                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                   <div className="flex items-center gap-3">
-                    <div 
-                      className="w-4 h-4 rounded-full" 
-                      style={{ backgroundColor: type.color }}
-                    />
+                    <div className="w-4 h-4 rounded-full bg-gray-300" />
                     <div>
-                      <span className="text-sm font-medium text-gray-900">{type.name}</span>
-                      <p className="text-xs text-gray-500">{type.value.toLocaleString()} applications</p>
+                      <span className="text-sm font-medium text-gray-500">No data available</span>
+                      <p className="text-xs text-gray-400">No insurance distribution data</p>
                     </div>
                   </div>
-                  <span className="text-sm font-bold text-gray-900">{type.percent}%</span>
+                  <span className="text-sm font-bold text-gray-400">0%</span>
                 </div>
-              ))}
+              ) : (
+                insuranceDistribution.map((type, index) => (
+                  <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <div 
+                        className="w-4 h-4 rounded-full" 
+                        style={{ backgroundColor: type.color }}
+                      />
+                      <div>
+                        <span className="text-sm font-medium text-gray-900">{type.name}</span>
+                        <p className="text-xs text-gray-500">{type.value.toLocaleString()} applications</p>
+                      </div>
+                    </div>
+                    <span className="text-sm font-bold text-gray-900">{type.percent}%</span>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </div>

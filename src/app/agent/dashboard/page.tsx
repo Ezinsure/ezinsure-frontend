@@ -374,6 +374,23 @@ const CustomTooltip = ({ active, payload, label }: TooltipProps<number, string>)
                       <div className="w-1/2 h-6 bg-gray-200 rounded" />
                     </div>
                   </div>
+                ) : insuranceDistribution.length === 0 || insuranceDistribution.every(d => !d.value) ? (
+                  <PieChart>
+                    <Pie
+                      data={[{ name: 'No Data', value: 1 }]}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={40}
+                      outerRadius={80}
+                      paddingAngle={5}
+                      dataKey="value"
+                    >
+                      <Cell fill="#E5E7EB" />
+                    </Pie>
+                    <Tooltip 
+                      formatter={(value, name) => ['No data available', '']}
+                    />
+                  </PieChart>
                 ) : (
                   <PieChart>
                     <Pie
@@ -399,18 +416,28 @@ const CustomTooltip = ({ active, payload, label }: TooltipProps<number, string>)
             </div>
             
             <div className="space-y-2 mt-4">
-              {insuranceDistribution.map((type, index) => (
-                <div key={index} className="flex items-center justify-between">
+              {insuranceDistribution.length === 0 || insuranceDistribution.every(d => !d.value) ? (
+                <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <div 
-                      className="w-3 h-3 rounded-full" 
-                      style={{ backgroundColor: type.color }}
-                    />
-                    <span className="text-sm text-gray-600">{type.name}</span>
+                    <div className="w-3 h-3 rounded-full bg-gray-300" />
+                    <span className="text-sm text-gray-500">No data available</span>
                   </div>
-                  <span className="text-sm font-semibold text-gray-900">{type.percent}%</span>
+                  <span className="text-sm font-semibold text-gray-400">0%</span>
                 </div>
-              ))}
+              ) : (
+                insuranceDistribution.map((type, index) => (
+                  <div key={index} className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div 
+                        className="w-3 h-3 rounded-full" 
+                        style={{ backgroundColor: type.color }}
+                      />
+                      <span className="text-sm text-gray-600">{type.name}</span>
+                    </div>
+                    <span className="text-sm font-semibold text-gray-900">{type.percent}%</span>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </div>
