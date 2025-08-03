@@ -23,6 +23,7 @@ export const Navigation = () => {
     { href: '/', label: 'Home' },
     { href: '/track', label: 'Track Application' },
     { href: '/apply', label: 'Apply Now' },
+    { href: '/FAQ', label: 'FAQ' },
     { href: '/login', label: 'Login' },
     { href: '/register', label: 'Become an Agent' },
   ]);
@@ -58,6 +59,8 @@ export const Navigation = () => {
         );
       }
 
+      // Add FAQ link for all logged-in users
+      newLinks.push({ href: `${rolePrefix}/FAQ`, label: 'FAQ' });
       newLinks.push({ href: `${rolePrefix}/profile`, label: 'Profile' });
 
       setNavLinks(newLinks);
@@ -106,12 +109,12 @@ export const Navigation = () => {
           </Link>
 
           {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center space-x-6">
+          <div className="hidden md:flex items-center space-x-4 lg:space-x-6 ml-8 lg:ml-12">
             {navLinks.map((link) => (
               <Link
                 key={link.href}
                 href={link.href}
-                className={`font-semibold cursor-pointer text-md transition-colors  ${isScrolled ? 'text-[var(--foreground)] hover:text-[var(--accent-orange)]' : 'text-[var(--light-gray)] hover:text-[var(--accent-orange)]'} ${
+                className={`font-semibold cursor-pointer text-sm lg:text-md transition-colors ${isScrolled ? 'text-[var(--foreground)] hover:text-[var(--accent-orange)]' : 'text-[var(--light-gray)] hover:text-[var(--accent-orange)]'} ${
                   pathname === link.href
                     ? 'underline underline-offset-4 underline-[var(--accent-orange)]'
                     : 'hover:text-[var(--accent-orange)]'
@@ -125,7 +128,7 @@ export const Navigation = () => {
             {!user ? (
               <Link
                 href="/apply"
-                className="bg-[var(--main-blue)] hover:bg-[var(--secondary-blue)] text-white py-2 px-4 rounded-lg font-medium text-sm transition-colors"
+                className="bg-[var(--main-blue)] hover:bg-[var(--secondary-blue)] text-white py-2 px-3 lg:px-4 rounded-lg font-medium text-xs lg:text-sm transition-colors"
               >
                 Get Insured
               </Link>
@@ -133,7 +136,7 @@ export const Navigation = () => {
               <div className="relative">
                 <button 
                   onClick={toggleProfileDropdown}
-                  className="w-10 h-10 rounded-full bg-[var(--main-blue)] text-white flex items-center justify-center font-medium hover:bg-[var(--secondary-blue)] transition-colors cursor-pointer"
+                  className="w-8 h-8 lg:w-10 lg:h-10 rounded-full bg-[var(--main-blue)] text-white flex items-center justify-center font-medium hover:bg-[var(--secondary-blue)] transition-colors cursor-pointer text-xs lg:text-sm"
                 >
                   {getUserInitials()}
                 </button>
@@ -171,7 +174,7 @@ export const Navigation = () => {
               className={`${isScrolled ? 'text-[var(--foreground)] ' : 'text-[var(--light-gray)] '} focus:outline-none`}
             >
               <svg
-                className="h-6 w-6"
+                className="h-5 w-5 sm:h-6 sm:w-6"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -203,13 +206,13 @@ export const Navigation = () => {
           isMobileMenuOpen ? 'max-h-screen bg-white' : 'max-h-0'
         }`}
       >
-        <div className="px-4 py-2 space-y-3">
+        <div className="px-4 py-2 space-y-2 sm:space-y-3">
           {navLinks.map((link) => (
             <Link
               key={link.href}
               href={link.href}
               onClick={() => setIsMobileMenuOpen(false)}
-              className={`block py-2 font-medium text-sm ${
+              className={`block py-2 font-medium text-xs sm:text-sm ${
                 pathname === link.href
                   ? 'text-[var(--main-blue)]'
                   : 'text-gray-600'
@@ -224,7 +227,7 @@ export const Navigation = () => {
             <Link
               href="/apply"
               onClick={() => setIsMobileMenuOpen(false)}
-              className="block w-full text-center bg-[var(--main-blue)] hover:bg-[var(--secondary-blue)] text-white py-2 px-4 rounded-lg font-medium text-sm mt-2"
+              className="block w-full text-center bg-[var(--main-blue)] hover:bg-[var(--secondary-blue)] text-white py-2 px-4 rounded-lg font-medium text-xs sm:text-sm mt-2"
             >
               Get Insured
             </Link>
@@ -233,13 +236,13 @@ export const Navigation = () => {
               <Link
                 href={`/${user.role.toLowerCase()}/profile`}
                 onClick={() => setIsMobileMenuOpen(false)}
-                className="block py-2 font-medium text-sm text-gray-600"
+                className="block py-2 font-medium text-xs sm:text-sm text-gray-600"
               >
                 Profile Settings
               </Link>
               <button
                 onClick={handleLogout}
-                className="block w-full text-left py-2 font-medium text-sm text-red-600"
+                className="block w-full text-left py-2 font-medium text-xs sm:text-sm text-red-600"
               >
                 Logout
               </button>

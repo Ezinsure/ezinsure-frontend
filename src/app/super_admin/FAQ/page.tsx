@@ -85,6 +85,139 @@ const generalFaqItems = [
   }
 ];
 
+// Agent-specific FAQ items
+const agentFaqItems = [
+  {
+    question: 'How do I submit insurance applications for clients?',
+    answer: [
+      'Log into your agent account.',
+      'Click on "New Application" and fill in the application on behalf of your client.',
+      'Submit to initiate the review process.'
+    ],
+    videoLink: 'https://www.youtube.com/watch?v=qB9GpOy_N98'
+  },
+  {
+    question: 'How can I edit a client\'s rejected application?',
+    answer: [
+      'Log in and go to "My Applications" from the navbar.',
+      'Find the rejected application and click "Edit".',
+      'Update the details as per feedback and resubmit.'
+    ],
+    videoLink: 'https://www.youtube.com/watch?v=qB9GpOy_N98'
+  },
+  {
+    question: 'How do I upload proof of payment for a client?',
+    answer: [
+      'Go to "My Applications" → locate the relevant application.',
+      'Click "Upload Proof" and submit the payment confirmation document.'
+    ],
+    videoLink: 'https://www.youtube.com/watch?v=qB9GpOy_N98'
+  },
+  {
+    question: 'How do I download final client documents?',
+    answer: [
+      'Once the admin uploads them, you will be notified.',
+      'Go to "My Applications" → download the certificate, EBM, contract, and receipt.'
+    ],
+    videoLink: 'https://www.youtube.com/watch?v=qB9GpOy_N98'
+  },
+  {
+    question: 'How do I change my password?',
+    answer: [
+      'Click on your profile dropdown.',
+      'Select "Change Password".',
+      'Enter your current password, followed by the new password and confirmation.'
+    ],
+    videoLink: 'https://www.youtube.com/watch?v=qB9GpOy_N98'
+  }
+];
+
+// Admin-specific FAQ items
+const adminFaqItems = [
+  {
+    question: 'How do I review submitted insurance applications?',
+    answer: [
+      'Go to your admin dashboard.',
+      'Click on a pending application → Review details.',
+      'You can approve or reject it and provide a reason if rejecting.'
+    ],
+    videoLink: 'https://www.youtube.com/watch?v=qB9GpOy_N98'
+  },
+  {
+    question: 'How do I send a quotation to a client or agent?',
+    answer: [
+      'After approving an application, go to the quotation tab.',
+      'Fill in the invoice/quotation form and click send.',
+      'The client/agent will be notified by email/SMS.'
+    ],
+    videoLink: 'https://www.youtube.com/watch?v=qB9GpOy_N98'
+  },
+  {
+    question: 'How do I review and approve a payment proof?',
+    answer: [
+      'From your dashboard, view applications with submitted payment proof.',
+      'Verify the payment and approve or reject it (with a reason if rejected).'
+    ],
+    videoLink: 'https://www.youtube.com/watch?v=qB9GpOy_N98'
+  },
+  {
+    question: 'How do I upload final insurance documents?',
+    answer: [
+      'Go to the approved application\'s final stage.',
+      'Upload the insurance certificate, contract, EBM, and receipt.',
+      'Client/agent will be notified to download them.'
+    ],
+    videoLink: 'https://www.youtube.com/watch?v=qB9GpOy_N98'
+  }
+];
+
+// Super Admin-specific FAQ items
+const superAdminFaqItems = [
+  {
+    question: 'How do I manage system settings?',
+    answer: [
+      'Go to your super admin dashboard.',
+      'Navigate to the System Controls section.',
+      'Modify settings like maintenance mode, registration controls, and commission rates.',
+      'Save changes to apply them system-wide.'
+    ],
+    videoLink: 'https://www.youtube.com/watch?v=qB9GpOy_N98'
+  },
+  {
+    question: 'How do I manage admin users?',
+    answer: [
+      'Access the Users management section from your dashboard.',
+      'View all admin accounts and their permissions.',
+      'Create new admin accounts or modify existing ones.',
+      'Set appropriate access levels and permissions.'
+    ],
+    videoLink: 'https://www.youtube.com/watch?v=qB9GpOy_N98'
+  },
+  {
+    question: 'How do I view system-wide analytics?',
+    answer: [
+      'Check your dashboard for comprehensive system metrics.',
+      'View revenue data, user statistics, and performance indicators.',
+      'Monitor regional performance and agent activities.',
+      'Export reports for further analysis.'
+    ],
+    videoLink: 'https://www.youtube.com/watch?v=qB9GpOy_N98'
+  },
+  {
+    question: 'How do I handle system maintenance?',
+    answer: [
+      'Use the maintenance mode setting to temporarily disable public access.',
+      'Coordinate with your team before enabling maintenance mode.',
+      'Monitor system health and performance metrics.',
+      'Ensure all critical functions remain operational during maintenance.'
+    ],
+    videoLink: 'https://www.youtube.com/watch?v=qB9GpOy_N98'
+  }
+];
+
+// Combine all FAQ items for super admin
+const allSuperAdminFaqItems = [...generalFaqItems, ...agentFaqItems, ...adminFaqItems, ...superAdminFaqItems];
+
 const getEmbedUrl = (url: string) => {
   const match = url.match(/(?:https?:\/\/)?(?:www\.)?youtube\.com\/watch\?v=([^&]+)/);
   if (match && match[1]) {
@@ -93,7 +226,7 @@ const getEmbedUrl = (url: string) => {
   return url;
 };
 
-export default function FAQPage() {
+export default function SuperAdminFAQPage() {
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
 
   const toggleAccordion = (index: number) => {
@@ -105,10 +238,10 @@ export default function FAQPage() {
       <div className="max-w-4xl mx-auto py-10 px-4">
         <div className="absolute top-0 left-0 w-full h-[10vh] overflow-hidden z-0 bg-gradient-to-br from-[#0A2540] to-[#126BB3]"></div>
         <h1 className="text-3xl font-bold mb-8 text-center text-[var(--secondary-blue)] relative z-10">
-          Frequently Asked Questions
+          Super Admin FAQ
         </h1>
         <div className="space-y-4 relative z-10">
-          {generalFaqItems.map((item, index) => (
+          {allSuperAdminFaqItems.map((item, index) => (
             <div key={index} className="border border-gray-200 rounded-lg overflow-hidden bg-white shadow-sm">
               <button
                 className="w-full flex justify-between items-center p-6 text-left hover:bg-gray-50 transition-colors group"
