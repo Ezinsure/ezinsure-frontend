@@ -939,8 +939,8 @@ export default function ProfilePage() {
         {/* Document Viewer Modal */}
         {showDocumentViewer && selectedDocument && (
           <div className="fixed inset-0 bg-gray-600/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg w-full max-w-4xl h-[90vh] flex flex-col">
-              <div className="flex justify-between items-center p-4 border-b">
+            <div className="bg-white rounded-lg w-full max-w-6xl h-[90vh] flex flex-col overflow-hidden">
+              <div className="flex justify-between items-center p-4 border-b flex-shrink-0">
                 <h3 className="text-lg font-semibold">Document Viewer</h3>
                 <Button
                   variant="outline"
@@ -953,20 +953,24 @@ export default function ProfilePage() {
                 </Button>
               </div>
               
-              <div className="flex-1 p-4">
-                <div className="w-full h-full flex items-center justify-center bg-gray-50 rounded-lg overflow-hidden">
+              <div className="flex-1 p-4 overflow-hidden">
+                <div className="w-full h-full bg-gray-50 rounded-lg overflow-auto">
                   {selectedDocument.toLowerCase().includes('.pdf') ? (
                     <iframe
                       src={selectedDocument}
-                      className="w-full h-full"
+                      className="w-full h-full min-h-[500px]"
                       title="Document Viewer"
+                      frameBorder="0"
                     />
                   ) : (
-                    <img
-                      src={selectedDocument}
-                      alt="Document"
-                      className="max-w-full max-h-full object-contain"
-                    />
+                    <div className="w-full h-full flex items-center justify-center p-4">
+                      <img
+                        src={selectedDocument}
+                        alt="Document"
+                        className="max-w-full max-h-full object-contain"
+                        style={{ maxHeight: 'calc(90vh - 120px)' }}
+                      />
+                    </div>
                   )}
                 </div>
               </div>
