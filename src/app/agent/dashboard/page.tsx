@@ -388,7 +388,7 @@ const CustomTooltip = ({ active, payload, label }: TooltipProps<number, string>)
                       <Cell fill="#E5E7EB" />
                     </Pie>
                     <Tooltip 
-                      formatter={(value, name) => ['No data available', '']}
+                      formatter={() => ['No data available', '']}
                     />
                   </PieChart>
                 ) : (

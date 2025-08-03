@@ -278,7 +278,7 @@ const SuperAdminDashboard = () => {
                         <Cell fill="#E5E7EB" />
                       </Pie>
                       <Tooltip 
-                        formatter={(value, name) => ['No data available', '']}
+                        formatter={() => ['No data available', '']}
                       />
                     </PieChart>
                   ) : (
