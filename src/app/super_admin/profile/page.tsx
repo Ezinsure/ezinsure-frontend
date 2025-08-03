@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/toast';
 import { validateForm, ValidationRules, validationPatterns } from '@/components/ui/form-validation';
 import { useAuth } from '@/context/AuthContext';
-import { Trash2, FileText, Eye, Settings, Users } from 'lucide-react';
+import { Trash2, FileText, Eye, EyeClosed, Settings, Users } from 'lucide-react';
 import { rwandaProvinces } from '@/utils/rwanda-administrative';
 
 interface User {
@@ -77,6 +77,9 @@ export default function SuperAdminProfilePage() {
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [originalProfile, setOriginalProfile] = useState<User | null>(null);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmNewPassword, setShowConfirmNewPassword] = useState(false);
   const [passwordData, setPasswordData] = useState<PasswordChangeData>({
     currentPassword: '',
     newPassword: '',
@@ -391,6 +394,9 @@ export default function SuperAdminProfilePage() {
         setShowPasswordModal(false);
         setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
         setPasswordErrors({});
+        setShowCurrentPassword(false);
+        setShowNewPassword(false);
+        setShowConfirmNewPassword(false);
       } catch (error) {
         console.log("error changing pass: ", error);
         showToast(error instanceof Error ? error.message : String(error), 'error');
@@ -956,26 +962,52 @@ export default function SuperAdminProfilePage() {
               <h3 className="text-lg font-semibold mb-4">Change Password</h3>
               
               <form onSubmit={handlePasswordChange} className="space-y-4">
-                <Input
-                  label="Current Password"
-                  name="currentPassword"
-                  type="password"
-                  value={passwordData.currentPassword}
-                  onChange={handlePasswordInputChange}
-                  error={passwordErrors.currentPassword}
-                  required
-                />
-                
-                <div className="space-y-2">
+                <div className='relative w-full'>
                   <Input
-                    label="New Password"
-                    name="newPassword"
-                    type="password"
-                    value={passwordData.newPassword}
+                    label="Current Password"
+                    name="currentPassword"
+                    type={showCurrentPassword ? "text" : "password"}
+                    value={passwordData.currentPassword}
                     onChange={handlePasswordInputChange}
-                    error={passwordErrors.newPassword}
+                    error={passwordErrors.currentPassword}
                     required
                   />
+                  {showCurrentPassword ? (
+                    <EyeClosed
+                      className="absolute top-9 right-3 cursor-pointer text-gray-500"
+                      onClick={() => setShowCurrentPassword(false)}
+                    />
+                  ) : (
+                    <Eye
+                      className="absolute top-9 right-3 cursor-pointer text-gray-500"
+                      onClick={() => setShowCurrentPassword(true)}
+                    />
+                  )}
+                </div>
+                
+                <div className="space-y-2">
+                  <div className='relative w-full'>
+                    <Input
+                      label="New Password"
+                      name="newPassword"
+                      type={showNewPassword ? "text" : "password"}
+                      value={passwordData.newPassword}
+                      onChange={handlePasswordInputChange}
+                      error={passwordErrors.newPassword}
+                      required
+                    />
+                    {showNewPassword ? (
+                      <EyeClosed
+                        className="absolute top-9 right-3 cursor-pointer text-gray-500"
+                        onClick={() => setShowNewPassword(false)}
+                      />
+                    ) : (
+                      <Eye
+                        className="absolute top-9 right-3 cursor-pointer text-gray-500"
+                        onClick={() => setShowNewPassword(true)}
+                      />
+                    )}
+                  </div>
                   
                   {/* Password Requirements */}
                   {passwordData.newPassword && (
@@ -1007,15 +1039,28 @@ export default function SuperAdminProfilePage() {
                   )}
                 </div>
                 
-                <Input
-                  label="Confirm New Password"
-                  name="confirmPassword"
-                  type="password"
-                  value={passwordData.confirmPassword}
-                  onChange={handlePasswordInputChange}
-                  error={passwordErrors.confirmPassword}
-                  required
-                />
+                <div className='relative w-full'>
+                  <Input
+                    label="Confirm New Password"
+                    name="confirmPassword"
+                    type={showConfirmNewPassword ? "text" : "password"}
+                    value={passwordData.confirmPassword}
+                    onChange={handlePasswordInputChange}
+                    error={passwordErrors.confirmPassword}
+                    required
+                  />
+                  {showConfirmNewPassword ? (
+                    <EyeClosed
+                      className="absolute top-9 right-3 cursor-pointer text-gray-500"
+                      onClick={() => setShowConfirmNewPassword(false)}
+                    />
+                  ) : (
+                    <Eye
+                      className="absolute top-9 right-3 cursor-pointer text-gray-500"
+                      onClick={() => setShowConfirmNewPassword(true)}
+                    />
+                  )}
+                </div>
                 
                 <div className="flex justify-end space-x-3 pt-4">
                   <Button
@@ -1025,6 +1070,9 @@ export default function SuperAdminProfilePage() {
                       setShowPasswordModal(false);
                       setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
                       setPasswordErrors({});
+                      setShowCurrentPassword(false);
+                      setShowNewPassword(false);
+                      setShowConfirmNewPassword(false);
                     }}
                     disabled={isChangingPassword}
                   >
