@@ -46,9 +46,14 @@ interface Application {
   amount?: number;
   agentCommission?: number;
   agentId?: string;
+  agentFullName?: string;
   contract?: string;
   receipt?: string;
   ebm?: string;
+  createdAt?: string;
+  insuranceEndAt?: string;
+  otp?: string;
+  otpExpires?: string;
 }
 
 interface PaginationProps {
@@ -119,7 +124,7 @@ const [formState, setFormState] = useState<Partial<Application>>(() => {
     address: application.address,
     dateOfBirth: application.dateOfBirth,
     insuranceCategory: application.insuranceCategory,
-    insuranceType: application.insuranceType,
+    
     insuranceDuration: application.insuranceDuration,
     vehicleType: application.vehicleType,
     vehicleAge: application.vehicleAge,
@@ -1204,7 +1209,8 @@ const getActionButtons = (app: Application) => {
                   <tr>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Client</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Insurance Type</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Insurance Category</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Insurance End Date</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Commission</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
@@ -1225,7 +1231,12 @@ const getActionButtons = (app: Application) => {
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-900 capitalize">
-                          {app.insuranceType.replace('_', ' ')}
+                          {app.insuranceCategory}
+                        </div>
+                      </td>
+                      <td className="px-4 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">
+                          {app.insuranceEndAt ? new Date(app.insuranceEndAt).toLocaleDateString() : 'N/A'}
                         </div>
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -1436,6 +1447,16 @@ const getActionButtons = (app: Application) => {
                 <div>
                   <p className="text-sm text-gray-500">Duration</p>
                   <p className="font-semibold">{selectedApp.insuranceDuration}</p>
+                </div>
+                {selectedApp.insuranceEndAt && (
+                  <div>
+                    <p className="text-sm text-gray-500">Insurance End Date</p>
+                    <p className="font-semibold">{new Date(selectedApp.insuranceEndAt).toLocaleDateString()}</p>
+                  </div>
+                )}
+                <div>
+                  <p className="text-sm text-gray-500">Agent</p>
+                  <p className="font-semibold">{selectedApp.agentFullName || selectedApp.agentId || 'Client'}</p>
                 </div>
                 {selectedApp.amount && (
                   <div>

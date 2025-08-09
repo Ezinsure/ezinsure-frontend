@@ -56,6 +56,7 @@ interface TopAgent {
   totalCommission: number;
   clients: number;
   agentId: string;
+  agentFullName?: string;
   fullName: string;
   province: string;
 }

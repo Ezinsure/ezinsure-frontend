@@ -49,6 +49,7 @@ interface Application {
   companyCommission?: number;
   agentCommission?: number;
   agentId?: string;
+  agentFullName?: string;
   reasonForPaymentRejection?: string;
   vehicleType?: string;
   vehicleAge?: string;
@@ -76,6 +77,9 @@ interface Application {
   contract?: string;
   receipt?: string;
   ebm?: string;
+  insuranceEndAt?: string;
+  otp?: string;
+  otpExpires?: string;
 }
 
 export default function SuperAdminApplicationsPage() {
@@ -378,7 +382,9 @@ export default function SuperAdminApplicationsPage() {
   <tr>
     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Client</th>
-    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Insurance Type</th>
+    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Insurance Category</th>
+    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Insurance End Date</th>
+    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Agent</th>
     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Company Commission</th>
     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Agent Commission</th>
@@ -402,7 +408,17 @@ export default function SuperAdminApplicationsPage() {
       </div>
     </td>
     <td className="px-4 py-4 text-xs whitespace-nowrap">
-      <div className="text-xs text-gray-900 capitalize">{app.insuranceType.replace('_', ' ')}</div>
+      <div className="text-xs text-gray-900 capitalize">{app.insuranceCategory}</div>
+    </td>
+    <td className="px-4 py-4 text-xs whitespace-nowrap">
+      <div className="text-xs text-gray-900">
+        {app.insuranceEndAt ? new Date(app.insuranceEndAt).toLocaleDateString() : 'N/A'}
+      </div>
+    </td>
+    <td className="px-4 py-4 text-xs whitespace-nowrap">
+      <div className="text-xs text-gray-900">
+        {app.agentFullName || 'Client'}
+      </div>
     </td>
     <td className="px-4 py-4 text-xs whitespace-nowrap">
       <div className="text-xs text-gray-900">
@@ -544,6 +560,16 @@ export default function SuperAdminApplicationsPage() {
                   <div>
                     <p className="text-sm text-gray-500 mb-1">Duration</p>
                     <p className="font-medium text-gray-900">{selectedApp.insuranceDuration}</p>
+                  </div>
+                  {selectedApp.insuranceEndAt && (
+                    <div>
+                      <p className="text-sm text-gray-500 mb-1">Insurance End Date</p>
+                      <p className="font-medium text-gray-900">{new Date(selectedApp.insuranceEndAt).toLocaleDateString()}</p>
+                    </div>
+                  )}
+                  <div>
+                    <p className="text-sm text-gray-500 mb-1">Agent</p>
+                    <p className="font-medium text-gray-900">{selectedApp.agentFullName || 'Client'}</p>
                   </div>
                   {selectedApp.amount && (
                     <div>

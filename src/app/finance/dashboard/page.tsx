@@ -25,6 +25,7 @@ interface PaymentHistoryDetails {
     _id: string;
     name: string;
     agentId: string;
+    agentFullName?: string;
     email: string;
     bankName: string;
     bankAccountNumber: string;
@@ -36,6 +37,7 @@ interface PaymentHistoryDetails {
 interface AgentCommission {
   _id: string;
   agentId: string;
+  agentFullName?: string;
   name: string;
   totalCommission: number;
   phoneNumber: string;
@@ -212,7 +214,8 @@ const FinanceDashboard = () => {
 
   const filteredAgents = currentMonthData.data.filter(agent =>
     agent.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    agent.agentId.toLowerCase().includes(searchTerm.toLowerCase())
+    agent.agentId.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (agent.agentFullName && agent.agentFullName.toLowerCase().includes(searchTerm.toLowerCase()))
   ) || [];
 
   const paginatedAgents = filteredAgents.slice(
@@ -331,12 +334,12 @@ const FinanceDashboard = () => {
 
   const handleExportPayments = () => {
     // Export current month's data as CSV
-    const headers = ['Agent ID', 'Name', 'Phone', 'Email', 'Bank Name', 'Account Number', 'Commission'];
+    const headers = ['Agent ID', 'Agent Name', 'Phone', 'Email', 'Bank Name', 'Account Number', 'Commission'];
     const csvContent = [
       headers.join(','),
       ...currentMonthData.data.map(agent => [
         agent.agentId,
-        `"${agent.name}"`,
+        `"${agent.agentFullName || agent.name}"`,
         agent.phoneNumber,
         agent.email,
         agent.bankName,
@@ -359,12 +362,12 @@ const FinanceDashboard = () => {
     try {
       if (showPaymentDetails) {
         // Export the formatted data that's already displayed
-        const headers = ['Agent ID', 'Name', 'Phone', 'Email', 'Bank Name', 'Account Number', 'Commission'];
+        const headers = ['Agent ID', 'Agent Name', 'Phone', 'Email', 'Bank Name', 'Account Number', 'Commission'];
         const csvContent = [
           headers.join(','),
           ...showPaymentDetails.data.map(agent => [
             agent.agentId,
-            `"${agent.name}"`,
+            `"${agent.agentFullName || agent.name}"`,
             agent.phoneNumber,
             agent.email,
             agent.bankName,
@@ -470,6 +473,7 @@ const FinanceDashboard = () => {
       const formattedData = data.data.map(agent => ({
         _id: agent._id,
         agentId: agent.agentId,
+        agentFullName: agent.agentFullName || agent.name,
         name: agent.name,
         phoneNumber: agent.phoneNumber || '',
         email: agent.email || '',

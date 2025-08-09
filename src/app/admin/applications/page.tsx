@@ -51,6 +51,7 @@ interface Application {
   companyCommission?: number;
   agentCommission?: number;
   agentId?: string;
+  agentFullName?: string;
   reasonForPaymentRejection?: string;
   vehicleType?: string;
   vehicleAge?: string;
@@ -60,6 +61,10 @@ interface Application {
   contract?: string;
   receipt?: string;
   ebm?: string;
+  createdAt?: string;
+  insuranceEndAt?: string;
+  otp?: string;
+  otpExpires?: string;
 }
 
 interface PaginationProps {
@@ -113,10 +118,15 @@ useEffect(() => {
       }
       
       const data = await response.json();
+      console.log('Raw API response:', data);
+      console.log('Applications data:', data.data);
+      console.log('Number of applications:', data.data?.length || 0);
+      
       // Sort applications by submittedAt in descending order (newest first)
       const sortedApplications = data.data.sort((a: Application, b: Application) => {
         return new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime();
       });
+      console.log('Sorted applications:', sortedApplications);
       setApplications(sortedApplications);
     } catch (error) {
       console.error('Error fetching applications:', error);
@@ -731,7 +741,9 @@ const getActionButtons = (app: Application) => {
   <tr>
     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Client</th>
-    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Insurance Type</th>
+    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Insurance Category</th>
+    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Insurance End Date</th>
+    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Agent</th>
     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Company Commission</th>
     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Agent Commission</th>
@@ -755,7 +767,17 @@ const getActionButtons = (app: Application) => {
       </div>
     </td>
     <td className="px-4 py-4 text-xs whitespace-nowrap">
-      <div className="text-xs text-gray-900 capitalize">{app.insuranceType.replace('_', ' ')}</div>
+      <div className="text-xs text-gray-900 capitalize">{app.insuranceCategory}</div>
+    </td>
+    <td className="px-4 py-4 text-xs whitespace-nowrap">
+      <div className="text-xs text-gray-900">
+        {app.insuranceEndAt ? new Date(app.insuranceEndAt).toLocaleDateString() : 'N/A'}
+      </div>
+    </td>
+    <td className="px-4 py-4 text-xs whitespace-nowrap">
+      <div className="text-xs text-gray-900">
+        {app.agentFullName || 'Client'}
+      </div>
     </td>
     <td className="px-4 py-4 text-xs whitespace-nowrap">
       <div className="text-xs text-gray-900">
@@ -881,6 +903,16 @@ const getActionButtons = (app: Application) => {
           <div>
             <p className="text-sm text-gray-500">Duration</p>
             <p className="font-semibold">{selectedApp.insuranceDuration}</p>
+          </div>
+          {selectedApp.insuranceEndAt && (
+            <div>
+              <p className="text-sm text-gray-500">Insurance End Date</p>
+              <p className="font-semibold">{new Date(selectedApp.insuranceEndAt).toLocaleDateString()}</p>
+            </div>
+          )}
+          <div>
+            <p className="text-sm text-gray-500">Agent</p>
+            <p className="font-semibold">{selectedApp.agentFullName || 'Client'}</p>
           </div>
           {selectedApp.amount && (
             <div>
@@ -1032,7 +1064,7 @@ const getActionButtons = (app: Application) => {
   <div className="fixed inset-0 bg-gray-600/50 flex items-center justify-center z-50">
     <div className="max-h-[90vh] overflow-y-auto bg-white rounded-lg shadow-xl p-6 w-full max-w-md mx-4 fade-in">
       <h3 className="text-lg font-semibold mb-4">Send Invoice to {selectedApp.fullName}</h3>
-      <p className="text-gray-600 mb-4">Enter the invoice details for {selectedApp.insuranceType} insurance:</p>
+              <p className="text-gray-600 mb-4">Enter the invoice details for {selectedApp.insuranceCategory} insurance:</p>
       
       {/* Add Amount field */}
      <div className="mt-4">
@@ -1206,7 +1238,7 @@ const getActionButtons = (app: Application) => {
         <div className="fixed inset-0 bg-gray-600/50 flex items-center justify-center z-50">
           <div className="max-h-[90vh] overflow-y-auto bg-white rounded-lg shadow-xl p-6 w-full max-w-md mx-4 fade-in">
             <h3 className="text-lg font-semibold mb-4">Issue Insurance</h3>
-            <p className="text-gray-600 mb-4">Issue insurance certificate for {selectedApp.fullName}&apos;s {selectedApp.insuranceType} insurance:</p>
+            <p className="text-gray-600 mb-4">Issue insurance certificate for {selectedApp.fullName}&apos;s {selectedApp.insuranceCategory} insurance:</p>
             
             <div className="border rounded-lg p-4 mb-4 bg-blue-50">
               <p className="font-medium text-[var(--main-blue)]">Application Approved & Payment Verified</p>
@@ -1437,11 +1469,21 @@ const getActionButtons = (app: Application) => {
           </div>
           <div>
             <p className="text-sm text-gray-500">Insurance Type</p>
-            <p className="font-semibold">{selectedApp.insuranceType}</p>
+                                <p className="font-semibold">{selectedApp.insuranceCategory}</p>
           </div>
           <div>
             <p className="text-sm text-gray-500">Duration</p>
             <p className="font-semibold">{selectedApp.insuranceDuration}</p>
+          </div>
+          {selectedApp.insuranceEndAt && (
+            <div>
+              <p className="text-sm text-gray-500">Insurance End Date</p>
+              <p className="font-semibold">{new Date(selectedApp.insuranceEndAt).toLocaleDateString()}</p>
+            </div>
+          )}
+          <div>
+            <p className="text-sm text-gray-500">Agent</p>
+            <p className="font-semibold">{selectedApp.agentFullName || 'Client'}</p>
           </div>
           {selectedApp.amount && (
             <div>

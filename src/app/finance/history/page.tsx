@@ -37,6 +37,7 @@ interface PaymentHistoryDetails {
     _id: string;
     name: string;
     agentId: string;
+    agentFullName?: string;
     email: string;
     bankName: string;
     bankAccountNumber: string;
@@ -51,6 +52,7 @@ interface PaymentDetailsModal {
   data: Array<{
     _id: string;
     agentId: string;
+    agentFullName?: string;
     name: string;
     phoneNumber: string;
     email: string;
@@ -134,12 +136,12 @@ const PaymentHistory = () => {
       
       const data = await response.json();
       
-      const headers = ['Agent ID', 'Name', 'Phone', 'Email', 'Bank Name', 'Account Number', 'Commission'];
+      const headers = ['Agent ID', 'Agent Name', 'Phone', 'Email', 'Bank Name', 'Account Number', 'Commission'];
       const csvContent = [
         headers.join(','),
         ...data.data.map((agent: PaymentHistoryDetails['data'][0]) => [
           agent.agentId,
-          `"${agent.name}"`,
+          `"${agent.agentFullName || agent.name}"`,
           agent.phoneNumber || '',
           agent.email || '',
           agent.bankName || '',
@@ -221,6 +223,7 @@ const PaymentHistory = () => {
       const formattedData = data.data.map(agent => ({
         _id: agent._id,
         agentId: agent.agentId,
+        agentFullName: agent.agentFullName || agent.name,
         name: agent.name,
         phoneNumber: agent.phoneNumber || '',
         email: agent.email || '',
@@ -556,7 +559,7 @@ const PaymentHistory = () => {
                       {showPaymentDetails.data.map((agent, index) => (
                         <tr key={agent._id} className="hover:bg-gray-50">
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{index + 1}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{agent.name}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{agent.agentFullName || agent.name}</td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{agent.phoneNumber || '-'}</td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{agent.bankName || '-'}</td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{agent.bankAccountNumber || '-'}</td>
