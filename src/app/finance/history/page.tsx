@@ -18,10 +18,11 @@ interface PaymentHistory {
   year: number;
   totalAmount: number;
   agentsPaid: number;
-  paid: boolean;
+  isPaid: boolean;
   totalCommissionForMonth?: string;
   data?: Array<{
     agentId: string;
+    agentFullName?: string;
     name: string;
     region: string;
     clients: number;
@@ -94,10 +95,12 @@ const PaymentHistory = () => {
       if (!response.ok) throw new Error('Failed to fetch payment history');
       
       const data = await response.json();
+      console.log("Payment history data:", data);
+      console.log("Processed payment history:", data.results);
       setPaymentHistory(
         (data.results || []).map((item: PaymentHistory) => ({
           ...item,
-          paid: data.isPaid || item.paid || false // Use isPaid from API if available
+          isPaid: item.isPaid || false
         }))
       );
     } catch (error) {
@@ -379,7 +382,7 @@ const PaymentHistory = () => {
                     onChange={(e) => setSelectedYear(e.target.value)}
                     className="px-4 py-2 border border-blue-300 rounded-lg bg-white/90 backdrop-blur text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400"
                   >
-                    {[2023, 2022, 2021].map(year => (
+                    {[2025, 2024, 2023, 2022, 2021].map(year => (
                       <option key={year} value={year}>{year}</option>
                     ))}
                   </select>
@@ -456,9 +459,9 @@ const PaymentHistory = () => {
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{payment.agentsPaid}</td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                              payment.paid ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
+                              payment.isPaid ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
                             }`}>
-                              {payment.paid ? 'Paid' : 'Pending'}
+                              {payment.isPaid ? 'Paid' : 'Pending'}
                             </span>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
@@ -468,7 +471,7 @@ const PaymentHistory = () => {
                             >
                               View
                             </button>
-                            {!payment.paid && (
+                            {!payment.isPaid && (
                               markingAsPaid && markingAsPaid.month === payment.month && markingAsPaid.year === payment.year ? (
                                 <span className="inline-block w-6 h-6 align-middle">
                                   <span className="inline-block animate-spin rounded-full h-6 w-6 border-2 border-green-200 border-t-green-600"></span>
