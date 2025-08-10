@@ -44,6 +44,7 @@ interface Application {
   rejectionReason?: string;
   reasonForPaymentRejection?: string;
   amount?: number;
+  companyCommission?: number;
   agentCommission?: number;
   agentId?: string;
   agentFullName?: string;

@@ -8,15 +8,7 @@ import { MainLayout } from '@/components/ui/main-layout';
 import { useAuth } from '@/context/AuthContext';
 
 // Define types for the data
-interface Application {
-  id: string;
-  client: string;
-  type: string;
-  amount: string;
-  status: string;
-  time: string;
-  region: string;
-}
+
 
 interface InsuranceDistribution {
   name: string;
@@ -41,24 +33,10 @@ interface RevenueDataPoint {
   conversion?: number;
 }
 
-interface DailyMetric {
-  day: string;
-  revenue?: number;
-  applications?: number;
-  agents?: number;
-  clients?: number;
-}
+
 
 // Add interfaces for top agents and regional performance
-interface TopAgent {
-  _id: string;
-  totalCommission: number;
-  clients: number;
-  agentId: string;
-  agentFullName?: string;
-  fullName: string;
-  province: string;
-}
+
 
 interface RegionalPerformance {
   province: string;
@@ -148,25 +126,7 @@ const fetchTotalCommission = async (token: string) => {
   }
 };
 
-const fetchRecentApplications = async (token: string) => {
-  try {
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/getRecentApplications`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      }
-    });
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    const data = await response.json();
-    return data.data || [];
-  } catch (error) {
-    console.error('Error fetching recent applications:', error);
-    return [];
-  }
-};
+
 
 const fetchInsuranceDistribution = async (token: string) => {
   try {
@@ -217,30 +177,20 @@ const SuperAdminDashboard = () => {
     }
   });
 
-  const [recentApplications, setRecentApplications] = useState<Application[]>([]);
   const [insuranceDistribution, setInsuranceDistribution] = useState<InsuranceDistribution[]>([]);
   const [isInsuranceDistributionLoading, setIsInsuranceDistributionLoading] = useState(true);
 
-  // State for top agents and regional performance
-  const [topAgents, setTopAgents] = useState<TopAgent[]>([]);
+  // State for regional performance
   const [regionalPerformance, setRegionalPerformance] = useState<RegionalPerformance[]>([]);
-  const [isTopAgentsLoading, setIsTopAgentsLoading] = useState(true);
   const [isRegionalPerformanceLoading, setIsRegionalPerformanceLoading] = useState(true);
-
-  // State for average commission and total agents
-  const [averageCommission, setAverageCommission] = useState<number | null>(null);
-  const [totalAgents, setTotalAgents] = useState<number | null>(null);
-  const [isAvgCommissionLoading, setIsAvgCommissionLoading] = useState(true);
 
   // State for total clients
   const [totalClients, setTotalClients] = useState<number | null>(null);
   const [isTotalClientsLoading, setIsTotalClientsLoading] = useState(true);
 
-  // State for revenue and daily metrics loading and data
+  // State for revenue loading and data
   const [isRevenueLoading, setIsRevenueLoading] = useState(true);
-  const [isDailyMetricsLoading, setIsDailyMetricsLoading] = useState(true);
   const [revenueData, setRevenueData] = useState<RevenueDataPoint[]>([]);
-  const [dailyMetrics, setDailyMetrics] = useState<DailyMetric[]>([]);
 
   const statsCards = [
     {
@@ -340,21 +290,7 @@ const SuperAdminDashboard = () => {
     fetchStatsData();
   }, [token]);
 
-  useEffect(() => {
-    if (!token) return;
-    fetchRecentApplications(token).then((apps: any[] = []) => {
-      const mapped: Application[] = apps.map((app) => ({
-        id: app.applicationNumber || app._id,
-        client: app.fullName,
-        type: app.insuranceCategory,
-        amount: app.amount ? app.amount.toString() : '-',
-        status: app.status,
-        time: app.submittedAt ? new Date(app.submittedAt).toLocaleString() : '',
-        region: app.province || '',
-      }));
-      setRecentApplications(mapped);
-    });
-  }, [token]);
+
 
   useEffect(() => {
     if (!token) return;
@@ -373,22 +309,7 @@ const SuperAdminDashboard = () => {
     });
   }, [token]);
 
-  // Fetch Top Agents
-  useEffect(() => {
-    if (!token) return;
-    setIsTopAgentsLoading(true);
-    fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/getTopAgents`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      }
-    })
-      .then(res => res.json())
-      .then(data => setTopAgents(data.data || []))
-      .catch(() => setTopAgents([]))
-      .finally(() => setIsTopAgentsLoading(false));
-  }, [token]);
+
 
   // Fetch Regional Performance
   useEffect(() => {
@@ -407,28 +328,7 @@ const SuperAdminDashboard = () => {
       .finally(() => setIsRegionalPerformanceLoading(false));
   }, [token]);
 
-  // Fetch average commission and total agents
-  useEffect(() => {
-    if (!token) return;
-    setIsAvgCommissionLoading(true);
-    fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/getMonthlyAverageAgentCommission`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      }
-    })
-      .then(res => res.json())
-      .then(data => {
-        setAverageCommission(data.data?.averageCommission ?? 0);
-        setTotalAgents(data.data?.totalAgents ?? 0);
-      })
-      .catch(() => {
-        setAverageCommission(0);
-        setTotalAgents(0);
-      })
-      .finally(() => setIsAvgCommissionLoading(false));
-  }, [token]);
+
 
   // Fetch total clients
   useEffect(() => {
@@ -466,13 +366,7 @@ const SuperAdminDashboard = () => {
       .finally(() => setIsRevenueLoading(false));
   }, [token]);
 
-  useEffect(() => {
-    setIsDailyMetricsLoading(true);
-    setTimeout(() => {
-      setDailyMetrics([]); // Set to [] or real data
-      setIsDailyMetricsLoading(false);
-    }, 1000);
-  }, []);
+
 
   const CustomTooltip: React.FC<TooltipProps<number, string>> = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
