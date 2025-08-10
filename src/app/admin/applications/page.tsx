@@ -51,6 +51,7 @@ interface Application {
   companyCommission?: number;
   agentCommission?: number;
   agentId?: string;
+  agentFullName?: string;
   reasonForPaymentRejection?: string;
   vehicleType?: string;
   vehicleAge?: string;
@@ -60,6 +61,10 @@ interface Application {
   contract?: string;
   receipt?: string;
   ebm?: string;
+  createdAt?: string;
+  insuranceEndAt?: string;
+  otp?: string;
+  otpExpires?: string;
 }
 
 interface PaginationProps {
@@ -74,7 +79,9 @@ export default function ManageApplicationsPage() {
   const [applications, setApplications] = useState<Application[]>([]);
   const [selectedApp, setSelectedApp] = useState<Application | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeTab, setActiveTab] = useState<ApplicationStatus | 'all'>('all');
+  const [selectedStatus, setSelectedStatus] = useState<string>('all');
+  const [startDate, setStartDate] = useState<string>('');
+  const [endDate, setEndDate] = useState<string>('');
   const [isLoading, setIsLoading] = useState(true);
   const [invoiceMessage, setInvoiceMessage] = useState('');
   const [invoiceFile, setInvoiceFile] = useState<File | null>(null);
@@ -95,8 +102,24 @@ const [isRejecting, setIsRejecting] = useState(false);
   } | null>(null);
   const itemsPerPage = 10;
 
+  // Helper functions for date filtering
+  const getFirstDayOfMonth = () => {
+    const now = new Date();
+    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+    return firstDay.toISOString().split('T')[0];
+  };
+
+  const getCurrentDate = () => {
+    return new Date().toISOString().split('T')[0];
+  };
+
+  // Set default date range to current month
+  useEffect(() => {
+    setStartDate(getFirstDayOfMonth());
+    setEndDate(getCurrentDate());
+  }, []);
+
   // Fetch applications from API
-useEffect(() => {
   const fetchApplications = async () => {
     try {
       setIsLoading(true);
@@ -113,10 +136,15 @@ useEffect(() => {
       }
       
       const data = await response.json();
+      console.log('Raw API response:', data);
+      console.log('Applications data:', data.data);
+      console.log('Number of applications:', data.data?.length || 0);
+      
       // Sort applications by submittedAt in descending order (newest first)
       const sortedApplications = data.data.sort((a: Application, b: Application) => {
         return new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime();
       });
+      console.log('Sorted applications:', sortedApplications);
       setApplications(sortedApplications);
     } catch (error) {
       console.error('Error fetching applications:', error);
@@ -126,27 +154,73 @@ useEffect(() => {
     }
   };
 
-  if (token) {
-    fetchApplications();
-  }
-}, [token]);
+  useEffect(() => {
+    if (token) {
+      fetchApplications();
+    }
+  }, [token]);
 
-  // Filter applications based on search query and tab
+  // Filter applications based on search query, status, and date range
   const filteredApplications = applications.filter(app => {
     const matchesSearch = 
       app.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       app.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
       app.applicationNumber.toLowerCase().includes(searchQuery.toLowerCase());
     
-    const matchesTab = activeTab === 'all' || app.status.toLowerCase() === activeTab;
+    const matchesStatus = selectedStatus === 'all' || app.status.toLowerCase() === selectedStatus;
     
-    return matchesSearch && matchesTab;
+    const matchesDateRange = (() => {
+      if (!startDate && !endDate) return true;
+      
+      const appDate = new Date(app.submittedAt);
+      const start = startDate ? new Date(startDate) : null;
+      const end = endDate ? new Date(endDate) : null;
+      
+      if (start && end) {
+        return appDate >= start && appDate <= end;
+      } else if (start) {
+        return appDate >= start;
+      } else if (end) {
+        return appDate <= end;
+      }
+      return true;
+    })();
+    
+    return matchesSearch && matchesStatus && matchesDateRange;
   });
 
   const paginatedApplications = filteredApplications.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
   );
+
+  // Handle filter changes
+  const handleFilterChange = (filterType: string, value: string) => {
+    switch (filterType) {
+      case 'search':
+        setSearchQuery(value);
+        break;
+      case 'status':
+        setSelectedStatus(value);
+        break;
+      case 'startDate':
+        setStartDate(value);
+        break;
+      case 'endDate':
+        setEndDate(value);
+        break;
+    }
+    setCurrentPage(1); // Reset to first page when filters change
+  };
+
+  // Handle clearing all filters
+  const handleClearFilters = () => {
+    setSearchQuery('');
+    setSelectedStatus('all');
+    setStartDate(getFirstDayOfMonth());
+    setEndDate(getCurrentDate());
+    setCurrentPage(1);
+  };
 
   // Send invoice to client
  const handleSendInvoice = async () => {
@@ -383,41 +457,27 @@ const handleReject = async (action: 'application' | 'payment') => {
 const handleApproveApplication = async () => {
   if (!selectedApp) return;
   
-  setIsApproving(true);
   try {
-    const response = await fetch(
-      `${process.env.NEXT_PUBLIC_API_BASE_URL}/approveApplication/${selectedApp._id}`,
-      {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        }
+    setIsApproving(true);
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/applications/${selectedApp._id}/approve`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
       }
-    );
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.message || 'Failed to approve application');
-    }
-
-    const updatedApplications = applications.map(app => {
-      if (app._id === selectedApp._id) {
-        return {
-          ...app,
-          status: ApplicationStatus.APPLICATION_APPROVED
-        };
-      }
-      return app;
     });
     
-    setApplications(updatedApplications);
-    showToast(`Application from ${selectedApp.fullName} approved`, 'success');
-    setSelectedApp(null);
+    if (!response.ok) {
+      throw new Error('Failed to approve application');
+    }
+    
+    showToast('Application approved successfully', 'success');
     setActiveModal(null);
+    setSelectedApp(null);
+    fetchApplications();
   } catch (error) {
     console.error('Error approving application:', error);
-    showToast(error instanceof Error ? error.message : 'Failed to approve application', 'error');
+    showToast('Failed to approve application', 'error');
   } finally {
     setIsApproving(false);
   }
@@ -628,6 +688,147 @@ const getActionButtons = (app: Application) => {
     );
   };
 
+  // PDF Download Function
+  const handleDownloadPDF = async () => {
+    try {
+      const { jsPDF } = await import('jspdf');
+      const autoTable = await import('jspdf-autotable');
+      
+      const doc = new jsPDF('landscape', 'mm', 'a4');
+      const currentDate = new Date().toLocaleDateString();
+      const currentTime = new Date().toLocaleTimeString();
+      
+                // Add title
+          doc.setFontSize(20);
+          doc.setTextColor(10, 37, 64); // Dark blue color
+          doc.text('Ezinsure Applications Report', 14, 20);
+      
+      // Add subtitle with date and time
+      doc.setFontSize(12);
+      doc.setTextColor(100, 100, 100);
+      doc.text(`Generated on: ${currentDate} at ${currentTime}`, 14, 30);
+      
+      // Add filter information
+      doc.setFontSize(11);
+      doc.setTextColor(60, 60, 60);
+      let filterY = 40;
+      
+      if (searchQuery) {
+        doc.text(`Search Query: ${searchQuery}`, 14, filterY);
+        filterY += 6;
+      }
+      
+      if (selectedStatus !== 'all') {
+        doc.text(`Status Filter: ${selectedStatus.replace('_', ' ')}`, 14, filterY);
+        filterY += 6;
+      }
+      
+      if (startDate || endDate) {
+        doc.text(`Date Range: ${startDate || 'beginning'} to ${endDate || 'now'}`, 14, filterY);
+        filterY += 6;
+      }
+      
+      // Add summary information
+      filterY += 3;
+      doc.setFontSize(10);
+      doc.setTextColor(80, 80, 80);
+      doc.text(`Total Applications: ${filteredApplications.length}`, 14, filterY);
+      filterY += 5;
+      
+      // Calculate totals
+      const totalAmount = filteredApplications.reduce((sum, app) => sum + (app.amount || 0), 0);
+      const totalCompanyCommission = filteredApplications.reduce((sum, app) => sum + (app.companyCommission || 0), 0);
+      const totalAgentCommission = filteredApplications.reduce((sum, app) => sum + (app.agentCommission || 0), 0);
+      
+      doc.text(`Total Amount: ${totalAmount.toLocaleString()} RWF`, 14, filterY);
+      filterY += 5;
+      doc.text(`Total Company Commission: ${totalCompanyCommission.toLocaleString()} RWF`, 14, filterY);
+      filterY += 5;
+      doc.text(`Total Agent Commission: ${totalAgentCommission.toLocaleString()} RWF`, 14, filterY);
+      
+      // Prepare table data with text truncation for better fit
+      const tableData = filteredApplications.map((app, index) => [
+        (index + 1).toString(),
+        app.fullName.length > 28 ? app.fullName.substring(0, 28) + '...' : app.fullName,
+        app.email.length > 32 ? app.email.substring(0, 32) + '...' : app.email,
+        app.insuranceCategory.length > 22 ? app.insuranceCategory.substring(0, 22) + '...' : app.insuranceCategory,
+        app.insuranceType.length > 22 ? app.insuranceType.substring(0, 22) + '...' : app.insuranceType,
+        (app.agentFullName || 'Client').length > 22 ? (app.agentFullName || 'Client').substring(0, 22) + '...' : (app.agentFullName || 'Client'),
+        app.amount ? `${app.amount.toLocaleString()} RWF` : '0 RWF',
+        app.companyCommission ? `${app.companyCommission.toLocaleString()} RWF` : '0 RWF',
+        app.agentCommission ? `${app.agentCommission.toLocaleString()} RWF` : '0 RWF',
+        new Date(app.submittedAt).toLocaleDateString(),
+        app.status.replace('_', ' ').toUpperCase()
+      ]);
+      
+      // Add table
+      autoTable.default(doc, {
+        head: [
+          ['#', 'Client Name', 'Email', 'Category', 'Type', 'Agent', 'Amount', 'Company Comm.', 'Agent Comm.', 'Date', 'Status']
+        ],
+        body: tableData,
+        startY: filterY + 10,
+        styles: {
+          fontSize: 7,
+          cellPadding: 1,
+          overflow: 'linebreak',
+          font: 'helvetica',
+          lineColor: [200, 200, 200],
+          lineWidth: 0.1,
+          fillColor: false,
+          halign: 'left',
+          valign: 'middle',
+        },
+        headStyles: {
+          fillColor: [10, 37, 64], // Dark blue header
+          textColor: [255, 255, 255],
+          fontStyle: 'bold',
+          fontSize: 8,
+          halign: 'center',
+          valign: 'middle',
+        },
+        columnStyles: {
+          0: { cellWidth: 8, halign: 'center' }, // #
+          1: { cellWidth: 30, halign: 'left' }, // Name
+          2: { cellWidth: 35, halign: 'left' }, // Email
+          3: { cellWidth: 25, halign: 'left' }, // Category
+          4: { cellWidth: 25, halign: 'left' }, // Type
+          5: { cellWidth: 25, halign: 'left' }, // Agent
+          6: { cellWidth: 25, halign: 'right' }, // Amount
+          7: { cellWidth: 25, halign: 'right' }, // Company Comm
+          8: { cellWidth: 25, halign: 'right' }, // Agent Comm
+          9: { cellWidth: 20, halign: 'center' }, // Date
+          10: { cellWidth: 25, halign: 'center' }, // Status
+        },
+        alternateRowStyles: {
+          fillColor: [245, 245, 245],
+        },
+        margin: { top: 10, right: 8, bottom: 10, left: 8 },
+        pageBreak: 'auto',
+        showFoot: 'lastPage',
+        didDrawPage: function (data) {
+          // Add page numbers
+          doc.setFontSize(8);
+          doc.setTextColor(100, 100, 100);
+          doc.text(`Page ${data.pageNumber}`, doc.internal.pageSize.width - 20, doc.internal.pageSize.height - 10);
+        },
+      });
+      
+      // Generate filename
+      const dateStr = new Date().toISOString().split('T')[0];
+      const timeStr = new Date().toLocaleTimeString().replace(/:/g, '-');
+      const filename = `insurance_applications_${dateStr}_${timeStr}.pdf`;
+      
+      // Save the PDF
+      doc.save(filename);
+      
+      showToast('PDF downloaded successfully', 'success');
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      showToast('Failed to generate PDF', 'error');
+    }
+  };
+
   return (
     <MainLayout containerClass="p-0" fullWidth>
       <div className="container mx-auto px-4 py-8">
@@ -639,14 +840,16 @@ const getActionButtons = (app: Application) => {
 
         {/* Search and filter section */}
         <div className="mb-6 bg-white p-4 rounded-lg shadow-sm slide-in-right">
-          <div className="flex flex-col md:flex-row justify-between gap-4">
-            <div className="w-full md:w-1/3">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+            {/* Search Input */}
+            <div className="lg:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Search Applications</label>
               <Input
                 label=""
                 name="search"
                 placeholder="Search by name, email or ID..."
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(e) => handleFilterChange('search', e.target.value)}
                 icon={
                   <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <circle cx="11" cy="11" r="8"></circle>
@@ -656,57 +859,102 @@ const getActionButtons = (app: Application) => {
               />
             </div>
             
-            <div className="flex overflow-x-auto pb-2 md:pb-0 gap-2">
-              <Button
-                size="xs"
-                variant={activeTab === 'all' ? 'primary' : 'text'}
-                onClick={() => setActiveTab('all')}
+            {/* Status Select */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Status Filter</label>
+              <select
+                value={selectedStatus}
+                onChange={(e) => handleFilterChange('status', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[var(--main-blue)] focus:border-[var(--main-blue)] sm:text-sm bg-white"
               >
-                All
-              </Button>
+                <option value="all">All Statuses</option>
+                <option value={ApplicationStatus.PENDING}>Pending</option>
+                <option value={ApplicationStatus.APPLICATION_APPROVED}>Application Approved</option>
+                <option value={ApplicationStatus.WAITING_FOR_USER_ACTION}>Waiting for User Action</option>
+                <option value={ApplicationStatus.INVOICE_SENT}>Invoice Sent</option>
+                <option value={ApplicationStatus.REVIEW_PAYMENT}>Review Payment</option>
+                <option value={ApplicationStatus.PAYMENT_VERIFIED}>Payment Verified</option>
+                <option value={ApplicationStatus.INSURANCE_ISSUED}>Insurance Issued</option>
+              </select>
+            </div>
+            
+            {/* Start Date */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">From Date</label>
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => handleFilterChange('startDate', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[var(--main-blue)] focus:border-[var(--main-blue)] sm:text-sm bg-white"
+              />
+            </div>
+            
+            {/* End Date */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">To Date</label>
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => handleFilterChange('endDate', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[var(--main-blue)] focus:border-[var(--main-blue)] sm:text-sm bg-white"
+              />
+            </div>
+          </div>
+          
+          {/* Filter Actions */}
+          <div className="mt-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+            <div className="text-sm text-gray-500">
+              {searchQuery && <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 mr-2">Search: {searchQuery}</span>}
+              {selectedStatus !== 'all' && <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 mr-2">Status: {selectedStatus.replace('_', ' ')}</span>}
+              {(startDate || endDate) && <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">Date Range: {startDate || 'beginning'} - {endDate || 'now'}</span>}
+            </div>
+            <div className="flex gap-2">
+              {filteredApplications.length > 0 && (
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={handleDownloadPDF}
+                  className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 flex items-center gap-2"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                    <polyline points="14,2 14,8 20,8"></polyline>
+                    <line x1="16" y1="13" x2="8" y2="13"></line>
+                    <line x1="16" y1="17" x2="8" y2="17"></line>
+                    <polyline points="10,9 9,9 8,9"></polyline>
+                  </svg>
+                  Download PDF
+                </Button>
+              )}
               <Button
-                size="xs"
-                variant={activeTab === ApplicationStatus.PENDING ? 'primary' : 'text'}
-                onClick={() => setActiveTab(ApplicationStatus.PENDING)}
+                variant="text"
+                size="sm"
+                onClick={handleClearFilters}
+                className="text-gray-600 hover:text-gray-800 border border-gray-300 hover:border-gray-400 px-4"
               >
-                Pending
-              </Button>
-              <Button
-                size="xs"
-                variant={activeTab === ApplicationStatus.PAYMENT_VERIFIED ? 'primary' : 'text'}
-                onClick={() => setActiveTab(ApplicationStatus.PAYMENT_VERIFIED)}
-              >
-                Payment Verified
-              </Button>
-              <Button
-                size="xs"
-                variant={activeTab === ApplicationStatus.APPLICATION_APPROVED ? 'primary' : 'text'}
-                onClick={() => setActiveTab(ApplicationStatus.APPLICATION_APPROVED)}
-              >
-                Application Approved
-              </Button>
-              <Button
-                size="xs"
-                variant={activeTab === ApplicationStatus.INVOICE_SENT ? 'primary' : 'text'}
-                onClick={() => setActiveTab(ApplicationStatus.INVOICE_SENT)}
-              >
-                Invoice Sent
-              </Button>
-              <Button
-                size="xs"
-                variant={activeTab === ApplicationStatus.REVIEW_PAYMENT ? 'primary' : 'text'}
-                onClick={() => setActiveTab(ApplicationStatus.REVIEW_PAYMENT)}
-              >
-                Review Payment
-              </Button>
-              <Button
-                size="xs"
-                variant={activeTab === ApplicationStatus.WAITING_FOR_USER_ACTION ? 'primary' : 'text'}
-                onClick={() => setActiveTab(ApplicationStatus.WAITING_FOR_USER_ACTION)}
-              >
-                Waiting for User
+                Clear All Filters
               </Button>
             </div>
+          </div>
+        </div>
+
+        {/* Results Summary */}
+        <div className="mb-4 bg-white p-4 rounded-lg shadow-sm">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+            <div className="text-sm text-gray-600">
+              Showing <span className="font-medium">{filteredApplications.length}</span> of <span className="font-medium">{applications.length}</span> applications
+              {selectedStatus !== 'all' && (
+                <span> with status: <span className="font-medium capitalize">{selectedStatus.replace('_', ' ')}</span></span>
+              )}
+              {(startDate || endDate) && (
+                <span> from <span className="font-medium">{startDate || 'beginning'}</span> to <span className="font-medium">{endDate || 'now'}</span></span>
+              )}
+            </div>
+            {filteredApplications.length > 0 && (
+              <div className="text-sm text-gray-500">
+                Page {currentPage} of {Math.ceil(filteredApplications.length / itemsPerPage)}
+              </div>
+            )}
           </div>
         </div>
 
@@ -717,12 +965,15 @@ const getActionButtons = (app: Application) => {
               <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-[var(--mid-gray)] border-t-[var(--main-blue)]"></div>
               <p className="mt-4 text-gray-600">Loading applications...</p>
             </div>
-          ) : paginatedApplications.length === 0 ? (
+          ) : filteredApplications.length === 0 ? (
             <div className="p-8 text-center">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 mx-auto text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
               </svg>
               <p className="mt-4 text-gray-600">No applications found</p>
+              {(searchQuery || selectedStatus !== 'all' || startDate || endDate) && (
+                <p className="mt-2 text-sm text-gray-500">Try adjusting your filters</p>
+              )}
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -731,7 +982,9 @@ const getActionButtons = (app: Application) => {
   <tr>
     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Client</th>
-    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Insurance Type</th>
+    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Insurance Category</th>
+    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Insurance End Date</th>
+    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Agent</th>
     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Company Commission</th>
     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Agent Commission</th>
@@ -755,7 +1008,17 @@ const getActionButtons = (app: Application) => {
       </div>
     </td>
     <td className="px-4 py-4 text-xs whitespace-nowrap">
-      <div className="text-xs text-gray-900 capitalize">{app.insuranceType.replace('_', ' ')}</div>
+      <div className="text-xs text-gray-900 capitalize">{app.insuranceCategory}</div>
+    </td>
+    <td className="px-4 py-4 text-xs whitespace-nowrap">
+      <div className="text-xs text-gray-900">
+        {app.insuranceEndAt ? new Date(app.insuranceEndAt).toLocaleDateString() : 'N/A'}
+      </div>
+    </td>
+    <td className="px-4 py-4 text-xs whitespace-nowrap">
+      <div className="text-xs text-gray-900">
+        {app.agentFullName || 'Client'}
+      </div>
     </td>
     <td className="px-4 py-4 text-xs whitespace-nowrap">
       <div className="text-xs text-gray-900">
@@ -881,6 +1144,16 @@ const getActionButtons = (app: Application) => {
           <div>
             <p className="text-sm text-gray-500">Duration</p>
             <p className="font-semibold">{selectedApp.insuranceDuration}</p>
+          </div>
+          {selectedApp.insuranceEndAt && (
+            <div>
+              <p className="text-sm text-gray-500">Insurance End Date</p>
+              <p className="font-semibold">{new Date(selectedApp.insuranceEndAt).toLocaleDateString()}</p>
+            </div>
+          )}
+          <div>
+            <p className="text-sm text-gray-500">Agent</p>
+            <p className="font-semibold">{selectedApp.agentFullName || 'Client'}</p>
           </div>
           {selectedApp.amount && (
             <div>
@@ -1032,7 +1305,7 @@ const getActionButtons = (app: Application) => {
   <div className="fixed inset-0 bg-gray-600/50 flex items-center justify-center z-50">
     <div className="max-h-[90vh] overflow-y-auto bg-white rounded-lg shadow-xl p-6 w-full max-w-md mx-4 fade-in">
       <h3 className="text-lg font-semibold mb-4">Send Invoice to {selectedApp.fullName}</h3>
-      <p className="text-gray-600 mb-4">Enter the invoice details for {selectedApp.insuranceType} insurance:</p>
+              <p className="text-gray-600 mb-4">Enter the invoice details for {selectedApp.insuranceCategory} insurance:</p>
       
       {/* Add Amount field */}
      <div className="mt-4">
@@ -1206,7 +1479,7 @@ const getActionButtons = (app: Application) => {
         <div className="fixed inset-0 bg-gray-600/50 flex items-center justify-center z-50">
           <div className="max-h-[90vh] overflow-y-auto bg-white rounded-lg shadow-xl p-6 w-full max-w-md mx-4 fade-in">
             <h3 className="text-lg font-semibold mb-4">Issue Insurance</h3>
-            <p className="text-gray-600 mb-4">Issue insurance certificate for {selectedApp.fullName}&apos;s {selectedApp.insuranceType} insurance:</p>
+            <p className="text-gray-600 mb-4">Issue insurance certificate for {selectedApp.fullName}&apos;s {selectedApp.insuranceCategory} insurance:</p>
             
             <div className="border rounded-lg p-4 mb-4 bg-blue-50">
               <p className="font-medium text-[var(--main-blue)]">Application Approved & Payment Verified</p>
@@ -1437,11 +1710,21 @@ const getActionButtons = (app: Application) => {
           </div>
           <div>
             <p className="text-sm text-gray-500">Insurance Type</p>
-            <p className="font-semibold">{selectedApp.insuranceType}</p>
+                                <p className="font-semibold">{selectedApp.insuranceCategory}</p>
           </div>
           <div>
             <p className="text-sm text-gray-500">Duration</p>
             <p className="font-semibold">{selectedApp.insuranceDuration}</p>
+          </div>
+          {selectedApp.insuranceEndAt && (
+            <div>
+              <p className="text-sm text-gray-500">Insurance End Date</p>
+              <p className="font-semibold">{new Date(selectedApp.insuranceEndAt).toLocaleDateString()}</p>
+            </div>
+          )}
+          <div>
+            <p className="text-sm text-gray-500">Agent</p>
+            <p className="font-semibold">{selectedApp.agentFullName || 'Client'}</p>
           </div>
           {selectedApp.amount && (
             <div>

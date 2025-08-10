@@ -44,11 +44,17 @@ interface Application {
   rejectionReason?: string;
   reasonForPaymentRejection?: string;
   amount?: number;
+  companyCommission?: number;
   agentCommission?: number;
   agentId?: string;
+  agentFullName?: string;
   contract?: string;
   receipt?: string;
   ebm?: string;
+  createdAt?: string;
+  insuranceEndAt?: string;
+  otp?: string;
+  otpExpires?: string;
 }
 
 interface PaginationProps {
@@ -119,7 +125,7 @@ const [formState, setFormState] = useState<Partial<Application>>(() => {
     address: application.address,
     dateOfBirth: application.dateOfBirth,
     insuranceCategory: application.insuranceCategory,
-    insuranceType: application.insuranceType,
+    
     insuranceDuration: application.insuranceDuration,
     vehicleType: application.vehicleType,
     vehicleAge: application.vehicleAge,
@@ -731,7 +737,9 @@ export default function AgentApplicationsPage() {
   const [transactionId, setTransactionId] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  const [activeTab, setActiveTab] = useState<'all' | string>('all');
+  const [selectedStatus, setSelectedStatus] = useState<string>('all');
+  const [startDate, setStartDate] = useState<string>('');
+  const [endDate, setEndDate] = useState<string>('');
   const [viewingDocument, setViewingDocument] = useState<{
     name: string;
     path: string;
@@ -740,6 +748,23 @@ export default function AgentApplicationsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const itemsPerPage = 10;
   const [activeModal, setActiveModal] = useState<ModalType>('none');
+
+  // Helper functions for date filtering
+  const getFirstDayOfMonth = () => {
+    const now = new Date();
+    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+    return firstDay.toISOString().split('T')[0];
+  };
+
+  const getCurrentDate = () => {
+    return new Date().toISOString().split('T')[0];
+  };
+
+  // Set default date range to current month
+  useEffect(() => {
+    setStartDate(getFirstDayOfMonth());
+    setEndDate(getCurrentDate());
+  }, []);
 
   const fetchApplications = async () => {
   try {
@@ -779,22 +804,208 @@ useEffect(() => {
   }
 }, [token]);
 
-  // Filter applications based on search query and tab
+  // Filter applications based on search query, status, and date range
   const filteredApplications = applications.filter(app => {
     const matchesSearch = 
       app.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       app.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
       app.applicationNumber.toLowerCase().includes(searchQuery.toLowerCase());
     
-    const matchesTab = activeTab === 'all' || app.status.toLowerCase() === activeTab;
+    const matchesStatus = selectedStatus === 'all' || app.status.toLowerCase() === selectedStatus;
     
-    return matchesSearch && matchesTab;
+    const matchesDateRange = (() => {
+      if (!startDate && !endDate) return true;
+      
+      const appDate = new Date(app.submittedAt);
+      const start = startDate ? new Date(startDate) : null;
+      const end = endDate ? new Date(endDate) : null;
+      
+      if (start && end) {
+        return appDate >= start && appDate <= end;
+      } else if (start) {
+        return appDate >= start;
+      } else if (end) {
+        return appDate <= end;
+      }
+      return true;
+    })();
+    
+    return matchesSearch && matchesStatus && matchesDateRange;
   });
 
   const paginatedApplications = filteredApplications.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
   );
+
+  // Handle filter changes
+  const handleFilterChange = (filterType: string, value: string) => {
+    switch (filterType) {
+      case 'search':
+        setSearchQuery(value);
+        break;
+      case 'status':
+        setSelectedStatus(value);
+        break;
+      case 'startDate':
+        setStartDate(value);
+        break;
+      case 'endDate':
+        setEndDate(value);
+        break;
+    }
+    setCurrentPage(1); // Reset to first page when filters change
+  };
+
+  // Handle clearing all filters
+  const handleClearFilters = () => {
+    setSearchQuery('');
+    setSelectedStatus('all');
+    setStartDate(getFirstDayOfMonth());
+    setEndDate(getCurrentDate());
+    setCurrentPage(1);
+  };
+
+  // PDF Download Function
+  const handleDownloadPDF = async () => {
+    try {
+      const { jsPDF } = await import('jspdf');
+      const autoTable = await import('jspdf-autotable');
+      
+      const doc = new jsPDF('landscape', 'mm', 'a4');
+      const currentDate = new Date().toLocaleDateString();
+      const currentTime = new Date().toLocaleTimeString();
+      
+                // Add title
+          doc.setFontSize(20);
+          doc.setTextColor(10, 37, 64); // Dark blue color
+          doc.text('Ezinsure Applications Report', 14, 20);
+      
+      // Add subtitle with date and time
+      doc.setFontSize(12);
+      doc.setTextColor(100, 100, 100);
+      doc.text(`Generated on: ${currentDate} at ${currentTime}`, 14, 30);
+      
+      // Add filter information
+      doc.setFontSize(11);
+      doc.setTextColor(60, 60, 60);
+      let filterY = 40;
+      
+      if (searchQuery) {
+        doc.text(`Search Query: ${searchQuery}`, 14, filterY);
+        filterY += 6;
+      }
+      
+      if (selectedStatus !== 'all') {
+        doc.text(`Status Filter: ${selectedStatus.replace('_', ' ')}`, 14, filterY);
+        filterY += 6;
+      }
+      
+      if (startDate || endDate) {
+        doc.text(`Date Range: ${startDate || 'beginning'} to ${endDate || 'now'}`, 14, filterY);
+        filterY += 6;
+      }
+      
+      // Add summary information
+      filterY += 3;
+      doc.setFontSize(10);
+      doc.setTextColor(80, 80, 80);
+      doc.text(`Total Applications: ${filteredApplications.length}`, 14, filterY);
+      filterY += 5;
+      
+      // Calculate totals
+      const totalAmount = filteredApplications.reduce((sum, app) => sum + (app.amount || 0), 0);
+      const totalCompanyCommission = filteredApplications.reduce((sum, app) => sum + (app.companyCommission || 0), 0);
+      const totalAgentCommission = filteredApplications.reduce((sum, app) => sum + (app.agentCommission || 0), 0);
+      
+      doc.text(`Total Amount: ${totalAmount.toLocaleString()} RWF`, 14, filterY);
+      filterY += 5;
+      doc.text(`Total Company Commission: ${totalCompanyCommission.toLocaleString()} RWF`, 14, filterY);
+      filterY += 5;
+      doc.text(`Total Agent Commission: ${totalAgentCommission.toLocaleString()} RWF`, 14, filterY);
+      
+      // Prepare table data with text truncation for better fit
+      const tableData = filteredApplications.map((app, index) => [
+        (index + 1).toString(),
+        app.fullName.length > 28 ? app.fullName.substring(0, 28) + '...' : app.fullName,
+        app.email.length > 32 ? app.email.substring(0, 32) + '...' : app.email,
+        app.insuranceCategory.length > 22 ? app.insuranceCategory.substring(0, 22) + '...' : app.insuranceCategory,
+        app.insuranceType.length > 22 ? app.insuranceType.substring(0, 22) + '...' : app.insuranceType,
+        (app.agentFullName || 'Client').length > 22 ? (app.agentFullName || 'Client').substring(0, 22) + '...' : (app.agentFullName || 'Client'),
+        app.amount ? `${app.amount.toLocaleString()} RWF` : '0 RWF',
+        app.companyCommission ? `${app.companyCommission.toLocaleString()} RWF` : '0 RWF',
+        app.agentCommission ? `${app.agentCommission.toLocaleString()} RWF` : '0 RWF',
+        new Date(app.submittedAt).toLocaleDateString(),
+        app.status.replace('_', ' ').toUpperCase()
+      ]);
+      
+      // Add table
+      autoTable.default(doc, {
+        head: [
+          ['#', 'Client Name', 'Email', 'Category', 'Type', 'Agent', 'Amount', 'Company Comm.', 'Agent Comm.', 'Date', 'Status']
+        ],
+        body: tableData,
+        startY: filterY + 10,
+        styles: {
+          fontSize: 7,
+          cellPadding: 1,
+          overflow: 'linebreak',
+          font: 'helvetica',
+          lineColor: [200, 200, 200],
+          lineWidth: 0.1,
+          fillColor: false,
+          halign: 'left',
+          valign: 'middle',
+        },
+        headStyles: {
+          fillColor: [10, 37, 64], // Dark blue header
+          textColor: [255, 255, 255],
+          fontStyle: 'bold',
+          fontSize: 8,
+          halign: 'center',
+          valign: 'middle',
+        },
+        columnStyles: {
+          0: { cellWidth: 8, halign: 'center' }, // #
+          1: { cellWidth: 30, halign: 'left' }, // Name
+          2: { cellWidth: 35, halign: 'left' }, // Email
+          3: { cellWidth: 25, halign: 'left' }, // Category
+          4: { cellWidth: 25, halign: 'left' }, // Type
+          5: { cellWidth: 25, halign: 'left' }, // Agent
+          6: { cellWidth: 25, halign: 'right' }, // Amount
+          7: { cellWidth: 25, halign: 'right' }, // Company Comm
+          8: { cellWidth: 25, halign: 'right' }, // Agent Comm
+          9: { cellWidth: 20, halign: 'center' }, // Date
+          10: { cellWidth: 25, halign: 'center' }, // Status
+        },
+        alternateRowStyles: {
+          fillColor: [245, 245, 245],
+        },
+        margin: { top: 10, right: 8, bottom: 10, left: 8 },
+        pageBreak: 'auto',
+        showFoot: 'lastPage',
+        didDrawPage: function (data) {
+          // Add page numbers
+          doc.setFontSize(8);
+          doc.setTextColor(100, 100, 100);
+          doc.text(`Page ${data.pageNumber}`, doc.internal.pageSize.width - 20, doc.internal.pageSize.height - 10);
+        },
+      });
+      
+      // Generate filename
+      const dateStr = new Date().toISOString().split('T')[0];
+      const timeStr = new Date().toLocaleTimeString().replace(/:/g, '-');
+      const filename = `insurance_applications_${dateStr}_${timeStr}.pdf`;
+      
+      // Save the PDF
+      doc.save(filename);
+      
+      showToast('PDF downloaded successfully', 'success');
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      showToast('Failed to generate PDF', 'error');
+    }
+  };
 
   // Handle payment proof submission
 const handleSubmitPayment = async () => {
@@ -1119,14 +1330,16 @@ const getActionButtons = (app: Application) => {
 
         {/* Search and filter section */}
         <div className="mb-6 bg-white p-4 rounded-lg shadow-sm slide-in-right">
-          <div className="flex flex-col md:flex-row justify-between gap-4">
-            <div className="w-full md:w-1/3">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+            {/* Search Input */}
+            <div className="lg:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Search Applications</label>
               <Input
                 label=""
                 name="search"
                 placeholder="Search by name, email or ID..."
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(e) => handleFilterChange('search', e.target.value)}
                 icon={
                   <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <circle cx="11" cy="11" r="8"></circle>
@@ -1136,50 +1349,100 @@ const getActionButtons = (app: Application) => {
               />
             </div>
             
-            <div className="flex overflow-x-auto pb-2 md:pb-0 gap-2">
-              <Button
-                size="sm"
-                variant={activeTab === 'all' ? 'primary' : 'text'}
-                onClick={() => setActiveTab('all')}
+            {/* Status Select */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Status Filter</label>
+              <select
+                value={selectedStatus}
+                onChange={(e) => handleFilterChange('status', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               >
-                All
-              </Button>
-              <Button
-                size="sm"
-                variant={activeTab === 'pending' ? 'primary' : 'text'}
-                onClick={() => setActiveTab('pending')}
-              >
-                Pending
-              </Button>
-              <Button
-                size="sm"
-                variant={activeTab === 'application_approved' ? 'primary' : 'text'}
-                onClick={() => setActiveTab('application_approved')}
-              >
-                Approved
-              </Button>
-              <Button
-                size="sm"
-                variant={activeTab === 'invoice_sent' ? 'primary' : 'text'}
-                onClick={() => setActiveTab('invoice_sent')}
-              >
-                Invoice Sent
-              </Button>
-              <Button
-                size="sm"
-                variant={activeTab === 'waiting_for_user_action' ? 'primary' : 'text'}
-                onClick={() => setActiveTab('waiting_for_user_action')}
-              >
-                Action Required
-              </Button>
-              <Button
-                size="sm"
-                variant={activeTab === 'insurance_issued' ? 'primary' : 'text'}
-                onClick={() => setActiveTab('insurance_issued')}
-              >
-                Completed
-              </Button>
+                <option value="all">All Statuses</option>
+                <option value="pending">Pending</option>
+                <option value="application_approved">Approved</option>
+                <option value="waiting_for_user_action">Action Required</option>
+                <option value="invoice_sent">Invoice Sent</option>
+                <option value="review_payment">Payment Review</option>
+                <option value="payment_verified">Payment Verified</option>
+                <option value="insurance_issued">Insurance Issued</option>
+              </select>
             </div>
+            
+            {/* Start Date */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">From Date</label>
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => handleFilterChange('startDate', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+            
+            {/* End Date */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">To Date</label>
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => handleFilterChange('endDate', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+          </div>
+          
+          {/* Filter Actions */}
+          <div className="mt-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+            <div className="text-sm text-gray-500">
+              {searchQuery && <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 mr-2">Search: {searchQuery}</span>}
+              {selectedStatus !== 'all' && <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 mr-2">Status: {selectedStatus.replace('_', ' ')}</span>}
+              {(startDate || endDate) && <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">Date Range: {startDate || 'beginning'} - {endDate || 'now'}</span>}
+            </div>
+            <Button
+              variant="text"
+              size="sm"
+              onClick={handleClearFilters}
+              className="text-gray-600 hover:text-gray-800 border border-gray-300 hover:border-gray-400 px-4"
+            >
+              Clear All Filters
+            </Button>
+            {filteredApplications.length > 0 && (
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={handleDownloadPDF}
+                className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 flex items-center gap-2"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                  <polyline points="14,2 14,8 20,8"></polyline>
+                  <line x1="16" y1="13" x2="8" y2="13"></line>
+                  <line x1="16" y1="17" x2="8" y2="17"></line>
+                  <polyline points="10,9 9,9 8,9"></polyline>
+                </svg>
+                Download PDF
+              </Button>
+            )}
+          </div>
+        </div>
+
+        {/* Results Summary */}
+        <div className="mb-4 bg-white p-4 rounded-lg shadow-sm">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+            <div className="text-sm text-gray-600">
+              Showing <span className="font-medium">{filteredApplications.length}</span> of <span className="font-medium">{applications.length}</span> applications
+              {selectedStatus !== 'all' && (
+                <span> with status: <span className="font-medium capitalize">{selectedStatus.replace('_', ' ')}</span></span>
+              )}
+              {(startDate || endDate) && (
+                <span> from <span className="font-medium">{startDate || 'beginning'}</span> to <span className="font-medium">{endDate || 'now'}</span></span>
+              )}
+            </div>
+            {filteredApplications.length > 0 && (
+              <div className="text-sm text-gray-500">
+                Page {currentPage} of {Math.ceil(filteredApplications.length / itemsPerPage)}
+              </div>
+            )}
           </div>
         </div>
 
@@ -1204,7 +1467,8 @@ const getActionButtons = (app: Application) => {
                   <tr>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Client</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Insurance Type</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Insurance Category</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Insurance End Date</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Commission</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
@@ -1225,7 +1489,12 @@ const getActionButtons = (app: Application) => {
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-900 capitalize">
-                          {app.insuranceType.replace('_', ' ')}
+                          {app.insuranceCategory}
+                        </div>
+                      </td>
+                      <td className="px-4 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">
+                          {app.insuranceEndAt ? new Date(app.insuranceEndAt).toLocaleDateString() : 'N/A'}
                         </div>
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -1436,6 +1705,16 @@ const getActionButtons = (app: Application) => {
                 <div>
                   <p className="text-sm text-gray-500">Duration</p>
                   <p className="font-semibold">{selectedApp.insuranceDuration}</p>
+                </div>
+                {selectedApp.insuranceEndAt && (
+                  <div>
+                    <p className="text-sm text-gray-500">Insurance End Date</p>
+                    <p className="font-semibold">{new Date(selectedApp.insuranceEndAt).toLocaleDateString()}</p>
+                  </div>
+                )}
+                <div>
+                  <p className="text-sm text-gray-500">Agent</p>
+                  <p className="font-semibold">{selectedApp.agentFullName || selectedApp.agentId || 'Client'}</p>
                 </div>
                 {selectedApp.amount && (
                   <div>
