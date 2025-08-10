@@ -79,7 +79,9 @@ export default function ManageApplicationsPage() {
   const [applications, setApplications] = useState<Application[]>([]);
   const [selectedApp, setSelectedApp] = useState<Application | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeTab, setActiveTab] = useState<ApplicationStatus | 'all'>('all');
+  const [selectedStatus, setSelectedStatus] = useState<string>('all');
+  const [startDate, setStartDate] = useState<string>('');
+  const [endDate, setEndDate] = useState<string>('');
   const [isLoading, setIsLoading] = useState(true);
   const [invoiceMessage, setInvoiceMessage] = useState('');
   const [invoiceFile, setInvoiceFile] = useState<File | null>(null);
@@ -99,6 +101,23 @@ const [isRejecting, setIsRejecting] = useState(false);
     path: string;
   } | null>(null);
   const itemsPerPage = 10;
+
+  // Helper functions for date filtering
+  const getFirstDayOfMonth = () => {
+    const now = new Date();
+    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+    return firstDay.toISOString().split('T')[0];
+  };
+
+  const getCurrentDate = () => {
+    return new Date().toISOString().split('T')[0];
+  };
+
+  // Set default date range to current month
+  useEffect(() => {
+    setStartDate(getFirstDayOfMonth());
+    setEndDate(getCurrentDate());
+  }, []);
 
   // Fetch applications from API
 useEffect(() => {
@@ -141,22 +160,67 @@ useEffect(() => {
   }
 }, [token]);
 
-  // Filter applications based on search query and tab
+  // Filter applications based on search query, status, and date range
   const filteredApplications = applications.filter(app => {
     const matchesSearch = 
       app.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       app.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
       app.applicationNumber.toLowerCase().includes(searchQuery.toLowerCase());
     
-    const matchesTab = activeTab === 'all' || app.status.toLowerCase() === activeTab;
+    const matchesStatus = selectedStatus === 'all' || app.status.toLowerCase() === selectedStatus;
     
-    return matchesSearch && matchesTab;
+    const matchesDateRange = (() => {
+      if (!startDate && !endDate) return true;
+      
+      const appDate = new Date(app.submittedAt);
+      const start = startDate ? new Date(startDate) : null;
+      const end = endDate ? new Date(endDate) : null;
+      
+      if (start && end) {
+        return appDate >= start && appDate <= end;
+      } else if (start) {
+        return appDate >= start;
+      } else if (end) {
+        return appDate <= end;
+      }
+      return true;
+    })();
+    
+    return matchesSearch && matchesStatus && matchesDateRange;
   });
 
   const paginatedApplications = filteredApplications.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
   );
+
+  // Handle filter changes
+  const handleFilterChange = (filterType: string, value: string) => {
+    switch (filterType) {
+      case 'search':
+        setSearchQuery(value);
+        break;
+      case 'status':
+        setSelectedStatus(value);
+        break;
+      case 'startDate':
+        setStartDate(value);
+        break;
+      case 'endDate':
+        setEndDate(value);
+        break;
+    }
+    setCurrentPage(1); // Reset to first page when filters change
+  };
+
+  // Handle clearing all filters
+  const handleClearFilters = () => {
+    setSearchQuery('');
+    setSelectedStatus('all');
+    setStartDate(getFirstDayOfMonth());
+    setEndDate(getCurrentDate());
+    setCurrentPage(1);
+  };
 
   // Send invoice to client
  const handleSendInvoice = async () => {
@@ -649,14 +713,16 @@ const getActionButtons = (app: Application) => {
 
         {/* Search and filter section */}
         <div className="mb-6 bg-white p-4 rounded-lg shadow-sm slide-in-right">
-          <div className="flex flex-col md:flex-row justify-between gap-4">
-            <div className="w-full md:w-1/3">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+            {/* Search Input */}
+            <div className="lg:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Search Applications</label>
               <Input
                 label=""
                 name="search"
                 placeholder="Search by name, email or ID..."
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(e) => handleFilterChange('search', e.target.value)}
                 icon={
                   <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <circle cx="11" cy="11" r="8"></circle>
@@ -666,57 +732,83 @@ const getActionButtons = (app: Application) => {
               />
             </div>
             
-            <div className="flex overflow-x-auto pb-2 md:pb-0 gap-2">
-              <Button
-                size="xs"
-                variant={activeTab === 'all' ? 'primary' : 'text'}
-                onClick={() => setActiveTab('all')}
+            {/* Status Select */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Status Filter</label>
+              <select
+                value={selectedStatus}
+                onChange={(e) => handleFilterChange('status', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[var(--main-blue)] focus:border-[var(--main-blue)] sm:text-sm bg-white"
               >
-                All
-              </Button>
-              <Button
-                size="xs"
-                variant={activeTab === ApplicationStatus.PENDING ? 'primary' : 'text'}
-                onClick={() => setActiveTab(ApplicationStatus.PENDING)}
-              >
-                Pending
-              </Button>
-              <Button
-                size="xs"
-                variant={activeTab === ApplicationStatus.PAYMENT_VERIFIED ? 'primary' : 'text'}
-                onClick={() => setActiveTab(ApplicationStatus.PAYMENT_VERIFIED)}
-              >
-                Payment Verified
-              </Button>
-              <Button
-                size="xs"
-                variant={activeTab === ApplicationStatus.APPLICATION_APPROVED ? 'primary' : 'text'}
-                onClick={() => setActiveTab(ApplicationStatus.APPLICATION_APPROVED)}
-              >
-                Application Approved
-              </Button>
-              <Button
-                size="xs"
-                variant={activeTab === ApplicationStatus.INVOICE_SENT ? 'primary' : 'text'}
-                onClick={() => setActiveTab(ApplicationStatus.INVOICE_SENT)}
-              >
-                Invoice Sent
-              </Button>
-              <Button
-                size="xs"
-                variant={activeTab === ApplicationStatus.REVIEW_PAYMENT ? 'primary' : 'text'}
-                onClick={() => setActiveTab(ApplicationStatus.REVIEW_PAYMENT)}
-              >
-                Review Payment
-              </Button>
-              <Button
-                size="xs"
-                variant={activeTab === ApplicationStatus.WAITING_FOR_USER_ACTION ? 'primary' : 'text'}
-                onClick={() => setActiveTab(ApplicationStatus.WAITING_FOR_USER_ACTION)}
-              >
-                Waiting for User
-              </Button>
+                <option value="all">All Statuses</option>
+                <option value={ApplicationStatus.PENDING}>Pending</option>
+                <option value={ApplicationStatus.APPLICATION_APPROVED}>Application Approved</option>
+                <option value={ApplicationStatus.WAITING_FOR_USER_ACTION}>Waiting for User Action</option>
+                <option value={ApplicationStatus.INVOICE_SENT}>Invoice Sent</option>
+                <option value={ApplicationStatus.REVIEW_PAYMENT}>Review Payment</option>
+                <option value={ApplicationStatus.PAYMENT_VERIFIED}>Payment Verified</option>
+                <option value={ApplicationStatus.INSURANCE_ISSUED}>Insurance Issued</option>
+              </select>
             </div>
+            
+            {/* Start Date */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">From Date</label>
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => handleFilterChange('startDate', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[var(--main-blue)] focus:border-[var(--main-blue)] sm:text-sm bg-white"
+              />
+            </div>
+            
+            {/* End Date */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">To Date</label>
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => handleFilterChange('endDate', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[var(--main-blue)] focus:border-[var(--main-blue)] sm:text-sm bg-white"
+              />
+            </div>
+          </div>
+          
+          {/* Filter Actions */}
+          <div className="mt-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+            <div className="text-sm text-gray-500">
+              {searchQuery && <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 mr-2">Search: {searchQuery}</span>}
+              {selectedStatus !== 'all' && <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 mr-2">Status: {selectedStatus.replace('_', ' ')}</span>}
+              {(startDate || endDate) && <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">Date Range: {startDate || 'beginning'} - {endDate || 'now'}</span>}
+            </div>
+            <Button
+              variant="text"
+              size="sm"
+              onClick={handleClearFilters}
+              className="text-gray-600 hover:text-gray-800 border border-gray-300 hover:border-gray-400 px-4"
+            >
+              Clear All Filters
+            </Button>
+          </div>
+        </div>
+
+        {/* Results Summary */}
+        <div className="mb-4 bg-white p-4 rounded-lg shadow-sm">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+            <div className="text-sm text-gray-600">
+              Showing <span className="font-medium">{filteredApplications.length}</span> of <span className="font-medium">{applications.length}</span> applications
+              {selectedStatus !== 'all' && (
+                <span> with status: <span className="font-medium capitalize">{selectedStatus.replace('_', ' ')}</span></span>
+              )}
+              {(startDate || endDate) && (
+                <span> from <span className="font-medium">{startDate || 'beginning'}</span> to <span className="font-medium">{endDate || 'now'}</span></span>
+              )}
+            </div>
+            {filteredApplications.length > 0 && (
+              <div className="text-sm text-gray-500">
+                Page {currentPage} of {Math.ceil(filteredApplications.length / itemsPerPage)}
+              </div>
+            )}
           </div>
         </div>
 
@@ -727,12 +819,15 @@ const getActionButtons = (app: Application) => {
               <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-[var(--mid-gray)] border-t-[var(--main-blue)]"></div>
               <p className="mt-4 text-gray-600">Loading applications...</p>
             </div>
-          ) : paginatedApplications.length === 0 ? (
+          ) : filteredApplications.length === 0 ? (
             <div className="p-8 text-center">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 mx-auto text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
               </svg>
               <p className="mt-4 text-gray-600">No applications found</p>
+              {(searchQuery || selectedStatus !== 'all' || startDate || endDate) && (
+                <p className="mt-2 text-sm text-gray-500">Try adjusting your filters</p>
+              )}
             </div>
           ) : (
             <div className="overflow-x-auto">
