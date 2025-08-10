@@ -698,10 +698,10 @@ const getActionButtons = (app: Application) => {
       const currentDate = new Date().toLocaleDateString();
       const currentTime = new Date().toLocaleTimeString();
       
-      // Add title
-      doc.setFontSize(20);
-      doc.setTextColor(10, 37, 64); // Dark blue color
-      doc.text('Insurance Applications Report', 14, 20);
+                // Add title
+          doc.setFontSize(20);
+          doc.setTextColor(10, 37, 64); // Dark blue color
+          doc.text('Ezinsure Applications Report', 14, 20);
       
       // Add subtitle with date and time
       doc.setFontSize(12);
