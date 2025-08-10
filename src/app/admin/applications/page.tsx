@@ -120,7 +120,6 @@ const [isRejecting, setIsRejecting] = useState(false);
   }, []);
 
   // Fetch applications from API
-useEffect(() => {
   const fetchApplications = async () => {
     try {
       setIsLoading(true);
@@ -155,10 +154,11 @@ useEffect(() => {
     }
   };
 
-  if (token) {
-    fetchApplications();
-  }
-}, [token]);
+  useEffect(() => {
+    if (token) {
+      fetchApplications();
+    }
+  }, [token]);
 
   // Filter applications based on search query, status, and date range
   const filteredApplications = applications.filter(app => {
@@ -457,41 +457,27 @@ const handleReject = async (action: 'application' | 'payment') => {
 const handleApproveApplication = async () => {
   if (!selectedApp) return;
   
-  setIsApproving(true);
   try {
-    const response = await fetch(
-      `${process.env.NEXT_PUBLIC_API_BASE_URL}/approveApplication/${selectedApp._id}`,
-      {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        }
+    setIsApproving(true);
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/applications/${selectedApp._id}/approve`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
       }
-    );
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.message || 'Failed to approve application');
-    }
-
-    const updatedApplications = applications.map(app => {
-      if (app._id === selectedApp._id) {
-        return {
-          ...app,
-          status: ApplicationStatus.APPLICATION_APPROVED
-        };
-      }
-      return app;
     });
     
-    setApplications(updatedApplications);
-    showToast(`Application from ${selectedApp.fullName} approved`, 'success');
-    setSelectedApp(null);
+    if (!response.ok) {
+      throw new Error('Failed to approve application');
+    }
+    
+    showToast('Application approved successfully', 'success');
     setActiveModal(null);
+    setSelectedApp(null);
+    fetchApplications();
   } catch (error) {
     console.error('Error approving application:', error);
-    showToast(error instanceof Error ? error.message : 'Failed to approve application', 'error');
+    showToast('Failed to approve application', 'error');
   } finally {
     setIsApproving(false);
   }
@@ -702,6 +688,147 @@ const getActionButtons = (app: Application) => {
     );
   };
 
+  // PDF Download Function
+  const handleDownloadPDF = async () => {
+    try {
+      const { jsPDF } = await import('jspdf');
+      const autoTable = await import('jspdf-autotable');
+      
+      const doc = new jsPDF('landscape', 'mm', 'a4');
+      const currentDate = new Date().toLocaleDateString();
+      const currentTime = new Date().toLocaleTimeString();
+      
+      // Add title
+      doc.setFontSize(20);
+      doc.setTextColor(10, 37, 64); // Dark blue color
+      doc.text('Insurance Applications Report', 14, 20);
+      
+      // Add subtitle with date and time
+      doc.setFontSize(12);
+      doc.setTextColor(100, 100, 100);
+      doc.text(`Generated on: ${currentDate} at ${currentTime}`, 14, 30);
+      
+      // Add filter information
+      doc.setFontSize(11);
+      doc.setTextColor(60, 60, 60);
+      let filterY = 40;
+      
+      if (searchQuery) {
+        doc.text(`Search Query: ${searchQuery}`, 14, filterY);
+        filterY += 6;
+      }
+      
+      if (selectedStatus !== 'all') {
+        doc.text(`Status Filter: ${selectedStatus.replace('_', ' ')}`, 14, filterY);
+        filterY += 6;
+      }
+      
+      if (startDate || endDate) {
+        doc.text(`Date Range: ${startDate || 'beginning'} to ${endDate || 'now'}`, 14, filterY);
+        filterY += 6;
+      }
+      
+      // Add summary information
+      filterY += 3;
+      doc.setFontSize(10);
+      doc.setTextColor(80, 80, 80);
+      doc.text(`Total Applications: ${filteredApplications.length}`, 14, filterY);
+      filterY += 5;
+      
+      // Calculate totals
+      const totalAmount = filteredApplications.reduce((sum, app) => sum + (app.amount || 0), 0);
+      const totalCompanyCommission = filteredApplications.reduce((sum, app) => sum + (app.companyCommission || 0), 0);
+      const totalAgentCommission = filteredApplications.reduce((sum, app) => sum + (app.agentCommission || 0), 0);
+      
+      doc.text(`Total Amount: ${totalAmount.toLocaleString()} RWF`, 14, filterY);
+      filterY += 5;
+      doc.text(`Total Company Commission: ${totalCompanyCommission.toLocaleString()} RWF`, 14, filterY);
+      filterY += 5;
+      doc.text(`Total Agent Commission: ${totalAgentCommission.toLocaleString()} RWF`, 14, filterY);
+      
+      // Prepare table data with text truncation for better fit
+      const tableData = filteredApplications.map((app, index) => [
+        (index + 1).toString(),
+        app.fullName.length > 28 ? app.fullName.substring(0, 28) + '...' : app.fullName,
+        app.email.length > 32 ? app.email.substring(0, 32) + '...' : app.email,
+        app.insuranceCategory.length > 22 ? app.insuranceCategory.substring(0, 22) + '...' : app.insuranceCategory,
+        app.insuranceType.length > 22 ? app.insuranceType.substring(0, 22) + '...' : app.insuranceType,
+        (app.agentFullName || 'Client').length > 22 ? (app.agentFullName || 'Client').substring(0, 22) + '...' : (app.agentFullName || 'Client'),
+        app.amount ? `${app.amount.toLocaleString()} RWF` : '0 RWF',
+        app.companyCommission ? `${app.companyCommission.toLocaleString()} RWF` : '0 RWF',
+        app.agentCommission ? `${app.agentCommission.toLocaleString()} RWF` : '0 RWF',
+        new Date(app.submittedAt).toLocaleDateString(),
+        app.status.replace('_', ' ').toUpperCase()
+      ]);
+      
+      // Add table
+      autoTable.default(doc, {
+        head: [
+          ['#', 'Client Name', 'Email', 'Category', 'Type', 'Agent', 'Amount', 'Company Comm.', 'Agent Comm.', 'Date', 'Status']
+        ],
+        body: tableData,
+        startY: filterY + 10,
+        styles: {
+          fontSize: 7,
+          cellPadding: 1,
+          overflow: 'linebreak',
+          font: 'helvetica',
+          lineColor: [200, 200, 200],
+          lineWidth: 0.1,
+          fillColor: false,
+          halign: 'left',
+          valign: 'middle',
+        },
+        headStyles: {
+          fillColor: [10, 37, 64], // Dark blue header
+          textColor: [255, 255, 255],
+          fontStyle: 'bold',
+          fontSize: 8,
+          halign: 'center',
+          valign: 'middle',
+        },
+        columnStyles: {
+          0: { cellWidth: 8, halign: 'center' }, // #
+          1: { cellWidth: 30, halign: 'left' }, // Name
+          2: { cellWidth: 35, halign: 'left' }, // Email
+          3: { cellWidth: 25, halign: 'left' }, // Category
+          4: { cellWidth: 25, halign: 'left' }, // Type
+          5: { cellWidth: 25, halign: 'left' }, // Agent
+          6: { cellWidth: 25, halign: 'right' }, // Amount
+          7: { cellWidth: 25, halign: 'right' }, // Company Comm
+          8: { cellWidth: 25, halign: 'right' }, // Agent Comm
+          9: { cellWidth: 20, halign: 'center' }, // Date
+          10: { cellWidth: 25, halign: 'center' }, // Status
+        },
+        alternateRowStyles: {
+          fillColor: [245, 245, 245],
+        },
+        margin: { top: 10, right: 8, bottom: 10, left: 8 },
+        pageBreak: 'auto',
+        showFoot: 'lastPage',
+        didDrawPage: function (data) {
+          // Add page numbers
+          doc.setFontSize(8);
+          doc.setTextColor(100, 100, 100);
+          doc.text(`Page ${data.pageNumber}`, doc.internal.pageSize.width - 20, doc.internal.pageSize.height - 10);
+        },
+      });
+      
+      // Generate filename
+      const dateStr = new Date().toISOString().split('T')[0];
+      const timeStr = new Date().toLocaleTimeString().replace(/:/g, '-');
+      const filename = `insurance_applications_${dateStr}_${timeStr}.pdf`;
+      
+      // Save the PDF
+      doc.save(filename);
+      
+      showToast('PDF downloaded successfully', 'success');
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      showToast('Failed to generate PDF', 'error');
+    }
+  };
+
   return (
     <MainLayout containerClass="p-0" fullWidth>
       <div className="container mx-auto px-4 py-8">
@@ -781,14 +908,33 @@ const getActionButtons = (app: Application) => {
               {selectedStatus !== 'all' && <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 mr-2">Status: {selectedStatus.replace('_', ' ')}</span>}
               {(startDate || endDate) && <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">Date Range: {startDate || 'beginning'} - {endDate || 'now'}</span>}
             </div>
-            <Button
-              variant="text"
-              size="sm"
-              onClick={handleClearFilters}
-              className="text-gray-600 hover:text-gray-800 border border-gray-300 hover:border-gray-400 px-4"
-            >
-              Clear All Filters
-            </Button>
+            <div className="flex gap-2">
+              {filteredApplications.length > 0 && (
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={handleDownloadPDF}
+                  className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 flex items-center gap-2"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                    <polyline points="14,2 14,8 20,8"></polyline>
+                    <line x1="16" y1="13" x2="8" y2="13"></line>
+                    <line x1="16" y1="17" x2="8" y2="17"></line>
+                    <polyline points="10,9 9,9 8,9"></polyline>
+                  </svg>
+                  Download PDF
+                </Button>
+              )}
+              <Button
+                variant="text"
+                size="sm"
+                onClick={handleClearFilters}
+                className="text-gray-600 hover:text-gray-800 border border-gray-300 hover:border-gray-400 px-4"
+              >
+                Clear All Filters
+              </Button>
+            </div>
           </div>
         </div>
 
