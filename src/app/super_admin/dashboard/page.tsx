@@ -5,49 +5,205 @@ import { Area, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
 import { TrendingUp, Users, DollarSign, Download, UserCheck, Activity, ArrowUpRight, ArrowDownRight, Settings, Database, Server, Key } from 'lucide-react';
 import type { TooltipProps } from 'recharts';
 import { MainLayout } from '@/components/ui/main-layout';
+import { useAuth } from '@/context/AuthContext';
+
+// Define types for the data
+
+
+interface InsuranceDistribution {
+  name: string;
+  value: number;
+  color: string;
+  percent: number;
+}
+
+// Define types for API data
+interface InsuranceDistributionAPI {
+  category: string;
+  count: number;
+}
+
+// Define interfaces for revenue and daily metrics
+interface RevenueDataPoint {
+  month: string;
+  revenue?: number;
+  agents?: number;
+  clients?: number;
+  applications?: number;
+  conversion?: number;
+}
+
+
+
+// Add interfaces for top agents and regional performance
+
+
+interface RegionalPerformance {
+  province: string;
+  totalCommission: number;
+  agents: number;
+  clients: number;
+}
+
+// API service functions
+const fetchActiveAgentsCount = async (token: string) => {
+  try {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/getActiveAgentsCount`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    const data = await response.json();
+    return data.data || 0;
+  } catch (error) {
+    console.error('Error fetching active agents count:', error);
+    return 0;
+  }
+};
+
+const fetchApplicationsThisMonth = async (token: string) => {
+  try {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/countApplicationsThisMonth`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    const data = await response.json();
+    return data.data || 0;
+  } catch (error) {
+    console.error('Error fetching applications count:', error);
+    return 0;
+  }
+};
+
+const fetchCoveredProvinces = async (token: string) => {
+  try {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/countCoveredProvinces`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    const data = await response.json();
+    return data.data || 0;
+  } catch (error) {
+    console.error('Error fetching covered provinces:', error);
+    return 0;
+    }
+};
+
+const fetchTotalCommission = async (token: string) => {
+  try {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/getTotalCompanyCommissionThisMonth`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    const data = await response.json();
+    return data.data || 0;
+  } catch (error) {
+    console.error('Error fetching total commission:', error);
+    return 0;
+  }
+};
+
+
+
+const fetchInsuranceDistribution = async (token: string) => {
+  try {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/getInsuranceDistribution`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    const data = await response.json();
+    return data.data || [];
+  } catch (error) {
+    console.error('Error fetching insurance distribution:', error);
+    return [];
+  }
+};
+
+const INSURANCE_COLORS: Record<string, string> = {
+  'Car Insurance': '#3B82F6',
+  'Health Insurance': '#10B981',
+  'Travel Insurance': '#F59E0B',
+  'Building Insurance': '#EF4444',
+  'Fire Insurance': '#8B5CF6',
+  'MotorBike Insurance': '#6366F1',
+};
 
 const SuperAdminDashboard = () => {
+  const { token } = useAuth();
   const [selectedPeriod, setSelectedPeriod] = useState('this_month');
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
+  
+  // State for stats cards data
+  const [statsData, setStatsData] = useState({
+    activeAgents: 0,
+    applications: 0,
+    coveredProvinces: 0,
+    totalCommission: 0,
+    loading: {
+      activeAgents: true,
+      applications: true,
+      coveredProvinces: true,
+      totalCommission: true
+    }
+  });
 
-  // Mock data for super admin dashboard
-  const mockData = {
-    revenueData: [
-      { month: 'Jan', revenue: 2450000, agents: 45, clients: 342, applications: 289, conversion: 84.5 },
-      { month: 'Feb', revenue: 2890000, agents: 52, clients: 398, applications: 356, conversion: 89.3 },
-      { month: 'Mar', revenue: 3120000, agents: 48, clients: 445, applications: 402, conversion: 90.3 },
-      { month: 'Apr', revenue: 3680000, agents: 61, clients: 523, applications: 478, conversion: 91.4 },
-      { month: 'May', revenue: 4250000, agents: 68, clients: 612, applications: 567, conversion: 92.6 },
-      { month: 'Jun', revenue: 4890000, agents: 75, clients: 698, applications: 645, conversion: 92.4 },
-    ],
-    insuranceDistribution: [
-      { name: 'Car Insurance', value: 42, revenue: 1850000, color: '#3B82F6' },
-      { name: 'Health Insurance', value: 28, revenue: 1450000, color: '#10B981' },
-      { name: 'Travel Insurance', value: 15, revenue: 680000, color: '#F59E0B' },
-      { name: 'Building Insurance', value: 10, revenue: 520000, color: '#EF4444' },
-      { name: 'Fire Insurance', value: 5, revenue: 390000, color: '#8B5CF6' },
-    ],
-    regionData: [
-      { region: 'Kigali', agents: 45, clients: 342, revenue: 1850000, growth: 23.5 },
-      { region: 'Northern Province', agents: 28, clients: 198, revenue: 980000, growth: 18.2 },
-      { region: 'Southern Province', agents: 32, clients: 245, revenue: 1250000, growth: 15.8 },
-      { region: 'Eastern Province', agents: 25, clients: 167, revenue: 890000, growth: 21.3 },
-      { region: 'Western Province', agents: 22, clients: 145, revenue: 720000, growth: 19.7 },
-    ],
-  };
+  const [insuranceDistribution, setInsuranceDistribution] = useState<InsuranceDistribution[]>([]);
+  const [isInsuranceDistributionLoading, setIsInsuranceDistributionLoading] = useState(true);
+
+  // State for regional performance
+  const [regionalPerformance, setRegionalPerformance] = useState<RegionalPerformance[]>([]);
+  const [isRegionalPerformanceLoading, setIsRegionalPerformanceLoading] = useState(true);
+
+  // State for total clients
+  const [totalClients, setTotalClients] = useState<number | null>(null);
+  const [isTotalClientsLoading, setIsTotalClientsLoading] = useState(true);
+
+  // State for revenue loading and data
+  const [isRevenueLoading, setIsRevenueLoading] = useState(true);
+  const [revenueData, setRevenueData] = useState<RevenueDataPoint[]>([]);
 
   const statsCards = [
     {
       title: 'Total Revenue',
-      value: '24,890,000 RWF',
+      value: statsData.loading.totalCommission ? '' : `${(statsData.totalCommission || 0).toLocaleString()} RWF`,
       change: '+23.5%',
       changeType: 'increase',
       icon: <DollarSign className="w-6 h-6" />,
       color: 'from-emerald-500 to-emerald-600',
       bgColor: 'bg-emerald-50',
       textColor: 'text-emerald-600',
-      subtitle: 'This month'
+      subtitle: 'This month',
+      loading: statsData.loading.totalCommission
     },
     {
       title: 'System Health',
@@ -62,31 +218,155 @@ const SuperAdminDashboard = () => {
     },
     {
       title: 'Total Clients',
-      value: '12,450',
+      value: isTotalClientsLoading ? '' : (totalClients ?? 0).toLocaleString(),
       change: '+18.7%',
       changeType: 'increase',
       icon: <Users className="w-6 h-6" />,
       color: 'from-purple-500 to-purple-600',
       bgColor: 'bg-purple-50',
       textColor: 'text-purple-600',
-      subtitle: 'Registered clients'
+      subtitle: 'Registered clients',
+      loading: isTotalClientsLoading
     },
     {
       title: 'Active Agents',
-      value: '342',
+      value: statsData.loading.activeAgents ? '' : (statsData.activeAgents || 0).toLocaleString(),
       change: '+12.3%',
       changeType: 'increase',
       icon: <UserCheck className="w-6 h-6" />,
       color: 'from-amber-500 to-amber-600',
       bgColor: 'bg-amber-50',
       textColor: 'text-amber-600',
-      subtitle: 'Currently active'
+      subtitle: 'Currently active',
+      loading: statsData.loading.activeAgents
     }
   ];
 
+  // Fetch stats data on component mount
   useEffect(() => {
-    setTimeout(() => setIsLoading(false), 800);
-  }, []);
+    const fetchStatsData = async () => {
+      if (!token) {
+        console.error('No token available');
+        return;
+      }
+
+      try {
+        const [activeAgents, applications, coveredProvinces, totalCommission] = await Promise.all([
+          fetchActiveAgentsCount(token),
+          fetchApplicationsThisMonth(token),
+          fetchCoveredProvinces(token),
+          fetchTotalCommission(token)
+        ]);
+
+        setStatsData({
+          activeAgents: activeAgents || 0,
+          applications: applications || 0,
+          coveredProvinces: coveredProvinces || 0,
+          totalCommission: totalCommission || 0,
+          loading: {
+            activeAgents: false,
+            applications: false,
+            coveredProvinces: false,
+            totalCommission: false
+          }
+        });
+      } catch (error) {
+        console.error('Error fetching stats data:', error);
+        // Set default values on error
+        setStatsData(prev => ({
+          ...prev,
+          loading: {
+            activeAgents: false,
+            applications: false,
+            coveredProvinces: false,
+            totalCommission: false
+          }
+        }));
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchStatsData();
+  }, [token]);
+
+
+
+  useEffect(() => {
+    if (!token) return;
+    setIsInsuranceDistributionLoading(true);
+    fetchInsuranceDistribution(token).then((dist: InsuranceDistributionAPI[]) => {
+      // Calculate total for percentage
+      const total = dist.reduce((sum, item) => sum + (item.count || 0), 0);
+      const mapped = dist.map((item) => ({
+        name: item.category,
+        value: item.count,
+        color: INSURANCE_COLORS[item.category] || '#A3A3A3',
+        percent: total > 0 ? Math.round((item.count / total) * 100) : 0,
+      }));
+      setInsuranceDistribution(mapped);
+      setIsInsuranceDistributionLoading(false);
+    });
+  }, [token]);
+
+
+
+  // Fetch Regional Performance
+  useEffect(() => {
+    if (!token) return;
+    setIsRegionalPerformanceLoading(true);
+    fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/getRegionalPerformance`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      }
+    })
+      .then(res => res.json())
+      .then(data => setRegionalPerformance(data.data || []))
+      .catch(() => setRegionalPerformance([]))
+      .finally(() => setIsRegionalPerformanceLoading(false));
+  }, [token]);
+
+
+
+  // Fetch total clients
+  useEffect(() => {
+    if (!token) return;
+    setIsTotalClientsLoading(true);
+    fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/getTotalClients`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      }
+    })
+      .then(res => res.json())
+      .then(data => setTotalClients(data.data ?? 0))
+      .catch(() => setTotalClients(0))
+      .finally(() => setIsTotalClientsLoading(false));
+  }, [token]);
+
+  // Fetch Revenue Analytics
+  useEffect(() => {
+    if (!token) return;
+    setIsRevenueLoading(true);
+    fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/getRevenueAnalytics`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      }
+    })
+      .then(res => res.json())
+      .then(data => {
+        setRevenueData(data.data || []);
+      })
+      .catch(() => setRevenueData([]))
+      .finally(() => setIsRevenueLoading(false));
+  }, [token]);
+
+
 
   const CustomTooltip: React.FC<TooltipProps<number, string>> = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
@@ -167,9 +447,14 @@ const SuperAdminDashboard = () => {
             {statsCards.map((card, index) => (
               <div 
                 key={index} 
-                className="bg-white rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2 border border-gray-100 group"
+                className="bg-white rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2 border border-gray-100 group relative overflow-hidden"
                 style={{ animationDelay: `${index * 50}ms` }}
               >
+                {card.loading && (
+                  <div className="absolute inset-0 bg-white/80 flex items-center justify-center z-10">
+                    <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
+                  </div>
+                )}
                 <div className="flex items-center justify-between mb-4">
                   <div className={`p-3 rounded-xl ${card.bgColor} group-hover:scale-110 transition-transform`}>
                     <div className={card.textColor}>{card.icon}</div>
@@ -211,8 +496,28 @@ const SuperAdminDashboard = () => {
               </div>
 
               <div className="h-96">
-                <ResponsiveContainer width="100%" height="100%">
-                  <ComposedChart data={mockData.revenueData}>
+                {isRevenueLoading ? (
+                  <div className="h-full flex items-center justify-center">
+                    <div className="w-full h-80 bg-gray-300 rounded-2xl animate-pulse flex items-center justify-center">
+                      <span className="text-gray-400 text-lg font-semibold">Loading revenue analytics...</span>
+                    </div>
+                  </div>
+                ) : (!revenueData || revenueData.length === 0 || revenueData.every(d => !d.revenue && !d.applications && !d.conversion)) ? (
+                  <div className="h-full flex flex-col items-center justify-center text-gray-400 text-lg">
+                    <div className="w-full h-64 opacity-40">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <ComposedChart data={[{ month: '' }]}> {/* Dummy empty graph */}
+                          <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                          <XAxis dataKey="month" stroke="#9CA3AF" fontSize={12} tickLine={false} axisLine={false} />
+                          <YAxis stroke="#9CA3AF" fontSize={12} tickLine={false} axisLine={false} />
+                        </ComposedChart>
+                      </ResponsiveContainer>
+                    </div>
+                    No revenue analytics data to display.
+                  </div>
+                ) : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <ComposedChart data={revenueData}>
                     <defs>
                       <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.3}/>
@@ -254,6 +559,7 @@ const SuperAdminDashboard = () => {
                     />
                   </ComposedChart>
                 </ResponsiveContainer>
+                )}
               </div>
             </div>
 
@@ -263,8 +569,14 @@ const SuperAdminDashboard = () => {
               <p className="text-gray-600 text-sm mb-6">Revenue distribution by policy type</p>
               
               <div className="h-64 mb-6">
-                <ResponsiveContainer width="100%" height="100%">
-                  {mockData.insuranceDistribution.length === 0 || mockData.insuranceDistribution.every(d => !d.value) ? (
+                {isInsuranceDistributionLoading ? (
+                  <div className="h-full w-full flex flex-col items-center justify-center animate-pulse">
+                    <div className="w-32 h-32 bg-gray-300 rounded-full animate-pulse flex items-center justify-center"></div>
+                    <div className="mt-6 w-2/3 h-4 bg-gray-200 rounded mb-2" />
+                    <div className="w-1/2 h-4 bg-gray-200 rounded" />
+                  </div>
+                ) : insuranceDistribution.length === 0 || insuranceDistribution.every(d => !d.value) ? (
+                  <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <Pie
                         data={[{ name: 'No Data', value: 1 }]}
@@ -274,6 +586,7 @@ const SuperAdminDashboard = () => {
                         outerRadius={90}
                         paddingAngle={5}
                         dataKey="value"
+                        nameKey="name"
                       >
                         <Cell fill="#E5E7EB" />
                       </Pie>
@@ -281,34 +594,37 @@ const SuperAdminDashboard = () => {
                         formatter={() => ['No data available', '']}
                       />
                     </PieChart>
-                  ) : (
+                  </ResponsiveContainer>
+                ) : (
+                  <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <Pie
-                        data={mockData.insuranceDistribution}
+                        data={insuranceDistribution}
                         cx="50%"
                         cy="50%"
                         innerRadius={50}
                         outerRadius={90}
                         paddingAngle={5}
                         dataKey="value"
+                        nameKey="name"
                       >
-                        {mockData.insuranceDistribution.map((entry, index) => (
+                        {insuranceDistribution.map((entry, index) => (
                           <Cell key={`cell-${index}`} fill={entry.color} />
                         ))}
                       </Pie>
                       <Tooltip 
                         formatter={(value, name, props) => [
-                          `${value}%`,
-                          `${props.payload.revenue.toLocaleString()} RWF`
+                          `${value} applications`,
+                          `${(props.payload.percent || 0)}%`
                         ]}
                       />
                     </PieChart>
-                  )}
-                </ResponsiveContainer>
+                  </ResponsiveContainer>
+                )}
               </div>
               
               <div className="space-y-3">
-                {mockData.insuranceDistribution.length === 0 || mockData.insuranceDistribution.every(d => !d.value) ? (
+                {insuranceDistribution.length === 0 || insuranceDistribution.every(d => !d.value) ? (
                   <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                     <div className="flex items-center gap-3">
                       <div className="w-4 h-4 rounded-full bg-gray-300" />
@@ -320,7 +636,7 @@ const SuperAdminDashboard = () => {
                     <span className="text-sm font-bold text-gray-400">0%</span>
                   </div>
                 ) : (
-                  mockData.insuranceDistribution.map((type, index) => (
+                  insuranceDistribution.map((type, index) => (
                     <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                       <div className="flex items-center gap-3">
                         <div 
@@ -329,10 +645,10 @@ const SuperAdminDashboard = () => {
                         />
                         <div>
                           <span className="text-sm font-medium text-gray-900">{type.name}</span>
-                          <p className="text-xs text-gray-500">{type.revenue.toLocaleString()} RWF</p>
+                          <p className="text-xs text-gray-500">{type.value.toLocaleString()} applications</p>
                         </div>
                       </div>
-                      <span className="text-sm font-bold text-gray-900">{type.value}%</span>
+                      <span className="text-sm font-bold text-gray-900">{type.percent}%</span>
                     </div>
                   ))
                 )}
@@ -346,28 +662,56 @@ const SuperAdminDashboard = () => {
             <p className="text-gray-600 text-sm mb-6">Performance by province</p>
             
             <div className="space-y-4">
-              {mockData.regionData.map((region, index) => (
-                <div key={index} className="p-4 bg-gradient-to-r from-gray-50 to-blue-50 rounded-xl">
-                  <div className="flex justify-between items-start mb-3">
-                    <div>
-                      <h4 className="font-semibold text-gray-900">{region.region}</h4>
-                      <p className="text-sm text-gray-600">{region.agents} agents • {region.clients} clients</p>
+              {isRegionalPerformanceLoading ? (
+                <div className="space-y-4">
+                  {[1, 2, 3].map((index) => (
+                    <div key={index} className="p-4 bg-gradient-to-r from-gray-50 to-blue-50 rounded-xl animate-pulse">
+                      <div className="flex justify-between items-start mb-3">
+                        <div>
+                          <div className="h-5 bg-gray-200 rounded w-24 mb-2"></div>
+                          <div className="h-4 bg-gray-200 rounded w-32"></div>
+                        </div>
+                        <div className="text-right">
+                          <div className="h-5 bg-gray-200 rounded w-20 mb-2"></div>
+                          <div className="h-4 bg-gray-200 rounded w-16"></div>
+                        </div>
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-2">
+                        <div className="bg-gray-300 h-2 rounded-full w-1/3"></div>
+                      </div>
                     </div>
-                    <div className="text-right">
-                      <p className="font-bold text-gray-900">{region.revenue.toLocaleString()} RWF</p>
-                      <span className="text-xs text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full">
-                        +{region.growth}%
-                      </span>
-                    </div>
-                  </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div 
-                      className="bg-gradient-to-r from-blue-500 to-blue-600 h-2 rounded-full transition-all duration-500" 
-                      style={{ width: `${region.growth * 2}%` }}
-                    ></div>
-                  </div>
+                  ))}
                 </div>
-              ))}
+              ) : regionalPerformance.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  <p>No regional performance data available</p>
+                </div>
+              ) : (
+                regionalPerformance.map((region, index) => (
+                  <div key={index} className="p-4 bg-gradient-to-r from-gray-50 to-blue-50 rounded-xl">
+                    <div className="flex justify-between items-start mb-3">
+                      <div>
+                        <h4 className="font-semibold text-gray-900">{region.province}</h4>
+                        <p className="text-sm text-gray-600">{region.agents} agents • {region.clients} clients</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-bold text-gray-900">{region.totalCommission.toLocaleString()} RWF</p>
+                        <span className="text-xs text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full">
+                          +{Math.round((region.totalCommission / (regionalPerformance.reduce((sum, r) => sum + r.totalCommission, 0) / regionalPerformance.length)) * 100 - 100)}%
+                        </span>
+                      </div>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div 
+                        className="bg-gradient-to-r from-blue-500 to-blue-600 h-2 rounded-full transition-all duration-500" 
+                        style={{ 
+                          width: `${Math.min(100, Math.max(10, (region.totalCommission / Math.max(...regionalPerformance.map(r => r.totalCommission), 1)) * 100))}%` 
+                        }}
+                      ></div>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </div>
 

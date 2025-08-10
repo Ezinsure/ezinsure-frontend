@@ -43,7 +43,7 @@ export interface Application {
   province?: string;
   district?: string;
   sector?: string;
-  insuranceCategory: string;
+  insuranceCategory: string; 
   insuranceType: string;
   insuranceDuration: string;
   vehicleType?: string;
@@ -56,6 +56,7 @@ export interface Application {
   yellowCard: string;
   pastInsuranceCertificate: string | null;
   agentId: string | null;
+  agentFullName?: string;
   submittedAt: string;
   rejectionReason?: string;
   reasonForPaymentRejection: string;
@@ -75,6 +76,8 @@ export interface Application {
   contract?: string;
   receipt?: string;
   ebm?: string;
+  createdAt?: string;
+  insuranceEndAt?: string;
 }
 
 interface OTPModalProps {
@@ -1250,10 +1253,19 @@ const handleEditSuccess = async (): Promise<void> => {
               <p className="text-sm text-gray-500">Insurance Category</p>
               <p className="font-medium">{application.insuranceCategory}</p>
             </div>
-            <div>
+
+            {application.insuranceEndAt && (
+              <div>
               <p className="text-sm text-gray-500">Insurance Type</p>
               <p className="font-medium">{application.insuranceType}</p>
-            </div>
+              </div>
+            )}
+            {application.agentId && (
+              <div>
+                <p className="text-sm text-gray-500">Agent</p>
+                <p className="font-medium">{application.agentFullName || 'Client'}</p>
+              </div>
+            )}
             <div>
               <p className="text-sm text-gray-500">Duration</p>
               <p className="font-medium">{application.insuranceDuration}</p>

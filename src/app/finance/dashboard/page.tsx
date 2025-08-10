@@ -12,7 +12,7 @@ interface PaymentHistory {
   year: number;
   totalAmount: number;
   agentsPaid: number;
-  paid?: boolean;
+  isPaid: boolean;
   totalCommissionForMonth?: string;
   data?: AgentCommission[];
 }
@@ -25,6 +25,7 @@ interface PaymentHistoryDetails {
     _id: string;
     name: string;
     agentId: string;
+    agentFullName?: string;
     email: string;
     bankName: string;
     bankAccountNumber: string;
@@ -36,6 +37,7 @@ interface PaymentHistoryDetails {
 interface AgentCommission {
   _id: string;
   agentId: string;
+  agentFullName?: string;
   name: string;
   totalCommission: number;
   phoneNumber: string;
@@ -139,9 +141,12 @@ const FinanceDashboard = () => {
       setPaymentHistory(
         (data.results || []).map((item: PaymentHistory) => ({
           ...item,
-          paid: data.isPaid || item.paid || false // Use isPaid from API if available
+          isPaid: item.isPaid || false
         }))
       );
+
+      console.log("Payment history data:", data);
+      console.log("Processed payment history:", data.results);
     } catch (error) {
       console.error('Error fetching payment history:', error);
       setToast({ show: true, message: 'Error fetching payment history.', isError: true });
@@ -212,7 +217,8 @@ const FinanceDashboard = () => {
 
   const filteredAgents = currentMonthData.data.filter(agent =>
     agent.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    agent.agentId.toLowerCase().includes(searchTerm.toLowerCase())
+    agent.agentId.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (agent.agentFullName && agent.agentFullName.toLowerCase().includes(searchTerm.toLowerCase()))
   ) || [];
 
   const paginatedAgents = filteredAgents.slice(
@@ -331,12 +337,12 @@ const FinanceDashboard = () => {
 
   const handleExportPayments = () => {
     // Export current month's data as CSV
-    const headers = ['Agent ID', 'Name', 'Phone', 'Email', 'Bank Name', 'Account Number', 'Commission'];
+    const headers = ['Agent ID', 'Agent Name', 'Phone', 'Email', 'Bank Name', 'Account Number', 'Commission'];
     const csvContent = [
       headers.join(','),
       ...currentMonthData.data.map(agent => [
         agent.agentId,
-        `"${agent.name}"`,
+        `"${agent.agentFullName || agent.name}"`,
         agent.phoneNumber,
         agent.email,
         agent.bankName,
@@ -359,12 +365,12 @@ const FinanceDashboard = () => {
     try {
       if (showPaymentDetails) {
         // Export the formatted data that's already displayed
-        const headers = ['Agent ID', 'Name', 'Phone', 'Email', 'Bank Name', 'Account Number', 'Commission'];
+        const headers = ['Agent ID', 'Agent Name', 'Phone', 'Email', 'Bank Name', 'Account Number', 'Commission'];
         const csvContent = [
           headers.join(','),
           ...showPaymentDetails.data.map(agent => [
             agent.agentId,
-            `"${agent.name}"`,
+            `"${agent.agentFullName || agent.name}"`,
             agent.phoneNumber,
             agent.email,
             agent.bankName,
@@ -470,6 +476,7 @@ const FinanceDashboard = () => {
       const formattedData = data.data.map(agent => ({
         _id: agent._id,
         agentId: agent.agentId,
+        agentFullName: agent.agentFullName || agent.name,
         name: agent.name,
         phoneNumber: agent.phoneNumber || '',
         email: agent.email || '',
@@ -729,9 +736,9 @@ const FinanceDashboard = () => {
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{payment.agentsPaid}</td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                            payment.paid ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
+                            payment.isPaid ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
                           }`}>
-                            {payment.paid ? 'Paid' : 'Pending'}
+                            {payment.isPaid ? 'Paid' : 'Pending'}
                           </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
@@ -741,7 +748,7 @@ const FinanceDashboard = () => {
                           >
                             View
                           </button>
-                          {!payment.paid && (
+                          {!payment.isPaid && (
                             markingAsPaid && markingAsPaid.month === payment.month && markingAsPaid.year === payment.year ? (
                               <span className="inline-block w-6 h-6 align-middle">
                                 <span className="inline-block animate-spin rounded-full h-6 w-6 border-2 border-green-200 border-t-green-600"></span>
