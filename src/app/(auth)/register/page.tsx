@@ -732,10 +732,22 @@ const resetApplicationState = () => {
         {mode === 'new' ? (
         <div className="bg-white rounded-xl shadow-lg overflow-hidden">
           <div className="p-6 bg-gradient-to-r from-[var(--main-blue)] to-[var(--secondary-blue)] text-white">
-          <h2 className="text-xl font-bold">New Application</h2>
-          <p className="text-sm opacity-90 mt-1">
-            Complete all fields to submit your agent application
-          </p>
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+              <div>
+                <h2 className="text-xl font-bold">New Application</h2>
+                <p className="text-sm opacity-90 mt-1">
+                  Complete all fields to submit your agent application
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setMode('track')}
+                className="bg-white text-[var(--main-blue)] hover:bg-gray-100 border-white hover:border-gray-200 w-full lg:w-auto"
+              >
+                Track Existing Application
+              </Button>
+            </div>
           </div>
 
           <div className="p-6">
@@ -1076,14 +1088,7 @@ const resetApplicationState = () => {
   </div>
 </div>
 
-            <div className="flex justify-between items-center pt-4">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setMode('track')}
-            >
-              Track Existing Application
-            </Button>
+            <div className="flex justify-end pt-4">
             <Button
               type="submit"
               variant="primary"

@@ -24,6 +24,8 @@ interface User {
   province?: string;
   district?: string;
   sector?: string;
+  bankName?: string;
+  bankAccountNumber?: string;
   passportPhoto?: string;
   nationalIdDocument?: string;
   criminalRecordCertificate?: string;
@@ -82,6 +84,8 @@ export default function FinanceProfilePage() {
     province: '',
     district: '',
     sector: '',
+    bankName: '',
+    bankAccountNumber: '',
     emergencyContacts: []
   });
 
@@ -592,6 +596,47 @@ export default function FinanceProfilePage() {
                           ))}
                         </select>
                       </div>
+                    </div>
+                  </div>
+
+                  {/* Bank Information Section */}
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    <h3 className="font-medium text-gray-900 mb-4">Bank Information</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label className="block text-sm font-medium text-gray-700">Bank Name</label>
+                        <select
+                          name="bankName"
+                          value={profile.bankName || ''}
+                          onChange={handleInputChange}
+                          disabled={!isEditMode}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[var(--main-blue)] focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
+                        >
+                          <option value="">Select Bank</option>
+                          {[
+                            "Bank of Kigali",
+                            "Equity Bank Rwanda",
+                            "I&M Bank Rwanda",
+                            "BPR Bank",
+                            "GT Bank Rwanda",
+                            "Zigama",
+                            "Unguka bank",
+                            "VisionFund Rwanda"
+                          ].map(bank => (
+                            <option key={bank} value={bank}>{bank}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <Input
+                        label="Bank Account Number"
+                        name="bankAccountNumber"
+                        type="text"
+                        value={profile.bankAccountNumber || ''}
+                        onChange={handleInputChange}
+                        error={errors.bankAccountNumber}
+                        disabled={!isEditMode}
+                        placeholder="Enter your account number"
+                      />
                     </div>
                   </div>
                   
