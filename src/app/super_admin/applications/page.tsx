@@ -285,7 +285,7 @@ export default function SuperAdminApplicationsPage() {
       // Add table
       autoTable.default(doc, {
         head: [
-          ['#', 'Client Name', 'Email', 'Category', 'Type', 'Agent', 'Amount', 'Company Comm.', 'Agent Comm.', 'Date', 'Status']
+          ['#', 'Client Name', 'Email', 'Category', 'Type', 'Performed By', 'Amount', 'Company Comm.', 'Agent Comm.', 'Date', 'Status']
         ],
         body: tableData,
         startY: filterY + 10,
@@ -632,7 +632,7 @@ export default function SuperAdminApplicationsPage() {
     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Client</th>
     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Insurance Category</th>
     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Insurance End Date</th>
-    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Agent</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Performed By</th>
     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Company Commission</th>
     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Agent Commission</th>
