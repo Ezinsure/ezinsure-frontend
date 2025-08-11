@@ -275,6 +275,12 @@ const getChangedFields = (): Partial<User> => {
   if (JSON.stringify(originalProfile.emergencyContacts) !== JSON.stringify(profile.emergencyContacts)) {
     changes.emergencyContacts = profile.emergencyContacts;
   }
+  if (originalProfile.bankName !== profile.bankName) {
+    changes.bankName = profile.bankName;
+  }
+  if (originalProfile.bankAccountNumber !== profile.bankAccountNumber) {
+    changes.bankAccountNumber = profile.bankAccountNumber;
+  }
   
   return changes;
 };
