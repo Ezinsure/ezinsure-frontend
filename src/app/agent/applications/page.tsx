@@ -942,7 +942,7 @@ useEffect(() => {
       // Add table
       autoTable.default(doc, {
         head: [
-          ['#', 'Client Name', 'Email', 'Category', 'Type', 'Agent', 'Amount', 'Company Comm.', 'Agent Comm.', 'Date', 'Status']
+          ['#', 'Client Name', 'Email', 'Category', 'Type', 'Performed By', 'Amount', 'Company Comm.', 'Agent Comm.', 'Date', 'Status']
         ],
         body: tableData,
         startY: filterY + 10,
