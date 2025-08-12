@@ -117,6 +117,8 @@ const FinanceDashboard = () => {
           });
         })
       });
+
+      console.log("Current month data:", data);
       
       
     } catch (error) {
@@ -145,8 +147,6 @@ const FinanceDashboard = () => {
         }))
       );
 
-      console.log("Payment history data:", data);
-      console.log("Processed payment history:", data.results);
     } catch (error) {
       console.error('Error fetching payment history:', error);
       setToast({ show: true, message: 'Error fetching payment history.', isError: true });

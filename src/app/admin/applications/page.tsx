@@ -459,7 +459,7 @@ const handleApproveApplication = async () => {
   
   try {
     setIsApproving(true);
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/applications/${selectedApp._id}/approve`, {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/approveApplication/${selectedApp._id}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
