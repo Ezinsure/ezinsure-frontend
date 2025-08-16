@@ -749,22 +749,22 @@ const getActionButtons = (app: Application) => {
       // Prepare table data with text truncation for better fit
       const tableData = filteredApplications.map((app, index) => [
         (index + 1).toString(),
-        app.fullName.length > 28 ? app.fullName.substring(0, 28) + '...' : app.fullName,
-        app.email.length > 32 ? app.email.substring(0, 32) + '...' : app.email,
-        app.insuranceCategory.length > 22 ? app.insuranceCategory.substring(0, 22) + '...' : app.insuranceCategory,
-        app.insuranceType.length > 22 ? app.insuranceType.substring(0, 22) + '...' : app.insuranceType,
-        (app.agentFullName || 'Client').length > 22 ? (app.agentFullName || 'Client').substring(0, 22) + '...' : (app.agentFullName || 'Client'),
+        (app.fullName || '').length > 28 ? (app.fullName || '').substring(0, 28) + '...' : (app.fullName || ''),
+        (app.email || '').length > 32 ? (app.email || '').substring(0, 32) + '...' : (app.email || ''),
+        (app.insuranceCategory || '').length > 22 ? (app.insuranceCategory || '').substring(0, 22) + '...' : (app.insuranceCategory || ''),
+        app.insuranceEndAt ? new Date(app.insuranceEndAt).toLocaleDateString() : 'N/A',
+        ((app.agentFullName || 'Client') || '').length > 22 ? ((app.agentFullName || 'Client') || '').substring(0, 22) + '...' : (app.agentFullName || 'Client'),
         app.amount ? `${app.amount.toLocaleString()} RWF` : '0 RWF',
         app.companyCommission ? `${app.companyCommission.toLocaleString()} RWF` : '0 RWF',
         app.agentCommission ? `${app.agentCommission.toLocaleString()} RWF` : '0 RWF',
-        new Date(app.submittedAt).toLocaleDateString(),
-        app.status.replace('_', ' ').toUpperCase()
+        app.submittedAt ? new Date(app.submittedAt).toLocaleDateString() : 'N/A',
+        (app.status || '').replace('_', ' ').toUpperCase()
       ]);
       
       // Add table
       autoTable.default(doc, {
         head: [
-          ['#', 'Client Name', 'Email', 'Category', 'Type', 'Performed By', 'Amount', 'Company Comm.', 'Agent Comm.', 'Date', 'Status']
+          ['#', 'Client Name', 'Email', 'Category', 'End Date', 'Performed By', 'Amount', 'Company Comm.', 'Agent Comm.', 'Date', 'Status']
         ],
         body: tableData,
         startY: filterY + 10,
@@ -780,7 +780,7 @@ const getActionButtons = (app: Application) => {
           valign: 'middle',
         },
         headStyles: {
-          fillColor: [10, 37, 64], // Dark blue header
+          fillColor: [51, 122, 183], // Lighter blue header
           textColor: [255, 255, 255],
           fontStyle: 'bold',
           fontSize: 8,
@@ -792,12 +792,12 @@ const getActionButtons = (app: Application) => {
           1: { cellWidth: 30, halign: 'left' }, // Name
           2: { cellWidth: 35, halign: 'left' }, // Email
           3: { cellWidth: 25, halign: 'left' }, // Category
-          4: { cellWidth: 25, halign: 'left' }, // Type
-          5: { cellWidth: 25, halign: 'left' }, // Agent
+          4: { cellWidth: 25, halign: 'left' }, // End Date
+          5: { cellWidth: 25, halign: 'left' }, // Performed By
           6: { cellWidth: 25, halign: 'right' }, // Amount
           7: { cellWidth: 25, halign: 'right' }, // Company Comm
           8: { cellWidth: 25, halign: 'right' }, // Agent Comm
-          9: { cellWidth: 20, halign: 'center' }, // Date
+          9: { cellWidth: 25, halign: 'center' }, // Date
           10: { cellWidth: 25, halign: 'center' }, // Status
         },
         alternateRowStyles: {
@@ -826,6 +826,70 @@ const getActionButtons = (app: Application) => {
     } catch (error) {
       console.error('Error generating PDF:', error);
       showToast('Failed to generate PDF', 'error');
+    }
+  };
+
+  // Excel Download Function
+  const handleDownloadExcel = () => {
+    try {
+      // Prepare headers
+      const headers = [
+        'Client Name', 'Email', 'Phone', 'Insurance Category', 'Insurance Type', 
+        'Duration', 'Insurance End Date', 'Performed By', 'Amount (RWF)', 'Company Commission (RWF)', 
+        'Agent Commission (RWF)', 'Date', 'Status', 'Address', 'Province', 'District', 'Sector'
+      ];
+      
+      // Prepare data rows
+      const csvData = filteredApplications.map((app) => [
+        app.fullName,
+        app.email,
+        app.phoneNumber,
+        app.insuranceCategory,
+        app.insuranceType,
+        app.insuranceDuration,
+        app.insuranceEndAt ? new Date(app.insuranceEndAt).toLocaleDateString() : 'N/A',
+        app.agentFullName || 'Client',
+        app.amount ? app.amount.toString() : '0',
+        app.companyCommission ? app.companyCommission.toString() : '0',
+        app.agentCommission ? app.agentCommission.toString() : '0',
+        app.submittedAt ? new Date(app.submittedAt).toLocaleDateString() : 'N/A',
+        app.status.replace('_', ' '),
+        app.address,
+        app.province || '',
+        app.district || '',
+        app.sector || ''
+      ]);
+      
+      // Combine headers and data
+      const csvContent = [
+        headers.join(','),
+        ...csvData.map(row => 
+          row.map(cell => 
+            typeof cell === 'string' && cell.includes(',') ? `"${cell}"` : cell
+          ).join(',')
+        )
+      ].join('\n');
+      
+      // Create and download file
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.setAttribute('href', url);
+      
+      // Generate filename
+      const dateStr = new Date().toISOString().split('T')[0];
+      const timeStr = new Date().toLocaleTimeString().replace(/:/g, '-');
+      const filename = `insurance_applications_${dateStr}_${timeStr}.csv`;
+      
+      link.setAttribute('download', filename);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      showToast('Excel file downloaded successfully', 'success');
+    } catch (error) {
+      console.error('Error generating Excel file:', error);
+      showToast('Failed to generate Excel file', 'error');
     }
   };
 
@@ -924,6 +988,23 @@ const getActionButtons = (app: Application) => {
                     <polyline points="10,9 9,9 8,9"></polyline>
                   </svg>
                   Download PDF
+                </Button>
+              )}
+              {filteredApplications.length > 0 && (
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={handleDownloadExcel}
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 flex items-center gap-2"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                    <polyline points="14,2 14,8 20,8"></polyline>
+                    <line x1="16" y1="13" x2="8" y2="13"></line>
+                    <line x1="16" y1="17" x2="8" y2="17"></line>
+                    <polyline points="10,9 9,9 8,9"></polyline>
+                  </svg>
+                  Download Excel
                 </Button>
               )}
               <Button

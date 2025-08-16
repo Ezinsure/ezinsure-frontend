@@ -388,6 +388,7 @@ export const UserEditModal = ({ user, onClose, onSave, isLoading, currentUserRol
             >
               <option value="AGENT">Agent</option>
               <option value="ADMIN">Admin</option>
+              <option value="FINANCE">Finance</option>
             </select>
           </div>
 
