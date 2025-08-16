@@ -270,22 +270,22 @@ export default function SuperAdminApplicationsPage() {
       // Prepare table data with text truncation for better fit
       const tableData = filteredApplications.map((app, index) => [
         (index + 1).toString(),
-        app.fullName.length > 28 ? app.fullName.substring(0, 28) + '...' : app.fullName,
-        app.email.length > 32 ? app.email.substring(0, 32) + '...' : app.email,
-        app.insuranceCategory.length > 22 ? app.insuranceCategory.substring(0, 22) + '...' : app.insuranceCategory,
-        app.insuranceType.length > 22 ? app.insuranceType.substring(0, 22) + '...' : app.insuranceType,
-        (app.agentFullName || 'Client').length > 22 ? (app.agentFullName || 'Client').substring(0, 22) + '...' : (app.agentFullName || 'Client'),
+        (app.fullName || '').length > 28 ? (app.fullName || '').substring(0, 28) + '...' : (app.fullName || ''),
+        (app.email || '').length > 32 ? (app.email || '').substring(0, 32) + '...' : (app.email || ''),
+        (app.insuranceCategory || '').length > 22 ? (app.insuranceCategory || '').substring(0, 22) + '...' : (app.insuranceCategory || ''),
+        app.insuranceEndAt ? new Date(app.insuranceEndAt).toLocaleDateString() : 'N/A',
+        ((app.agentFullName || 'Client') || '').length > 22 ? ((app.agentFullName || 'Client') || '').substring(0, 22) + '...' : (app.agentFullName || 'Client'),
         app.amount ? `${app.amount.toLocaleString()} RWF` : '0 RWF',
         app.companyCommission ? `${app.companyCommission.toLocaleString()} RWF` : '0 RWF',
         app.agentCommission ? `${app.agentCommission.toLocaleString()} RWF` : '0 RWF',
         app.submittedAt ? new Date(app.submittedAt).toLocaleDateString() : 'N/A',
-        app.status.replace('_', ' ').toUpperCase()
+        (app.status || '').replace('_', ' ').toUpperCase()
       ]);
       
       // Add table
       autoTable.default(doc, {
         head: [
-          ['#', 'Client Name', 'Email', 'Category', 'Type', 'Performed By', 'Amount', 'Company Comm.', 'Agent Comm.', 'Date', 'Status']
+          ['#', 'Client Name', 'Email', 'Category', 'End Date', 'Performed By', 'Amount', 'Company Comm.', 'Agent Comm.', 'Date', 'Status']
         ],
         body: tableData,
         startY: filterY + 10,
@@ -301,7 +301,7 @@ export default function SuperAdminApplicationsPage() {
           valign: 'middle',
         },
         headStyles: {
-          fillColor: [10, 37, 64], // Dark blue header
+          fillColor: [51, 122, 183], // Lighter blue header
           textColor: [255, 255, 255],
           fontStyle: 'bold',
           fontSize: 8,
@@ -313,12 +313,12 @@ export default function SuperAdminApplicationsPage() {
           1: { cellWidth: 30, halign: 'left' }, // Name
           2: { cellWidth: 35, halign: 'left' }, // Email
           3: { cellWidth: 25, halign: 'left' }, // Category
-          4: { cellWidth: 25, halign: 'left' }, // Type
-          5: { cellWidth: 25, halign: 'left' }, // Agent
+          4: { cellWidth: 25, halign: 'left' }, // End Date
+          5: { cellWidth: 25, halign: 'left' }, // Performed By
           6: { cellWidth: 25, halign: 'right' }, // Amount
           7: { cellWidth: 25, halign: 'right' }, // Company Comm
           8: { cellWidth: 25, halign: 'right' }, // Agent Comm
-          9: { cellWidth: 20, halign: 'center' }, // Date
+          9: { cellWidth: 25, halign: 'center' }, // Date
           10: { cellWidth: 25, halign: 'center' }, // Status
         },
         alternateRowStyles: {
@@ -356,7 +356,7 @@ export default function SuperAdminApplicationsPage() {
       // Prepare headers
       const headers = [
         'Client Name', 'Email', 'Phone', 'Insurance Category', 'Insurance Type', 
-        'Duration', 'Performed By', 'Amount (RWF)', 'Company Commission (RWF)', 
+        'Duration', 'Insurance End Date', 'Performed By', 'Amount (RWF)', 'Company Commission (RWF)', 
         'Agent Commission (RWF)', 'Date', 'Status', 'Address', 'Province', 'District', 'Sector',
         'Device Type', 'OS', 'Browser', 'IP Address', 'City', 'Country', 'Region'
       ];
@@ -369,6 +369,7 @@ export default function SuperAdminApplicationsPage() {
         app.insuranceCategory,
         app.insuranceType,
         app.insuranceDuration,
+        app.insuranceEndAt ? new Date(app.insuranceEndAt).toLocaleDateString() : 'N/A',
         app.agentFullName || 'Client',
         app.amount ? app.amount.toString() : '0',
         app.companyCommission ? app.companyCommission.toString() : '0',
