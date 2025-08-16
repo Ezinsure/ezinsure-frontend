@@ -136,18 +136,13 @@ const [isRejecting, setIsRejecting] = useState(false);
       }
       
       const data = await response.json();
-      console.log('Raw API response:', data);
-      console.log('Applications data:', data.data);
-      console.log('Number of applications:', data.data?.length || 0);
       
       // Sort applications by submittedAt in descending order (newest first)
       const sortedApplications = data.data.sort((a: Application, b: Application) => {
         return new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime();
       });
-      console.log('Sorted applications:', sortedApplications);
       setApplications(sortedApplications);
-    } catch (error) {
-      console.error('Error fetching applications:', error);
+    } catch {
       showToast('Failed to load applications', 'error');
     } finally {
       setIsLoading(false);
@@ -193,6 +188,8 @@ const [isRejecting, setIsRejecting] = useState(false);
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
   );
+
+
 
   // Handle filter changes
   const handleFilterChange = (filterType: string, value: string) => {
@@ -746,20 +743,45 @@ const getActionButtons = (app: Application) => {
       filterY += 5;
       doc.text(`Total Agent Commission: ${totalAgentCommission.toLocaleString()} RWF`, 14, filterY);
       
+      // Helper function to format dates for PDF
+      const formatDateForPDF = (dateString: string | undefined) => {
+        if (!dateString) return 'N/A';
+        
+        try {
+          const date = new Date(dateString);
+          // Check if date is valid
+          if (isNaN(date.getTime())) {
+            return 'Invalid Date';
+          }
+          
+          // Format as DD/MM/YYYY for PDF readability
+          const day = String(date.getDate()).padStart(2, '0');
+          const month = String(date.getMonth() + 1).padStart(2, '0');
+          const year = date.getFullYear();
+          return `${day}/${month}/${year}`;
+        } catch {
+          return 'Date Error';
+        }
+      };
+      
       // Prepare table data with text truncation for better fit
-      const tableData = filteredApplications.map((app, index) => [
-        (index + 1).toString(),
-        (app.fullName || '').length > 28 ? (app.fullName || '').substring(0, 28) + '...' : (app.fullName || ''),
-        (app.email || '').length > 32 ? (app.email || '').substring(0, 32) + '...' : (app.email || ''),
-        (app.insuranceCategory || '').length > 22 ? (app.insuranceCategory || '').substring(0, 22) + '...' : (app.insuranceCategory || ''),
-        app.insuranceEndAt ? new Date(app.insuranceEndAt).toLocaleDateString() : 'N/A',
-        ((app.agentFullName || 'Client') || '').length > 22 ? ((app.agentFullName || 'Client') || '').substring(0, 22) + '...' : (app.agentFullName || 'Client'),
-        app.amount ? `${app.amount.toLocaleString()} RWF` : '0 RWF',
-        app.companyCommission ? `${app.companyCommission.toLocaleString()} RWF` : '0 RWF',
-        app.agentCommission ? `${app.agentCommission.toLocaleString()} RWF` : '0 RWF',
-        app.submittedAt ? new Date(app.submittedAt).toLocaleDateString() : 'N/A',
-        (app.status || '').replace('_', ' ').toUpperCase()
-      ]);
+      const tableData = filteredApplications.map((app, index) => {
+        const row = [
+          (index + 1).toString(),
+          (app.fullName || '').length > 28 ? (app.fullName || '').substring(0, 28) + '...' : (app.fullName || ''),
+          (app.email || '').length > 32 ? (app.email || '').substring(0, 32) + '...' : (app.email || ''),
+          (app.insuranceCategory || '').length > 22 ? (app.insuranceCategory || '').substring(0, 22) + '...' : (app.insuranceCategory || ''),
+          formatDateForPDF(app.insuranceEndAt),
+          ((app.agentFullName || 'Client') || '').length > 22 ? ((app.agentFullName || 'Client') || '').substring(0, 22) + '...' : (app.agentFullName || 'Client'),
+          app.amount ? `${app.amount.toLocaleString()} RWF` : '0 RWF',
+          app.companyCommission ? `${app.companyCommission.toLocaleString()} RWF` : '0 RWF',
+          app.agentCommission ? `${app.agentCommission.toLocaleString()} RWF` : '0 RWF',
+          formatDateForPDF(app.submittedAt),
+          (app.status || '').replace('_', ' ').toUpperCase()
+        ];
+        
+        return row;
+      });
       
       // Add table
       autoTable.default(doc, {
@@ -832,6 +854,27 @@ const getActionButtons = (app: Application) => {
   // Excel Download Function
   const handleDownloadExcel = () => {
     try {
+      // Helper function to format dates for Excel
+      const formatDateForExcel = (dateString: string | undefined) => {
+        if (!dateString) return 'N/A';
+        
+        try {
+          const date = new Date(dateString);
+          // Check if date is valid
+          if (isNaN(date.getTime())) {
+            return 'Invalid Date';
+          }
+          
+          // Format as YYYY-MM-DD for Excel compatibility
+          const year = date.getFullYear();
+          const month = String(date.getMonth() + 1).padStart(2, '0');
+          const day = String(date.getDate()).padStart(2, '0');
+          return `${year}-${month}-${day}`;
+        } catch {
+          return 'Date Error';
+        }
+      };
+
       // Prepare headers
       const headers = [
         'Client Name', 'Email', 'Phone', 'Insurance Category', 'Insurance Type', 
@@ -840,25 +883,29 @@ const getActionButtons = (app: Application) => {
       ];
       
       // Prepare data rows
-      const csvData = filteredApplications.map((app) => [
-        app.fullName,
-        app.email,
-        app.phoneNumber,
-        app.insuranceCategory,
-        app.insuranceType,
-        app.insuranceDuration,
-        app.insuranceEndAt ? new Date(app.insuranceEndAt).toLocaleDateString() : 'N/A',
-        app.agentFullName || 'Client',
-        app.amount ? app.amount.toString() : '0',
-        app.companyCommission ? app.companyCommission.toString() : '0',
-        app.agentCommission ? app.agentCommission.toString() : '0',
-        app.submittedAt ? new Date(app.submittedAt).toLocaleDateString() : 'N/A',
-        app.status.replace('_', ' '),
-        app.address,
-        app.province || '',
-        app.district || '',
-        app.sector || ''
-      ]);
+      const csvData = filteredApplications.map((app) => {
+        const row = [
+          app.fullName || '',
+          app.email || '',
+          app.phoneNumber || '',
+          app.insuranceCategory || '',
+          app.insuranceType || '',
+          app.insuranceDuration || '',
+          formatDateForExcel(app.insuranceEndAt),
+          app.agentFullName || 'Client',
+          app.amount ? app.amount.toString() : '0',
+          app.companyCommission ? app.companyCommission.toString() : '0',
+          app.agentCommission ? app.agentCommission.toString() : '0',
+          formatDateForExcel(app.submittedAt),
+          app.status ? app.status.replace('_', ' ') : '',
+          app.address || '',
+          app.province || '',
+          app.district || '',
+          app.sector || ''
+        ];
+        
+        return row;
+      });
       
       // Combine headers and data
       const csvContent = [
@@ -974,38 +1021,39 @@ const getActionButtons = (app: Application) => {
             </div>
             <div className="flex gap-2">
               {filteredApplications.length > 0 && (
-                <Button
-                  variant="primary"
-                  size="sm"
-                  onClick={handleDownloadPDF}
-                  className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 flex items-center gap-2"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                    <polyline points="14,2 14,8 20,8"></polyline>
-                    <line x1="16" y1="13" x2="8" y2="13"></line>
-                    <line x1="16" y1="17" x2="8" y2="17"></line>
-                    <polyline points="10,9 9,9 8,9"></polyline>
-                  </svg>
-                  Download PDF
-                </Button>
-              )}
-              {filteredApplications.length > 0 && (
-                <Button
-                  variant="primary"
-                  size="sm"
-                  onClick={handleDownloadExcel}
-                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 flex items-center gap-2"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                    <polyline points="14,2 14,8 20,8"></polyline>
-                    <line x1="16" y1="13" x2="8" y2="13"></line>
-                    <line x1="16" y1="17" x2="8" y2="17"></line>
-                    <polyline points="10,9 9,9 8,9"></polyline>
-                  </svg>
-                  Download Excel
-                </Button>
+                <>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={handleDownloadPDF}
+                    className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 flex items-center gap-2"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                      <polyline points="14,2 14,8 20,8"></polyline>
+                      <line x1="16" y1="13" x2="8" y2="13"></line>
+                      <line x1="16" y1="17" x2="8" y2="17"></line>
+                      <polyline points="10,9 9,9 8,9"></polyline>
+                    </svg>
+                    Download PDF
+                  </Button>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={handleDownloadExcel}
+                    className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 flex items-center gap-2"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                      <polyline points="14,2 14,8 20,8"></polyline>
+                      <line x1="16" y1="13" x2="8" y2="13"></line>
+                      <line x1="16" y1="17" x2="8" y2="17"></line>
+                      <polyline points="10,9 9,9 8,9"></polyline>
+                    </svg>
+                    Download Excel
+                  </Button>
+
+                </>
               )}
               <Button
                 variant="text"
