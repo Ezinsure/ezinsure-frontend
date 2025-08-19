@@ -806,15 +806,29 @@ useEffect(() => {
 
   // Filter applications based on search query, status, and date range
   const filteredApplications = applications.filter(app => {
-    const matchesSearch = 
-      app.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      app.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      app.applicationNumber.toLowerCase().includes(searchQuery.toLowerCase());
+    // Only search fields that have meaningful data
+    const searchableFields = [];
     
-    const matchesStatus = selectedStatus === 'all' || app.status.toLowerCase() === selectedStatus;
+    if (app.fullName && app.fullName.trim()) {
+      searchableFields.push(app.fullName.toLowerCase());
+    }
+    if (app.email && app.email.trim()) {
+      searchableFields.push(app.email.toLowerCase());
+    }
+    if (app.applicationNumber && app.applicationNumber.trim()) {
+      searchableFields.push(app.applicationNumber.toLowerCase());
+    }
+    
+    const matchesSearch = searchQuery === '' || searchableFields.some(field => 
+      field.includes(searchQuery.toLowerCase())
+    );
+    
+    const matchesStatus = selectedStatus === 'all' || (app.status && app.status.toLowerCase() === selectedStatus);
     
     const matchesDateRange = (() => {
       if (!startDate && !endDate) return true;
+      
+      if (!app.submittedAt) return false; // Skip applications without submission date
       
       const appDate = new Date(app.submittedAt);
       const start = startDate ? new Date(startDate) : null;
@@ -927,16 +941,16 @@ useEffect(() => {
       // Prepare table data with text truncation for better fit
       const tableData = filteredApplications.map((app, index) => [
         (index + 1).toString(),
-        app.fullName.length > 28 ? app.fullName.substring(0, 28) + '...' : app.fullName,
-        app.email.length > 32 ? app.email.substring(0, 32) + '...' : app.email,
-        app.insuranceCategory.length > 22 ? app.insuranceCategory.substring(0, 22) + '...' : app.insuranceCategory,
-        app.insuranceType.length > 22 ? app.insuranceType.substring(0, 22) + '...' : app.insuranceType,
+        (app.fullName || '').length > 28 ? (app.fullName || '').substring(0, 28) + '...' : (app.fullName || ''),
+                  (app.email || '').length > 32 ? (app.email || '').substring(0, 32) + '...' : (app.email || ''),
+          (app.insuranceCategory || '').length > 22 ? (app.insuranceCategory || '').substring(0, 22) + '...' : (app.insuranceCategory || ''),
+                  (app.insuranceType || '').length > 22 ? (app.insuranceType || '').substring(0, 22) + '...' : (app.insuranceType || ''),
         (app.agentFullName || 'Client').length > 22 ? (app.agentFullName || 'Client').substring(0, 22) + '...' : (app.agentFullName || 'Client'),
         app.amount ? `${app.amount.toLocaleString()} RWF` : '0 RWF',
         app.companyCommission ? `${app.companyCommission.toLocaleString()} RWF` : '0 RWF',
         app.agentCommission ? `${app.agentCommission.toLocaleString()} RWF` : '0 RWF',
-        new Date(app.submittedAt).toLocaleDateString(),
-        app.status.replace('_', ' ').toUpperCase()
+        app.submittedAt ? new Date(app.submittedAt).toLocaleDateString() : 'N/A',
+        (app.status || '').replace('_', ' ').toUpperCase()
       ]);
       
       // Add table
@@ -1068,6 +1082,10 @@ const handleEditSuccess = async () => {
 
   // Get status badge based on application status
   const getStatusBadge = (status: string) => {
+    if (!status) {
+      return <span className="px-2 py-1 rounded-full bg-gray-100 text-gray-700 text-xs font-medium">Unknown</span>;
+    }
+    
     switch (status.toLowerCase()) {
       case 'pending':
         return <span className="px-2 py-1 rounded-full bg-blue-100 text-blue-700 text-xs font-medium">Pending</span>;
@@ -1089,13 +1107,21 @@ const handleEditSuccess = async () => {
   };
 
   // Format date for display
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
+  const formatDate = (dateString: string | undefined) => {
+    if (!dateString) return 'N/A';
+    
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return 'Invalid Date';
+      
+      return date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+      });
+    } catch {
+      return 'Date Error';
+    }
   };
 
   // Get action buttons based on application status
@@ -1115,7 +1141,7 @@ const getActionButtons = (app: Application) => {
       </Button>
 
       {/* Status-specific buttons */}
-      {app.status.toLowerCase() === 'waiting_for_user_action' && (
+      {app.status && app.status.toLowerCase() === 'waiting_for_user_action' && (
         app.reasonForPaymentRejection ? (
           <Button 
             size="xs" 
@@ -1140,7 +1166,7 @@ const getActionButtons = (app: Application) => {
         )
       )}
 
-      {app.status.toLowerCase() === 'invoice_sent' && (
+      {app.status && app.status.toLowerCase() === 'invoice_sent' && (
         <Button 
           size="xs" 
           onClick={() => {
@@ -1152,7 +1178,7 @@ const getActionButtons = (app: Application) => {
         </Button>
       )}
 
-      {app.status.toLowerCase() === 'insurance_issued' && (
+      {app.status && app.status.toLowerCase() === 'insurance_issued' && (
         <Button 
           size="xs"
           variant="secondary"
@@ -1483,13 +1509,13 @@ const getActionButtons = (app: Application) => {
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap">
                         <div className="text-sm font-medium text-gray-900">
-                          {app.fullName}
+                          {app.fullName || 'N/A'}
                         </div>
-                        <div className="text-sm text-gray-500">{app.phoneNumber}</div>
+                        <div className="text-sm text-gray-500">{app.phoneNumber || 'N/A'}</div>
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-900 capitalize">
-                          {app.insuranceCategory}
+                          {app.insuranceCategory || 'N/A'}
                         </div>
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap">
@@ -1532,7 +1558,7 @@ const getActionButtons = (app: Application) => {
         <div className="fixed inset-0 bg-gray-600/50 flex items-center justify-center z-50">
           <div className="max-h-[90vh] overflow-y-auto bg-white rounded-lg shadow-xl p-6 w-full max-w-md mx-4 fade-in">
             <h3 className="text-lg font-semibold mb-4">
-              Upload Payment Proof for {selectedApp.fullName}
+              Upload Payment Proof for {selectedApp.fullName || 'N/A'}
             </h3>
             <div className="space-y-4">
               <div className="border rounded-lg p-4 bg-gray-50">
@@ -1650,7 +1676,7 @@ const getActionButtons = (app: Application) => {
               <div className="space-y-4">
                 <div>
                   <p className="text-sm text-gray-500">Full Name</p>
-                  <p className="font-semibold">{selectedApp.fullName}</p>
+                                          <p className="font-semibold">{selectedApp.fullName || 'N/A'}</p>
                 </div>
                 <div>
                   <p className="text-sm text-gray-500">Email</p>
@@ -1709,7 +1735,7 @@ const getActionButtons = (app: Application) => {
                 {selectedApp.insuranceEndAt && (
                   <div>
                     <p className="text-sm text-gray-500">Insurance End Date</p>
-                    <p className="font-semibold">{new Date(selectedApp.insuranceEndAt).toLocaleDateString()}</p>
+                    <p className="font-semibold">{selectedApp.insuranceEndAt ? new Date(selectedApp.insuranceEndAt).toLocaleDateString() : 'N/A'}</p>
                   </div>
                 )}
                 <div>
