@@ -159,12 +159,24 @@ const [isRejecting, setIsRejecting] = useState(false);
 
   // Filter applications based on search query, status, and date range
   const filteredApplications = applications.filter(app => {
-    const matchesSearch = 
-      (app.fullName || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (app.email || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (app.applicationNumber || '').toLowerCase().includes(searchQuery.toLowerCase());
+    // Only search fields that have meaningful data
+    const searchableFields = [];
     
-    const matchesStatus = selectedStatus === 'all' || (app.status || '').toLowerCase() === selectedStatus;
+    if (app.fullName && app.fullName.trim()) {
+      searchableFields.push(app.fullName.toLowerCase());
+    }
+    if (app.email && app.email.trim()) {
+      searchableFields.push(app.email.toLowerCase());
+    }
+    if (app.applicationNumber && app.applicationNumber.trim()) {
+      searchableFields.push(app.applicationNumber.toLowerCase());
+    }
+    
+    const matchesSearch = searchQuery === '' || searchableFields.some(field => 
+      field.includes(searchQuery.toLowerCase())
+    );
+    
+    const matchesStatus = selectedStatus === 'all' || (app.status && app.status.toLowerCase() === selectedStatus);
     
     const matchesDateRange = (() => {
       if (!startDate && !endDate) return true;
