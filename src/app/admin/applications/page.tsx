@@ -139,7 +139,9 @@ const [isRejecting, setIsRejecting] = useState(false);
       
       // Sort applications by submittedAt in descending order (newest first)
       const sortedApplications = data.data.sort((a: Application, b: Application) => {
-        return new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime();
+        const dateA = a.submittedAt ? new Date(a.submittedAt).getTime() : 0;
+        const dateB = b.submittedAt ? new Date(b.submittedAt).getTime() : 0;
+        return dateB - dateA;
       });
       setApplications(sortedApplications);
     } catch {
@@ -158,14 +160,16 @@ const [isRejecting, setIsRejecting] = useState(false);
   // Filter applications based on search query, status, and date range
   const filteredApplications = applications.filter(app => {
     const matchesSearch = 
-      app.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      app.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      app.applicationNumber.toLowerCase().includes(searchQuery.toLowerCase());
+      (app.fullName || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (app.email || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (app.applicationNumber || '').toLowerCase().includes(searchQuery.toLowerCase());
     
-    const matchesStatus = selectedStatus === 'all' || app.status.toLowerCase() === selectedStatus;
+    const matchesStatus = selectedStatus === 'all' || (app.status || '').toLowerCase() === selectedStatus;
     
     const matchesDateRange = (() => {
       if (!startDate && !endDate) return true;
+      
+      if (!app.submittedAt) return false; // Skip applications without submission date
       
       const appDate = new Date(app.submittedAt);
       const start = startDate ? new Date(startDate) : null;
@@ -482,6 +486,10 @@ const handleApproveApplication = async () => {
 
   // Get status badge based on application status
   const getStatusBadge = (status: string) => {
+    if (!status) {
+      return <span className="px-2 py-1 rounded-full bg-gray-100 text-gray-700 text-xs font-medium">Unknown</span>;
+    }
+    
     switch (status.toLowerCase()) {
       case ApplicationStatus.PENDING:
         return <span className="px-2 py-1 rounded-full bg-blue-100 text-blue-700 text-xs font-medium">Pending</span>;
@@ -519,7 +527,7 @@ const getActionButtons = (app: Application) => {
       </Button>
 
       {/* Show status-specific buttons */}
-      {app.status.toLowerCase() === ApplicationStatus.PENDING && (
+      {app.status && app.status.toLowerCase() === ApplicationStatus.PENDING && (
         <Button 
           size="xs" 
           onClick={() => {
@@ -531,7 +539,7 @@ const getActionButtons = (app: Application) => {
         </Button>
       )}
       
-      {app.status.toLowerCase() === ApplicationStatus.APPLICATION_APPROVED && (
+      {app.status && app.status.toLowerCase() === ApplicationStatus.APPLICATION_APPROVED && (
         <Button 
           size="xs" 
           onClick={() => {
@@ -544,7 +552,7 @@ const getActionButtons = (app: Application) => {
         </Button>
       )}
       
-      {app.status.toLowerCase() === ApplicationStatus.REVIEW_PAYMENT && (
+      {app.status && app.status.toLowerCase() === ApplicationStatus.REVIEW_PAYMENT && (
         <Button 
           size="xs" 
           onClick={() => {
@@ -556,7 +564,7 @@ const getActionButtons = (app: Application) => {
         </Button>
       )}
       
-      {app.status.toLowerCase() === ApplicationStatus.PAYMENT_VERIFIED && (
+      {app.status && app.status.toLowerCase() === ApplicationStatus.PAYMENT_VERIFIED && (
         <Button 
           size="xs" 
           onClick={() => {
@@ -716,7 +724,7 @@ const getActionButtons = (app: Application) => {
       }
       
       if (selectedStatus !== 'all') {
-        doc.text(`Status Filter: ${selectedStatus.replace('_', ' ')}`, 14, filterY);
+        doc.text(`Status Filter: ${(selectedStatus || '').replace('_', ' ')}`, 14, filterY);
         filterY += 6;
       }
       
@@ -897,7 +905,7 @@ const getActionButtons = (app: Application) => {
           app.companyCommission ? app.companyCommission.toString() : '0',
           app.agentCommission ? app.agentCommission.toString() : '0',
           formatDateForExcel(app.submittedAt),
-          app.status ? app.status.replace('_', ' ') : '',
+          (app.status || '').replace('_', ' '),
           app.address || '',
           app.province || '',
           app.district || '',
@@ -1016,7 +1024,7 @@ const getActionButtons = (app: Application) => {
           <div className="mt-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
             <div className="text-sm text-gray-500">
               {searchQuery && <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 mr-2">Search: {searchQuery}</span>}
-              {selectedStatus !== 'all' && <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 mr-2">Status: {selectedStatus.replace('_', ' ')}</span>}
+              {selectedStatus !== 'all' && <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 mr-2">Status: {(selectedStatus || '').replace('_', ' ')}</span>}
               {(startDate || endDate) && <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">Date Range: {startDate || 'beginning'} - {endDate || 'now'}</span>}
             </div>
             <div className="flex gap-2">
@@ -1073,7 +1081,7 @@ const getActionButtons = (app: Application) => {
             <div className="text-sm text-gray-600">
               Showing <span className="font-medium">{filteredApplications.length}</span> of <span className="font-medium">{applications.length}</span> applications
               {selectedStatus !== 'all' && (
-                <span> with status: <span className="font-medium capitalize">{selectedStatus.replace('_', ' ')}</span></span>
+                <span> with status: <span className="font-medium capitalize">{(selectedStatus || '').replace('_', ' ')}</span></span>
               )}
               {(startDate || endDate) && (
                 <span> from <span className="font-medium">{startDate || 'beginning'}</span> to <span className="font-medium">{endDate || 'now'}</span></span>
@@ -1131,13 +1139,13 @@ const getActionButtons = (app: Application) => {
     <td className="px-4 py-4 text-xs whitespace-nowrap">
       <div className="flex items-center">
         <div>
-          <div className="text-xs font-medium text-gray-900">{app.fullName}</div>
-          <div className="text-xs text-gray-500">{app.email}</div>
+          <div className="text-xs font-medium text-gray-900">{app.fullName || 'N/A'}</div>
+          <div className="text-xs text-gray-500">{app.email || 'N/A'}</div>
         </div>
       </div>
     </td>
     <td className="px-4 py-4 text-xs whitespace-nowrap">
-      <div className="text-xs text-gray-900 capitalize">{app.insuranceCategory}</div>
+      <div className="text-xs text-gray-900 capitalize">{app.insuranceCategory || 'N/A'}</div>
     </td>
     <td className="px-4 py-4 text-xs whitespace-nowrap">
       <div className="text-xs text-gray-900">
@@ -1164,7 +1172,7 @@ const getActionButtons = (app: Application) => {
         {app.agentCommission ? `${app.agentCommission.toLocaleString()} RWF` : '0 RWF'}
       </div>
     </td>
-    <td className="px-4 py-4 text-xs whitespace-nowrap text-gray-500">{new Date(app.submittedAt).toLocaleDateString()}</td>
+    <td className="px-4 py-4 text-xs whitespace-nowrap text-gray-500">{app.submittedAt ? new Date(app.submittedAt).toLocaleDateString() : 'N/A'}</td>
     <td className="px-4 py-4 text-xs whitespace-nowrap">
       {getStatusBadge(app.status)}
     </td>
@@ -1188,7 +1196,7 @@ const getActionButtons = (app: Application) => {
       </div>
 
    {/* Modal for reviewing pending application */}
-{selectedApp   && activeModal === 'review' && selectedApp.status.toLowerCase() === ApplicationStatus.PENDING && (
+{selectedApp   && activeModal === 'review' && selectedApp.status && selectedApp.status.toLowerCase() === ApplicationStatus.PENDING && (
   <div className="fixed inset-0 bg-gray-600/50 flex items-center justify-center z-50">
     <div className="max-h-[90vh] overflow-y-auto bg-white rounded-lg shadow-xl p-6 w-full max-w-3xl mx-4 fade-in">
       <div className="flex justify-between items-center mb-4">
@@ -1218,19 +1226,19 @@ const getActionButtons = (app: Application) => {
         <div className="space-y-4">
           <div>
             <p className="text-sm text-gray-500">Full Name</p>
-            <p className="font-semibold">{selectedApp.fullName}</p>
+            <p className="font-semibold">{selectedApp.fullName || 'N/A'}</p>
           </div>
           <div>
             <p className="text-sm text-gray-500">Email</p>
-            <p className="font-semibold">{selectedApp.email}</p>
+            <p className="font-semibold">{selectedApp.email || 'N/A'}</p>
           </div>
           <div>
             <p className="text-sm text-gray-500">Phone</p>
-            <p className="font-semibold">{selectedApp.phoneNumber}</p>
+            <p className="font-semibold">{selectedApp.phoneNumber || 'N/A'}</p>
           </div>
           <div>
             <p className="text-sm text-gray-500">Date of Birth</p>
-            <p className="font-semibold">{new Date(selectedApp.dateOfBirth).toLocaleDateString()}</p>
+            <p className="font-semibold">{selectedApp.dateOfBirth ? new Date(selectedApp.dateOfBirth).toLocaleDateString() : 'N/A'}</p>
           </div>
         </div>
         
@@ -1238,7 +1246,7 @@ const getActionButtons = (app: Application) => {
         <div className="space-y-4">
           <div>
             <p className="text-sm text-gray-500">Address</p>
-            <p className="font-semibold">{selectedApp.address}</p>
+            <p className="font-semibold">{selectedApp.address || 'N/A'}</p>
           </div>
           {selectedApp.province && (
             <div>
@@ -1264,15 +1272,15 @@ const getActionButtons = (app: Application) => {
         <div className="space-y-4">
           <div>
             <p className="text-sm text-gray-500">Insurance Category</p>
-            <p className="font-semibold">{selectedApp.insuranceCategory}</p>
+            <p className="font-semibold">{selectedApp.insuranceCategory || 'N/A'}</p>
           </div>
           <div>
             <p className="text-sm text-gray-500">Insurance Type</p>
-            <p className="font-semibold">{selectedApp.insuranceType}</p>
+            <p className="font-semibold">{selectedApp.insuranceType || 'N/A'}</p>
           </div>
           <div>
             <p className="text-sm text-gray-500">Duration</p>
-            <p className="font-semibold">{selectedApp.insuranceDuration}</p>
+            <p className="font-semibold">{selectedApp.insuranceDuration || 'N/A'}</p>
           </div>
           {selectedApp.insuranceEndAt && (
             <div>
@@ -1430,7 +1438,7 @@ const getActionButtons = (app: Application) => {
 )}
 
       {/* Modal for sending invoice */}
-      {selectedApp && activeModal === 'invoice' && selectedApp.status.toLowerCase() === ApplicationStatus.APPLICATION_APPROVED && (
+      {selectedApp && activeModal === 'invoice' && selectedApp.status && selectedApp.status.toLowerCase() === ApplicationStatus.APPLICATION_APPROVED && (
   <div className="fixed inset-0 bg-gray-600/50 flex items-center justify-center z-50">
     <div className="max-h-[90vh] overflow-y-auto bg-white rounded-lg shadow-xl p-6 w-full max-w-md mx-4 fade-in">
       <h3 className="text-lg font-semibold mb-4">Send Invoice to {selectedApp.fullName}</h3>
@@ -1500,7 +1508,7 @@ const getActionButtons = (app: Application) => {
 )}
 
       {/* Modal for verifying payment */}
-      {selectedApp && activeModal === 'verify' && selectedApp.status.toLowerCase() === ApplicationStatus.REVIEW_PAYMENT && (
+      {selectedApp && activeModal === 'verify' && selectedApp.status && selectedApp.status.toLowerCase() === ApplicationStatus.REVIEW_PAYMENT && (
         <div className="fixed inset-0 bg-gray-600/50 flex items-center justify-center z-50">
           <div className="max-h-[90vh] overflow-y-auto bg-white rounded-lg shadow-xl p-6 w-full max-w-md mx-4 fade-in">
             <div className="flex justify-between items-center mb-4">
@@ -1604,7 +1612,7 @@ const getActionButtons = (app: Application) => {
       )}
 
       {/* Modal for issuing insurance */}
-      {selectedApp && activeModal === 'issue' && selectedApp.status.toLowerCase() === ApplicationStatus.PAYMENT_VERIFIED && (
+      {selectedApp && activeModal === 'issue' && selectedApp.status && selectedApp.status.toLowerCase() === ApplicationStatus.PAYMENT_VERIFIED && (
         <div className="fixed inset-0 bg-gray-600/50 flex items-center justify-center z-50">
           <div className="max-h-[90vh] overflow-y-auto bg-white rounded-lg shadow-xl p-6 w-full max-w-md mx-4 fade-in">
             <h3 className="text-lg font-semibold mb-4">Issue Insurance</h3>
@@ -1789,19 +1797,19 @@ const getActionButtons = (app: Application) => {
         <div className="space-y-2">
           <div>
             <p className="text-sm text-gray-500">Full Name</p>
-            <p className="font-semibold">{selectedApp.fullName}</p>
+            <p className="font-semibold">{selectedApp.fullName || 'N/A'}</p>
           </div>
           <div>
             <p className="text-sm text-gray-500">Email</p>
-            <p className="font-semibold">{selectedApp.email}</p>
+            <p className="font-semibold">{selectedApp.email || 'N/A'}</p>
           </div>
           <div>
             <p className="text-sm text-gray-500">Phone</p>
-            <p className="font-semibold">{selectedApp.phoneNumber}</p>
+            <p className="font-semibold">{selectedApp.phoneNumber || 'N/A'}</p>
           </div>
           <div>
             <p className="text-sm text-gray-500">Date of Birth</p>
-            <p className="font-semibold">{new Date(selectedApp.dateOfBirth).toLocaleDateString()}</p>
+            <p className="font-semibold">{selectedApp.dateOfBirth ? new Date(selectedApp.dateOfBirth).toLocaleDateString() : 'N/A'}</p>
           </div>
         </div>
         
@@ -1809,7 +1817,7 @@ const getActionButtons = (app: Application) => {
         <div className="space-y-2">
           <div>
             <p className="text-sm text-gray-500">Address</p>
-            <p className="font-semibold">{selectedApp.address}</p>
+            <p className="font-semibold">{selectedApp.address || 'N/A'}</p>
           </div>
           {selectedApp.province && (
             <div>
@@ -1835,15 +1843,15 @@ const getActionButtons = (app: Application) => {
         <div className="space-y-2">
           <div>
             <p className="text-sm text-gray-500">Insurance Category</p>
-            <p className="font-semibold">{selectedApp.insuranceCategory}</p>
+            <p className="font-semibold">{selectedApp.insuranceCategory || 'N/A'}</p>
           </div>
           <div>
             <p className="text-sm text-gray-500">Insurance Type</p>
-                                <p className="font-semibold">{selectedApp.insuranceCategory}</p>
+            <p className="font-semibold">{selectedApp.insuranceType || 'N/A'}</p>
           </div>
           <div>
             <p className="text-sm text-gray-500">Duration</p>
-            <p className="font-semibold">{selectedApp.insuranceDuration}</p>
+            <p className="font-semibold">{selectedApp.insuranceDuration || 'N/A'}</p>
           </div>
           {selectedApp.insuranceEndAt && (
             <div>

@@ -131,7 +131,9 @@ export default function SuperAdminApplicationsPage() {
         const data = await response.json();
         // Sort applications by submittedAt in descending order (newest first)
         const sortedApplications = data.data.sort((a: Application, b: Application) => {
-          return new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime();
+          const dateA = a.submittedAt ? new Date(a.submittedAt).getTime() : 0;
+          const dateB = b.submittedAt ? new Date(b.submittedAt).getTime() : 0;
+          return dateB - dateA;
         });
         setApplications(sortedApplications);
       } catch (error) {
@@ -770,7 +772,7 @@ export default function SuperAdminApplicationsPage() {
         {app.agentCommission ? `${app.agentCommission.toLocaleString()} RWF` : '0 RWF'}
       </div>
     </td>
-    <td className="px-4 py-4 text-xs whitespace-nowrap text-gray-500">{new Date(app.submittedAt).toLocaleDateString()}</td>
+    <td className="px-4 py-4 text-xs whitespace-nowrap text-gray-500">{app.submittedAt ? new Date(app.submittedAt).toLocaleDateString() : 'N/A'}</td>
     <td className="px-4 py-4 text-xs whitespace-nowrap">
       {getStatusBadge(app.status)}
     </td>
@@ -842,7 +844,7 @@ export default function SuperAdminApplicationsPage() {
                   </div>
                   <div>
                     <p className="text-sm text-gray-500 mb-1">Phone</p>
-                    <p className="font-medium text-gray-900">{selectedApp.phoneNumber}</p>
+                    <p className="font-medium text-gray-900">{selectedApp.phoneNumber || 'N/A'}</p>
                   </div>
                   <div>
                     <p className="text-sm text-gray-500 mb-1">Date of Birth</p>
@@ -886,15 +888,15 @@ export default function SuperAdminApplicationsPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <p className="text-sm text-gray-500 mb-1">Insurance Category</p>
-                    <p className="font-medium text-gray-900">{selectedApp.insuranceCategory}</p>
+                    <p className="font-medium text-gray-900">{selectedApp.insuranceCategory || 'N/A'}</p>
                   </div>
                   <div>
                     <p className="text-sm text-gray-500 mb-1">Insurance Type</p>
-                    <p className="font-medium text-gray-900">{selectedApp.insuranceType}</p>
+                    <p className="font-medium text-gray-900">{selectedApp.insuranceType || 'N/A'}</p>
                   </div>
                   <div>
                     <p className="text-sm text-gray-500 mb-1">Duration</p>
-                    <p className="font-medium text-gray-900">{selectedApp.insuranceDuration}</p>
+                    <p className="font-medium text-gray-900">{selectedApp.insuranceDuration || 'N/A'}</p>
                   </div>
                   {selectedApp.insuranceEndAt && (
                     <div>
@@ -1067,13 +1069,13 @@ export default function SuperAdminApplicationsPage() {
               <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
                 <p className="text-sm text-gray-500 mb-1">Submitted At</p>
                 <p className="font-medium text-gray-900">
-                  {new Date(selectedApp.submittedAt).toLocaleString()}
+                  {selectedApp.submittedAt ? new Date(selectedApp.submittedAt).toLocaleString() : 'N/A'}
                 </p>
               </div>
               <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
                 <p className="text-sm text-gray-500 mb-1">Created At</p>
                 <p className="font-medium text-gray-900">
-                  {new Date(selectedApp.createdAt).toLocaleString()}
+                  {selectedApp.createdAt ? new Date(selectedApp.createdAt).toLocaleString() : 'N/A'}
                 </p>
               </div>
             </div>
