@@ -175,16 +175,20 @@ export default function SuperAdminApplicationsPage() {
       
       if (!app.submittedAt) return false; // Skip applications without submission date
       
+      // Normalize dates to remove time components for accurate date comparison
+
       const appDate = new Date(app.submittedAt);
-      const start = startDate ? new Date(startDate) : null;
-      const end = endDate ? new Date(endDate) : null;
+      const appDateOnly = new Date(appDate.getFullYear(), appDate.getMonth(), appDate.getDate());
+      
+      const start = startDate ? new Date(startDate + 'T00:00:00') : null;
+      const end = endDate ? new Date(endDate + 'T23:59:59') : null; // Set to end of day
       
       if (start && end) {
-        return appDate >= start && appDate <= end;
+        return appDateOnly >= start && appDateOnly <= end;
       } else if (start) {
-        return appDate >= start;
+        return appDateOnly >= start;
       } else if (end) {
-        return appDate <= end;
+        return appDateOnly <= end;
       }
       return true;
     })();
