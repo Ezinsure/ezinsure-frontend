@@ -176,6 +176,7 @@ export default function SuperAdminApplicationsPage() {
       if (!app.submittedAt) return false; // Skip applications without submission date
       
       // Normalize dates to remove time components for accurate date comparison
+
       const appDate = new Date(app.submittedAt);
       const appDateOnly = new Date(appDate.getFullYear(), appDate.getMonth(), appDate.getDate());
       
