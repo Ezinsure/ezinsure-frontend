@@ -270,24 +270,14 @@ const [isRejecting, setIsRejecting] = useState(false);
       throw new Error(errorData.message || 'Failed to send invoice');
     }
 
-    const updatedApplications = applications.map(app => {
-      if (app._id === selectedApp._id) {
-        return {
-          ...app,
-          status: ApplicationStatus.INVOICE_SENT,
-          invoiceAmount: invoiceAmount // Update the amount in local state
-        };
-      }
-      return app;
-    });
-    
-    setApplications(updatedApplications);
     showToast(`Invoice sent to ${selectedApp.fullName}`, 'success');
     setInvoiceMessage('');
     setInvoiceAmount('');
     setInvoiceFile(null);
     setSelectedApp(null);
     setActiveModal(null);
+    // Refetch applications to get updated status
+    await fetchApplications();
   } catch (error) {
     console.error('Error sending invoice:', error);
     showToast(error instanceof Error ? error.message : 'Failed to send invoice', 'error');
@@ -323,20 +313,6 @@ const handleVerifyPayment = async (action: 'approve' | 'reject') => {
       throw new Error(errorData.message || 'Failed to verify payment');
     }
 
-    const updatedApplications = applications.map(app => {
-      if (app._id === selectedApp._id) {
-        return {
-          ...app,
-          status: action === 'approve' 
-            ? ApplicationStatus.PAYMENT_VERIFIED 
-            : ApplicationStatus.WAITING_FOR_USER_ACTION,
-          ...(action === 'reject' && { reasonForPaymentRejection: rejectionComment })
-        };
-      }
-      return app;
-    });
-    
-    setApplications(updatedApplications);
     showToast(
       action === 'approve' 
         ? `Payment from ${selectedApp.fullName} verified` 
@@ -346,6 +322,8 @@ const handleVerifyPayment = async (action: 'approve' | 'reject') => {
     setRejectionComment('');
     setSelectedApp(null);
     setActiveModal(null);
+    // Refetch applications to get updated status
+    await fetchApplications();
   } catch (error) {
     console.error('Error verifying payment:', error);
     showToast(error instanceof Error ? error.message : 'Failed to verify payment', 'error');
@@ -383,18 +361,6 @@ const handleReject = async (action: 'application' | 'payment') => {
       throw new Error(errorData.message || 'Failed to reject');
     }
 
-    const updatedApplications = applications.map(app => {
-      if (app._id === selectedApp._id) {
-        return {
-          ...app,
-          status: ApplicationStatus.WAITING_FOR_USER_ACTION,
-          rejectionReason: rejectionComment
-        };
-      }
-      return app;
-    });
-    
-    setApplications(updatedApplications);
     showToast(
       action === 'application' 
         ? `Application from ${selectedApp.fullName} rejected` 
@@ -404,6 +370,8 @@ const handleReject = async (action: 'application' | 'payment') => {
     setRejectionComment('');
     setSelectedApp(null);
     setActiveModal(null);
+    // Refetch applications to get updated status
+    await fetchApplications();
   } catch (error) {
     console.error('Error rejecting:', error);
     showToast(error instanceof Error ? error.message : 'Failed to reject', 'error');
@@ -443,17 +411,6 @@ const handleReject = async (action: 'application' | 'payment') => {
         throw new Error(errorData.message || 'Failed to issue insurance');
       }
 
-      const updatedApplications = applications.map(app => {
-        if (app._id === selectedApp._id) {
-          return {
-            ...app,
-            status: ApplicationStatus.INSURANCE_ISSUED
-          };
-        }
-        return app;
-      });
-      
-      setApplications(updatedApplications);
       showToast(`Insurance issued to ${selectedApp.fullName}`, 'success');
       setInsuranceFile(null);
       setContractFile(null);
@@ -461,6 +418,8 @@ const handleReject = async (action: 'application' | 'payment') => {
       setEbmFile(null);
       setSelectedApp(null);
       setActiveModal(null);
+      // Refetch applications to get updated status
+      await fetchApplications();
     } catch (error) {
       console.error('Error issuing insurance:', error);
       showToast(error instanceof Error ? error.message : 'Failed to issue insurance', 'error');
@@ -1464,7 +1423,7 @@ const getActionButtons = (app: Application) => {
         <label className="block text-sm font-medium text-gray-700 mb-1">Amount (RWF) *</label>
         <input
           type="number"
-          className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[var(--main-blue)] focus:border-[var(--main-blue)] sm:text-sm"
+          className="w-full px-3 py-2 border border-[var(--card-green)] rounded-md shadow-sm focus:outline-none focus:ring-[var(--card-green)] focus:border-[var(--card-green)] sm:text-sm"
           value={invoiceAmount || selectedApp.amount || ''}
           onChange={(e) => setInvoiceAmount(e.target.value)}
           placeholder="Enter amount"
@@ -1475,7 +1434,7 @@ const getActionButtons = (app: Application) => {
       <div className="mt-4">
         <label className="block text-sm font-medium text-gray-700 mb-1">Payment Instructions *</label>
         <textarea
-          className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[var(--main-blue)] focus:border-[var(--main-blue)] sm:text-sm"
+          className="w-full px-3 py-2 border border-[var(--card-green)] rounded-md shadow-sm focus:outline-none focus:ring-[var(--card-green)] focus:border-[var(--card-green)] sm:text-sm"
           rows={4}
           value={invoiceMessage}
           onChange={(e) => setInvoiceMessage(e.target.value)}
