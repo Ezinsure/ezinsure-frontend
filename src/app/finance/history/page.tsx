@@ -1,7 +1,7 @@
 // app/finance/history/page.tsx
 "use client"
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { MainLayout } from '@/components/ui/main-layout';
 import { Search, Download, RefreshCw, Calendar } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
@@ -77,11 +77,7 @@ const PaymentHistory = () => {
   const [showPaymentDetails, setShowPaymentDetails] = useState<PaymentDetailsModal | null>(null);
   const [markingAsPaid, setMarkingAsPaid] = useState<{month: string | number, year: number} | null>(null);
 
-  useEffect(() => {
-    fetchPaymentHistory();
-  }, [token, selectedYear]);
-
-  const fetchPaymentHistory = async () => {
+  const fetchPaymentHistory = useCallback(async () => {
     try {
       setIsLoading(true);
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/getAllCommissionSummaries?year=${selectedYear}`, {
@@ -95,8 +91,6 @@ const PaymentHistory = () => {
       if (!response.ok) throw new Error('Failed to fetch payment history');
       
       const data = await response.json();
-      console.log("Payment history data:", data);
-      console.log("Processed payment history:", data.results);
       setPaymentHistory(
         (data.results || []).map((item: PaymentHistory) => ({
           ...item,
@@ -108,7 +102,11 @@ const PaymentHistory = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [token, selectedYear]);
+
+  useEffect(() => {
+    fetchPaymentHistory();
+  }, [fetchPaymentHistory]);
 
   const filteredHistory = paymentHistory.filter(item =>
     `${item.month} ${item.year}`.toLowerCase().includes(searchTerm.toLowerCase())
@@ -168,12 +166,49 @@ const PaymentHistory = () => {
 
   const markAsPaid = async (month: string | number, year: number) => {
     let monthNumber;
-    setMarkingAsPaid({ month, year });
-    if (typeof month === 'string' && isNaN(Number(month))) {
-      monthNumber = new Date(`${month} 1, ${year}`).getMonth() + 1;
+    
+    // Check if trying to mark current month as paid
+    const now = new Date();
+    const currentMonth = now.getMonth() + 1;
+    const currentYear = now.getFullYear();
+    
+    // Improved month conversion logic
+    if (typeof month === 'string') {
+      // Handle month names like "January", "February", etc.
+      const monthNames = [
+        'January', 'February', 'March', 'April', 'May', 'June',
+        'July', 'August', 'September', 'October', 'November', 'December'
+      ];
+      const monthIndex = monthNames.findIndex(m => m.toLowerCase() === month.toLowerCase());
+      if (monthIndex !== -1) {
+        monthNumber = monthIndex + 1;
+      } else {
+        // Try to parse as number
+        monthNumber = parseInt(month);
+        if (isNaN(monthNumber)) {
+          console.error('Invalid month format:', month);
+          setMarkingAsPaid(null);
+          return;
+        }
+      }
     } else {
       monthNumber = Number(month);
+      if (isNaN(monthNumber)) {
+        console.error('Invalid month number:', month);
+        setMarkingAsPaid(null);
+        return;
+      }
     }
+    
+    // Check if trying to mark current month as paid
+    if (monthNumber === currentMonth && year === currentYear) {
+      alert('Cannot mark current month as paid. You can only mark past months as paid.');
+      return;
+    }
+    
+    // Set loading state after validation
+    setMarkingAsPaid({ month, year });
+    
     try {
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_BASE_URL}/markAsPaid?month=${monthNumber}&year=${year}`,
@@ -185,10 +220,22 @@ const PaymentHistory = () => {
           }
         }
       );
-      if (!response.ok) throw new Error('Failed to mark payment as paid');
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: 'Failed to mark payment as paid' }));
+        throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
+      }
+      
+      // Refresh the data
       await fetchPaymentHistory();
+      
+      // Show success message (you can add a toast system here)
+      alert(`Successfully marked ${month} ${year} as paid!`);
+      
     } catch (error) {
       console.error('Error marking payment as paid:', error);
+      // Show error message to user
+      alert(`Error: ${error instanceof Error ? error.message : 'Failed to mark payment as paid'}`);
     } finally {
       setMarkingAsPaid(null);
     }
