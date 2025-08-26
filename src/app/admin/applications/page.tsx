@@ -52,6 +52,10 @@ interface Application {
   agentCommission?: number;
   agentId?: string;
   agentFullName?: string;
+  agent?: {
+    _id: string;
+    fullName: string;
+  };
   reasonForPaymentRejection?: string;
   vehicleType?: string;
   vehicleAge?: string;
@@ -143,6 +147,7 @@ const [isRejecting, setIsRejecting] = useState(false);
         const dateB = b.submittedAt ? new Date(b.submittedAt).getTime() : 0;
         return dateB - dateA;
       });
+      
       setApplications(sortedApplications);
     } catch {
       showToast('Failed to load applications', 'error');
@@ -461,26 +466,26 @@ const handleApproveApplication = async () => {
   // Get status badge based on application status
   const getStatusBadge = (status: string) => {
     if (!status) {
-      return <span className="px-2 py-1 rounded-full bg-gray-100 text-gray-700 text-xs font-medium">Unknown</span>;
+      return <span className="px-2 py-1 rounded-full bg-gray-100 text-gray-700 text-[9px] font-medium">Unknown</span>;
     }
     
     switch (status.toLowerCase()) {
       case ApplicationStatus.PENDING:
-        return <span className="px-2 py-1 rounded-full bg-blue-100 text-blue-700 text-xs font-medium">Pending</span>;
+        return <span className="px-2 py-1 rounded-full bg-blue-100 text-blue-700 text-[9px] font-medium">Pending</span>;
       case ApplicationStatus.APPLICATION_APPROVED:
-        return <span className="px-2 py-1 rounded-full bg-green-100 text-green-700 text-xs font-medium">Application Approved</span>;
+        return <span className="px-2 py-1 rounded-full bg-green-100 text-green-700 text-[9px] font-medium">Application Approved</span>;
       case ApplicationStatus.WAITING_FOR_USER_ACTION:
-        return <span className="px-2 py-1 rounded-full bg-orange-100 text-orange-700 text-xs font-medium">Waiting for User Action</span>;
+        return <span className="px-2 py-1 rounded-full bg-orange-100 text-orange-700 text-[9px] font-medium">Waiting for User Action</span>;
       case ApplicationStatus.INVOICE_SENT:
-        return <span className="px-2 py-1 rounded-full bg-indigo-100 text-indigo-700 text-xs font-medium">Invoice Sent</span>;
+        return <span className="px-2 py-1 rounded-full bg-indigo-100 text-indigo-700 text-[9px] font-medium">Invoice Sent</span>;
       case ApplicationStatus.REVIEW_PAYMENT:
-        return <span className="px-2 py-1 rounded-full bg-purple-100 text-purple-700 text-xs font-medium">Review Payment</span>;
+        return <span className="px-2 py-1 rounded-full bg-purple-100 text-purple-700 text-[9px] font-medium">Review Payment</span>;
       case ApplicationStatus.PAYMENT_VERIFIED:
-        return <span className="px-2 py-1 rounded-full bg-green-100 text-green-700 text-xs font-medium">Payment Verified</span>;
+        return <span className="px-2 py-1 rounded-full bg-green-100 text-green-700 text-[9px] font-medium">Payment Verified</span>;
       case ApplicationStatus.INSURANCE_ISSUED:
-        return <span className="px-2 py-1 rounded-full bg-emerald-100 text-emerald-700 text-xs font-medium">Insurance Issued</span>;
+        return <span className="px-2 py-1 rounded-full bg-emerald-100 text-emerald-700 text-[9px] font-medium">Insurance Issued</span>;
       default:
-        return <span className="px-2 py-1 rounded-full bg-gray-100 text-gray-700 text-xs font-medium">Unknown</span>;
+        return <span className="px-2 py-1 rounded-full bg-gray-100 text-gray-700 text-[9px] font-medium">Unknown</span>;
     }
   };
 
@@ -754,7 +759,7 @@ const getActionButtons = (app: Application) => {
           (app.email || '').length > 32 ? (app.email || '').substring(0, 32) + '...' : (app.email || ''),
           (app.insuranceCategory || '').length > 22 ? (app.insuranceCategory || '').substring(0, 22) + '...' : (app.insuranceCategory || ''),
           formatDateForPDF(app.insuranceEndAt),
-          ((app.agentFullName || 'Client') || '').length > 22 ? ((app.agentFullName || 'Client') || '').substring(0, 22) + '...' : (app.agentFullName || 'Client'),
+          (app.agent ? app.agent.fullName : 'Client').length > 22 ? (app.agent ? app.agent.fullName : 'Client').substring(0, 22) + '...' : (app.agent ? app.agent.fullName : 'Client'),
           app.amount ? `${app.amount.toLocaleString()} RWF` : '0 RWF',
           app.companyCommission ? `${app.companyCommission.toLocaleString()} RWF` : '0 RWF',
           app.agentCommission ? `${app.agentCommission.toLocaleString()} RWF` : '0 RWF',
@@ -874,7 +879,7 @@ const getActionButtons = (app: Application) => {
           app.insuranceType || '',
           app.insuranceDuration || '',
           formatDateForExcel(app.insuranceEndAt),
-          app.agentFullName || 'Client',
+          app.agent ? app.agent.fullName : 'Client',
           app.amount ? app.amount.toString() : '0',
           app.companyCommission ? app.companyCommission.toString() : '0',
           app.agentCommission ? app.agentCommission.toString() : '0',
@@ -1091,66 +1096,73 @@ const getActionButtons = (app: Application) => {
               <table className="w-full">
                <thead className="bg-gray-50">
   <tr>
-    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
-    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Client</th>
-    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Insurance Category</th>
-    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Insurance End Date</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Performed By</th>
-    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
-    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Company Commission</th>
-    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Agent Commission</th>
-    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+            <th className="px-4 py-3 text-left text-[10px] font-medium text-gray-500 uppercase tracking-wider">ID</th>
+        <th className="px-4 py-3 text-left text-[10px] font-medium text-gray-500 uppercase tracking-wider">Client</th>
+        <th className="px-4 py-3 text-left text-[10px] font-medium text-gray-500 uppercase tracking-wider">Insurance Category</th>
+        <th className="px-4 py-3 text-left text-[10px] font-medium text-gray-500 uppercase tracking-wider">Insurance End Date</th>
+        <th className="px-4 py-3 text-left text-[10px] font-medium text-gray-500 uppercase tracking-wider">Agent</th>
+        <th className="px-4 py-3 text-left text-[10px] font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+        <th className="px-4 py-3 text-left text-[10px] font-medium text-gray-500 uppercase tracking-wider">Company Commission</th>
+        <th className="px-4 py-3 text-left text-[10px] font-medium text-gray-500 uppercase tracking-wider">Agent Commission</th>
+        <th className="px-4 py-3 text-left text-[10px] font-medium text-gray-500 uppercase tracking-wider">Date</th>
+        <th className="px-4 py-3 text-left text-[10px] font-medium text-gray-500 uppercase tracking-wider">Status</th>
+        <th className="px-4 py-3 text-left text-[10px] font-medium text-gray-500 uppercase tracking-wider">Actions</th>
   </tr>
 </thead>
                 <tbody className="divide-y divide-gray-200">
                  {paginatedApplications.map((app, index) => (
   <tr key={app._id} className="hover:bg-gray-50 transition-colors ">
-    <td className="px-4 py-4 text-xs whitespace-nowrap font-medium text-[var(--main-blue)]">
+    <td className="px-4 py-4 text-[10px] whitespace-nowrap font-medium text-[var(--main-blue)]">
       #{(currentPage - 1) * itemsPerPage + index + 1}
     </td>
-    <td className="px-4 py-4 text-xs whitespace-nowrap">
+    <td className="px-4 py-4 text-[10px] whitespace-nowrap">
       <div className="flex items-center">
         <div>
-          <div className="text-xs font-medium text-gray-900">{app.fullName || 'N/A'}</div>
-          <div className="text-xs text-gray-500">{app.email || 'N/A'}</div>
+          <div className="text-[10px] font-medium text-gray-900">{app.fullName || 'N/A'}</div>
+          <div className="text-[10px] text-gray-500">{app.email || 'N/A'}</div>
         </div>
       </div>
     </td>
-    <td className="px-4 py-4 text-xs whitespace-nowrap">
-      <div className="text-xs text-gray-900 capitalize">{app.insuranceCategory || 'N/A'}</div>
+    <td className="px-4 py-4 text-[10px] whitespace-nowrap">
+      <div className="text-[10px] text-gray-900 capitalize">{app.insuranceCategory || 'N/A'}</div>
     </td>
-    <td className="px-4 py-4 text-xs whitespace-nowrap">
-      <div className="text-xs text-gray-900">
+    <td className="px-4 py-4 text-[10px] whitespace-nowrap">
+      <div className="text-[10px] text-gray-900">
         {app.insuranceEndAt ? new Date(app.insuranceEndAt).toLocaleDateString() : 'N/A'}
       </div>
     </td>
-    <td className="px-4 py-4 text-xs whitespace-nowrap">
-      <div className="text-xs text-gray-900">
-        {app.agentFullName || 'Client'}
+    <td className="px-4 py-4 text-[10px] whitespace-nowrap">
+      <div className="text-[10px] text-gray-900">
+        {app.agent ? (
+          <>
+            <div className="font-medium text-[var(--main-blue)]">Agent</div>
+            <div className="text-gray-600">{app.agent.fullName}</div>
+          </>
+        ) : (
+          <div className="font-medium text-gray-700">Client</div>
+        )}
       </div>
     </td>
-    <td className="px-4 py-4 text-xs whitespace-nowrap">
-      <div className="text-xs text-gray-900">
+    <td className="px-4 py-4 text-[10px] whitespace-nowrap">
+      <div className="text-[10px] text-gray-900">
         {app.amount ? `${app.amount.toLocaleString()} RWF` : '0 RWF'}
       </div>
     </td>
-    <td className="px-4 py-4 text-xs whitespace-nowrap">
-      <div className="text-xs text-gray-900">
+    <td className="px-4 py-4 text-[10px] whitespace-nowrap">
+      <div className="text-[10px] text-gray-900">
         {app.companyCommission ? `${app.companyCommission.toLocaleString()} RWF` : '0 RWF'}
       </div>
     </td>
-    <td className="px-4 py-4 text-xs whitespace-nowrap">
-      <div className="text-xs text-gray-900">
+    <td className="px-4 py-4 text-[10px] whitespace-nowrap">
+      <div className="text-[10px] text-gray-900">
         {app.agentCommission ? `${app.agentCommission.toLocaleString()} RWF` : '0 RWF'}
       </div>
     </td>
-    <td className="px-4 py-4 text-xs whitespace-nowrap text-gray-500">{app.submittedAt ? new Date(app.submittedAt).toLocaleDateString() : 'N/A'}</td>
-    <td className="px-4 py-4 text-xs whitespace-nowrap">
+    <td className="px-4 py-4 text-[10px] whitespace-nowrap text-gray-500">{app.submittedAt ? new Date(app.submittedAt).toLocaleDateString() : 'N/A'}</td>
+    <td className="px-4 py-4 text-[10px] whitespace-nowrap">
       {getStatusBadge(app.status)}
     </td>
-    <td className="px-4 py-4 text-xs whitespace-nowrap font-medium">
+    <td className="px-4 py-4 text-[10px] whitespace-nowrap font-medium">
       <div className="flex space-x-2">
         {getActionButtons(app)}
       </div>
@@ -1264,7 +1276,7 @@ const getActionButtons = (app: Application) => {
           )}
           <div>
             <p className="text-sm text-gray-500">Agent</p>
-            <p className="font-semibold">{selectedApp.agentFullName || 'Client'}</p>
+            <p className="font-semibold">{selectedApp.agent ? selectedApp.agent.fullName : 'Client'}</p>
           </div>
           {selectedApp.amount && (
             <div>
@@ -1835,7 +1847,7 @@ const getActionButtons = (app: Application) => {
           )}
           <div>
             <p className="text-sm text-gray-500">Agent</p>
-            <p className="font-semibold">{selectedApp.agentFullName || 'Client'}</p>
+            <p className="font-semibold">{selectedApp.agent ? selectedApp.agent.fullName : 'Client'}</p>
           </div>
           {selectedApp.amount && (
             <div>
@@ -1894,12 +1906,12 @@ const getActionButtons = (app: Application) => {
                 <p className="font-semibold">{selectedApp.companyCommission.toLocaleString()} RWF</p>
               </div>
             )}
-            {selectedApp.agentId && (selectedApp.agentCommission && (
+            {selectedApp.agent && selectedApp.agentCommission && (
               <div>
                 <p className="text-sm text-gray-500">Agent Commission</p>
                 <p className="font-semibold">{selectedApp.agentCommission.toLocaleString()} RWF</p>
               </div>
-            ))}
+            )}
           </div>
         )}
       </div>
