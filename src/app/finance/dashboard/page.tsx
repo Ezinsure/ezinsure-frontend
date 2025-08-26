@@ -1,7 +1,7 @@
 // app/finance/dashboard/page.tsx
 "use client"
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { DollarSign, Users, Search, Download, RefreshCw, Calendar, ArrowDownRight, ArrowUpRight } from 'lucide-react';
 import { MainLayout } from '@/components/ui/main-layout';
 import { useAuth } from '@/context/AuthContext';
@@ -95,7 +95,7 @@ const FinanceDashboard = () => {
   const currentMonthPendingAgents = currentMonthData.data.filter(agent => !agent.paid).length;
   const avgCommission = currentMonthData.data.length > 0 ? currentMonthTotal / currentMonthData.data.length : 0;
 
-  const fetchCurrentMonthData = async () => {
+  const fetchCurrentMonthData = useCallback(async () => {
     try {
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/getAllAgentsMonthlyCommissions`, {
         method: 'GET',
@@ -117,17 +117,13 @@ const FinanceDashboard = () => {
           });
         })
       });
-
-      console.log("Current month data:", data);
-      
-      
     } catch (error) {
       console.error('Error fetching data:', error);
       setToast({ show: true, message: 'Error fetching current month data.', isError: true });
     }
-  };
+  }, [token, setToast]);
 
-  const fetchPaymentHistory = async () => {
+  const fetchPaymentHistory = useCallback(async () => {
     try {
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/getAllCommissionSummaries`, {
         method: 'GET',
@@ -151,7 +147,7 @@ const FinanceDashboard = () => {
       console.error('Error fetching payment history:', error);
       setToast({ show: true, message: 'Error fetching payment history.', isError: true });
     }
-  };
+  }, [token, setToast]);
 
   useEffect(() => {
     const loadInitialData = async () => {
@@ -396,22 +392,55 @@ const FinanceDashboard = () => {
   const markAsPaid = async (month?: string | number, year?: number) => {
     let monthNumber;
     let targetYear;
-    setMarkingAsPaid(month && year ? { month, year } : { month: new Date().toLocaleString('default', { month: 'long' }), year: new Date().getFullYear() });
-
+    
+    // Check if trying to mark current month as paid
+    const now = new Date();
+    const currentMonth = now.getMonth() + 1;
+    const currentYear = now.getFullYear();
+    
     if (month && year) {
-      // Convert month name to number if needed
-      if (typeof month === 'string' && isNaN(Number(month))) {
-        monthNumber = new Date(`${month} 1, ${year}`).getMonth() + 1;
+      // Improved month conversion logic
+      if (typeof month === 'string') {
+        // Handle month names like "January", "February", etc.
+        const monthNames = [
+          'January', 'February', 'March', 'April', 'May', 'June',
+          'July', 'August', 'September', 'October', 'November', 'December'
+        ];
+        const monthIndex = monthNames.findIndex(m => m.toLowerCase() === month.toLowerCase());
+        if (monthIndex !== -1) {
+          monthNumber = monthIndex + 1;
+        } else {
+          // Try to parse as number
+          monthNumber = parseInt(month);
+          if (isNaN(monthNumber)) {
+            console.error('Invalid month format:', month);
+            setMarkingAsPaid(null);
+            return;
+          }
+        }
       } else {
         monthNumber = Number(month);
+        if (isNaN(monthNumber)) {
+          console.error('Invalid month number:', month);
+          setMarkingAsPaid(null);
+          return;
+        }
       }
       targetYear = year;
+      
+      // Check if trying to mark current month as paid
+      if (monthNumber === currentMonth && targetYear === currentYear) {
+        setToast({ show: true, message: 'Cannot mark current month as paid. You can only mark past months as paid.', isError: false });
+        return;
+      }
     } else {
-      // Mark current month as paid
-      const now = new Date();
-      monthNumber = now.getMonth() + 1;
-      targetYear = now.getFullYear();
+      // Mark current month as paid - this should not be allowed
+      setToast({ show: true, message: 'Cannot mark current month as paid. You can only mark past months as paid.', isError: false });
+      return;
     }
+
+    // Set loading state after validation
+    setMarkingAsPaid({ month: month || monthNumber, year: targetYear });
 
     try {
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/markAsPaid?month=${monthNumber}&year=${targetYear}`, {
@@ -424,7 +453,8 @@ const FinanceDashboard = () => {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ message: 'Failed to mark as paid' }));
-        throw new Error(errorData.message);
+        console.error('Mark as paid error response:', errorData);
+        throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
       }
 
       const result = await response.json();
@@ -627,17 +657,14 @@ const FinanceDashboard = () => {
                     className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                   />
                 </div>
-                <button 
-                  onClick={() => markAsPaid()}
-                  disabled={currentMonthPendingAgents === 0}
-                  className={`flex text-nowrap items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold ${
-                    currentMonthPendingAgents === 0 
-                      ? 'bg-gray-200 text-gray-500 cursor-not-allowed' 
-                      : 'bg-green-600 text-white hover:bg-green-700'
-                  }`}
-                >
-                  Mark as Paid
-                </button>
+                                 <button 
+                   onClick={() => markAsPaid()}
+                   disabled={true}
+                   className="flex text-nowrap items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold bg-gray-200 text-gray-500 cursor-not-allowed"
+                   title="Cannot mark current month as paid. You can only mark past months as paid."
+                 >
+                   Mark as Paid
+                 </button>
               </div>
             </div>
             
@@ -656,23 +683,23 @@ const FinanceDashboard = () => {
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">#</th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Phone</th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Bank</th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Account</th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Commission</th>
+                                  <th scope="col" className="px-6 py-3 text-left text-[10px] font-medium text-gray-500 uppercase tracking-wider">#</th>
+            <th scope="col" className="px-6 py-3 text-left text-[10px] font-medium text-gray-500 uppercase tracking-wider">Name</th>
+            <th scope="col" className="px-6 py-3 text-left text-[10px] font-medium text-gray-500 uppercase tracking-wider">Phone</th>
+            <th scope="col" className="px-6 py-3 text-left text-[10px] font-medium text-gray-500 uppercase tracking-wider">Bank</th>
+            <th scope="col" className="px-6 py-3 text-left text-[10px] font-medium text-gray-500 uppercase tracking-wider">Account</th>
+            <th scope="col" className="px-6 py-3 text-left text-[10px] font-medium text-gray-500 uppercase tracking-wider">Commission</th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
                     {paginatedAgents.map((agent, index) => (
                       <tr key={agent._id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{(currentPage - 1) * itemsPerPage + index + 1}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{agent.name}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{agent.phoneNumber}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{agent.bankName}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{agent.bankAccountNumber}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
+                                    <td className="px-6 py-4 whitespace-nowrap text-[10px] font-medium text-gray-900">{(currentPage - 1) * itemsPerPage + index + 1}</td>
+            <td className="px-6 py-4 whitespace-nowrap text-[10px] text-gray-500">{agent.name}</td>
+            <td className="px-6 py-4 whitespace-nowrap text-[10px] text-gray-500">{agent.phoneNumber}</td>
+            <td className="px-6 py-4 whitespace-nowrap text-[10px] text-gray-500">{agent.bankName}</td>
+            <td className="px-6 py-4 whitespace-nowrap text-[10px] text-gray-500">{agent.bankAccountNumber}</td>
+            <td className="px-6 py-4 whitespace-nowrap text-[10px] font-semibold text-gray-900">
                           {agent.totalCommission.toLocaleString()} RWF
                         </td>
                       </tr>
@@ -715,33 +742,33 @@ const FinanceDashboard = () => {
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Year</th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Month</th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Amount</th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Agents Count</th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                      <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                  <th scope="col" className="px-6 py-3 text-left text-[10px] font-medium text-gray-500 uppercase tracking-wider">Year</th>
+            <th scope="col" className="px-6 py-3 text-left text-[10px] font-medium text-gray-500 uppercase tracking-wider">Month</th>
+            <th scope="col" className="px-6 py-3 text-left text-[10px] font-medium text-gray-500 uppercase tracking-wider">Total Amount</th>
+            <th scope="col" className="px-6 py-3 text-left text-[10px] font-medium text-gray-500 uppercase tracking-wider">Agents Count</th>
+            <th scope="col" className="px-6 py-3 text-left text-[10px] font-medium text-gray-500 uppercase tracking-wider">Status</th>
+            <th scope="col" className="px-6 py-3 text-right text-[10px] font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
                     {paymentHistory.map((payment) => (
                       <tr key={`${payment.year}-${payment.month}`} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{payment.year}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        <td className="px-6 py-4 whitespace-nowrap text-[10px] font-medium text-gray-900">{payment.year}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-[10px] font-medium text-gray-900">
                           {getMonthName(payment.month)}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-semibold">
+                        <td className="px-6 py-4 whitespace-nowrap text-[10px] text-gray-900 font-semibold">
                           {payment.totalAmount.toLocaleString()} RWF
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{payment.agentsPaid}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-[10px] text-gray-500">{payment.agentsPaid}</td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                          <span className={`px-2 py-1 inline-flex text-[9px] leading-5 font-semibold rounded-full ${
                             payment.isPaid ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
                           }`}>
                             {payment.isPaid ? 'Paid' : 'Pending'}
                           </span>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
+                        <td className="px-6 py-4 whitespace-nowrap text-right text-[10px] font-medium space-x-2">
                           <button
                             onClick={() => viewPaymentDetails(payment.month, payment.year)}
                             className="text-blue-600 hover:text-blue-900 cursor-pointer"
@@ -823,25 +850,25 @@ const FinanceDashboard = () => {
                     <table className="min-w-full divide-y divide-gray-200">
                       <thead className="bg-gray-50">
                         <tr>
-                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">#</th>
-                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Phone</th>
-                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
-                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Bank</th>
-                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Account</th>
-                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                                                  <th scope="col" className="px-6 py-3 text-left text-[10px] font-medium text-gray-500 uppercase tracking-wider">#</th>
+                        <th scope="col" className="px-6 py-3 text-left text-[10px] font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                        <th scope="col" className="px-6 py-3 text-left text-[10px] font-medium text-gray-500 uppercase tracking-wider">Phone</th>
+                        <th scope="col" className="px-6 py-3 text-left text-[10px] font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                        <th scope="col" className="px-6 py-3 text-left text-[10px] font-medium text-gray-500 uppercase tracking-wider">Bank</th>
+                        <th scope="col" className="px-6 py-3 text-left text-[10px] font-medium text-gray-500 uppercase tracking-wider">Account</th>
+                        <th scope="col" className="px-6 py-3 text-left text-[10px] font-medium text-gray-500 uppercase tracking-wider">Amount</th>
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
                         {showPaymentDetails.data.map((agent, index) => (
                           <tr key={agent._id} className="hover:bg-gray-50">
-                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{index + 1}</td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{agent.name}</td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{agent.phoneNumber}</td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{agent.email}</td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{agent.bankName}</td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{agent.bankAccountNumber}</td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
+                            <td className="px-6 py-4 whitespace-nowrap text-[10px] font-medium text-gray-900">{index + 1}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-[10px] text-gray-500">{agent.name}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-[10px] text-gray-500">{agent.phoneNumber}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-[10px] text-gray-500">{agent.email}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-[10px] text-gray-500">{agent.bankName}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-[10px] text-gray-500">{agent.bankAccountNumber}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-[10px] font-semibold text-gray-900">
                               {agent.totalCommission.toLocaleString()} RWF
                             </td>
                           </tr>

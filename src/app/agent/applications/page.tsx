@@ -48,6 +48,10 @@ interface Application {
   agentCommission?: number;
   agentId?: string;
   agentFullName?: string;
+  agent?: {
+    _id: string;
+    fullName: string;
+  };
   contract?: string;
   receipt?: string;
   ebm?: string;
@@ -262,11 +266,11 @@ const [formState, setFormState] = useState<Partial<Application>>(() => {
         }
       } else {
         // Regular edit case - submit all changed fields
-        const updatedData: { [key: string]: string | number | boolean } = {};
+        const updatedData: Record<string, string | number | boolean | Date> = {};
         
         Object.entries(formState).forEach(([key, value]) => {
-          // Skip vehicleUse, otherVehicleUse, and isCOMESA as they are handled separately
-          if (key === 'vehicleUse' || key === 'otherVehicleUse' || key === 'isCOMESA') {
+          // Skip vehicleUse, otherVehicleUse, isCOMESA, and agent as they are handled separately
+          if (key === 'vehicleUse' || key === 'otherVehicleUse' || key === 'isCOMESA' || key === 'agent') {
             return;
           }
           
@@ -278,7 +282,10 @@ const [formState, setFormState] = useState<Partial<Application>>(() => {
               : value;
             
             formData.append(key, formattedValue as string);
-            updatedData[key as keyof Application] = formattedValue;
+            // Only assign if it's a primitive value
+            if (typeof formattedValue === 'string' || typeof formattedValue === 'number' || typeof formattedValue === 'boolean') {
+              updatedData[key] = formattedValue;
+            }
           }
         });
   
@@ -949,7 +956,7 @@ useEffect(() => {
                   (app.email || '').length > 32 ? (app.email || '').substring(0, 32) + '...' : (app.email || ''),
           (app.insuranceCategory || '').length > 22 ? (app.insuranceCategory || '').substring(0, 22) + '...' : (app.insuranceCategory || ''),
                   (app.insuranceType || '').length > 22 ? (app.insuranceType || '').substring(0, 22) + '...' : (app.insuranceType || ''),
-        (app.agentFullName || 'Client').length > 22 ? (app.agentFullName || 'Client').substring(0, 22) + '...' : (app.agentFullName || 'Client'),
+        (app.agent ? app.agent.fullName : 'Client').length > 22 ? (app.agent ? app.agent.fullName : 'Client').substring(0, 22) + '...' : (app.agent ? app.agent.fullName : 'Client'),
         app.amount ? `${app.amount.toLocaleString()} RWF` : '0 RWF',
         app.companyCommission ? `${app.companyCommission.toLocaleString()} RWF` : '0 RWF',
         app.agentCommission ? `${app.agentCommission.toLocaleString()} RWF` : '0 RWF',
@@ -1087,26 +1094,26 @@ const handleEditSuccess = async () => {
   // Get status badge based on application status
   const getStatusBadge = (status: string) => {
     if (!status) {
-      return <span className="px-2 py-1 rounded-full bg-gray-100 text-gray-700 text-xs font-medium">Unknown</span>;
+      return <span className="px-2 py-1 rounded-full bg-gray-100 text-gray-700 text-[9px] font-medium">Unknown</span>;
     }
     
     switch (status.toLowerCase()) {
       case 'pending':
-        return <span className="px-2 py-1 rounded-full bg-blue-100 text-blue-700 text-xs font-medium">Pending</span>;
+        return <span className="px-2 py-1 rounded-full bg-blue-100 text-blue-700 text-[9px] font-medium">Pending</span>;
       case 'application_approved':
-        return <span className="px-2 py-1 rounded-full bg-green-100 text-green-700 text-xs font-medium">Approved</span>;
+        return <span className="px-2 py-1 rounded-full bg-green-100 text-green-700 text-[9px] font-medium">Approved</span>;
       case 'waiting_for_user_action':
-        return <span className="px-2 py-1 rounded-full bg-orange-100 text-orange-700 text-xs font-medium">Action Required</span>;
+        return <span className="px-2 py-1 rounded-full bg-orange-100 text-orange-700 text-[9px] font-medium">Action Required</span>;
       case 'invoice_sent':
-        return <span className="px-2 py-1 rounded-full bg-indigo-100 text-indigo-700 text-xs font-medium">Invoice Sent</span>;
+        return <span className="px-2 py-1 rounded-full bg-indigo-100 text-indigo-700 text-[9px] font-medium">Invoice Sent</span>;
       case 'review_payment':
-        return <span className="px-2 py-1 rounded-full bg-purple-100 text-purple-700 text-xs font-medium">Payment Review</span>;
+        return <span className="px-2 py-1 rounded-full bg-purple-100 text-purple-700 text-[9px] font-medium">Payment Review</span>;
       case 'payment_verified':
-        return <span className="px-2 py-1 rounded-full bg-green-100 text-green-700 text-xs font-medium">Payment Verified</span>;
+        return <span className="px-2 py-1 rounded-full bg-green-100 text-green-700 text-[9px] font-medium">Payment Verified</span>;
       case 'insurance_issued':
-        return <span className="px-2 py-1 rounded-full bg-emerald-100 text-emerald-700 text-xs font-medium">Insurance Issued</span>;
+        return <span className="px-2 py-1 rounded-full bg-emerald-100 text-emerald-700 text-[9px] font-medium">Insurance Issued</span>;
       default:
-        return <span className="px-2 py-1 rounded-full bg-gray-100 text-gray-700 text-xs font-medium">Unknown</span>;
+        return <span className="px-2 py-1 rounded-full bg-gray-100 text-gray-700 text-[9px] font-medium">Unknown</span>;
     }
   };
 
@@ -1495,50 +1502,50 @@ const getActionButtons = (app: Application) => {
               <table className="w-full">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Client</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Insurance Category</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Insurance End Date</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Commission</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                            <th className="px-4 py-3 text-left text-[10px] font-medium text-gray-500 uppercase tracking-wider">ID</th>
+        <th className="px-4 py-3 text-left text-[10px] font-medium text-gray-500 uppercase tracking-wider">Client</th>
+        <th className="px-4 py-3 text-left text-[10px] font-medium text-gray-500 uppercase tracking-wider">Insurance Category</th>
+        <th className="px-4 py-3 text-left text-[10px] font-medium text-gray-500 uppercase tracking-wider">Insurance End Date</th>
+        <th className="px-4 py-3 text-left text-[10px] font-medium text-gray-500 uppercase tracking-wider">Date</th>
+        <th className="px-4 py-3 text-left text-[10px] font-medium text-gray-500 uppercase tracking-wider">Commission</th>
+        <th className="px-4 py-3 text-left text-[10px] font-medium text-gray-500 uppercase tracking-wider">Status</th>
+        <th className="px-4 py-3 text-left text-[10px] font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
                   {paginatedApplications.map((app) => (
                     <tr key={app._id} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-[var(--main-blue)]">
+                      <td className="px-4 py-4 whitespace-nowrap text-[10px] font-medium text-[var(--main-blue)]">
                         #{app.applicationNumber}
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">
+                        <div className="text-[10px] font-medium text-gray-900">
                           {app.fullName || 'N/A'}
                         </div>
-                        <div className="text-sm text-gray-500">{app.phoneNumber || 'N/A'}</div>
+                        <div className="text-[10px] text-gray-500">{app.phoneNumber || 'N/A'}</div>
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900 capitalize">
+                        <div className="text-[10px] text-gray-900 capitalize">
                           {app.insuranceCategory || 'N/A'}
                         </div>
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">
+                        <div className="text-[10px] text-gray-900">
                           {app.insuranceEndAt ? new Date(app.insuranceEndAt).toLocaleDateString() : 'N/A'}
                         </div>
                       </td>
-                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
+                      <td className="px-4 py-4 whitespace-nowrap text-[10px] text-gray-500">
                         {formatDate(app.submittedAt)}
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap">
-                        <div className="text-sm font-semibold text-[var(--accent-orange)]">
+                        <div className="text-[10px] font-semibold text-[var(--accent-orange)]">
                           {app.agentCommission?.toLocaleString() || '0'} RWF
                         </div>
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap">
                         {getStatusBadge(app.status)}
                       </td>
-                      <td className="px-4 py-4 whitespace-nowrap text-sm font-medium">
+                      <td className="px-4 py-4 whitespace-nowrap text-[10px] font-medium">
                         <div className="flex space-x-2">
                           {getActionButtons(app)}
                         </div>
@@ -1744,7 +1751,7 @@ const getActionButtons = (app: Application) => {
                 )}
                 <div>
                   <p className="text-sm text-gray-500">Agent</p>
-                  <p className="font-semibold">{selectedApp.agentFullName || selectedApp.agentId || 'Client'}</p>
+                  <p className="font-semibold">{selectedApp.agent ? selectedApp.agent.fullName : 'Client'}</p>
                 </div>
                 {selectedApp.amount && (
                   <div>

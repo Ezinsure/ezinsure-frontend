@@ -57,6 +57,10 @@ export interface Application {
   pastInsuranceCertificate: string | null;
   agentId: string | null;
   agentFullName?: string;
+  agent?: {
+    _id: string;
+    fullName: string;
+  };
   submittedAt: string;
   rejectionReason?: string;
   reasonForPaymentRejection: string;
@@ -426,7 +430,7 @@ const EditApplicationModal = ({ isOpen, onClose, onSave, application, isLoading 
       }
 
       const formData = new FormData();
-      const updatedData: { [key: string]: string | number | boolean } = {};
+      const updatedData: Record<string, string | number | boolean | Date> = {};
       const updatedFiles: Record<string, File | null> = {};
       
       Object.entries(formState).forEach(([key, value]) => {
@@ -443,7 +447,10 @@ const EditApplicationModal = ({ isOpen, onClose, onSave, application, isLoading 
           
           formData.append(key, formattedValue as string);
           if (formattedValue !== undefined && formattedValue !== null) {
-            updatedData[key as keyof Application] = formattedValue;
+            // Only assign if it's a primitive value
+            if (typeof formattedValue === 'string' || typeof formattedValue === 'number' || typeof formattedValue === 'boolean') {
+              updatedData[key] = formattedValue;
+            }
           }
         }
       });
@@ -1260,10 +1267,10 @@ const handleEditSuccess = async (): Promise<void> => {
               <p className="font-medium">{application.insuranceType}</p>
               </div>
             )}
-            {application.agentId && (
+            {application.agent && (
               <div>
                 <p className="text-sm text-gray-500">Agent</p>
-                <p className="font-medium">{application.agentFullName || 'Client'}</p>
+                <p className="font-medium">{application.agent.fullName}</p>
               </div>
             )}
             <div>
