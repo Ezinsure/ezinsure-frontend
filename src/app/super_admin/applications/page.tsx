@@ -740,43 +740,43 @@ export default function SuperAdminApplicationsPage() {
               <table className="w-full">
                <thead className="bg-gray-50">
   <tr>
-            <th className="px-4 py-3 text-left text-[10px] font-medium text-gray-500 uppercase tracking-wider">ID</th>
-        <th className="px-4 py-3 text-left text-[10px] font-medium text-gray-500 uppercase tracking-wider">Client</th>
-        <th className="px-4 py-3 text-left text-[10px] font-medium text-gray-500 uppercase tracking-wider">Insurance Category</th>
-        <th className="px-4 py-3 text-left text-[10px] font-medium text-gray-500 uppercase tracking-wider">Insurance End Date</th>
-        <th className="px-4 py-3 text-left text-[10px] font-medium text-gray-500 uppercase tracking-wider">Performed By</th>
-        <th className="px-4 py-3 text-left text-[10px] font-medium text-gray-500 uppercase tracking-wider">Amount</th>
-        <th className="px-4 py-3 text-left text-[10px] font-medium text-gray-500 uppercase tracking-wider">Company Commission</th>
-        <th className="px-4 py-3 text-left text-[10px] font-medium text-gray-500 uppercase tracking-wider">Agent Commission</th>
-        <th className="px-4 py-3 text-left text-[10px] font-medium text-gray-500 uppercase tracking-wider">Date</th>
-        <th className="px-4 py-3 text-left text-[10px] font-medium text-gray-500 uppercase tracking-wider">Status</th>
-        <th className="px-4 py-3 text-left text-[10px] font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+            <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase tracking-wider">ID</th>
+        <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase tracking-wider">Client</th>
+        <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase tracking-wider">Insurance Category</th>
+        <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase tracking-wider">Insurance End Date</th>
+        <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase tracking-wider">Performed By</th>
+        <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+        <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase tracking-wider">Company Commission</th>
+        <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase tracking-wider">Agent Commission</th>
+        <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase tracking-wider">Date</th>
+        <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase tracking-wider">Status</th>
+        <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase tracking-wider">Actions</th>
   </tr>
 </thead>
                 <tbody className="divide-y divide-gray-200">
                  {paginatedApplications.map((app, index) => (
   <tr key={app._id} className="hover:bg-gray-50 transition-colors ">
-    <td className="px-4 py-4 text-[10px] whitespace-nowrap font-medium text-[var(--main-blue)]">
+    <td className="px-4 py-4 text-sm whitespace-nowrap font-medium text-[var(--main-blue)]">
       #{(currentPage - 1) * itemsPerPage + index + 1}
     </td>
-    <td className="px-4 py-4 text-[10px] whitespace-nowrap">
+    <td className="px-4 py-4 text-sm whitespace-nowrap">
       <div className="flex items-center">
         <div>
-          <div className="text-[10px] font-medium text-gray-900">{app.fullName}</div>
-          <div className="text-[10px] text-gray-500">{app.email ? app.email : 'Empty'}</div>
+          <div className="text-sm font-medium text-gray-900">{app.fullName}</div>
+          <div className="text-sm text-gray-500">{app.email ? app.email : 'Empty'}</div>
         </div>
       </div>
     </td>
-    <td className="px-4 py-4 text-[10px] whitespace-nowrap">
-      <div className="text-[10px] text-gray-900 capitalize">{app.insuranceCategory}</div>
+    <td className="px-4 py-4 text-sm whitespace-nowrap">
+      <div className="text-sm text-gray-900 capitalize">{app.insuranceCategory}</div>
     </td>
-    <td className="px-4 py-4 text-[10px] whitespace-nowrap">
-      <div className="text-[10px] text-gray-900">
+    <td className="px-4 py-4 text-sm whitespace-nowrap">
+      <div className="text-sm text-gray-900">
         {app.insuranceEndAt ? new Date(app.insuranceEndAt).toLocaleDateString() : 'N/A'}
       </div>
     </td>
-    <td className="px-4 py-4 text-[10px] whitespace-nowrap">
-      <div className="text-[10px] text-gray-900">
+    <td className="px-4 py-4 text-sm whitespace-nowrap">
+      <div className="text-sm text-gray-900">
         {app.agent ? (
           <>
             <div className="font-medium text-[var(--main-blue)]">Agent</div>
@@ -787,26 +787,26 @@ export default function SuperAdminApplicationsPage() {
         )}
       </div>
     </td>
-    <td className="px-4 py-4 text-[10px] whitespace-nowrap">
-      <div className="text-[10px] text-gray-900">
+    <td className="px-4 py-4 text-sm whitespace-nowrap">
+      <div className="text-sm text-gray-900">
         {app.amount ? `${app.amount.toLocaleString()} RWF` : '0 RWF'}
       </div>
     </td>
-    <td className="px-4 py-4 text-[10px] whitespace-nowrap">
-      <div className="text-[10px] text-gray-900">
+    <td className="px-4 py-4 text-sm whitespace-nowrap">
+      <div className="text-sm text-gray-900">
         {app.companyCommission ? `${app.companyCommission.toLocaleString()} RWF` : '0 RWF'}
       </div>
     </td>
-    <td className="px-4 py-4 text-[10px] whitespace-nowrap">
-      <div className="text-[10px] text-gray-900">
+    <td className="px-4 py-4 text-sm whitespace-nowrap">
+      <div className="text-sm text-gray-900">
         {app.agentCommission ? `${app.agentCommission.toLocaleString()} RWF` : '0 RWF'}
       </div>
     </td>
-    <td className="px-4 py-4 text-[10px] whitespace-nowrap text-gray-500">{app.submittedAt ? new Date(app.submittedAt).toLocaleDateString() : 'N/A'}</td>
-    <td className="px-4 py-4 text-[10px] whitespace-nowrap">
+    <td className="px-4 py-4 text-sm whitespace-nowrap text-gray-500">{app.submittedAt ? new Date(app.submittedAt).toLocaleDateString() : 'N/A'}</td>
+    <td className="px-4 py-4 text-sm whitespace-nowrap">
       {getStatusBadge(app.status)}
     </td>
-    <td className="px-4 py-4 text-[10px] whitespace-nowrap font-medium">
+    <td className="px-4 py-4 text-sm whitespace-nowrap font-medium">
       <div className="flex space-x-2">
         <Button 
           size="xs" 
