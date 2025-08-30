@@ -1502,50 +1502,50 @@ const getActionButtons = (app: Application) => {
               <table className="w-full">
                 <thead className="bg-gray-50">
                   <tr>
-                            <th className="px-4 py-3 text-left text-[10px] font-medium text-gray-500 uppercase tracking-wider">ID</th>
-        <th className="px-4 py-3 text-left text-[10px] font-medium text-gray-500 uppercase tracking-wider">Client</th>
-        <th className="px-4 py-3 text-left text-[10px] font-medium text-gray-500 uppercase tracking-wider">Insurance Category</th>
-        <th className="px-4 py-3 text-left text-[10px] font-medium text-gray-500 uppercase tracking-wider">Insurance End Date</th>
-        <th className="px-4 py-3 text-left text-[10px] font-medium text-gray-500 uppercase tracking-wider">Date</th>
-        <th className="px-4 py-3 text-left text-[10px] font-medium text-gray-500 uppercase tracking-wider">Commission</th>
-        <th className="px-4 py-3 text-left text-[10px] font-medium text-gray-500 uppercase tracking-wider">Status</th>
-        <th className="px-4 py-3 text-left text-[10px] font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                            <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase tracking-wider">ID</th>
+        <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase tracking-wider">Client</th>
+        <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase tracking-wider">Insurance Category</th>
+        <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase tracking-wider">Insurance End Date</th>
+        <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase tracking-wider">Date</th>
+        <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase tracking-wider">Commission</th>
+        <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase tracking-wider">Status</th>
+        <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
                   {paginatedApplications.map((app) => (
                     <tr key={app._id} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-4 py-4 whitespace-nowrap text-[10px] font-medium text-[var(--main-blue)]">
+                      <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-[var(--main-blue)]">
                         #{app.applicationNumber}
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap">
-                        <div className="text-[10px] font-medium text-gray-900">
+                        <div className="text-sm font-medium text-gray-900">
                           {app.fullName || 'N/A'}
                         </div>
-                        <div className="text-[10px] text-gray-500">{app.phoneNumber || 'N/A'}</div>
+                        <div className="text-sm text-gray-500">{app.phoneNumber || 'N/A'}</div>
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap">
-                        <div className="text-[10px] text-gray-900 capitalize">
+                        <div className="text-sm text-gray-900 capitalize">
                           {app.insuranceCategory || 'N/A'}
                         </div>
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap">
-                        <div className="text-[10px] text-gray-900">
+                        <div className="text-sm text-gray-900">
                           {app.insuranceEndAt ? new Date(app.insuranceEndAt).toLocaleDateString() : 'N/A'}
                         </div>
                       </td>
-                      <td className="px-4 py-4 whitespace-nowrap text-[10px] text-gray-500">
+                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
                         {formatDate(app.submittedAt)}
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap">
-                        <div className="text-[10px] font-semibold text-[var(--accent-orange)]">
+                        <div className="text-sm font-semibold text-[var(--accent-orange)]">
                           {app.agentCommission?.toLocaleString() || '0'} RWF
                         </div>
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap">
                         {getStatusBadge(app.status)}
                       </td>
-                      <td className="px-4 py-4 whitespace-nowrap text-[10px] font-medium">
+                      <td className="px-4 py-4 whitespace-nowrap text-sm font-medium">
                         <div className="flex space-x-2">
                           {getActionButtons(app)}
                         </div>
