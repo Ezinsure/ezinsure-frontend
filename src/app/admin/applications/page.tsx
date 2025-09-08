@@ -104,6 +104,9 @@ const [isRejecting, setIsRejecting] = useState(false);
     name: string;
     path: string;
   } | null>(null);
+  const [showLeftFade, setShowLeftFade] = useState(false);
+  const [showRightFade, setShowRightFade] = useState(true);
+  const [showScrollHint, setShowScrollHint] = useState(true);
   const itemsPerPage = 10;
 
   // Helper functions for date filtering
@@ -122,6 +125,17 @@ const [isRejecting, setIsRejecting] = useState(false);
     setStartDate(getFirstDayOfMonth());
     setEndDate(getCurrentDate());
   }, []);
+
+  // Handle table scroll to show/hide fade indicators
+  const handleTableScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const { scrollLeft, scrollWidth, clientWidth } = e.currentTarget;
+    
+    // Show left fade if scrolled past the beginning
+    setShowLeftFade(scrollLeft > 0);
+    
+    // Show right fade if there's more content to scroll
+    setShowRightFade(scrollLeft < scrollWidth - clientWidth - 1);
+  };
 
   // Fetch applications from API
   const fetchApplications = async () => {
@@ -212,6 +226,24 @@ const [isRejecting, setIsRejecting] = useState(false);
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
   );
+
+  // Start animation immediately when table is shown (regardless of data)
+  useEffect(() => {
+    if (!isLoading) {
+      // Start animation immediately when table is shown
+      setShowScrollHint(true);
+      
+      // Hide after animation completes (40 seconds)
+      const timer = setTimeout(() => {
+        setShowScrollHint(false);
+      }, 40000); // 40 seconds total single flow
+
+      return () => clearTimeout(timer);
+    } else {
+      // Hide during loading
+      setShowScrollHint(false);
+    }
+  }, [isLoading]);
 
 
 
@@ -466,26 +498,26 @@ const handleApproveApplication = async () => {
   // Get status badge based on application status
   const getStatusBadge = (status: string) => {
     if (!status) {
-      return <span className="px-2 py-1 rounded-full bg-gray-100 text-gray-700 text-[9px] font-medium">Unknown</span>;
+      return <span className="px-2 py-1 rounded-full bg-gray-100 text-gray-700 text-sm font-medium">Unknown</span>;
     }
     
     switch (status.toLowerCase()) {
       case ApplicationStatus.PENDING:
-        return <span className="px-2 py-1 rounded-full bg-blue-100 text-blue-700 text-[9px] font-medium">Pending</span>;
+        return <span className="px-2 py-1 rounded-full bg-blue-100 text-blue-700 text-sm font-medium">Pending</span>;
       case ApplicationStatus.APPLICATION_APPROVED:
-        return <span className="px-2 py-1 rounded-full bg-green-100 text-green-700 text-[9px] font-medium">Application Approved</span>;
+        return <span className="px-2 py-1 rounded-full bg-green-100 text-green-700 text-sm font-medium">Application Approved</span>;
       case ApplicationStatus.WAITING_FOR_USER_ACTION:
-        return <span className="px-2 py-1 rounded-full bg-orange-100 text-orange-700 text-[9px] font-medium">Waiting for User Action</span>;
+        return <span className="px-2 py-1 rounded-full bg-orange-100 text-orange-700 text-sm font-medium">Waiting for User Action</span>;
       case ApplicationStatus.INVOICE_SENT:
-        return <span className="px-2 py-1 rounded-full bg-indigo-100 text-indigo-700 text-[9px] font-medium">Invoice Sent</span>;
+        return <span className="px-2 py-1 rounded-full bg-indigo-100 text-indigo-700 text-sm font-medium">Invoice Sent</span>;
       case ApplicationStatus.REVIEW_PAYMENT:
-        return <span className="px-2 py-1 rounded-full bg-purple-100 text-purple-700 text-[9px] font-medium">Review Payment</span>;
+        return <span className="px-2 py-1 rounded-full bg-purple-100 text-purple-700 text-sm font-medium">Review Payment</span>;
       case ApplicationStatus.PAYMENT_VERIFIED:
-        return <span className="px-2 py-1 rounded-full bg-green-100 text-green-700 text-[9px] font-medium">Payment Verified</span>;
+        return <span className="px-2 py-1 rounded-full bg-green-100 text-green-700 text-sm font-medium">Payment Verified</span>;
       case ApplicationStatus.INSURANCE_ISSUED:
-        return <span className="px-2 py-1 rounded-full bg-emerald-100 text-emerald-700 text-[9px] font-medium">Insurance Issued</span>;
+        return <span className="px-2 py-1 rounded-full bg-emerald-100 text-emerald-700 text-sm font-medium">Insurance Issued</span>;
       default:
-        return <span className="px-2 py-1 rounded-full bg-gray-100 text-gray-700 text-[9px] font-medium">Unknown</span>;
+        return <span className="px-2 py-1 rounded-full bg-gray-100 text-gray-700 text-sm font-medium">Unknown</span>;
     }
   };
 
@@ -495,7 +527,7 @@ const getActionButtons = (app: Application) => {
     <div className="flex space-x-2">
       {/* Always show View Details button */}
       <Button 
-        size="xs" 
+        size="sm" 
         variant="text"
         onClick={() => {
           setSelectedApp(app);
@@ -508,7 +540,7 @@ const getActionButtons = (app: Application) => {
       {/* Show status-specific buttons */}
       {app.status && app.status.toLowerCase() === ApplicationStatus.PENDING && (
         <Button 
-          size="xs" 
+          size="sm" 
           onClick={() => {
             setSelectedApp(app);
             setActiveModal('review');
@@ -520,7 +552,7 @@ const getActionButtons = (app: Application) => {
       
       {app.status && app.status.toLowerCase() === ApplicationStatus.APPLICATION_APPROVED && (
         <Button 
-          size="xs" 
+          size="sm" 
           onClick={() => {
             setSelectedApp(app);
             setActiveModal('invoice');
@@ -533,7 +565,7 @@ const getActionButtons = (app: Application) => {
       
       {app.status && app.status.toLowerCase() === ApplicationStatus.REVIEW_PAYMENT && (
         <Button 
-          size="xs" 
+          size="sm" 
           onClick={() => {
             setSelectedApp(app);
             setActiveModal('verify');
@@ -545,7 +577,7 @@ const getActionButtons = (app: Application) => {
       
       {app.status && app.status.toLowerCase() === ApplicationStatus.PAYMENT_VERIFIED && (
         <Button 
-          size="xs" 
+          size="sm" 
           onClick={() => {
             setSelectedApp(app);
             setActiveModal('issue');
@@ -1076,6 +1108,21 @@ const getActionButtons = (app: Application) => {
 
         {/* Applications table */}
         <div className="bg-white rounded-xl shadow-lg overflow-hidden fade-in">
+          {/* Scroll hint - show when table is displayed and animation hasn't completed */}
+          {!isLoading && showScrollHint && (
+            <div className="w-screen py-2 bg-blue-50 border-b border-blue-200 overflow-hidden relative">
+              {/* Left gradient fade */}
+              <div className="absolute left-0 top-0 bottom-0 w-16 bg-gradient-to-r from-blue-50 to-transparent z-10 pointer-events-none"></div>
+              
+              {/* Right gradient fade */}
+              <div className="absolute right-0 top-0 bottom-0 w-16 bg-gradient-to-l from-blue-50 to-transparent z-10 pointer-events-none"></div>
+              
+              {/* Flowing text */}
+              <div className="flex items-center justify-center text-sm text-blue-700">
+                <span className="animate-flowing-text">Scroll to the left to view all columns</span>
+              </div>
+            </div>
+          )}
           {isLoading ? (
             <div className="p-8 text-center">
               <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-[var(--mid-gray)] border-t-[var(--main-blue)]"></div>
@@ -1092,8 +1139,19 @@ const getActionButtons = (app: Application) => {
               )}
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
+            <div className="relative">
+              {/* Left fade indicator */}
+              {showLeftFade && (
+                <div className="absolute left-0 top-0 bottom-0 w-16 bg-gradient-to-r from-gray-100 via-gray-50/80 to-transparent z-10 pointer-events-none"></div>
+              )}
+              
+              {/* Right fade indicator */}
+              {showRightFade && (
+                <div className="absolute right-0 top-0 bottom-0 w-16 bg-gradient-to-l from-gray-100 via-gray-50/80 to-transparent z-10 pointer-events-none"></div>
+              )}
+              
+              <div className="overflow-x-auto" onScroll={handleTableScroll}>
+                <table className="w-full">
                <thead className="bg-gray-50">
   <tr>
             <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase tracking-wider">ID</th>
@@ -1171,6 +1229,7 @@ const getActionButtons = (app: Application) => {
 ))}
                 </tbody>
               </table>
+              </div>
               <Pagination
                 currentPage={currentPage}
                 totalPages={Math.ceil(filteredApplications.length / itemsPerPage)}
