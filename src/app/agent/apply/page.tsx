@@ -5,6 +5,7 @@ import { MainLayout } from '@/components/ui/main-layout';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { FileInput } from '@/components/ui/file-input';
+import { SearchInput } from '@/components/ui/search-input';
 import { useToast } from '@/components/ui/toast';
 import {
   validateForm,
@@ -236,10 +237,18 @@ export default function AgentApplyPage() {
     yellowCard: null as File | null,
     pastInsuranceCertificate: null as File | null,
     insuranceProvider: 'SONARWA',
+    // New fields
+    plateNumber: '',
+    identificationDocumentType: 'nationalID',
+    identificationNumber: '',
   });
 
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // Reset triggers for SearchInput components
+  const [plateNumberResetTrigger, setPlateNumberResetTrigger] = useState(0);
+  const [identificationNumberResetTrigger, setIdentificationNumberResetTrigger] = useState(0);
 
   // Initialize tracking data on component mount
   useEffect(() => {
@@ -254,6 +263,37 @@ export default function AgentApplyPage() {
 
     initializeTracking();
   }, []);
+
+  // Console log form data whenever it changes
+  useEffect(() => {
+    const formDataToSend = {
+      fullName: formState.fullName,
+      email: formState.email,
+      phoneNumber: formState.phoneNumber,
+      address: formState.address,
+      dateOfBirth: formState.dateOfBirth,
+      province: formState.province,
+      district: formState.district,
+      sector: formState.sector,
+      insuranceCategory: formatInsuranceCategory(formState.insuranceCategory),
+      insuranceType: formatInsuranceType(formState.insuranceType),
+      insuranceDuration: formatInsuranceDuration(formState.insuranceDuration),
+      insuranceProvider: formState.insuranceProvider,
+      plateNumber: formState.plateNumber,
+      identificationDocumentType: formState.identificationDocumentType,
+      identificationNumber: formState.identificationNumber,
+      vehicleType: formState.vehicleType,
+      vehicleAge: formState.vehicleAge,
+      vehicleUse: formState.vehicleUse,
+      otherVehicleUse: formState.otherVehicleUse,
+      isCOMESA: formState.isCOMESA,
+      nationalID: formState.nationalID ? 'File selected' : null,
+      yellowCard: formState.yellowCard ? 'File selected' : null,
+      pastInsuranceCertificate: formState.pastInsuranceCertificate ? 'File selected' : null,
+    };
+    
+    console.log('Agent Form Data to be sent to API:', formDataToSend);
+  }, [formState]);
 
   const validationRules: ValidationRules = {
     fullName: { required: true, minLength: 3, maxLength: 50 },
@@ -274,7 +314,11 @@ export default function AgentApplyPage() {
     isCOMESA: { required: true },
     nationalID: { required: true },
     yellowCard: { required: true },
-    insuranceProvider: { required: true }, 
+    insuranceProvider: { required: true },
+    // New validation rules
+    plateNumber: { required: formState.insuranceCategory === 'car' || formState.insuranceCategory === 'motorbike' },
+    identificationDocumentType: { required: true },
+    identificationNumber: { required: true },
   };
 
   const getTokenFromStorage = () => {
@@ -354,10 +398,56 @@ export default function AgentApplyPage() {
       return;
     }
     
-    setFormState(prev => ({
-      ...prev,
-      [name]: type === 'checkbox' ? checked : value
-    }));
+    // Clear personal information when document type changes
+    if (name === 'identificationDocumentType') {
+      setFormState(prev => ({
+        ...prev,
+        [name]: value,
+        // Clear all personal information fields except document type
+        fullName: '',
+        email: '',
+        phoneNumber: '',
+        address: '',
+        dateOfBirth: '',
+        province: '',
+        district: '',
+        sector: '',
+        identificationNumber: '',
+      }));
+      setAvailableDistricts([]);
+      setAvailableSectors([]);
+      // Reset identification number search status
+      setIdentificationNumberResetTrigger(prev => prev + 1);
+    } 
+    // Clear plate number prefilled fields when insurance category changes
+    else if (name === 'insuranceCategory') {
+      setFormState(prev => ({
+        ...prev,
+        [name]: value,
+        // Clear all fields that plate number search would populate
+        fullName: '',
+        email: '',
+        phoneNumber: '',
+        address: '',
+        dateOfBirth: '',
+        province: '',
+        district: '',
+        sector: '',
+        plateNumber: '',
+        vehicleType: '',
+        vehicleAge: '',
+        vehicleUse: '',
+      }));
+      setAvailableDistricts([]);
+      setAvailableSectors([]);
+      // Reset plate number search status
+      setPlateNumberResetTrigger(prev => prev + 1);
+    } else {
+      setFormState(prev => ({
+        ...prev,
+        [name]: type === 'checkbox' ? checked : value
+      }));
+    }
 
     // Clear error when typing
     if (errors[name]) {
@@ -379,6 +469,71 @@ export default function AgentApplyPage() {
         delete newErrors[name];
         return newErrors;
       });
+    }
+  };
+
+  // Handle search success for identification number
+  const handleIdentificationSearchSuccess = (data: Record<string, unknown>) => {
+    setFormState(prev => ({
+      ...prev,
+      fullName: (data.fullName as string) || prev.fullName,
+      email: (data.email as string) || prev.email,
+      phoneNumber: (data.phoneNumber as string) || prev.phoneNumber,
+      address: (data.address as string) || prev.address,
+      dateOfBirth: (data.dateOfBirth as string) || prev.dateOfBirth,
+      province: (data.province as string) || prev.province,
+      district: (data.district as string) || prev.district,
+      sector: (data.sector as string) || prev.sector,
+    }));
+
+    // Update districts and sectors if province is set
+    if (data.province) {
+      const selectedProvince = rwandaProvinces.find(p => p.name === (data.province as string));
+      const districts = selectedProvince?.districts || [];
+      const transformedDistricts = districts.map(district => ({
+        name: district.name,
+        sectors: district.sectors?.map(sector => sector.name) || []
+      }));
+      setAvailableDistricts(transformedDistricts);
+
+      if (data.district) {
+        const selectedDistrict = transformedDistricts.find(d => d.name === (data.district as string));
+        setAvailableSectors(selectedDistrict?.sectors || []);
+      }
+    }
+  };
+
+  // Handle search success for plate number
+  const handlePlateSearchSuccess = (data: Record<string, unknown>) => {
+    setFormState(prev => ({
+      ...prev,
+      fullName: (data.fullName as string) || prev.fullName,
+      email: (data.email as string) || prev.email,
+      phoneNumber: (data.phoneNumber as string) || prev.phoneNumber,
+      address: (data.address as string) || prev.address,
+      dateOfBirth: (data.dateOfBirth as string) || prev.dateOfBirth,
+      province: (data.province as string) || prev.province,
+      district: (data.district as string) || prev.district,
+      sector: (data.sector as string) || prev.sector,
+      vehicleType: (data.vehicleType as string) || prev.vehicleType,
+      vehicleAge: (data.vehicleAge as string) || prev.vehicleAge,
+      vehicleUse: (data.vehicleUse as string) || prev.vehicleUse,
+    }));
+
+    // Update districts and sectors if province is set
+    if (data.province) {
+      const selectedProvince = rwandaProvinces.find(p => p.name === (data.province as string));
+      const districts = selectedProvince?.districts || [];
+      const transformedDistricts = districts.map(district => ({
+        name: district.name,
+        sectors: district.sectors?.map(sector => sector.name) || []
+      }));
+      setAvailableDistricts(transformedDistricts);
+
+      if (data.district) {
+        const selectedDistrict = transformedDistricts.find(d => d.name === (data.district as string));
+        setAvailableSectors(selectedDistrict?.sectors || []);
+      }
     }
   };
 
@@ -414,6 +569,24 @@ export default function AgentApplyPage() {
     }
   };
 
+  const getIdentificationDocumentLabel = (type: string) => {
+    switch (type) {
+      case 'nationalID': return 'National ID Number';
+      case 'passport': return 'Passport Number';
+      case 'drivingLicense': return 'Driving License Number';
+      default: return 'National ID Number';
+    }
+  };
+
+  const getIdentificationDocumentPlaceholder = (type: string) => {
+    switch (type) {
+      case 'nationalID': return 'e.g. 1234567890123456';
+      case 'passport': return 'e.g. RN1234567';
+      case 'drivingLicense': return 'e.g. DL123456789';
+      default: return 'e.g. 1234567890123456';
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -445,6 +618,13 @@ export default function AgentApplyPage() {
         formData.append('insuranceType', formatInsuranceType(formState.insuranceType));
         formData.append('insuranceDuration', formatInsuranceDuration(formState.insuranceDuration));
         formData.append('insuranceProvider', formState.insuranceProvider);
+        
+        // Append new fields
+        if (formState.plateNumber) {
+          formData.append('plateNumber', formState.plateNumber);
+        }
+        formData.append('identificationDocumentType', formState.identificationDocumentType);
+        formData.append('identificationNumber', formState.identificationNumber);
         
         // Append vehicle details if applicable
         if (formState.insuranceCategory === 'car' || formState.insuranceCategory === 'motorbike') {
@@ -537,6 +717,10 @@ export default function AgentApplyPage() {
           yellowCard: null,
           pastInsuranceCertificate: null,
           insuranceProvider: 'SONARWA',
+          // Reset new fields
+          plateNumber: '',
+          identificationDocumentType: 'nationalID',
+          identificationNumber: '',
         });
         setAvailableDistricts([]);
         setAvailableSectors([]);
@@ -581,212 +765,333 @@ export default function AgentApplyPage() {
             </div>
 
             <form onSubmit={handleSubmit} className="p-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <Input
-                  label="Full Name"
-                  name="fullName"
-                  placeholder="Jean Claude Niyonzima"
-                  value={formState.fullName}
-                  onChange={handleInputChange}
-                  error={errors.fullName}
-                  required
-                />
-
-                <Input
-                  label="Email Address"
-                  type="email"
-                  name="email"
-                  placeholder="johndoe@example.com"
-                  value={formState.email}
-                  onChange={handleInputChange}
-                  error={errors.email}
-                  icon={
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="20"
-                      height="20"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
+              {/* Personal Information Section */}
+              <fieldset className="mb-8 border-2 border-[var(--main-blue)] rounded-lg p-6 bg-gray-50">
+                <legend className="text-lg font-semibold text-[var(--main-blue)] px-3 bg-white border border-[var(--main-blue)] rounded-md">
+                  Personal Information
+                </legend>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Identification Document Type */}
+                  <div>
+                    <label className="block text-sm font-medium mb-1">
+                      Identification Document Type <span className="text-[var(--error-red)]">*</span>
+                    </label>
+                    <select
+                      name="identificationDocumentType"
+                      value={formState.identificationDocumentType}
+                      onChange={handleInputChange}
+                      className="w-full py-2 px-3 rounded-lg focus:outline-none border border-gray-300 focus:border-[var(--main-blue)]"
+                      required
                     >
-                      <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
-                      <polyline points="22,6 12,13 2,6"></polyline>
-                    </svg>
-                  }
-                />
+                      <option value="nationalID">National ID</option>
+                      <option value="passport">Passport</option>
+                      <option value="drivingLicense">Driving License</option>
+                    </select>
+                    {errors.identificationDocumentType && (
+                      <p className="mt-1 text-sm text-[var(--error-red)]">{errors.identificationDocumentType}</p>
+                    )}
+                  </div>
 
-                <Input
-                  label="Phone Number"
-                  name="phoneNumber"
-                  placeholder="250781234567"
-                  value={formState.phoneNumber}
-                  onChange={handleInputChange}
-                  error={errors.phoneNumber}
-                  required
-                  icon={
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="20"
-                      height="20"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
+                  {/* Identification Number Search */}
+                  <div className="mb-6">
+                    <SearchInput
+                      label={getIdentificationDocumentLabel(formState.identificationDocumentType)}
+                      name="identificationNumber"
+                      placeholder={getIdentificationDocumentPlaceholder(formState.identificationDocumentType)}
+                      value={formState.identificationNumber}
+                      onChange={(value) => {
+                        setFormState(prev => ({ 
+                          ...prev, 
+                          identificationNumber: value,
+                          // Clear all personal information fields except document type and identification number
+                          fullName: '',
+                          email: '',
+                          phoneNumber: '',
+                          address: '',
+                          dateOfBirth: '',
+                          province: '',
+                          district: '',
+                          sector: '',
+                        }));
+                        setAvailableDistricts([]);
+                        setAvailableSectors([]);
+                        if (errors.identificationNumber) {
+                          setErrors(prev => {
+                            const newErrors = { ...prev };
+                            delete newErrors.identificationNumber;
+                            return newErrors;
+                          });
+                        }
+                      }}
+                      onSearchSuccess={handleIdentificationSearchSuccess}
+                      searchType="id"
+                      error={errors.identificationNumber}
+                      required
+                      resetTrigger={identificationNumberResetTrigger}
+                    />
+                  </div>
+
+                  <Input
+                    label="Full Name"
+                    name="fullName"
+                    placeholder="Jean Claude Niyonzima"
+                    value={formState.fullName}
+                    onChange={handleInputChange}
+                    error={errors.fullName}
+                    required
+                  />
+
+                  <Input
+                    label="Email Address"
+                    type="email"
+                    name="email"
+                    placeholder="johndoe@example.com"
+                    value={formState.email}
+                    onChange={handleInputChange}
+                    error={errors.email}
+                    icon={
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="20"
+                        height="20"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+                        <polyline points="22,6 12,13 2,6"></polyline>
+                      </svg>
+                    }
+                  />
+
+                  <Input
+                    label="Phone Number"
+                    name="phoneNumber"
+                    placeholder="250781234567"
+                    value={formState.phoneNumber}
+                    onChange={handleInputChange}
+                    error={errors.phoneNumber}
+                    required
+                    icon={
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="20"
+                        height="20"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
+                      </svg>
+                    }
+                  />
+
+                  <Input
+                    label="Date of Birth"
+                    type="date"
+                    name="dateOfBirth"
+                    value={formState.dateOfBirth}
+                    onChange={handleInputChange}
+                    error={errors.dateOfBirth}
+                    min={getDateLimits().min}
+                    max={getDateLimits().max}
+                    required
+                  />
+
+                  <Input
+                    label="Address"
+                    name="address"
+                    placeholder="eg: KN 5 RD, Kigali - Rwanda"
+                    value={formState.address}
+                    onChange={handleInputChange}
+                    error={errors.address}
+                    required
+                  />
+
+                  {/* Province Select */}
+                  <div>
+                    <label className="block text-sm font-medium mb-1">
+                      Province <span className="text-[var(--error-red)]">*</span>
+                    </label>
+                    <select
+                      name="province"
+                      value={formState.province}
+                      onChange={handleInputChange}
+                      className="w-full py-2 px-3 rounded-lg focus:outline-none border border-gray-300 focus:border-[var(--main-blue)]"
+                      required
                     >
-                      <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
-                    </svg>
-                  }
-                />
+                      <option value="">Select Province</option>
+                      {rwandaProvinces.map(province => (
+                        <option key={province.name} value={province.name}>{province.name}</option>
+                      ))}
+                    </select>
+                    {errors.province && (
+                      <p className="mt-1 text-sm text-[var(--error-red)]">{errors.province}</p>
+                    )}
+                  </div>
 
-                <Input
-                  label="Date of Birth"
-                  type="date"
-                  name="dateOfBirth"
-                  value={formState.dateOfBirth}
-                  onChange={handleInputChange}
-                  error={errors.dateOfBirth}
-                  min={getDateLimits().min}
-                  max={getDateLimits().max}
-                  required
-                />
+                  {/* District Select */}
+                  <div>
+                    <label className="block text-sm font-medium mb-1">
+                      District <span className="text-[var(--error-red)]">*</span>
+                    </label>
+                    <select
+                      name="district"
+                      value={formState.district}
+                      onChange={handleInputChange}
+                      disabled={!formState.province}
+                      className="w-full py-2 px-3 rounded-lg focus:outline-none border border-gray-300 focus:border-[var(--main-blue)] disabled:bg-gray-100 disabled:cursor-not-allowed"
+                      required
+                    >
+                      <option value="">Select District</option>
+                      {availableDistricts.map(district => (
+                        <option key={district.name} value={district.name}>{district.name}</option>
+                      ))}
+                    </select>
+                    {errors.district && (
+                      <p className="mt-1 text-sm text-[var(--error-red)]">{errors.district}</p>
+                    )}
+                  </div>
 
-                <Input
-                  label="Address"
-                  name="address"
-                  placeholder="eg: KN 5 RD, Kigali - Rwanda"
-                  value={formState.address}
-                  onChange={handleInputChange}
-                  error={errors.address}
-                  required
-                />
-
-                {/* Province Select */}
-                <div>
-                  <label className="block text-sm font-medium mb-1">
-                    Province <span className="text-[var(--error-red)]">*</span>
-                  </label>
-                  <select
-                    name="province"
-                    value={formState.province}
-                    onChange={handleInputChange}
-                    className="w-full py-2 px-3 rounded-lg focus:outline-none border border-gray-300 focus:border-[var(--main-blue)]"
-                    required
-                  >
-                    <option value="">Select Province</option>
-                    {rwandaProvinces.map(province => (
-                      <option key={province.name} value={province.name}>{province.name}</option>
-                    ))}
-                  </select>
-                  {errors.province && (
-                    <p className="mt-1 text-sm text-[var(--error-red)]">{errors.province}</p>
-                  )}
+                  {/* Sector Select */}
+                  <div>
+                    <label className="block text-sm font-medium mb-1">
+                      Sector <span className="text-[var(--error-red)]">*</span>
+                    </label>
+                    <select
+                      name="sector"
+                      value={formState.sector}
+                      onChange={handleInputChange}
+                      disabled={!formState.district}
+                      className="w-full py-2 px-3 rounded-lg focus:outline-none border border-gray-300 focus:border-[var(--main-blue)] disabled:bg-gray-100 disabled:cursor-not-allowed"
+                      required
+                    >
+                      <option value="">Select Sector</option>
+                      {availableSectors.map(sector => (
+                        <option key={sector} value={sector}>{sector}</option>
+                      ))}
+                    </select>
+                    {errors.sector && (
+                      <p className="mt-1 text-sm text-[var(--error-red)]">{errors.sector}</p>
+                    )}
+                  </div>
                 </div>
+              </fieldset>
 
-                {/* District Select */}
-                <div>
-                  <label className="block text-sm font-medium mb-1">
-                    District <span className="text-[var(--error-red)]">*</span>
-                  </label>
-                  <select
-                    name="district"
-                    value={formState.district}
-                    onChange={handleInputChange}
-                    disabled={!formState.province}
-                    className="w-full py-2 px-3 rounded-lg focus:outline-none border border-gray-300 focus:border-[var(--main-blue)] disabled:bg-gray-100 disabled:cursor-not-allowed"
-                    required
-                  >
-                    <option value="">Select District</option>
-                    {availableDistricts.map(district => (
-                      <option key={district.name} value={district.name}>{district.name}</option>
-                    ))}
-                  </select>
-                  {errors.district && (
-                    <p className="mt-1 text-sm text-[var(--error-red)]">{errors.district}</p>
-                  )}
-                </div>
+              {/* Insurance Details Section */}
+              <fieldset className="mb-8 border-2 border-[var(--main-blue)] rounded-lg p-6 bg-gray-50">
+                <legend className="text-lg font-semibold text-[var(--main-blue)] px-3 bg-white border border-[var(--main-blue)] rounded-md">
+                  Insurance Details
+                </legend>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Insurance Category */}
+                  <div>
+                    <label
+                      className="block text-sm font-medium mb-1"
+                      htmlFor="insuranceCategory"
+                    >
+                      Insurance Category{' '}
+                      <span className="text-[var(--error-red)] ml-1">*</span>
+                    </label>
+                    <select
+                      id="insuranceCategory"
+                      name="insuranceCategory"
+                      value={formState.insuranceCategory}
+                      onChange={handleInputChange}
+                      className="w-full py-2 px-3 rounded-lg focus:outline-none border border-gray-300 focus:border-[var(--main-blue)]"
+                      required
+                    >
+                      <option value="car">Car Insurance</option>
+                      <option value="motorbike">MotorBike Insurance</option>
+                      <option value="building">Building Insurance</option>
+                      <option value="travel">Travel Insurance</option>
+                      <option value="health">Health Insurance</option>
+                      <option value="fire">Fire Insurance Coverage</option>
+                    </select>
+                    {errors.insuranceCategory && (
+                      <p className="mt-1 text-sm text-[var(--error-red)]">
+                        {errors.insuranceCategory}
+                      </p>
+                    )}
+                  </div>
 
-                {/* Sector Select */}
-                <div>
-                  <label className="block text-sm font-medium mb-1">
-                    Sector <span className="text-[var(--error-red)]">*</span>
-                  </label>
-                  <select
-                    name="sector"
-                    value={formState.sector}
-                    onChange={handleInputChange}
-                    disabled={!formState.district}
-                    className="w-full py-2 px-3 rounded-lg focus:outline-none border border-gray-300 focus:border-[var(--main-blue)] disabled:bg-gray-100 disabled:cursor-not-allowed"
-                    required
-                  >
-                    <option value="">Select Sector</option>
-                    {availableSectors.map(sector => (
-                      <option key={sector} value={sector}>{sector}</option>
-                    ))}
-                  </select>
-                  {errors.sector && (
-                    <p className="mt-1 text-sm text-[var(--error-red)]">{errors.sector}</p>
+                  {/* Plate Number Field - Only for Car/Motorbike */}
+                  {(formState.insuranceCategory === 'car' || formState.insuranceCategory === 'motorbike') && (
+                    <div>
+                      <SearchInput
+                        label="Plate Number"
+                        name="plateNumber"
+                        placeholder="e.g. RAA 123A"
+                        value={formState.plateNumber}
+                        onChange={(value) => {
+                          setFormState(prev => ({ 
+                            ...prev, 
+                            plateNumber: value,
+                            // Clear all prefilled fields that plate number search would populate
+                            fullName: '',
+                            email: '',
+                            phoneNumber: '',
+                            address: '',
+                            dateOfBirth: '',
+                            province: '',
+                            district: '',
+                            sector: '',
+                            vehicleType: '',
+                            vehicleAge: '',
+                            vehicleUse: '',
+                          }));
+                          setAvailableDistricts([]);
+                          setAvailableSectors([]);
+                          if (errors.plateNumber) {
+                            setErrors(prev => {
+                              const newErrors = { ...prev };
+                              delete newErrors.plateNumber;
+                              return newErrors;
+                            });
+                          }
+                        }}
+                        onSearchSuccess={handlePlateSearchSuccess}
+                        searchType="plate"
+                        error={errors.plateNumber}
+                        required
+                        resetTrigger={plateNumberResetTrigger}
+                      />
+                    </div>
                   )}
-                </div>
 
-                <div className="md:col-span-2">
-                  <label
-                    className="block text-sm font-medium mb-1"
-                    htmlFor="insuranceProvider"
-                  >
-                    Insurance Provider{' '}
-                    <span className="text-[var(--error-red)] ml-1">*</span>
-                  </label>
-                  <select
-                    id="insuranceProvider"
-                    name="insuranceProvider"
-                    value={formState.insuranceProvider}
-                    onChange={handleInputChange}
-                    className="w-full py-2 px-3 rounded-lg focus:outline-none border border-gray-300 focus:border-[var(--main-blue)]"
-                    required
-                  >
-                    <option value="SONARWA">SONARWA</option>
-                  </select>
-                  {errors.insuranceProvider && (
-                    <p className="mt-1 text-sm text-[var(--error-red)]">
-                      {errors.insuranceProvider}
-                    </p>
-                  )}
-                </div>
-
-                <div className="md:col-span-2">
-                  <label
-                    className="block text-sm font-medium mb-1"
-                    htmlFor="insuranceCategory"
-                  >
-                    Insurance Category{' '}
-                    <span className="text-[var(--error-red)] ml-1">*</span>
-                  </label>
-                  <select
-                    id="insuranceCategory"
-                    name="insuranceCategory"
-                    value={formState.insuranceCategory}
-                    onChange={handleInputChange}
-                    className="w-full py-2 px-3 rounded-lg focus:outline-none border border-gray-300 focus:border-[var(--main-blue)]"
-                    required
-                  >
-                    <option value="car">Car Insurance</option>
-                    <option value="motorbike">MotorBike Insurance</option>
-                    <option value="building">Building Insurance</option>
-                    <option value="travel">Travel Insurance</option>
-                    <option value="health">Health Insurance</option>
-                    <option value="fire">Fire Insurance Coverage</option>
-                  </select>
-                  {errors.insuranceCategory && (
-                    <p className="mt-1 text-sm text-[var(--error-red)]">
-                      {errors.insuranceCategory}
-                    </p>
-                  )}
-                </div>
+                  {/* Insurance Provider */}
+                  <div className="md:col-span-2">
+                    <label
+                      className="block text-sm font-medium mb-1"
+                      htmlFor="insuranceProvider"
+                    >
+                      Insurance Provider{' '}
+                      <span className="text-[var(--error-red)] ml-1">*</span>
+                    </label>
+                    <select
+                      id="insuranceProvider"
+                      name="insuranceProvider"
+                      value={formState.insuranceProvider}
+                      onChange={handleInputChange}
+                      className="w-full py-2 px-3 rounded-lg focus:outline-none border border-gray-300 focus:border-[var(--main-blue)]"
+                      required
+                    >
+                      <option value="SONARWA">SONARWA</option>
+                    </select>
+                    {errors.insuranceProvider && (
+                      <p className="mt-1 text-sm text-[var(--error-red)]">
+                        {errors.insuranceProvider}
+                      </p>
+                    )}
+                  </div>
 
                 {/* Vehicle Type (only shown for car/motorbike insurance) */}
                 {(formState.insuranceCategory === 'car' || formState.insuranceCategory === 'motorbike') && (
@@ -1036,6 +1341,7 @@ export default function AgentApplyPage() {
                   )}
                 </div>
               </div>
+              </fieldset>
 
               <div className="mt-8">
                 <h3 className="text-lg font-semibold mb-4">
@@ -1044,7 +1350,7 @@ export default function AgentApplyPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <FileInput
                     key={`nationalID-${formKey}`}
-                    label="National ID Card / Passport"
+                    label="National ID Card / Passport / Driving License"
                     name="nationalID"
                     onChange={handleFileChange('nationalID')}
                     error={errors.nationalID}
