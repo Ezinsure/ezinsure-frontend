@@ -561,7 +561,7 @@ export default function AdminNewApplicationPage() {
 
   return (
     <MainLayout containerClass="p-0" fullWidth>
-      <div className="container mx-auto px-4 py-8 max-w-[80vw]">
+      <div className="container mx-auto px-4 py-8 max-w-full">
         <div className="absolute top-0 left-0 w-full h-[10vh] overflow-hidden z-0 bg-gradient-to-br from-[#0A2540] to-[#126BB3]"></div>
         <div className="max-w-4xl mx-auto mt-16">
           <div className="mb-8 text-center">
