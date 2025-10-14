@@ -1145,7 +1145,7 @@ export default function ApplyPage() {
                     required
                   >
                     <option value="1">1 Month</option>
-                    <option value="2">2 Month</option>
+                    <option value="2">2 Months</option>
                     <option value="3">3 Months</option>
                     <option value="6">6 Months</option>
                     <option value="9">9 Months</option>
