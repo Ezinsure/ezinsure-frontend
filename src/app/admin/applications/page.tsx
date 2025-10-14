@@ -99,6 +99,9 @@ export default function ManageApplicationsPage() {
 const [isRejecting, setIsRejecting] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [invoiceAmount, setInvoiceAmount] = useState('');
+  const [agentCommission, setAgentCommission] = useState('');
+  const [companyCommission, setCompanyCommission] = useState('');
+  const [administrationFees, setAdministrationFees] = useState('');
   const [activeModal, setActiveModal] = useState<'details' | 'review' | 'invoice' | 'verify' | 'issue' | null>(null);
   const [viewingDocument, setViewingDocument] = useState<{
     name: string;
@@ -120,11 +123,46 @@ const [isRejecting, setIsRejecting] = useState(false);
     return new Date().toISOString().split('T')[0];
   };
 
+  // Calculate administration fees based on insurance category
+  const calculateAdministrationFees = (insuranceCategory: string) => {
+    if (insuranceCategory.toLowerCase().includes('moto')) {
+      return Math.round(2500 * 0.25); // 25% of 2500 for MOTO
+    } else {
+      return Math.round(5000 * 0.25); // 25% of 5000 for all other applications
+    }
+  };
+
   // Set default date range to current month
   useEffect(() => {
     setStartDate(getFirstDayOfMonth());
     setEndDate(getCurrentDate());
   }, []);
+
+  // Auto-calculate administration fees when selectedApp changes
+  useEffect(() => {
+    if (selectedApp && selectedApp.insuranceCategory) {
+      const calculatedFees = calculateAdministrationFees(selectedApp.insuranceCategory);
+      setAdministrationFees(calculatedFees.toString());
+    }
+  }, [selectedApp]);
+
+
+  // Console log form state changes
+  useEffect(() => {
+    const formState = {
+      invoiceAmount,
+      agentCommission,
+      companyCommission,
+      administrationFees,
+      invoiceMessage,
+      selectedApp: selectedApp ? {
+        id: selectedApp._id,
+        name: selectedApp.fullName,
+        category: selectedApp.insuranceCategory
+      } : null
+    };
+    console.log('Invoice Form State Changed:', formState);
+  }, [invoiceAmount, agentCommission, companyCommission, administrationFees, invoiceMessage, selectedApp]);
 
   // Handle table scroll to show/hide fade indicators
   const handleTableScroll = (e: React.UIEvent<HTMLDivElement>) => {
@@ -277,7 +315,15 @@ const [isRejecting, setIsRejecting] = useState(false);
 
   // Send invoice to client
  const handleSendInvoice = async () => {
-  if (!selectedApp || !invoiceMessage || !invoiceAmount) {
+  const hasAgent = selectedApp?.agent !== null;
+  const requiredFields = [!selectedApp, !invoiceMessage, !invoiceAmount, !companyCommission, !administrationFees];
+  
+  // Only require agent commission if there's an agent
+  if (hasAgent) {
+    requiredFields.push(!agentCommission);
+  }
+  
+  if (requiredFields.some(field => field)) {
     showToast('Please fill all required fields', 'error');
     return;
   }
@@ -286,13 +332,21 @@ const [isRejecting, setIsRejecting] = useState(false);
   try {
     const formData = new FormData();
     formData.append('paymentInstructions', invoiceMessage);
-    formData.append('amount', invoiceAmount); // Add amount to form data
+    formData.append('amount', invoiceAmount);
+    formData.append('companyCommission', companyCommission);
+    formData.append('administrationFees', administrationFees);
+    
+    // Only include agent commission if there's an agent
+    if (hasAgent) {
+      formData.append('agentCommission', agentCommission);
+    }
+    
     if (invoiceFile) {
       formData.append('invoice', invoiceFile);
     }
 
     const response = await fetch(
-      `${process.env.NEXT_PUBLIC_API_BASE_URL}/sendInvoice/${selectedApp._id}`,
+      `${process.env.NEXT_PUBLIC_API_BASE_URL}/sendInvoice/${selectedApp!._id}`,
       {
         method: 'PUT',
         headers: {
@@ -307,9 +361,12 @@ const [isRejecting, setIsRejecting] = useState(false);
       throw new Error(errorData.message || 'Failed to send invoice');
     }
 
-    showToast(`Invoice sent to ${selectedApp.fullName}`, 'success');
+    showToast(`Invoice sent to ${selectedApp?.fullName || 'client'}`, 'success');
     setInvoiceMessage('');
     setInvoiceAmount('');
+    setAgentCommission('');
+    setCompanyCommission('');
+    setAdministrationFees('');
     setInvoiceFile(null);
     setSelectedApp(null);
     setActiveModal(null);
@@ -1485,11 +1542,11 @@ const getActionButtons = (app: Application) => {
       {/* Modal for sending invoice */}
       {selectedApp && activeModal === 'invoice' && selectedApp.status && selectedApp.status.toLowerCase() === ApplicationStatus.APPLICATION_APPROVED && (
   <div className="fixed inset-0 bg-gray-600/50 flex items-center justify-center z-50">
-    <div className="max-h-[90vh] overflow-y-auto bg-white rounded-lg shadow-xl p-6 w-full max-w-md mx-4 fade-in">
+    <div className="max-h-[90vh] overflow-y-auto bg-white rounded-lg shadow-xl p-6 w-full max-w-lg mx-4 fade-in">
       <h3 className="text-lg font-semibold mb-4">Send Invoice to {selectedApp.fullName}</h3>
               <p className="text-gray-600 mb-4">Enter the invoice details for {selectedApp.insuranceCategory} insurance:</p>
       
-      {/* Add Amount field */}
+      {/* Amount field */}
      <div className="mt-4">
         <label className="block text-sm font-medium text-gray-700 mb-1">Amount (RWF) *</label>
         <input
@@ -1500,6 +1557,52 @@ const getActionButtons = (app: Application) => {
           placeholder="Enter amount"
           required
         />
+      </div>
+
+      {/* Agent Commission field - only show if application has an agent */}
+      {selectedApp.agent && (
+        <div className="mt-4">
+          <label className="block text-sm font-medium text-gray-700 mb-1">Agent Commission (RWF) *</label>
+          <input
+            type="number"
+            className="w-full px-3 py-2 border border-[var(--card-green)] rounded-md shadow-sm focus:outline-none focus:ring-[var(--card-green)] focus:border-[var(--card-green)] sm:text-sm"
+            value={agentCommission}
+            onChange={(e) => setAgentCommission(e.target.value)}
+            placeholder="Enter agent commission"
+            required
+          />
+        </div>
+      )}
+
+      {/* Company Commission field */}
+      <div className="mt-4">
+        <label className="block text-sm font-medium text-gray-700 mb-1">Company Commission (RWF) *</label>
+        <input
+          type="number"
+          className="w-full px-3 py-2 border border-[var(--card-green)] rounded-md shadow-sm focus:outline-none focus:ring-[var(--card-green)] focus:border-[var(--card-green)] sm:text-sm"
+          value={companyCommission}
+          onChange={(e) => setCompanyCommission(e.target.value)}
+          placeholder="Enter company commission"
+          required
+        />
+      </div>
+
+      {/* Administration Fees field */}
+      <div className="mt-4">
+        <label className="block text-sm font-medium text-gray-700 mb-1">Administration Fees (RWF) *</label>
+        <input
+          type="number"
+          className="w-full px-3 py-2 border border-[var(--card-green)] rounded-md shadow-sm focus:outline-none focus:ring-[var(--card-green)] focus:border-[var(--card-green)] sm:text-sm"
+          value={administrationFees}
+          onChange={(e) => setAdministrationFees(e.target.value)}
+          placeholder="Administration fees (auto-calculated)"
+          required
+        />
+        <p className="text-xs text-gray-500 mt-1">
+          {selectedApp.insuranceCategory.toLowerCase().includes('moto') 
+            ? 'Calculated as 25% of 2500 RWF for MOTO insurance' 
+            : 'Calculated as 25% of 5000 RWF for other insurance types'}
+        </p>
       </div>
       
       <div className="mt-4">
@@ -1544,7 +1647,7 @@ const getActionButtons = (app: Application) => {
         <Button variant="text" onClick={() => {setSelectedApp(null); setActiveModal(null);}} disabled={isProcessing}>
           Cancel
         </Button>
-        <Button onClick={handleSendInvoice} disabled={isProcessing || !invoiceMessage || !invoiceAmount}>
+        <Button onClick={handleSendInvoice} disabled={isProcessing || !invoiceMessage || !invoiceAmount || !companyCommission || !administrationFees || (selectedApp.agent && !agentCommission)}>
           {isProcessing ? 'Sending...' : 'Send Invoice'}
         </Button>
       </div>
