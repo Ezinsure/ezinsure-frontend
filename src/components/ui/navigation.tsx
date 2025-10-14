@@ -43,7 +43,14 @@ export const Navigation = () => {
         { href: `${rolePrefix}/dashboard`, label: 'Dashboard' },
       ];
 
-      if (user.role === 'ADMIN' || user.role === 'SUPER_ADMIN') {
+      if (user.role === 'ADMIN') {
+        newLinks.push(
+          { href: `${rolePrefix}/applications`, label: 'Applications' },
+          { href: `${rolePrefix}/my-applications`, label: 'My Applications' },
+          { href: `${rolePrefix}/new-application`, label: 'New Application' },
+          { href: `${rolePrefix}/users`, label: 'Manage Users' }
+        );
+      } else if (user.role === 'SUPER_ADMIN') {
         newLinks.push(
           { href: `${rolePrefix}/applications`, label: 'Applications' },
           { href: `${rolePrefix}/users`, label: 'Manage Users' }
