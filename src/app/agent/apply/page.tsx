@@ -540,7 +540,7 @@ export default function AgentApplyPage() {
   const formatInsuranceDuration = (duration: string) => {
     switch (duration) {
       case '1': return '1 Month';
-      case '2': return '2 Montha';
+      case '2': return '2 Months';
       case '3': return '3 Months';
       case '6': return '6 Months';
       case '9': return '9 Months';
