@@ -237,7 +237,7 @@ export default function AdminNewApplicationPage() {
     // Insurance Information
     insuranceCategory: 'car',
     insuranceType: 'comprehensive',
-    insuranceDuration: '12',
+    insuranceDuration: '1',
     insuranceProvider: 'SONARWA',
     isCOMESA: false,
     plateNumber: '',
@@ -278,6 +278,25 @@ export default function AdminNewApplicationPage() {
     insuranceEndAt: ''
   });
 
+  // Debug: Log a preview of the payload that will be sent via FormData
+  useEffect(() => {
+    const preview: { [key: string]: unknown } = {};
+    Object.entries(formData).forEach(([key, value]) => {
+      if (value instanceof File) {
+        preview[key] = value ? `File: ${value.name}` : null;
+      } else if (value !== null && value !== undefined) {
+        preview[key] = value;
+      } else {
+        preview[key] = null;
+      }
+    });
+    if (user) {
+      preview.adminId = user._id;
+      preview.adminName = user.fullName;
+    }
+    console.log('Admin New Application - FormData preview:', preview);
+  }, [formData, user]);
+
   // Validation rules - based on original apply page
   const validationRules: ValidationRules = {
     fullName: { required: true, minLength: 3, maxLength: 50 },
@@ -290,6 +309,7 @@ export default function AdminNewApplicationPage() {
     sector: { required: true },
     insuranceCategory: { required: true },
     insuranceType: { required: true },
+    insuranceDuration: { required: true },
     insuranceProvider: { required: true },
     vehicleType: { required: formData.insuranceCategory === 'car' || formData.insuranceCategory === 'motorbike' },
     vehicleAge: { required: formData.insuranceCategory === 'car' || formData.insuranceCategory === 'motorbike' },
@@ -309,9 +329,9 @@ export default function AdminNewApplicationPage() {
     transactionId: { required: true },
     proofOfPayment: { required: true },
     insuranceCertificate: { required: true },
-    contract: { required: true },
-    receipt: { required: true },
-    ebm: { required: true },
+    contract: { required: false },
+    receipt: { required: false },
+    ebm: { required: false },
   };
 
   // Calculate administration fees based on insurance category
@@ -433,6 +453,14 @@ export default function AdminNewApplicationPage() {
 
   const handleFileChange = (field: keyof ApplicationFormData) => (file: File | null) => {
     setFormData(prev => ({ ...prev, [field]: file }));
+    // Clear validation error for this field on change
+    if (errors[field as string]) {
+      setErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors[field as string];
+        return newErrors;
+      });
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -474,7 +502,7 @@ export default function AdminNewApplicationPage() {
         if (response.ok) {
           showToast('Application created successfully!', 'success');
           // Reset form
-          setFormData({
+        setFormData({
             fullName: '',
             email: '',
             phoneNumber: '',
@@ -487,7 +515,7 @@ export default function AdminNewApplicationPage() {
             identificationNumber: '',
             insuranceCategory: 'car',
             insuranceType: 'comprehensive',
-            insuranceDuration: '12',
+          insuranceDuration: '1',
             insuranceProvider: 'SONARWA',
             isCOMESA: false,
             plateNumber: '',
@@ -533,7 +561,7 @@ export default function AdminNewApplicationPage() {
 
   return (
     <MainLayout containerClass="p-0" fullWidth>
-      <div className="container mx-auto px-4 py-8 max-w-[80vw]">
+      <div className="container mx-auto px-4 py-8 max-w-full">
         <div className="absolute top-0 left-0 w-full h-[10vh] overflow-hidden z-0 bg-gradient-to-br from-[#0A2540] to-[#126BB3]"></div>
         <div className="max-w-4xl mx-auto mt-16">
           <div className="mb-8 text-center">
@@ -587,24 +615,19 @@ export default function AdminNewApplicationPage() {
                       setFormData(prev => ({ 
                         ...prev, 
                         identificationNumber: value,
-                        // Only clear personal information fields if identification number is being cleared (empty)
-                        ...(value === '' ? {
-                          fullName: '',
-                          email: '',
-                          phoneNumber: '',
-                          address: '',
-                          dateOfBirth: '',
-                          province: '',
-                          district: '',
-                          sector: '',
-                        } : {})
+                        // Clear personal information fields on any edit to avoid stale data
+                        fullName: '',
+                        email: '',
+                        phoneNumber: '',
+                        address: '',
+                        dateOfBirth: '',
+                        province: '',
+                        district: '',
+                        sector: '',
                       }));
-                      
-                      // Only clear districts/sectors if identification number is being cleared
-                      if (value === '') {
-                        setAvailableDistricts([]);
-                        setAvailableSectors([]);
-                      }
+                      // Reset dependent selects
+                      setAvailableDistricts([]);
+                      setAvailableSectors([]);
                     }}
                     onSearchSuccess={handleIdentificationSearchSuccess}
                     searchType="id"
@@ -700,7 +723,7 @@ export default function AdminNewApplicationPage() {
                   {/* Province Select */}
                   <div>
                     <label className="block text-sm font-medium mb-1">
-                      Province
+                      Province <span className="text-[var(--error-red)] ml-1">*</span>
                     </label>
                     <select
                       name="province"
@@ -722,7 +745,7 @@ export default function AdminNewApplicationPage() {
                   {/* District Select */}
                   <div>
                     <label className="block text-sm font-medium mb-1">
-                      District
+                      District <span className="text-[var(--error-red)] ml-1">*</span>
                     </label>
                     <select
                       name="district"
@@ -745,7 +768,7 @@ export default function AdminNewApplicationPage() {
                   {/* Sector Select */}
                   <div>
                     <label className="block text-sm font-medium mb-1">
-                      Sector
+                      Sector <span className="text-[var(--error-red)] ml-1">*</span>
                     </label>
                     <select
                       name="sector"
@@ -814,13 +837,15 @@ export default function AdminNewApplicationPage() {
                           setFormData(prev => ({ 
                             ...prev, 
                             plateNumber: value,
-                            // Only clear vehicle-related fields if plate number is being cleared (empty)
-                            ...(value === '' ? {
-                              vehicleType: '',
-                              vehicleAge: '',
-                              vehicleUse: '',
-                              otherVehicleUse: '',
-                            } : {})
+                            // Clear insurance details on any edit to avoid stale data
+                            insuranceType: 'comprehensive',
+                            insuranceDuration: '1',
+                            insuranceProvider: 'SONARWA',
+                            isCOMESA: false,
+                            vehicleType: '',
+                            vehicleAge: '',
+                            vehicleUse: '',
+                            otherVehicleUse: '',
                           }));
                         }}
                         onSearchSuccess={handlePlateSearchSuccess}
@@ -859,9 +884,9 @@ export default function AdminNewApplicationPage() {
                   {/* Vehicle Type (only shown for car/motorbike insurance) */}
                   {(formData.insuranceCategory === 'car' || formData.insuranceCategory === 'motorbike') && (
                     <div>
-                      <label className="block text-sm font-medium mb-1">
-                        Vehicle Type
-                      </label>
+                    <label className="block text-sm font-medium mb-1">
+                      Vehicle Type <span className="text-[var(--error-red)] ml-1">*</span>
+                    </label>
                       <select
                         name="vehicleType"
                         value={formData.vehicleType}
@@ -909,7 +934,7 @@ export default function AdminNewApplicationPage() {
                     <>
                       <div>
                         <label className="block text-sm font-medium mb-1">
-                          Vehicle Use
+                          Vehicle Use <span className="text-[var(--error-red)] ml-1">*</span>
                         </label>
                         <select
                           name="vehicleUse"
@@ -992,6 +1017,34 @@ export default function AdminNewApplicationPage() {
                       <p className="mt-1 text-sm text-[var(--error-red)]">{errors.insuranceType}</p>
                     )}
                   </div>
+                
+                <div className="md:col-span-2">
+                  <label
+                    className="block text-sm font-medium mb-1"
+                    htmlFor="insuranceDuration"
+                  >
+                    Insurance Duration{' '}
+                    <span className="text-[var(--error-red)] ml-1">*</span>
+                  </label>
+                  <select
+                    id="insuranceDuration"
+                    name="insuranceDuration"
+                    value={formData.insuranceDuration}
+                    onChange={handleInputChange}
+                    className="w-full py-2 px-3 rounded-lg focus:outline-none border border-gray-300 focus:border-[var(--main-blue)]"
+                    required
+                  >
+                    <option value="1">1 Month</option>
+                    <option value="2">2 Months</option>
+                    <option value="3">3 Months</option>
+                    <option value="6">6 Months</option>
+                    <option value="9">9 Months</option>
+                    <option value="12">12 Months</option>
+                  </select>
+                  {errors.insuranceDuration && (
+                    <p className="mt-1 text-sm text-[var(--error-red)]">{errors.insuranceDuration}</p>
+                  )}
+                </div>
                 </div>
               </fieldset>
 
@@ -1099,7 +1152,7 @@ export default function AdminNewApplicationPage() {
                   <div className="space-y-6">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Payment Instructions
+                        Payment Instructions <span className="text-[var(--error-red)] ml-1">*</span>
                       </label>
                       <textarea
                         name="paymentInstructions"
@@ -1116,11 +1169,11 @@ export default function AdminNewApplicationPage() {
                     </div>
                     
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Invoice File</label>
-                      <input
-                        type="file"
-                        onChange={(e) => handleFileChange('invoiceFile')(e.target.files?.[0] || null)}
-                        className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-[var(--main-blue)] file:text-white hover:file:bg-[var(--secondary-blue)]"
+                      <FileInput
+                        label="Invoice File"
+                        name="invoiceFile"
+                        onChange={handleFileChange('invoiceFile')}
+                        accept="image/*,.pdf"
                       />
                     </div>
                   </div>
@@ -1147,18 +1200,14 @@ export default function AdminNewApplicationPage() {
                   </div>
                   
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Proof of Payment
-                    </label>
-                    <input
-                      type="file"
-                      onChange={(e) => handleFileChange('proofOfPayment')(e.target.files?.[0] || null)}
-                      className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-[var(--main-blue)] file:text-white hover:file:bg-[var(--secondary-blue)]"
+                    <FileInput
+                      label="Proof of Payment"
+                      name="proofOfPayment"
+                      onChange={handleFileChange('proofOfPayment')}
+                      error={errors.proofOfPayment}
                       required
+                      accept="image/*,.pdf"
                     />
-                    {errors.proofOfPayment && (
-                      <p className="mt-1 text-sm text-[var(--error-red)]">{errors.proofOfPayment}</p>
-                    )}
                   </div>
                 </div>
               </fieldset>
@@ -1171,63 +1220,44 @@ export default function AdminNewApplicationPage() {
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Insurance Certificate
-                    </label>
-                    <input
-                      type="file"
-                      onChange={(e) => handleFileChange('insuranceCertificate')(e.target.files?.[0] || null)}
-                      className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-[var(--main-blue)] file:text-white hover:file:bg-[var(--secondary-blue)]"
+                    <FileInput
+                      label="Insurance Certificate"
+                      name="insuranceCertificate"
+                      onChange={handleFileChange('insuranceCertificate')}
+                      error={errors.insuranceCertificate}
                       required
+                      accept="image/*,.pdf"
                     />
-                    {errors.insuranceCertificate && (
-                      <p className="mt-1 text-sm text-[var(--error-red)]">{errors.insuranceCertificate}</p>
-                    )}
                   </div>
                   
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Contract
-                    </label>
-                    <input
-                      type="file"
-                      onChange={(e) => handleFileChange('contract')(e.target.files?.[0] || null)}
-                      className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-[var(--main-blue)] file:text-white hover:file:bg-[var(--secondary-blue)]"
-                      required
+                    <FileInput
+                      label="Contract"
+                      name="contract"
+                      onChange={handleFileChange('contract')}
+                      error={errors.contract}
+                      accept="image/*,.pdf"
                     />
-                    {errors.contract && (
-                      <p className="mt-1 text-sm text-[var(--error-red)]">{errors.contract}</p>
-                    )}
                   </div>
                   
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Receipt
-                    </label>
-                    <input
-                      type="file"
-                      onChange={(e) => handleFileChange('receipt')(e.target.files?.[0] || null)}
-                      className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-[var(--main-blue)] file:text-white hover:file:bg-[var(--secondary-blue)]"
-                      required
+                    <FileInput
+                      label="Receipt"
+                      name="receipt"
+                      onChange={handleFileChange('receipt')}
+                      error={errors.receipt}
+                      accept="image/*,.pdf"
                     />
-                    {errors.receipt && (
-                      <p className="mt-1 text-sm text-[var(--error-red)]">{errors.receipt}</p>
-                    )}
                   </div>
                   
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      EBM
-                    </label>
-                    <input
-                      type="file"
-                      onChange={(e) => handleFileChange('ebm')(e.target.files?.[0] || null)}
-                      className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-[var(--main-blue)] file:text-white hover:file:bg-[var(--secondary-blue)]"
-                      required
+                    <FileInput
+                      label="EBM"
+                      name="ebm"
+                      onChange={handleFileChange('ebm')}
+                      error={errors.ebm}
+                      accept="image/*,.pdf"
                     />
-                    {errors.ebm && (
-                      <p className="mt-1 text-sm text-[var(--error-red)]">{errors.ebm}</p>
-                    )}
                   </div>
                 </div>
               </fieldset>

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Search, CheckCircle, XCircle, Loader2 } from 'lucide-react';
+import { Search, CheckCircle, XCircle, Loader2, TriangleAlert } from 'lucide-react';
 import { useToast } from '@/components/ui/toast';
 
 interface SearchInputProps {
@@ -32,12 +32,14 @@ export const SearchInput = ({
   resetTrigger = 0,
 }: SearchInputProps) => {
   const [isSearching, setIsSearching] = useState(false);
-  const [searchStatus, setSearchStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [searchStatus, setSearchStatus] = useState<'idle' | 'success' | 'error' | 'unknown'>('idle');
+  const [searchMessage, setSearchMessage] = useState<string>('');
   const { showToast } = useToast();
 
   // Reset search status when resetTrigger changes
   useEffect(() => {
     setSearchStatus('idle');
+    setSearchMessage('');
     setIsSearching(false);
   }, [resetTrigger]);
 
@@ -49,12 +51,13 @@ export const SearchInput = ({
 
     setIsSearching(true);
     setSearchStatus('idle');
+    setSearchMessage('');
 
     try {
       // Simulate API call with timeout
       await new Promise(resolve => setTimeout(resolve, 1500));
 
-      // Test logic: 123 = success, abc = error, others = not found
+      // Test logic: 123 = success, abc = error, others = unknown/new entry
       let response;
       if (value.trim() === '123') {
         response = {
@@ -78,27 +81,37 @@ export const SearchInput = ({
       } else if (value.trim() === 'abc') {
         response = {
           success: false,
-          error: 'Invalid input format. Please check your entry.'
+          error: true,
+          message: 'Invalid input format. Please check your entry.'
         };
       } else {
         response = {
           success: false,
-          error: 'No data found for the provided information.'
+          error: false,
+          message: 'No existing data found. This will be saved as a new entry.'
         };
       }
 
       if (response.success) {
         setSearchStatus('success');
+        setSearchMessage('Data retrieved successfully!');
         showToast('Data retrieved successfully!', 'success');
         console.log(`Search successful for ${searchType}:`, response.data);
         onSearchSuccess?.(response.data as Record<string, unknown>);
-      } else {
+      } else if (response.error) {
         setSearchStatus('error');
-        showToast(response.error || 'Search failed', 'error');
-        console.log(`Search failed for ${searchType}:`, response.error);
+        setSearchMessage(response.message || 'Invalid input format. Please check your entry.');
+        showToast(response.message || 'Invalid input format. Please check your entry.', 'error');
+        console.log(`Search error for ${searchType}:`, response.message);
+      } else {
+        setSearchStatus('unknown');
+        setSearchMessage(response.message || 'No existing data found. This will be saved as a new entry.');
+        showToast(response.message || 'No existing data found. This will be saved as a new entry.', 'info');
+        console.log(`New entry for ${searchType}:`, response.message);
       }
     } catch (error) {
       setSearchStatus('error');
+      setSearchMessage('Search failed. Please try again.');
       showToast('Search failed. Please try again.', 'error');
       console.error('Search error:', error);
     } finally {
@@ -123,6 +136,8 @@ export const SearchInput = ({
         return <CheckCircle className="w-5 h-5 text-white" />;
       case 'error':
         return <XCircle className="w-5 h-5 text-white" />;
+      case 'unknown':
+        return <TriangleAlert className="w-5 h-5 text-white" />;
       default:
         return <Search className="w-5 h-5 text-white" />;
     }
@@ -144,6 +159,7 @@ export const SearchInput = ({
           onChange={(e) => {
             onChange(e.target.value);
             setSearchStatus('idle'); // Reset status when typing
+            setSearchMessage(''); // Clear message when typing
           }}
           onKeyPress={handleKeyPress}
           disabled={disabled || isSearching}
@@ -154,6 +170,8 @@ export const SearchInput = ({
               ? 'border-green-300 bg-green-50'
               : searchStatus === 'error'
               ? 'border-red-300 bg-red-50'
+              : searchStatus === 'unknown'
+              ? 'border-blue-300 bg-blue-50'
               : 'border-gray-300 bg-white hover:border-gray-400'
           } ${
             disabled || isSearching ? 'cursor-not-allowed opacity-60' : ''
@@ -175,24 +193,31 @@ export const SearchInput = ({
       </div>
       
       {error && (
-        <p className="text-sm text-red-600 flex items-center gap-1 mt-1">
-          <XCircle className="w-4 h-4" />
-          {error}
-        </p>
+        <div className="text-base text-red-600 flex items-start gap-2 mt-1">
+          <XCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+          <span className="break-words">{error}</span>
+        </div>
       )}
       
       {searchStatus === 'success' && !error && (
-        <p className="text-sm text-green-600 flex items-center gap-1 mt-1">
-          <CheckCircle className="w-4 h-4" />
-          Data retrieved successfully
-        </p>
+        <div className="text-base text-green-600 flex items-start gap-2 mt-1">
+          <CheckCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+          <span className="break-words">{searchMessage}</span>
+        </div>
       )}
       
       {searchStatus === 'error' && !error && (
-        <p className="text-sm text-red-600 flex items-center gap-1 mt-1">
-          <XCircle className="w-4 h-4" />
-          Search failed. Please try again.
-        </p>
+        <div className="text-base text-red-600 flex items-start gap-2 mt-1">
+          <XCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+          <span className="break-words">{searchMessage}</span>
+        </div>
+      )}
+      
+      {searchStatus === 'unknown' && !error && (
+        <div className="text-base text-blue-600 flex items-start gap-2 mt-1">
+          <TriangleAlert className="w-4 h-4 flex-shrink-0 mt-0.5" />
+          <span className="break-words">{searchMessage}</span>
+        </div>
       )}
     </div>
   );

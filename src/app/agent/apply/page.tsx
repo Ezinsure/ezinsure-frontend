@@ -419,27 +419,18 @@ export default function AgentApplyPage() {
       // Reset identification number search status
       setIdentificationNumberResetTrigger(prev => prev + 1);
     } 
-    // Clear plate number prefilled fields when insurance category changes
+    // Clear vehicle fields when insurance category changes
     else if (name === 'insuranceCategory') {
       setFormState(prev => ({
         ...prev,
         [name]: value,
-        // Clear all fields that plate number search would populate
-        fullName: '',
-        email: '',
-        phoneNumber: '',
-        address: '',
-        dateOfBirth: '',
-        province: '',
-        district: '',
-        sector: '',
+        // Clear only vehicle-related fields (not client info)
         plateNumber: '',
         vehicleType: '',
         vehicleAge: '',
         vehicleUse: '',
+        otherVehicleUse: '',
       }));
-      setAvailableDistricts([]);
-      setAvailableSectors([]);
       // Reset plate number search status
       setPlateNumberResetTrigger(prev => prev + 1);
     } else {
@@ -745,7 +736,7 @@ export default function AgentApplyPage() {
     <MainLayout containerClass="p-0" fullWidth>
       <div className=" container mx-auto px-4 py-12 ">
         <div className="absolute top-0 left-0 w-full h-[10vh] overflow-hidden z-0  bg-gradient-to-br from-[#0A2540] to-[#126BB3]"></div>
-        <div className="max-w-3xl mx-auto mt-16">
+        <div className="max-w-6xl mx-auto mt-16">
           <div className="mb-8 text-center">
             <h1 className="text-3xl md:text-4xl font-bold mb-4">
               Apply for Insurance (Agent)
@@ -804,7 +795,7 @@ export default function AgentApplyPage() {
                         setFormState(prev => ({ 
                           ...prev, 
                           identificationNumber: value,
-                          // Clear all personal information fields except document type and identification number
+                          // Clear personal information fields on any edit to avoid stale data
                           fullName: '',
                           email: '',
                           phoneNumber: '',
@@ -814,6 +805,7 @@ export default function AgentApplyPage() {
                           district: '',
                           sector: '',
                         }));
+                        // Reset dependent selects
                         setAvailableDistricts([]);
                         setAvailableSectors([]);
                         if (errors.identificationNumber) {
@@ -1035,21 +1027,16 @@ export default function AgentApplyPage() {
                           setFormState(prev => ({ 
                             ...prev, 
                             plateNumber: value,
-                            // Clear all prefilled fields that plate number search would populate
-                            fullName: '',
-                            email: '',
-                            phoneNumber: '',
-                            address: '',
-                            dateOfBirth: '',
-                            province: '',
-                            district: '',
-                            sector: '',
+                            // Clear insurance details on any edit to avoid stale data
+                            insuranceType: 'comprehensive',
+                            insuranceDuration: '1',
+                            insuranceProvider: 'SONARWA',
+                            isCOMESA: false,
                             vehicleType: '',
                             vehicleAge: '',
                             vehicleUse: '',
+                            otherVehicleUse: '',
                           }));
-                          setAvailableDistricts([]);
-                          setAvailableSectors([]);
                           if (errors.plateNumber) {
                             setErrors(prev => {
                               const newErrors = { ...prev };
