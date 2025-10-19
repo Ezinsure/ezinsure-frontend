@@ -11,7 +11,8 @@ interface SearchInputProps {
   value: string;
   onChange: (value: string) => void;
   onSearchSuccess?: (data: Record<string, unknown>) => void;
-  searchType: 'plate' | 'id';
+  onSearchResult?: (exists: boolean, searchType: 'plateNumber' | 'identificationNumber') => void;
+  searchType: 'plateNumber' | 'identificationNumber';
   error?: string;
   required?: boolean;
   disabled?: boolean;
@@ -25,6 +26,7 @@ export const SearchInput = ({
   value,
   onChange,
   onSearchSuccess,
+  onSearchResult,
   searchType,
   error,
   required = false,
@@ -54,68 +56,111 @@ export const SearchInput = ({
     setSearchMessage('');
 
     try {
-      // Simulate API call with timeout
-      await new Promise(resolve => setTimeout(resolve, 1500));
-
-      // Test logic: 123 = success, abc = error, others = unknown/new entry
-      let response;
-      if (value.trim() === '123') {
-        response = {
-          success: true,
-          data: {
-            fullName: 'Jean Claude Niyonzima',
-            email: 'jean.claude@example.com',
-            phoneNumber: '250781234567',
-            address: 'KN 5 RD, Kigali - Rwanda',
-            dateOfBirth: '1990-05-15',
-            province: 'Kigali',
-            district: 'Gasabo',
-            sector: 'Kacyiru',
-            ...(searchType === 'plate' && {
-              vehicleType: 'Jeep',
-              vehicleAge: '2018',
-              vehicleUse: 'Private'
-            })
-          }
-        };
-      } else if (value.trim() === 'abc') {
-        response = {
-          success: false,
-          error: true,
-          message: 'Invalid input format. Please check your entry.'
-        };
-      } else {
-        response = {
-          success: false,
-          error: false,
-          message: 'No existing data found. This will be saved as a new entry.'
-        };
+      // Determine the API endpoint based on search type
+      const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
+      if (!baseUrl) {
+        throw new Error('API base URL not configured');
       }
 
-      if (response.success) {
+      let apiUrl: string;
+      let queryParam: string;
+
+      if (searchType === 'identificationNumber') {
+        // For identification number search
+        apiUrl = `${baseUrl}/getIdNumber`;
+        queryParam = 'identificationNumber';
+      } else {
+        // For plate number search
+        apiUrl = `${baseUrl}/getPlateNumber`;
+        queryParam = 'plateNumber';
+      }
+
+      // Make API call
+      const response = await fetch(`${apiUrl}?${queryParam}=${encodeURIComponent(value.trim())}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const responseData = await response.json();
+
+      if (response.ok && responseData.exists) {
+        // Success case - data found
         setSearchStatus('success');
         setSearchMessage('Data retrieved successfully!');
         showToast('Data retrieved successfully!', 'success');
-        console.log(`Search successful for ${searchType}:`, response.data);
-        onSearchSuccess?.(response.data as Record<string, unknown>);
-      } else if (response.error) {
-        setSearchStatus('error');
-        setSearchMessage(response.message || 'Invalid input format. Please check your entry.');
-        showToast(response.message || 'Invalid input format. Please check your entry.', 'error');
-        console.log(`Search error for ${searchType}:`, response.message);
-      } else {
+        
+        // Transform the API response to match expected format
+        const transformedData = transformApiResponse(responseData.data, searchType);
+        console.log(`Search successful for ${searchType}:`, transformedData);
+        onSearchSuccess?.(transformedData);
+        
+        // Notify parent component about the search result
+        onSearchResult?.(true, searchType);
+      } else if (response.status === 404 && !responseData.exists) {
+        // Not found case - valid format but no data
         setSearchStatus('unknown');
-        setSearchMessage(response.message || 'No existing data found. This will be saved as a new entry.');
-        showToast(response.message || 'No existing data found. This will be saved as a new entry.', 'info');
-        console.log(`New entry for ${searchType}:`, response.message);
+        const friendlyMessage = searchType === 'identificationNumber' 
+          ? 'No client found with this identification number. This will be saved as a new entry.'
+          : 'No vehicle found with this plate number. This will be saved as a new entry.';
+        setSearchMessage(friendlyMessage);
+        showToast(friendlyMessage, 'info');
+        console.log(`New entry for ${searchType}:`, responseData.message);
+        
+        // Notify parent component about the search result
+        onSearchResult?.(false, searchType);
+      } else {
+        // Error case - invalid format or server error
+        setSearchStatus('error');
+        const errorMessage = responseData.message || 'Invalid input format. Please check your entry.';
+        setSearchMessage(errorMessage);
+        showToast(errorMessage, 'error');
+        console.log(`Search error for ${searchType}:`, errorMessage);
+        
+        // Notify parent component about the search result (treat as new entry for error cases)
+        onSearchResult?.(false, searchType);
       }
     } catch (error) {
       setSearchStatus('error');
-      setSearchMessage('Search failed. Please try again.');
-      showToast('Search failed. Please try again.', 'error');
+      const errorMessage = error instanceof Error ? error.message : 'Search failed. Please try again.';
+      setSearchMessage(errorMessage);
+      showToast(errorMessage, 'error');
       console.error('Search error:', error);
     } finally {
       setIsSearching(false);
+    }
+  };
+
+  // Transform API response to match expected format for form prefilling
+  const transformApiResponse = (data: any, type: 'identificationNumber' | 'plateNumber') => {
+    if (type === 'identificationNumber') {
+      // Transform identification number response
+      return {
+        fullName: data.fullName || '',
+        email: data.email || '',
+        phoneNumber: data.phoneNumber || '',
+        address: data.address || '',
+        dateOfBirth: data.dateOfBirth ? new Date(data.dateOfBirth).toISOString().split('T')[0] : '',
+        province: data.province || '',
+        district: data.district || '',
+        sector: data.sector || '',
+        clientId: data.clientId || '',
+      };
+    } else {
+      // Transform plate number response
+      return {
+        fullName: data.client?.fullName || '',
+        email: data.client?.email || '',
+        phoneNumber: data.client?.phoneNumber || '',
+        vehicleId: data.vehicleId || '',
+        plateNumber: data.plateNumber || '',
+        vehicleType: data.vehicleType || '',
+        vehicleAge: data.vehicleAge || '',
+        vehicleUse: data.vehicleUse || '',
+        otherVehicleUse: data.otherVehicleUse || '',
+        clientId: data.client?.clientId || '',
+      };
     }
   };
 

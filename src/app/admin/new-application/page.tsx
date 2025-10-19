@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { FileInput } from '@/components/ui/file-input';
 import { SearchInput } from '@/components/ui/search-input';
+import { RwandaPhoneInput } from '@/components/ui/rwanda-phone-input';
 import { useToast } from '@/components/ui/toast';
 import { useAuth } from '@/context/AuthContext';
 import { rwandaProvinces } from '@/utils/rwanda-administrative';
@@ -27,6 +28,175 @@ enum ApplicationStatus {
   INSURANCE_ISSUED = 'insurance_issued'
 }
 
+// Tracking data interfaces
+interface DeviceInfo {
+  userAgent: string;
+  platform: string;
+  timezone: string;
+  deviceMemory?: number;
+  devicePixelRatio: number;
+  viewportSize: string;
+  browserName: string;
+  browserVersion: string;
+  operatingSystem: string;
+}
+
+interface LocationInfo {
+  latitude?: number;
+  longitude?: number;
+  accuracy?: number;
+  timestamp?: number;
+  error?: string;
+  ipLocation?: {
+    country?: string;
+    region?: string;
+    city?: string;
+    timezone?: string;
+  };
+}
+
+interface TrackingData {
+  deviceInfo: DeviceInfo;
+  locationInfo: LocationInfo;
+  sessionId: string;
+  timestamp: number;
+}
+
+// Device info utility
+const getDeviceInfo = (): DeviceInfo => {
+  const ua = navigator.userAgent;
+  
+  const getBrowserInfo = () => {
+    const browsers = [
+      { name: 'Chrome', regex: /Chrome\/([0-9.]+)/ },
+      { name: 'Firefox', regex: /Firefox\/([0-9.]+)/ },
+      { name: 'Safari', regex: /Safari\/([0-9.]+)/ },
+      { name: 'Edge', regex: /Edge\/([0-9.]+)/ },
+      { name: 'Opera', regex: /Opera\/([0-9.]+)/ },
+    ];
+    
+    for (const browser of browsers) {
+      const match = ua.match(browser.regex);
+      if (match) {
+        return { name: browser.name, version: match[1] };
+      }
+    }
+    return { name: 'Unknown', version: 'Unknown' };
+  };
+
+  const getOperatingSystem = () => {
+    if (ua.includes('Windows')) return 'Windows';
+    if (ua.includes('Mac OS X')) return 'macOS';
+    if (ua.includes('Linux')) return 'Linux';
+    if (ua.includes('Android')) return 'Android';
+    if (ua.includes('iOS') || ua.includes('iPhone') || ua.includes('iPad')) return 'iOS';
+    return 'Unknown';
+  };
+
+  const browser = getBrowserInfo();
+  
+  return {
+    userAgent: ua,
+    platform: navigator.platform,
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    deviceMemory: (navigator as unknown as { deviceMemory?: number }).deviceMemory,
+    devicePixelRatio: window.devicePixelRatio,
+    viewportSize: `${window.innerWidth}x${window.innerHeight}`,
+    browserName: browser.name,
+    browserVersion: browser.version,
+    operatingSystem: getOperatingSystem(),
+  };
+};
+
+// Location info utility
+const getLocationInfo = async (): Promise<LocationInfo> => {
+  const locationInfo: LocationInfo = {};
+
+  // Try GPS location (silent)
+  try {
+    const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+      if (!navigator.geolocation) {
+        reject(new Error('Geolocation not supported'));
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        resolve,
+        reject,
+        {
+          enableHighAccuracy: false,
+          timeout: 5000,
+          maximumAge: 300000,
+        }
+      );
+    });
+
+    locationInfo.latitude = position.coords.latitude;
+    locationInfo.longitude = position.coords.longitude;
+    locationInfo.accuracy = position.coords.accuracy;
+    locationInfo.timestamp = position.timestamp;
+  } catch (error) {
+    locationInfo.error = error instanceof Error ? error.message : 'Location access denied';
+  }
+
+  // Try IP-based location
+  try {
+    const response = await fetch('https://ipapi.co/json/');
+    if (response.ok) {
+      const ipData = await response.json();
+      locationInfo.ipLocation = {
+        country: ipData.country_name,
+        region: ipData.region,
+        city: ipData.city,
+        timezone: ipData.timezone,
+      };
+    }
+  } catch (error) {
+    console.debug('IP location lookup failed:', error);
+  }
+
+  return locationInfo;
+};
+
+// Session ID utility
+const getSessionId = (): string => {
+  const storageKey = 'ezinsure_session_id';
+  let sessionId;
+  
+  try {
+    sessionId = sessionStorage.getItem(storageKey);
+  } catch (error) {
+    console.log('Session storage access failed:', error);
+    sessionId = null;
+  }
+  
+  if (!sessionId) {
+    sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    try {
+      sessionStorage.setItem(storageKey, sessionId);
+    } catch (error) {
+      console.log('Session storage write failed:', error);
+    }
+  }
+  
+  return sessionId;
+};
+
+// Main tracking data function
+const getTrackingData = async (): Promise<TrackingData> => {
+  const [deviceInfo, locationInfo] = await Promise.all([
+    Promise.resolve(getDeviceInfo()),
+    getLocationInfo(),
+  ]);
+
+  return {
+    deviceInfo,
+    locationInfo,
+    sessionId: getSessionId(),
+    timestamp: Date.now(),
+  };
+};
+
 // Application form data interface
 interface ApplicationFormData {
   // Personal Information
@@ -40,7 +210,7 @@ interface ApplicationFormData {
   sector: string;
   identificationDocumentType: string;
   identificationNumber: string;
-  
+
   // Insurance Information
   insuranceCategory: string;
   insuranceType: string;
@@ -48,38 +218,46 @@ interface ApplicationFormData {
   insuranceProvider: string;
   isCOMESA: boolean;
   plateNumber: string;
-  
+
   // Vehicle Information
   vehicleType: string;
   vehicleAge: string;
   vehicleUse: string;
   otherVehicleUse: string;
-  
+
   // Documents
   nationalID: File | null;
   yellowCard: File | null;
   pastInsuranceCertificate: File | null;
-  
+
+  // API response fields
+  vehicleId: string;
+  clientId: string;
+
+  // New fields for /newApply endpoint
+  isNewClient: boolean;
+  isNewVehicle: boolean;
+
   // Payment Information
   amount: string;
   paymentInstructions: string;
   invoiceFile: File | null;
-  
+
   // Commission Information
   agentCommission: string;
   companyCommission: string;
   administrationFees: string;
-  
+
   // Payment Verification
   proofOfPayment: File | null;
   transactionId: string;
-  
+
   // Insurance Issuance
   insuranceCertificate: File | null;
   contract: File | null;
   receipt: File | null;
   ebm: File | null;
-  
+
   // Status
   status: ApplicationStatus;
   insuranceEndAt: string;
@@ -90,28 +268,50 @@ export default function AdminNewApplicationPage() {
   const { user } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
+  const [trackingData, setTrackingData] = useState<TrackingData | null>(null);
 
   // State for administrative divisions
-  const [availableDistricts, setAvailableDistricts] = useState<{name: string, sectors?: string[]}[]>([]);
+  const [availableDistricts, setAvailableDistricts] = useState<{ name: string, sectors?: string[] }[]>([]);
   const [availableSectors, setAvailableSectors] = useState<string[]>([]);
-  
+
   // Reset triggers for SearchInput components
   const [identificationNumberResetTrigger, setIdentificationNumberResetTrigger] = useState(0);
   const [plateNumberResetTrigger, setPlateNumberResetTrigger] = useState(0);
-  
+  const [phoneNumberResetTrigger, setPhoneNumberResetTrigger] = useState(0);
+
+  // Track search results for isNewClient and isNewVehicle fields
+  const [searchResults, setSearchResults] = useState({
+    isNewClient: true,    // Default to true (new client)
+    isNewVehicle: true,   // Default to true (new vehicle)
+  });
+
+  // Initialize tracking data on component mount
+  useEffect(() => {
+    const initializeTracking = async () => {
+      try {
+        const data = await getTrackingData();
+        setTrackingData(data);
+      } catch (error) {
+        console.debug('Tracking initialization failed:', error);
+      }
+    };
+
+    initializeTracking();
+  }, []);
+
   // Constants from apply page
   const carTypes = ['Jeep', 'Voiture', 'Camionette', 'Poid Lourds', 'Remorque', 'Daihatsu', 'Ambulance', 'Pickup', 'Other'];
   const motoTypes = ['Electric', 'Moped', 'Scooter', 'Motorcycle', 'Other'];
   const carUses = [
-    'Private', 
-    'PSV', 
-    'Commercial - Transport of Goods', 
-    'Commercial - Auto Ecole', 
-    'Commercial - School Bus', 
-    'Commercial - Ambulance', 
-    'Commercial - Transport of Fuel', 
-    'Commercial - For Hire', 
-    'Commercial - Mechanic', 
+    'Private',
+    'PSV',
+    'Commercial - Transport of Goods',
+    'Commercial - Auto Ecole',
+    'Commercial - School Bus',
+    'Commercial - Ambulance',
+    'Commercial - Transport of Fuel',
+    'Commercial - For Hire',
+    'Commercial - Mechanic',
     'Commercial - Specific Use',
     'Other'
   ];
@@ -145,7 +345,7 @@ export default function AdminNewApplicationPage() {
     const today = new Date();
     const maxDate = new Date(today.getFullYear() - 18, today.getMonth(), today.getDate());
     const minDate = new Date(today.getFullYear() - 100, today.getMonth(), today.getDate());
-    
+
     return {
       min: minDate.toISOString().split('T')[0],
       max: maxDate.toISOString().split('T')[0]
@@ -181,7 +381,7 @@ export default function AdminNewApplicationPage() {
         setAvailableSectors(selectedDistrict?.sectors || []);
       }
     }
-    
+
     showToast('Client information loaded successfully', 'success');
   };
 
@@ -189,38 +389,40 @@ export default function AdminNewApplicationPage() {
   const handlePlateSearchSuccess = (data: Record<string, unknown>) => {
     setFormData(prev => ({
       ...prev,
+      // Client information from vehicle owner
       fullName: (data.fullName as string) || prev.fullName,
       email: (data.email as string) || prev.email,
       phoneNumber: (data.phoneNumber as string) || prev.phoneNumber,
-      address: (data.address as string) || prev.address,
-      dateOfBirth: (data.dateOfBirth as string) || prev.dateOfBirth,
-      province: (data.province as string) || prev.province,
-      district: (data.district as string) || prev.district,
-      sector: (data.sector as string) || prev.sector,
+      // Vehicle-specific fields
       vehicleType: (data.vehicleType as string) || prev.vehicleType,
       vehicleAge: (data.vehicleAge as string) || prev.vehicleAge,
       vehicleUse: (data.vehicleUse as string) || prev.vehicleUse,
+      otherVehicleUse: (data.otherVehicleUse as string) || prev.otherVehicleUse,
+      // Store additional IDs for reference
+      vehicleId: (data.vehicleId as string) || prev.vehicleId,
+      clientId: (data.clientId as string) || prev.clientId,
     }));
 
-    // Update districts and sectors if province is set
-    if (data.province) {
-      const selectedProvince = rwandaProvinces.find(p => p.name === (data.province as string));
-      const districts = selectedProvince?.districts || [];
-      const transformedDistricts = districts.map(district => ({
-        name: district.name,
-        sectors: district.sectors?.map(sector => sector.name) || []
-      }));
-      setAvailableDistricts(transformedDistricts);
-
-      if (data.district) {
-        const selectedDistrict = transformedDistricts.find(d => d.name === (data.district as string));
-        setAvailableSectors(selectedDistrict?.sectors || []);
-      }
-    }
-    
     showToast('Vehicle information loaded successfully', 'success');
   };
-  
+
+  // Handle search results to track isNewClient and isNewVehicle
+  const handleSearchResult = (exists: boolean, searchType: 'plateNumber' | 'identificationNumber') => {
+    setSearchResults(prev => ({
+      ...prev,
+      [searchType === 'identificationNumber' ? 'isNewClient' : 'isNewVehicle']: !exists
+    }));
+  };
+
+  const getTokenFromStorage = () => {
+    try {
+      return sessionStorage.getItem('ezinsure_token');
+    } catch (error) {
+      console.error('Error accessing sessionStorage:', error);
+      return null;
+    }
+  };
+
   const [formData, setFormData] = useState<ApplicationFormData>({
     // Personal Information
     fullName: '',
@@ -233,7 +435,7 @@ export default function AdminNewApplicationPage() {
     sector: '',
     identificationDocumentType: 'nationalID',
     identificationNumber: '',
-    
+
     // Insurance Information
     insuranceCategory: 'car',
     insuranceType: 'comprehensive',
@@ -241,38 +443,46 @@ export default function AdminNewApplicationPage() {
     insuranceProvider: 'SONARWA',
     isCOMESA: false,
     plateNumber: '',
-    
+
     // Vehicle Information
     vehicleType: '',
     vehicleAge: '',
     vehicleUse: '',
     otherVehicleUse: '',
-    
+
     // Documents
     nationalID: null,
     yellowCard: null,
     pastInsuranceCertificate: null,
-    
+
+    // API response fields
+    vehicleId: '',
+    clientId: '',
+
+    // New fields for /newApply endpoint
+    isNewClient: true,
+    isNewVehicle: true,
+
     // Payment Information
     amount: '',
     paymentInstructions: 'Please make your payment to one of the following:\nBank of Kigali: 100000129075 (SONARWA)\nOr via Momo Account: 051499 (SONARWA) \nOr Agency at Kimihurura (KBC) under SOLEKTRA',
     invoiceFile: null,
-    
+
     // Commission Information
     agentCommission: '',
     companyCommission: '',
     administrationFees: '',
-    
+
     // Payment Verification
     proofOfPayment: null,
     transactionId: '',
-    
+
     // Insurance Issuance
     insuranceCertificate: null,
     contract: null,
     receipt: null,
     ebm: null,
-    
+
     // Status
     status: ApplicationStatus.PENDING,
     insuranceEndAt: ''
@@ -354,8 +564,8 @@ export default function AdminNewApplicationPage() {
   // Update districts when province changes
   const handleProvinceChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ 
-      ...prev, 
+    setFormData(prev => ({
+      ...prev,
       [name]: value,
       district: '',
       sector: ''
@@ -379,8 +589,8 @@ export default function AdminNewApplicationPage() {
   // Update sectors when district changes
   const handleDistrictChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ 
-      ...prev, 
+    setFormData(prev => ({
+      ...prev,
       [name]: value,
       sector: ''
     }));
@@ -398,7 +608,7 @@ export default function AdminNewApplicationPage() {
   ) => {
     const { name, value, type } = e.target;
     const checked = type === 'checkbox' ? (e.target as HTMLInputElement).checked : undefined;
-    
+
     // Special handling for province and district changes
     if (name === 'province') {
       handleProvinceChange(e as React.ChangeEvent<HTMLSelectElement>);
@@ -407,7 +617,7 @@ export default function AdminNewApplicationPage() {
       handleDistrictChange(e as React.ChangeEvent<HTMLSelectElement>);
       return;
     }
-    
+
     // Clear personal information when document type changes
     if (name === 'identificationDocumentType') {
       setFormData(prev => ({
@@ -428,7 +638,7 @@ export default function AdminNewApplicationPage() {
       setAvailableSectors([]);
       // Reset identification number search status
       setIdentificationNumberResetTrigger(prev => prev + 1);
-    } 
+    }
     // Clear vehicle fields when insurance category changes
     else if (name === 'insuranceCategory') {
       setFormData(prev => ({
@@ -466,9 +676,41 @@ export default function AdminNewApplicationPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    // Log form data when submit button is clicked (regardless of validation)
+    const formDataToLog = {
+      fullName: formData.fullName,
+      email: formData.email,
+      phoneNumber: formData.phoneNumber,
+      address: formData.address,
+      dateOfBirth: formData.dateOfBirth,
+      province: formData.province,
+      district: formData.district,
+      sector: formData.sector,
+      insuranceCategory: formData.insuranceCategory,
+      insuranceType: formData.insuranceType,
+      insuranceDuration: formData.insuranceDuration,
+      insuranceProvider: formData.insuranceProvider,
+      plateNumber: formData.plateNumber,
+      identificationDocumentType: formData.identificationDocumentType,
+      identificationNumber: formData.identificationNumber,
+      vehicleType: formData.vehicleType,
+      vehicleAge: formData.vehicleAge,
+      vehicleUse: formData.vehicleUse,
+      otherVehicleUse: formData.otherVehicleUse,
+      isCOMESA: formData.isCOMESA,
+      nationalID: formData.nationalID ? 'File selected' : null,
+      yellowCard: formData.yellowCard ? 'File selected' : null,
+      pastInsuranceCertificate: formData.pastInsuranceCertificate ? 'File selected' : null,
+      // Add the missing fields for /newApply endpoint
+      isNewClient: searchResults.isNewClient,
+      isNewVehicle: searchResults.isNewVehicle,
+    };
+
+    console.log('Form Data on Submit:', formDataToLog);
+
     // Validate form
     const formErrors = validateForm(
-      { ...formData, isCOMESA: formData.isCOMESA ? 'true' : 'false' },
+      { ...formData, isCOMESA: formData.isCOMESA ? 'true' : 'false', isNewClient: formData.isNewClient ? 'true' : 'false', isNewVehicle: formData.isNewVehicle ? 'true' : 'false' },
       validationRules
     );
     setErrors(formErrors);
@@ -478,7 +720,7 @@ export default function AdminNewApplicationPage() {
 
       try {
         const formDataToSend = new FormData();
-        
+
         // Add all form fields
         Object.entries(formData).forEach(([key, value]) => {
           if (value instanceof File) {
@@ -488,21 +730,35 @@ export default function AdminNewApplicationPage() {
           }
         });
 
+        // Override isNewClient and isNewVehicle with searchResults
+        formDataToSend.set('isNewClient', searchResults.isNewClient ? 'true' : 'false');
+        formDataToSend.set('isNewVehicle', searchResults.isNewVehicle ? 'true' : 'false');
+
         // Add admin user info
         if (user) {
           formDataToSend.append('adminId', user._id);
           formDataToSend.append('adminName', user.fullName);
         }
 
-        const response = await fetch('/api/applications', {
+        // Add tracking data
+        if (trackingData) {
+          formDataToSend.append('trackingData', JSON.stringify(trackingData));
+        }
+
+        const token = getTokenFromStorage();
+
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/applyAdmin`, {
           method: 'POST',
           body: formDataToSend,
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
         });
 
         if (response.ok) {
           showToast('Application created successfully!', 'success');
           // Reset form
-        setFormData({
+          setFormData({
             fullName: '',
             email: '',
             phoneNumber: '',
@@ -515,7 +771,7 @@ export default function AdminNewApplicationPage() {
             identificationNumber: '',
             insuranceCategory: 'car',
             insuranceType: 'comprehensive',
-          insuranceDuration: '1',
+            insuranceDuration: '1',
             insuranceProvider: 'SONARWA',
             isCOMESA: false,
             plateNumber: '',
@@ -539,11 +795,28 @@ export default function AdminNewApplicationPage() {
             receipt: null,
             ebm: null,
             status: ApplicationStatus.PENDING,
-            insuranceEndAt: ''
+            insuranceEndAt: '',
+            // Reset API response fields
+            vehicleId: '',
+            clientId: '',
+            // Reset new fields for /newApply endpoint
+            isNewClient: true,
+            isNewVehicle: true,
           });
           setAvailableDistricts([]);
           setAvailableSectors([]);
           setErrors({});
+
+          // Reset search results
+          setSearchResults({
+            isNewClient: true,
+            isNewVehicle: true,
+          });
+
+          // Reset search input components to clear their messages
+          setIdentificationNumberResetTrigger(prev => prev + 1);
+          setPlateNumberResetTrigger(prev => prev + 1);
+          setPhoneNumberResetTrigger(prev => prev + 1);
         } else {
           const errorData = await response.json();
           showToast(errorData.message || 'Failed to create application', 'error');
@@ -580,7 +853,7 @@ export default function AdminNewApplicationPage() {
                 <legend className="text-lg font-semibold text-[var(--main-blue)] px-3 bg-white border border-[var(--main-blue)] rounded-md">
                   Personal Information
                 </legend>
-                
+
                 {/* Identification Document Type */}
                 <div className="mb-6">
                   <label
@@ -612,8 +885,8 @@ export default function AdminNewApplicationPage() {
                     placeholder={getIdentificationDocumentPlaceholder(formData.identificationDocumentType)}
                     value={formData.identificationNumber}
                     onChange={(value) => {
-                      setFormData(prev => ({ 
-                        ...prev, 
+                      setFormData(prev => ({
+                        ...prev,
                         identificationNumber: value,
                         // Clear personal information fields on any edit to avoid stale data
                         fullName: '',
@@ -630,7 +903,8 @@ export default function AdminNewApplicationPage() {
                       setAvailableSectors([]);
                     }}
                     onSearchSuccess={handleIdentificationSearchSuccess}
-                    searchType="id"
+                    onSearchResult={handleSearchResult}
+                    searchType="identificationNumber"
                     required
                     resetTrigger={identificationNumberResetTrigger}
                   />
@@ -673,29 +947,23 @@ export default function AdminNewApplicationPage() {
                     }
                   />
 
-                  <Input
+                  <RwandaPhoneInput
                     label="Phone Number"
                     name="phoneNumber"
-                    placeholder="250781234567"
                     value={formData.phoneNumber}
-                    onChange={handleInputChange}
+                    onChange={(value) => {
+                      setFormData(prev => ({ ...prev, phoneNumber: value }));
+                      if (errors.phoneNumber) {
+                        setErrors(prev => {
+                          const newErrors = { ...prev };
+                          delete newErrors.phoneNumber;
+                          return newErrors;
+                        });
+                      }
+                    }}
                     error={errors.phoneNumber}
                     required
-                    icon={
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="20"
-                        height="20"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      >
-                        <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
-                      </svg>
-                    }
+                    resetTrigger={phoneNumberResetTrigger}
                   />
 
                   <Input
@@ -795,7 +1063,7 @@ export default function AdminNewApplicationPage() {
                 <legend className="text-lg font-semibold text-[var(--main-blue)] px-3 bg-white border border-[var(--main-blue)] rounded-md">
                   Insurance Details
                 </legend>
-                
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <label
@@ -834,8 +1102,8 @@ export default function AdminNewApplicationPage() {
                         placeholder="e.g. RAA 123A"
                         value={formData.plateNumber}
                         onChange={(value) => {
-                          setFormData(prev => ({ 
-                            ...prev, 
+                          setFormData(prev => ({
+                            ...prev,
                             plateNumber: value,
                             // Clear insurance details on any edit to avoid stale data
                             insuranceType: 'comprehensive',
@@ -849,7 +1117,8 @@ export default function AdminNewApplicationPage() {
                           }));
                         }}
                         onSearchSuccess={handlePlateSearchSuccess}
-                        searchType="plate"
+                        onSearchResult={handleSearchResult}
+                        searchType="plateNumber"
                         error={errors.plateNumber}
                         required
                         resetTrigger={plateNumberResetTrigger}
@@ -884,9 +1153,9 @@ export default function AdminNewApplicationPage() {
                   {/* Vehicle Type (only shown for car/motorbike insurance) */}
                   {(formData.insuranceCategory === 'car' || formData.insuranceCategory === 'motorbike') && (
                     <div>
-                    <label className="block text-sm font-medium mb-1">
-                      Vehicle Type <span className="text-[var(--error-red)] ml-1">*</span>
-                    </label>
+                      <label className="block text-sm font-medium mb-1">
+                        Vehicle Type <span className="text-[var(--error-red)] ml-1">*</span>
+                      </label>
                       <select
                         name="vehicleType"
                         value={formData.vehicleType}
@@ -1017,34 +1286,34 @@ export default function AdminNewApplicationPage() {
                       <p className="mt-1 text-sm text-[var(--error-red)]">{errors.insuranceType}</p>
                     )}
                   </div>
-                
-                <div className="md:col-span-2">
-                  <label
-                    className="block text-sm font-medium mb-1"
-                    htmlFor="insuranceDuration"
-                  >
-                    Insurance Duration{' '}
-                    <span className="text-[var(--error-red)] ml-1">*</span>
-                  </label>
-                  <select
-                    id="insuranceDuration"
-                    name="insuranceDuration"
-                    value={formData.insuranceDuration}
-                    onChange={handleInputChange}
-                    className="w-full py-2 px-3 rounded-lg focus:outline-none border border-gray-300 focus:border-[var(--main-blue)]"
-                    required
-                  >
-                    <option value="1">1 Month</option>
-                    <option value="2">2 Months</option>
-                    <option value="3">3 Months</option>
-                    <option value="6">6 Months</option>
-                    <option value="9">9 Months</option>
-                    <option value="12">12 Months</option>
-                  </select>
-                  {errors.insuranceDuration && (
-                    <p className="mt-1 text-sm text-[var(--error-red)]">{errors.insuranceDuration}</p>
-                  )}
-                </div>
+
+                  <div className="md:col-span-2">
+                    <label
+                      className="block text-sm font-medium mb-1"
+                      htmlFor="insuranceDuration"
+                    >
+                      Insurance Duration{' '}
+                      <span className="text-[var(--error-red)] ml-1">*</span>
+                    </label>
+                    <select
+                      id="insuranceDuration"
+                      name="insuranceDuration"
+                      value={formData.insuranceDuration}
+                      onChange={handleInputChange}
+                      className="w-full py-2 px-3 rounded-lg focus:outline-none border border-gray-300 focus:border-[var(--main-blue)]"
+                      required
+                    >
+                      <option value="1">1 Month</option>
+                      <option value="2">2 Months</option>
+                      <option value="3">3 Months</option>
+                      <option value="6">6 Months</option>
+                      <option value="9">9 Months</option>
+                      <option value="12">12 Months</option>
+                    </select>
+                    {errors.insuranceDuration && (
+                      <p className="mt-1 text-sm text-[var(--error-red)]">{errors.insuranceDuration}</p>
+                    )}
+                  </div>
                 </div>
               </fieldset>
 
@@ -1087,7 +1356,7 @@ export default function AdminNewApplicationPage() {
                 <legend className="text-lg font-semibold text-[var(--main-blue)] px-3 bg-white border border-[var(--main-blue)] rounded-md">
                   Payment & Commission Details
                 </legend>
-                
+
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                   <div className="space-y-6">
                     <div>
@@ -1102,7 +1371,7 @@ export default function AdminNewApplicationPage() {
                         required
                       />
                     </div>
-                    
+
                     <div>
                       <Input
                         label="Agent Commission (RWF)"
@@ -1115,7 +1384,7 @@ export default function AdminNewApplicationPage() {
                         required
                       />
                     </div>
-                    
+
                     <div>
                       <Input
                         label="Company Commission (RWF)"
@@ -1128,7 +1397,7 @@ export default function AdminNewApplicationPage() {
                         required
                       />
                     </div>
-                    
+
                     <div>
                       <Input
                         label="Administration Fees (RWF)"
@@ -1142,13 +1411,13 @@ export default function AdminNewApplicationPage() {
                         required
                       />
                       <p className="text-xs text-gray-500 mt-1">
-                        {formData.insuranceCategory.toLowerCase().includes('moto') 
-                          ? 'Calculated as 25% of 2500 RWF for MOTO insurance' 
+                        {formData.insuranceCategory.toLowerCase().includes('moto')
+                          ? 'Calculated as 25% of 2500 RWF for MOTO insurance'
                           : 'Calculated as 25% of 5000 RWF for other insurance types'}
                       </p>
                     </div>
                   </div>
-                  
+
                   <div className="space-y-6">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -1167,7 +1436,7 @@ export default function AdminNewApplicationPage() {
                         <p className="mt-1 text-sm text-[var(--error-red)]">{errors.paymentInstructions}</p>
                       )}
                     </div>
-                    
+
                     <div>
                       <FileInput
                         label="Invoice File"
@@ -1185,7 +1454,7 @@ export default function AdminNewApplicationPage() {
                 <legend className="text-lg font-semibold text-[var(--main-blue)] px-3 bg-white border border-[var(--main-blue)] rounded-md">
                   Payment Verification
                 </legend>
-                
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <Input
@@ -1198,7 +1467,7 @@ export default function AdminNewApplicationPage() {
                       required
                     />
                   </div>
-                  
+
                   <div>
                     <FileInput
                       label="Proof of Payment"
@@ -1217,7 +1486,7 @@ export default function AdminNewApplicationPage() {
                 <legend className="text-lg font-semibold text-[var(--main-blue)] px-3 bg-white border border-[var(--main-blue)] rounded-md">
                   Insurance Documents
                 </legend>
-                
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <FileInput
@@ -1229,7 +1498,7 @@ export default function AdminNewApplicationPage() {
                       accept="image/*,.pdf"
                     />
                   </div>
-                  
+
                   <div>
                     <FileInput
                       label="Contract"
@@ -1239,7 +1508,7 @@ export default function AdminNewApplicationPage() {
                       accept="image/*,.pdf"
                     />
                   </div>
-                  
+
                   <div>
                     <FileInput
                       label="Receipt"
@@ -1249,7 +1518,7 @@ export default function AdminNewApplicationPage() {
                       accept="image/*,.pdf"
                     />
                   </div>
-                  
+
                   <div>
                     <FileInput
                       label="EBM"
