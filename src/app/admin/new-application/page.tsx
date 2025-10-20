@@ -551,11 +551,11 @@ export default function AdminNewApplicationPage() {
 
     // Insurance Information
 
-    insuranceCategory: 'car',
+    insuranceCategory: 'Car Insurance',
 
-    insuranceType: 'comprehensive',
+    insuranceType: 'Comprehensive Insurance (covers everything)',
 
-    insuranceDuration: '1',
+    insuranceDuration: '1 Month',
 
     insuranceProvider: 'SONARWA',
 
@@ -639,80 +639,46 @@ export default function AdminNewApplicationPage() {
   // Validation rules - based on original apply page
 
   const validationRules: ValidationRules = {
-
     fullName: { required: true, minLength: 3, maxLength: 50 },
-
     email: { required: false, pattern: validationPatterns.email },
-
     phoneNumber: { required: true, pattern: validationPatterns.phone },
-
     address: { required: true, minLength: 5, maxLength: 100 },
-
     dateOfBirth: { required: true },
-
     province: { required: true },
-
     district: { required: true },
-
     sector: { required: true },
-
     insuranceCategory: { required: true },
-
     insuranceType: { required: true },
-
     insuranceDuration: { required: true },
-
     insuranceProvider: { required: true },
-
-    vehicleType: { required: formData.insuranceCategory === 'car' || formData.insuranceCategory === 'motorbike' },
-
-    vehicleAge: { required: formData.insuranceCategory === 'car' || formData.insuranceCategory === 'motorbike' },
-
-    vehicleUse: { required: formData.insuranceCategory === 'car' || formData.insuranceCategory === 'motorbike' },
-
+    vehicleType: { required: formData.insuranceCategory === 'Car Insurance' || formData.insuranceCategory === 'MotorBike Insurance' },
+    vehicleAge: { required: formData.insuranceCategory === 'Car Insurance' || formData.insuranceCategory === 'MotorBike Insurance' },
+    vehicleUse: { required: formData.insuranceCategory === 'Car Insurance' || formData.insuranceCategory === 'MotorBike Insurance' },
     otherVehicleUse: { required: formData.vehicleUse === 'Other' },
-
     nationalID: { required: true },
-
     yellowCard: { required: true },
-
-    plateNumber: { required: formData.insuranceCategory === 'car' || formData.insuranceCategory === 'motorbike' },
-
+    plateNumber: { required: formData.insuranceCategory === 'Car Insurance' || formData.insuranceCategory === 'MotorBike Insurance' },
     identificationDocumentType: { required: true },
-
     identificationNumber: { required: true },
-
     // Admin-specific required fields
-
     amount: { required: true },
-
     agentCommission: { required: true },
-
     companyCommission: { required: true },
-
     administrationFees: { required: true },
-
     paymentInstructions: { required: true },
-
     transactionId: { required: true },
-
     proofOfPayment: { required: true },
-
     insuranceCertificate: { required: true },
-
     contract: { required: false },
-
     receipt: { required: false },
-
     ebm: { required: false },
-
   };
 
   // Calculate administration fees based on insurance category
 
   const calculateAdministrationFees = (insuranceCategory: string) => {
 
-    if (insuranceCategory.toLowerCase().includes('moto')) {
+    if (insuranceCategory.toLowerCase().includes('motobike')) {
 
       return Math.round(2500 * 0.25); // 25% of 2500 for MOTO
 
@@ -1150,11 +1116,11 @@ export default function AdminNewApplicationPage() {
 
             identificationNumber: '',
 
-            insuranceCategory: 'car',
+            insuranceCategory: 'Car Insurance',
 
-            insuranceType: 'comprehensive',
+            insuranceType: 'Comprehensive Insurance (covers everything)',
 
-            insuranceDuration: '1',
+            insuranceDuration: '1 Month',
 
             insuranceProvider: 'SONARWA',
 
@@ -1705,17 +1671,17 @@ export default function AdminNewApplicationPage() {
 
                     >
 
-                      <option value="car">Car Insurance</option>
+                      <option value="Car Insurance">Car Insurance</option>
 
-                      <option value="motorbike">MotorBike Insurance</option>
+                      <option value="MotorBike Insurance">MotorBike Insurance</option>
 
-                      <option value="building">Building Insurance</option>
+                      <option value="Building Insurance">Building Insurance</option>
 
-                      <option value="travel">Travel Insurance</option>
+                      <option value="Travel Insurance">Travel Insurance</option>
 
-                      <option value="health">Health Insurance</option>
+                      <option value="Health Insurance">Health Insurance</option>
 
-                      <option value="fire">Fire Insurance Coverage</option>
+                      <option value="Fire Insurance Coverage">Fire Insurance Coverage</option>
 
                     </select>
 
@@ -1729,7 +1695,7 @@ export default function AdminNewApplicationPage() {
 
                   {/* Plate Number Field - Only for Car/Motorbike */}
 
-                  {(formData.insuranceCategory === 'car' || formData.insuranceCategory === 'motorbike') && (
+                  {(formData.insuranceCategory === 'Car Insurance' || formData.insuranceCategory === 'MotorBike Insurance') && (
 
                     <div>
 
@@ -1811,7 +1777,7 @@ export default function AdminNewApplicationPage() {
 
                   {/* Vehicle Type (only shown for car/motorbike insurance) */}
 
-                  {(formData.insuranceCategory === 'car' || formData.insuranceCategory === 'motorbike') && (
+                  {(formData.insuranceCategory === 'Car Insurance' || formData.insuranceCategory === 'MotorBike Insurance') && (
 
                     <div>
 
@@ -1869,7 +1835,7 @@ export default function AdminNewApplicationPage() {
 
                   {/* Vehicle Age (only shown for car/motorbike insurance) */}
 
-                  {(formData.insuranceCategory === 'car' || formData.insuranceCategory === 'motorbike') && (
+                  {(formData.insuranceCategory === 'Car Insurance' || formData.insuranceCategory === 'MotorBike Insurance') && (
 
                     <div>
 
@@ -1903,7 +1869,7 @@ export default function AdminNewApplicationPage() {
 
                   {/* Vehicle Use (only shown for car/motorbike insurance) */}
 
-                  {(formData.insuranceCategory === 'car' || formData.insuranceCategory === 'motorbike') && (
+                  {(formData.insuranceCategory === 'Car Insurance' || formData.insuranceCategory === 'MotorBike Insurance') && (
 
                     <>
 
@@ -1993,7 +1959,7 @@ export default function AdminNewApplicationPage() {
 
                   {/* COMESA Checkbox */}
 
-                  {(formData.insuranceCategory === 'car' || formData.insuranceCategory === 'motorbike') && (
+                  {(formData.insuranceCategory === 'Car Insurance' || formData.insuranceCategory === 'MotorBike Insurance') && (
 
                     <div className="md:col-span-2">
 
@@ -2057,9 +2023,9 @@ export default function AdminNewApplicationPage() {
 
                     >
 
-                      <option value="comprehensive">Comprehensive Insurance (covers everything)</option>
+                      <option value="Comprehensive Insurance (covers everything)">Comprehensive Insurance (covers everything)</option>
 
-                      <option value="thirdParty">Third Party Insurance (covers partial)</option>
+                      <option value="Third Party Insurance (covers partial)">Third Party Insurance (covers partial)</option>
 
                     </select>
 
@@ -2103,17 +2069,17 @@ export default function AdminNewApplicationPage() {
 
                     >
 
-                      <option value="1">1 Month</option>
+                      <option value="1 Month">1 Month</option>
 
-                      <option value="2">2 Months</option>
+                      <option value="2 Months">2 Months</option>
 
-                      <option value="3">3 Months</option>
+                      <option value="3 Months">3 Months</option>
 
-                      <option value="6">6 Months</option>
+                      <option value="6 Months">6 Months</option>
 
-                      <option value="9">9 Months</option>
+                      <option value="9 Months">9 Months</option>
 
-                      <option value="12">12 Months</option>
+                      <option value="12 Months">12 Months</option>
 
                     </select>
 
@@ -2309,7 +2275,7 @@ export default function AdminNewApplicationPage() {
 
                       <p className="text-xs text-gray-500 mt-1">
 
-                        {formData.insuranceCategory.toLowerCase().includes('moto')
+                        {formData.insuranceCategory.toLowerCase().includes('motobike')
 
                           ? 'Calculated as 25% of 2500 RWF for MOTO insurance'
 
