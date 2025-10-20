@@ -133,7 +133,7 @@ export const SearchInput = ({
   };
 
   // Transform API response to match expected format for form prefilling
-  const transformApiResponse = (data: any, type: 'identificationNumber' | 'plateNumber') => {
+  const transformApiResponse = (data: Record<string, unknown>, type: 'identificationNumber' | 'plateNumber') => {
     if (type === 'identificationNumber') {
       // Transform identification number response
       return {
@@ -141,7 +141,7 @@ export const SearchInput = ({
         email: data.email || '',
         phoneNumber: data.phoneNumber || '',
         address: data.address || '',
-        dateOfBirth: data.dateOfBirth ? new Date(data.dateOfBirth).toISOString().split('T')[0] : '',
+        dateOfBirth: data.dateOfBirth && typeof data.dateOfBirth === 'string' ? new Date(data.dateOfBirth).toISOString().split('T')[0] : '',
         province: data.province || '',
         district: data.district || '',
         sector: data.sector || '',
@@ -150,16 +150,16 @@ export const SearchInput = ({
     } else {
       // Transform plate number response
       return {
-        fullName: data.client?.fullName || '',
-        email: data.client?.email || '',
-        phoneNumber: data.client?.phoneNumber || '',
+        fullName: (data.client as Record<string, unknown>)?.fullName as string || '',
+        email: (data.client as Record<string, unknown>)?.email as string || '',
+        phoneNumber: (data.client as Record<string, unknown>)?.phoneNumber as string || '',
         vehicleId: data.vehicleId || '',
         plateNumber: data.plateNumber || '',
         vehicleType: data.vehicleType || '',
         vehicleAge: data.vehicleAge || '',
         vehicleUse: data.vehicleUse || '',
         otherVehicleUse: data.otherVehicleUse || '',
-        clientId: data.client?.clientId || '',
+        clientId: (data.client as Record<string, unknown>)?.clientId as string || '',
       };
     }
   };

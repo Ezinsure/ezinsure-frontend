@@ -270,7 +270,7 @@ export default function LoginPage() {
               </div>
               <div>
                 <p className="text-blue-100 italic text-base leading-relaxed pl-4">
-                  "The process was incredibly simple. I had my business insured within minutes, and their customer service team was very helpful when I had questions."
+                  &ldquo;The process was incredibly simple. I had my business insured within minutes, and their customer service team was very helpful when I had questions.&rdquo;
                 </p>
                 <div className="mt-3 text-orange-300">
                   {Array(5).fill(0).map((_, i) => (

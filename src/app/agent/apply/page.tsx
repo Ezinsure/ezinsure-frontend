@@ -526,13 +526,6 @@ export default function AgentApplyPage() {
     showToast('Vehicle information loaded successfully', 'success');
   };
 
-  // Handle search results to track isNewClient and isNewVehicle
-  const handleSearchResult = (exists: boolean, searchType: 'plateNumber' | 'identificationNumber') => {
-    setSearchResults(prev => ({
-      ...prev,
-      [searchType === 'identificationNumber' ? 'isNewClient' : 'isNewVehicle']: !exists
-    }));
-  };
 
   const formatInsuranceDuration = (duration: string) => {
     switch (duration) {
