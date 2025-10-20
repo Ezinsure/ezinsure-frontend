@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { FileInput } from '@/components/ui/file-input';
 import { SearchInput } from '@/components/ui/search-input';
+import { RwandaPhoneInput } from '@/components/ui/rwanda-phone-input';
 import { useToast } from '@/components/ui/toast';
 import {
   validateForm,
@@ -64,6 +65,9 @@ export default function ApplyPage() {
     plateNumber: '',
     identificationDocumentType: 'nationalID',
     identificationNumber: '',
+    // API response fields
+    vehicleId: '',
+    clientId: '',
   });
 
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
@@ -72,37 +76,47 @@ export default function ApplyPage() {
   // Reset triggers for SearchInput components
   const [plateNumberResetTrigger, setPlateNumberResetTrigger] = useState(0);
   const [identificationNumberResetTrigger, setIdentificationNumberResetTrigger] = useState(0);
+  const [phoneNumberResetTrigger, setPhoneNumberResetTrigger] = useState(0);
+  
+  // Track search results for isNewClient and isNewVehicle fields
+  const [searchResults, setSearchResults] = useState({
+    isNewClient: true,    // Default to true (new client)
+    isNewVehicle: true,   // Default to true (new vehicle)
+  });
 
-  // Console log form data whenever it changes
-  useEffect(() => {
-    const formDataToSend = {
-      fullName: formState.fullName,
-      email: formState.email,
-      phoneNumber: formState.phoneNumber,
-      address: formState.address,
-      dateOfBirth: formState.dateOfBirth,
-      province: formState.province,
-      district: formState.district,
-      sector: formState.sector,
-      insuranceCategory: formatInsuranceCategory(formState.insuranceCategory),
-      insuranceType: formatInsuranceType(formState.insuranceType),
-      insuranceDuration: formatInsuranceDuration(formState.insuranceDuration),
-      insuranceProvider: formState.insuranceProvider,
-      plateNumber: formState.plateNumber,
-      identificationDocumentType: formState.identificationDocumentType,
-      identificationNumber: formState.identificationNumber,
-      vehicleType: formState.vehicleType,
-      vehicleAge: formState.vehicleAge,
-      vehicleUse: formState.vehicleUse,
-      otherVehicleUse: formState.otherVehicleUse,
-      isCOMESA: formState.isCOMESA,
-      nationalID: formState.nationalID ? 'File selected' : null,
-      yellowCard: formState.yellowCard ? 'File selected' : null,
-      pastInsuranceCertificate: formState.pastInsuranceCertificate ? 'File selected' : null,
-    };
-    
-    console.log('Form Data to be sent to API:', formDataToSend);
-  }, [formState]);
+  // Console log form data whenever it changes (disabled for production)
+  // useEffect(() => {
+  //   const formDataToSend = {
+  //     fullName: formState.fullName,
+  //     email: formState.email,
+  //     phoneNumber: formState.phoneNumber,
+  //     address: formState.address,
+  //     dateOfBirth: formState.dateOfBirth,
+  //     province: formState.province,
+  //     district: formState.district,
+  //     sector: formState.sector,
+  //     insuranceCategory: formatInsuranceCategory(formState.insuranceCategory),
+  //     insuranceType: formatInsuranceType(formState.insuranceType),
+  //     insuranceDuration: formatInsuranceDuration(formState.insuranceDuration),
+  //     insuranceProvider: formState.insuranceProvider,
+  //     plateNumber: formState.plateNumber,
+  //     identificationDocumentType: formState.identificationDocumentType,
+  //     identificationNumber: formState.identificationNumber,
+  //     vehicleType: formState.vehicleType,
+  //     vehicleAge: formState.vehicleAge,
+  //     vehicleUse: formState.vehicleUse,
+  //     otherVehicleUse: formState.otherVehicleUse,
+  //     isCOMESA: formState.isCOMESA,
+  //     nationalID: formState.nationalID ? 'File selected' : null,
+  //     yellowCard: formState.yellowCard ? 'File selected' : null,
+  //     pastInsuranceCertificate: formState.pastInsuranceCertificate ? 'File selected' : null,
+  //     // Add the missing fields for /newApply endpoint
+  //     isNewClient: searchResults.isNewClient,
+  //     isNewVehicle: searchResults.isNewVehicle,
+  //   };
+  //   
+  //   console.log('Form Data to be sent to API:', formDataToSend);
+  // }, [formState, searchResults]);
 
   const validationRules: ValidationRules = {
     fullName: { required: true, minLength: 3, maxLength: 50 },
@@ -252,6 +266,14 @@ export default function ApplyPage() {
     }
   };
 
+  // Handle search results to track isNewClient and isNewVehicle
+  const handleSearchResult = (exists: boolean, searchType: 'plateNumber' | 'identificationNumber') => {
+    setSearchResults(prev => ({
+      ...prev,
+      [searchType === 'identificationNumber' ? 'isNewClient' : 'isNewVehicle']: !exists
+    }));
+  };
+
   // Handle search success for identification number
   const handleIdentificationSearchSuccess = (data: Record<string, unknown>) => {
     setFormState(prev => ({
@@ -287,34 +309,21 @@ export default function ApplyPage() {
   const handlePlateSearchSuccess = (data: Record<string, unknown>) => {
     setFormState(prev => ({
       ...prev,
+      // Client information from vehicle owner
       fullName: (data.fullName as string) || prev.fullName,
       email: (data.email as string) || prev.email,
       phoneNumber: (data.phoneNumber as string) || prev.phoneNumber,
-      address: (data.address as string) || prev.address,
-      dateOfBirth: (data.dateOfBirth as string) || prev.dateOfBirth,
-      province: (data.province as string) || prev.province,
-      district: (data.district as string) || prev.district,
-      sector: (data.sector as string) || prev.sector,
+      // Vehicle-specific fields
       vehicleType: (data.vehicleType as string) || prev.vehicleType,
       vehicleAge: (data.vehicleAge as string) || prev.vehicleAge,
       vehicleUse: (data.vehicleUse as string) || prev.vehicleUse,
+      otherVehicleUse: (data.otherVehicleUse as string) || prev.otherVehicleUse,
+      // Store additional IDs for reference
+      vehicleId: (data.vehicleId as string) || prev.vehicleId,
+      clientId: (data.clientId as string) || prev.clientId,
     }));
-
-    // Update districts and sectors if province is set
-    if (data.province) {
-      const selectedProvince = rwandaProvinces.find(p => p.name === (data.province as string));
-      const districts = selectedProvince?.districts || [];
-      const transformedDistricts = districts.map(district => ({
-        name: district.name,
-        sectors: district.sectors?.map(sector => sector.name) || []
-      }));
-      setAvailableDistricts(transformedDistricts);
-
-      if (data.district) {
-        const selectedDistrict = transformedDistricts.find(d => d.name === (data.district as string));
-        setAvailableSectors(selectedDistrict?.sectors || []);
-      }
-    }
+    
+    showToast('Vehicle information loaded successfully', 'success');
   };
 
   const formatInsuranceDuration = (duration: string) => {
@@ -381,6 +390,38 @@ export default function ApplyPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    // Log form data when submit button is clicked (regardless of validation)
+    const formDataToLog = {
+      fullName: formState.fullName,
+      email: formState.email,
+      phoneNumber: formState.phoneNumber,
+      address: formState.address,
+      dateOfBirth: formState.dateOfBirth,
+      province: formState.province,
+      district: formState.district,
+      sector: formState.sector,
+      insuranceCategory: formatInsuranceCategory(formState.insuranceCategory),
+      insuranceType: formatInsuranceType(formState.insuranceType),
+      insuranceDuration: formatInsuranceDuration(formState.insuranceDuration),
+      insuranceProvider: formState.insuranceProvider,
+      plateNumber: formState.plateNumber,
+      identificationDocumentType: formState.identificationDocumentType,
+      identificationNumber: formState.identificationNumber,
+      vehicleType: formState.vehicleType,
+      vehicleAge: formState.vehicleAge,
+      vehicleUse: formState.vehicleUse,
+      otherVehicleUse: formState.otherVehicleUse,
+      isCOMESA: formState.isCOMESA,
+      nationalID: formState.nationalID ? 'File selected' : null,
+      yellowCard: formState.yellowCard ? 'File selected' : null,
+      pastInsuranceCertificate: formState.pastInsuranceCertificate ? 'File selected' : null,
+      // Add the missing fields for /newApply endpoint
+      isNewClient: searchResults.isNewClient,
+      isNewVehicle: searchResults.isNewVehicle,
+    };
+    
+    console.log('Form Data on Submit:', formDataToLog);
+
     // Validate form
     const formErrors = validateForm(
       { ...formState, isCOMESA: formState.isCOMESA ? 'true' : 'false' },
@@ -410,12 +451,16 @@ export default function ApplyPage() {
         formData.append('insuranceDuration', formatInsuranceDuration(formState.insuranceDuration));
         formData.append('insuranceProvider', formState.insuranceProvider);
         
+        // Append new fields for /newApply endpoint
+        formData.append('isNewClient', searchResults.isNewClient.toString());
+        formData.append('isNewVehicle', searchResults.isNewVehicle.toString());
+        formData.append('identificationDocumentType', formState.identificationDocumentType);
+        formData.append('identificationNumber', formState.identificationNumber);
+        
         // Append new fields
         if (formState.plateNumber) {
           formData.append('plateNumber', formState.plateNumber);
         }
-        formData.append('identificationDocumentType', formState.identificationDocumentType);
-        formData.append('identificationNumber', formState.identificationNumber);
         
         // Append vehicle details if applicable
         if (formState.insuranceCategory === 'car' || formState.insuranceCategory === 'motorbike') {
@@ -459,7 +504,7 @@ export default function ApplyPage() {
         // });
         // console.log('Submitting FormData:', Object.fromEntries(formDataEntries));
 
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/apply`, {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/newApply`, {
           method: 'POST',
           body: formData,
         });
@@ -503,10 +548,24 @@ export default function ApplyPage() {
           plateNumber: '',
           identificationDocumentType: 'nationalID',
           identificationNumber: '',
+          // Reset API response fields
+          vehicleId: '',
+          clientId: '',
         });
         setAvailableDistricts([]);
         setAvailableSectors([]);
         setFormKey(Date.now());
+        
+        // Reset search results
+        setSearchResults({
+          isNewClient: true,
+          isNewVehicle: true,
+        });
+
+        // Reset search input components to clear their messages
+        setIdentificationNumberResetTrigger(prev => prev + 1);
+        setPlateNumberResetTrigger(prev => prev + 1);
+        setPhoneNumberResetTrigger(prev => prev + 1);
 
       } catch (error: unknown) {
         console.error('Application error:', error);
@@ -636,7 +695,8 @@ export default function ApplyPage() {
                       }
                     }}
                     onSearchSuccess={handleIdentificationSearchSuccess}
-                    searchType="id"
+                    onSearchResult={handleSearchResult}
+                    searchType="identificationNumber"
                     error={errors.identificationNumber}
                     required
                     resetTrigger={identificationNumberResetTrigger}
@@ -680,29 +740,23 @@ export default function ApplyPage() {
                   }
                 />
 
-                <Input
+                <RwandaPhoneInput
                   label="Phone Number"
                   name="phoneNumber"
-                  placeholder="250781234567"
                   value={formState.phoneNumber}
-                  onChange={handleInputChange}
+                  onChange={(value) => {
+                    setFormState(prev => ({ ...prev, phoneNumber: value }));
+                    if (errors.phoneNumber) {
+                      setErrors(prev => {
+                        const newErrors = { ...prev };
+                        delete newErrors.phoneNumber;
+                        return newErrors;
+                      });
+                    }
+                  }}
                   error={errors.phoneNumber}
                   required
-                  icon={
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="20"
-                      height="20"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
-                    </svg>
-                  }
+                  resetTrigger={phoneNumberResetTrigger}
                 />
 
                <Input
@@ -865,7 +919,8 @@ export default function ApplyPage() {
                           }
                         }}
                         onSearchSuccess={handlePlateSearchSuccess}
-                        searchType="plate"
+                        onSearchResult={handleSearchResult}
+                        searchType="plateNumber"
                         error={errors.plateNumber}
                         required
                         resetTrigger={plateNumberResetTrigger}
