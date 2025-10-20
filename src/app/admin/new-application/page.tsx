@@ -1803,7 +1803,7 @@ export default function AdminNewApplicationPage() {
 
                         <option value="">Select Vehicle Type</option>
 
-                        {formData.insuranceCategory === 'car' ? (
+                        {formData.insuranceCategory === 'Car Insurance' ? (
 
                           carTypes.map(type => (
 
@@ -1897,7 +1897,7 @@ export default function AdminNewApplicationPage() {
 
                           <option value="">Select Vehicle Use</option>
 
-                          {formData.insuranceCategory === 'car' ? (
+                          {formData.insuranceCategory === 'Car Insurance' ? (
 
                             carUses.map(use => (
 
