@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from 'react';
+import { motion } from 'framer-motion';
 
 interface InputProps {
   label: string;
@@ -37,16 +38,16 @@ export const Input = ({
 
   return (
     <div className={`mb-4 ${className}`}>
-      <label className="block text-sm font-medium mb-1" htmlFor={name}>
+      <label className="block text-sm font-medium text-gray-700 mb-2" htmlFor={name}>
         {label}
-        {required && <span className="text-[var(--error-red)] ml-1">*</span>}
+        {required && <span className="text-red-500 ml-1">*</span>}
       </label>
-      <div className={`relative rounded-lg border transition-colors ${
-        error ? 'border-[var(--error-red)]' : 
-        isFocused ? 'border-[var(--main-blue)]' : 'border-gray-300'
-      }`}>
+      <div className={`relative rounded-lg border-2 transition-all duration-200 ${
+        error ? 'border-red-300 bg-red-50' : 
+        isFocused ? 'border-blue-500 bg-blue-50/30' : 'border-gray-200 bg-white hover:border-gray-300'
+      } ${disabled ? 'bg-gray-50 border-gray-200' : ''}`}>
         {icon && (
-          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-500">
+          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
             {icon}
           </div>
         )}
@@ -54,9 +55,9 @@ export const Input = ({
           type={type}
           id={name}
           name={name}
-          className={`w-full py-2 px-3 rounded-lg focus:outline-none bg-white ${
+          className={`w-full py-3 px-3 rounded-lg focus:outline-none transition-colors duration-200 ${
             icon ? 'pl-10' : ''
-          } ${disabled ? 'bg-gray-100 text-gray-500' : ''}`}
+          } ${disabled ? 'bg-gray-50 text-gray-500 cursor-not-allowed' : 'text-gray-900 placeholder-gray-500'}`}
           placeholder={placeholder}
           value={value}
           onChange={onChange}
@@ -67,7 +68,18 @@ export const Input = ({
           onBlur={() => setIsFocused(false)}
         />
       </div>
-      {error && <p className="mt-1 text-sm text-[var(--error-red)]">{error}</p>}
+      {error && (
+        <motion.p 
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mt-1 text-sm text-red-600 flex items-center"
+        >
+          <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+          </svg>
+          {error}
+        </motion.p>
+      )}
     </div>
   );
 };
