@@ -308,7 +308,7 @@ export default function LoginPage() {
 
       {/* Forgot Password Modal */}
       <AnimatePresence>
-        {showForgotPasswordModal && (
+      {showForgotPasswordModal && (
           <motion.div 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -322,13 +322,13 @@ export default function LoginPage() {
               transition={{ duration: 0.2 }}
               className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 p-8 relative border border-gray-100"
             >
-              <button
-                onClick={() => setShowForgotPasswordModal(false)}
+            <button
+              onClick={() => setShowForgotPasswordModal(false)}
                 className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors p-1 rounded-full hover:bg-gray-100"
-                aria-label="Close"
-              >
+              aria-label="Close"
+            >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-              </button>
+            </button>
               <div className="text-center mb-6">
                 <div className="mx-auto w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mb-4">
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -338,44 +338,44 @@ export default function LoginPage() {
                 <h3 className="text-xl font-semibold text-gray-900 mb-2">Reset Password</h3>
                 <p className="text-gray-600 text-sm">Enter your email address and we&apos;ll send you a link to reset your password.</p>
               </div>
-              <form onSubmit={handleForgotPassword} className="space-y-4">
-                <Input
-                  label="Email Address"
-                  type="email"
-                  name="forgot-email"
-                  placeholder="your.email@company.com"
-                  value={forgotEmail}
-                  onChange={e => setForgotEmail(e.target.value)}
-                  error={forgotError}
-                  required
-                  icon={
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="20"
-                      height="20"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
-                      <polyline points="22,6 12,13 2,6"></polyline>
-                    </svg>
-                  }
-                />
-                <Button type="submit" variant="primary" fullWidth disabled={forgotSubmitting}>
-                  {forgotSubmitting ? 'Sending...' : 'Send Reset Link'}
-                </Button>
-              </form>
+            <form onSubmit={handleForgotPassword} className="space-y-4">
+              <Input
+                label="Email Address"
+                type="email"
+                name="forgot-email"
+                placeholder="your.email@company.com"
+                value={forgotEmail}
+                onChange={e => setForgotEmail(e.target.value)}
+                error={forgotError}
+                required
+                icon={
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="20"
+                    height="20"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+                    <polyline points="22,6 12,13 2,6"></polyline>
+                  </svg>
+                }
+              />
+              <Button type="submit" variant="primary" fullWidth disabled={forgotSubmitting}>
+                {forgotSubmitting ? 'Sending...' : 'Send Reset Link'}
+              </Button>
+            </form>
             </motion.div>
           </motion.div>
-        )}
+      )}
       </AnimatePresence>
 
       <AnimatePresence>
-        {showDeviceModal && deviceInfo && (
+      {showDeviceModal && deviceInfo && (
           <motion.div 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -389,13 +389,13 @@ export default function LoginPage() {
               transition={{ duration: 0.2 }}
               className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 p-8 relative border border-gray-100"
             >
-              <button
-                onClick={() => setShowDeviceModal(false)}
+            <button
+              onClick={() => setShowDeviceModal(false)}
                 className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors p-1 rounded-full hover:bg-gray-100"
-                aria-label="Close"
-              >
+              aria-label="Close"
+            >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-              </button>
+            </button>
               <div className="text-center mb-6">
                 <div className="mx-auto w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center mb-4">
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -413,20 +413,20 @@ export default function LoginPage() {
                   <div className="flex justify-between"><span className="font-medium">Browser:</span> <span>{deviceInfo?.browser || 'unknown'}</span></div>
                   <div className="flex justify-between"><span className="font-medium">Last Used:</span> <span>{deviceInfo?.lastUsedAt ? new Date(deviceInfo.lastUsedAt).toLocaleString() : 'unknown'}</span></div>
                 </div>
-              </div>
+            </div>
               <div className="flex items-center mb-6 p-3 bg-blue-50 rounded-lg">
-                <input
-                  id="forceLogout"
-                  type="checkbox"
-                  checked={forceLogout}
-                  onChange={e => setForceLogout(e.target.checked)}
+              <input
+                id="forceLogout"
+                type="checkbox"
+                checked={forceLogout}
+                onChange={e => setForceLogout(e.target.checked)}
                   className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                />
+              />
                 <label htmlFor="forceLogout" className="ml-3 text-sm text-gray-700">Log out from all other devices and continue here</label>
-              </div>
-              <Button type="button" variant="primary" fullWidth onClick={handleDeviceModalConfirm}>
-                Continue
-              </Button>
+            </div>
+            <Button type="button" variant="primary" fullWidth onClick={handleDeviceModalConfirm}>
+              Continue
+            </Button>
             </motion.div>
           </motion.div>
         )}
@@ -455,9 +455,9 @@ export default function LoginPage() {
               transition={{ duration: 0.5, delay: 0.4 }}
             >
               <h1 className="text-3xl font-bold text-gray-900 mb-2">Welcome back</h1>
-              <p className="text-gray-600">
+            <p className="text-gray-600">
                 Sign in to your insurance management account
-              </p>
+            </p>
             </motion.div>
           </div>
 
@@ -470,59 +470,59 @@ export default function LoginPage() {
             className="space-y-6"
           >
             <div className="space-y-4">
-              <Input
-                label="Email Address"
-                type="email"
-                name="email"
+            <Input
+              label="Email Address"
+              type="email"
+              name="email"
                 placeholder="Enter your email"
-                value={formState.email}
-                onChange={handleInputChange}
-                error={errors.email}
-                required
-                icon={
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
+              value={formState.email}
+              onChange={handleInputChange}
+              error={errors.email}
+              required
+              icon={
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
                     width="18"
                     height="18"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
-                    <polyline points="22,6 12,13 2,6"></polyline>
-                  </svg>
-                }
-              />
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+                  <polyline points="22,6 12,13 2,6"></polyline>
+                </svg>
+              }
+            />
 
-              <Input
-                label="Password"
-                type={showPassword ? "text" : "password"}
-                name="password"
-                placeholder="Enter your password"
-                value={formState.password}
-                onChange={handleInputChange}
-                error={errors.password}
-                required
-                icon={
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
+            <Input
+              label="Password"
+              type={showPassword ? "text" : "password"}
+              name="password"
+              placeholder="Enter your password"
+              value={formState.password}
+              onChange={handleInputChange}
+              error={errors.password}
+              required
+              icon={
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
                     width="18"
                     height="18"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
-                    <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
-                  </svg>
-                }
-              />
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                </svg>
+              }
+            />
             </div>
 
             <div className="flex items-center justify-between">
@@ -540,25 +540,25 @@ export default function LoginPage() {
                 </label>
               </div>
 
-              <button
-                type="button"
+                <button
+                  type="button"
                 className="text-sm font-medium text-blue-600 hover:text-blue-500 transition-colors"
-                onClick={() => setShowForgotPasswordModal(true)}
-              >
+                  onClick={() => setShowForgotPasswordModal(true)}
+                >
                 Forgot password?
-              </button>
+                </button>
             </div>
 
             <motion.div
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
             >
-              <Button
-                type="submit"
-                variant="primary"
-                size="lg"
-                fullWidth
-                disabled={isSubmitting}
+            <Button
+              type="submit"
+              variant="primary"
+              size="lg"
+              fullWidth
+              disabled={isSubmitting}
                 className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-lg"
               >
                 {isSubmitting ? (
@@ -572,7 +572,7 @@ export default function LoginPage() {
                 ) : (
                   'Sign in'
                 )}
-              </Button>
+            </Button>
             </motion.div>
           </motion.form>
 
@@ -584,24 +584,24 @@ export default function LoginPage() {
             className="mt-8 pt-6 border-t border-gray-200"
           >
             <div className="text-center space-y-3">
-              <p className="text-sm text-gray-600">
-                Want to become an agent?{' '}
+            <p className="text-sm text-gray-600">
+              Want to become an agent?{' '}
                 <Link href="/register" className="font-medium text-blue-600 hover:text-blue-500 transition-colors">
-                  Apply here
-                </Link>
-              </p>
+                Apply here
+              </Link>
+            </p>
               <p className="text-sm text-gray-600">
-                Are you a client looking to apply for insurance?{' '}
+              Are you a client looking to apply for insurance?{' '}
                 <Link href="/apply" className="font-medium text-blue-600 hover:text-blue-500 transition-colors">
-                  Apply online
-                </Link>
-                {' '}or{' '}
+                Apply online
+              </Link>
+              {' '}or{' '}
                 <Link href="/" className="font-medium text-blue-600 hover:text-blue-500 transition-colors">
-                  find an agent
-                </Link>
-                {' '}near you.
-              </p>
-            </div>
+                find an agent
+              </Link>
+              {' '}near you.
+            </p>
+          </div>
           </motion.div>
         </motion.div>
       </div>

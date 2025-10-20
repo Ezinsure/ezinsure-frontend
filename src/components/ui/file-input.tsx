@@ -11,6 +11,7 @@ interface FileInputProps {
   required?: boolean;
   className?: string;
   currentFile?: string; // Add this new prop
+  resetTrigger?: number; // Add reset trigger prop
 }
 
 export const FileInput = ({
@@ -22,6 +23,7 @@ export const FileInput = ({
   required = false,
   className = '',
   currentFile, // Destructure the new prop
+  resetTrigger, // Destructure the reset trigger prop
 }: FileInputProps) => {
   const [fileName, setFileName] = useState<string>(currentFile || '');
   const [isDragging, setIsDragging] = useState<boolean>(false);
@@ -33,6 +35,17 @@ export const FileInput = ({
       setFileName(currentFile);
     }
   }, [currentFile]);
+
+  // Reset file input when resetTrigger changes
+  useEffect(() => {
+    if (resetTrigger !== undefined) {
+      setFileName('');
+      onChange(null);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  }, [resetTrigger]); // Removed onChange from dependencies to prevent infinite loop
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] || null;
