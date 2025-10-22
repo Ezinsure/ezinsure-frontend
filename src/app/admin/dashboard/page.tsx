@@ -162,6 +162,7 @@ const fetchRecentApplications = async (token: string) => {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
     const data = await response.json();
+    console.log("Recent applications: ", data);
     return data.data || [];
   } catch (error) {
     console.error('Error fetching recent applications:', error);
