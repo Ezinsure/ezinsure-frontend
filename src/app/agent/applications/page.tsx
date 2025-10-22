@@ -13,48 +13,80 @@ import { rwandaProvinces } from '@/utils/rwanda-administrative';
 interface Application {
   _id: string;
   applicationNumber: string;
-  fullName: string;
-  email: string;
-  phoneNumber: string;
-  dateOfBirth: string;
-  address: string;
-  province?: string;
-  district?: string;
-  sector?: string;
   insuranceCategory: string;
   insuranceType: string;
   insuranceDuration: string;
-  isCOMESA?: boolean;
-  vehicleUse?: string;
-  otherVehicleUse?: string;
-  insuranceProvider?: string;
-  vehicleType?: string;
-  vehicleAge?: string;
   status: string;
-  nationalID: string;
-  yellowCard: string;
-  pastInsuranceCertificate?: string;
-  submittedAt: string;
-  proofOfPayment?: string;
-  insuranceCertificate?: string;
-  invoiceId?: string;
   invoice?: string;
-  invoiceAmount?: string;
+  insuranceCertificate?: string;
+  proofOfPayment?: string;
+  paymentInstructions?: string;
   transactionId?: string;
-  rejectionReason?: string;
-  reasonForPaymentRejection?: string;
   amount?: number;
   companyCommission?: number;
   agentCommission?: number;
-  agentId?: string;
-  agentFullName?: string;
+  administrationFees?: string;
+  insuranceProvider?: string;
+  ebm?: string;
+  contract?: string;
+  receipt?: string;
+  submittedAt: string;
   agent?: {
     _id: string;
     fullName: string;
+  } | null;
+  admin?: {
+    _id: string;
+    fullName: string;
+  } | null;
+  client: {
+    _id: string;
+    fullName: string;
+    email: string;
+    phoneNumber: string;
+    dateOfBirth: string;
+    address: string;
+    nationalID: string;
+    identificationDocumentType: string;
+    identificationNumber: string;
+    province: string;
+    district: string;
+    sector: string;
+    createdAt: string;
   };
-  contract?: string;
-  receipt?: string;
-  ebm?: string;
+  vehicle?: {
+    _id: string;
+    clientId: string;
+    vehicleType: string;
+    vehicleAge: string;
+    plateNumber?: string;
+    vehicleUse: string;
+    otherVehicleUse?: string;
+    createdAt: string;
+  };
+  // Legacy fields for backward compatibility
+  fullName?: string;
+  email?: string;
+  phoneNumber?: string;
+  dateOfBirth?: string;
+  address?: string;
+  province?: string;
+  district?: string;
+  sector?: string;
+  isCOMESA?: boolean;
+  vehicleUse?: string;
+  otherVehicleUse?: string;
+  vehicleType?: string;
+  vehicleAge?: string;
+  nationalID?: string;
+  yellowCard?: string;
+  pastInsuranceCertificate?: string;
+  invoiceId?: string;
+  invoiceAmount?: string;
+  rejectionReason?: string;
+  reasonForPaymentRejection?: string;
+  agentId?: string;
+  agentFullName?: string;
   createdAt?: string;
   insuranceEndAt?: string;
   otp?: string;
@@ -822,7 +854,7 @@ export default function AgentApplicationsPage() {
     
     const data = await response.json();
 
-    // console.log(data);
+    console.log('agent applications',data); 
     // Sort applications by submittedAt in descending order (newest first)
     const sortedApplications = data.data.sort((a: Application, b: Application) => {
       return new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime();
@@ -848,11 +880,15 @@ useEffect(() => {
     // Only search fields that have meaningful data
     const searchableFields = [];
     
-    if (app.fullName && app.fullName.trim()) {
-      searchableFields.push(app.fullName.toLowerCase());
+    // Search in client object (new structure) or legacy fields
+    const clientName = app.client?.fullName || app.fullName;
+    const clientEmail = app.client?.email || app.email;
+    
+    if (clientName && clientName.trim()) {
+      searchableFields.push(clientName.toLowerCase());
     }
-    if (app.email && app.email.trim()) {
-      searchableFields.push(app.email.toLowerCase());
+    if (clientEmail && clientEmail.trim()) {
+      searchableFields.push(clientEmail.toLowerCase());
     }
     if (app.applicationNumber && app.applicationNumber.trim()) {
       searchableFields.push(app.applicationNumber.toLowerCase());
@@ -982,19 +1018,26 @@ useEffect(() => {
       doc.text(`Total Agent Commission: ${totalAgentCommission.toLocaleString()} RWF`, 14, filterY);
       
       // Prepare table data with text truncation for better fit
-      const tableData = filteredApplications.map((app, index) => [
-        (index + 1).toString(),
-        (app.fullName || '').length > 28 ? (app.fullName || '').substring(0, 28) + '...' : (app.fullName || ''),
-                  (app.email || '').length > 32 ? (app.email || '').substring(0, 32) + '...' : (app.email || ''),
+      const tableData = filteredApplications.map((app, index) => {
+        const clientName = app.client?.fullName || app.fullName || '';
+        const clientEmail = app.client?.email || app.email || '';
+        const createdBy = app.admin ? `Admin: ${app.admin.fullName}` : 
+                         app.agent ? `Agent: ${app.agent.fullName}` : 'Client';
+        
+        return [
+          (index + 1).toString(),
+          clientName.length > 28 ? clientName.substring(0, 28) + '...' : clientName,
+          clientEmail.length > 32 ? clientEmail.substring(0, 32) + '...' : clientEmail,
           (app.insuranceCategory || '').length > 22 ? (app.insuranceCategory || '').substring(0, 22) + '...' : (app.insuranceCategory || ''),
-                  (app.insuranceType || '').length > 22 ? (app.insuranceType || '').substring(0, 22) + '...' : (app.insuranceType || ''),
-        (app.agent ? app.agent.fullName : 'Client').length > 22 ? (app.agent ? app.agent.fullName : 'Client').substring(0, 22) + '...' : (app.agent ? app.agent.fullName : 'Client'),
-        app.amount ? `${app.amount.toLocaleString()} RWF` : '0 RWF',
-        app.companyCommission ? `${app.companyCommission.toLocaleString()} RWF` : '0 RWF',
-        app.agentCommission ? `${app.agentCommission.toLocaleString()} RWF` : '0 RWF',
-        app.submittedAt ? new Date(app.submittedAt).toLocaleDateString() : 'N/A',
-        (app.status || '').replace('_', ' ').toUpperCase()
-      ]);
+          (app.insuranceType || '').length > 22 ? (app.insuranceType || '').substring(0, 22) + '...' : (app.insuranceType || ''),
+          createdBy.length > 22 ? createdBy.substring(0, 22) + '...' : createdBy,
+          app.amount ? `${app.amount.toLocaleString()} RWF` : '0 RWF',
+          app.companyCommission ? `${app.companyCommission.toLocaleString()} RWF` : '0 RWF',
+          app.agentCommission ? `${app.agentCommission.toLocaleString()} RWF` : '0 RWF',
+          app.submittedAt ? new Date(app.submittedAt).toLocaleDateString() : 'N/A',
+          (app.status || '').replace('_', ' ').toUpperCase()
+        ];
+      });
       
       // Add table
       autoTable.default(doc, {
@@ -1578,9 +1621,9 @@ const getActionButtons = (app: Application) => {
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap">
                         <div className="text-sm font-medium text-gray-900">
-                          {app.fullName || 'N/A'}
+                          {app.client?.fullName || app.fullName || 'N/A'}
                         </div>
-                        <div className="text-sm text-gray-500">{app.phoneNumber || 'N/A'}</div>
+                        <div className="text-sm text-gray-500">{app.client?.phoneNumber || app.phoneNumber || 'N/A'}</div>
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-900 capitalize">
@@ -1628,7 +1671,7 @@ const getActionButtons = (app: Application) => {
         <div className="fixed inset-0 bg-gray-600/50 flex items-center justify-center z-50">
           <div className="max-h-[90vh] overflow-y-auto bg-white rounded-lg shadow-xl p-6 w-full max-w-md mx-4 fade-in">
             <h3 className="text-lg font-semibold mb-4">
-              Upload Payment Proof for {selectedApp.fullName || 'N/A'}
+              Upload Payment Proof for {selectedApp.client?.fullName || selectedApp.fullName || 'N/A'}
             </h3>
             <div className="space-y-4">
               <div className="border rounded-lg p-4 bg-gray-50">
@@ -1746,19 +1789,19 @@ const getActionButtons = (app: Application) => {
               <div className="space-y-4">
                 <div>
                   <p className="text-sm text-gray-500">Full Name</p>
-                                          <p className="font-semibold">{selectedApp.fullName || 'N/A'}</p>
+                  <p className="font-semibold">{selectedApp.client?.fullName || selectedApp.fullName || 'N/A'}</p>
                 </div>
                 <div>
                   <p className="text-sm text-gray-500">Email</p>
-                  <p className="font-semibold">{selectedApp.email ? selectedApp.email : 'Empty'}</p>
+                  <p className="font-semibold">{selectedApp.client?.email || selectedApp.email ? selectedApp.client?.email || selectedApp.email : 'Empty'}</p>
                 </div>
                 <div>
                   <p className="text-sm text-gray-500">Phone</p>
-                  <p className="font-semibold">{selectedApp.phoneNumber}</p>
+                  <p className="font-semibold">{selectedApp.client?.phoneNumber || selectedApp.phoneNumber}</p>
                 </div>
                 <div>
                   <p className="text-sm text-gray-500">Date of Birth</p>
-                  <p className="font-semibold">{formatDate(selectedApp.dateOfBirth)}</p>
+                  <p className="font-semibold">{formatDate(selectedApp.client?.dateOfBirth || selectedApp.dateOfBirth || '')}</p>
                 </div>
               </div>
 
@@ -1766,24 +1809,24 @@ const getActionButtons = (app: Application) => {
               <div className="space-y-4">
                 <div>
                   <p className="text-sm text-gray-500">Address</p>
-                  <p className="font-semibold">{selectedApp.address}</p>
+                  <p className="font-semibold">{selectedApp.client?.address || selectedApp.address}</p>
                 </div>
-                {selectedApp.province && (
+                {(selectedApp.client?.province || selectedApp.province) && (
                   <div>
                     <p className="text-sm text-gray-500">Province</p>
-                    <p className="font-semibold">{selectedApp.province}</p>
+                    <p className="font-semibold">{selectedApp.client?.province || selectedApp.province}</p>
                   </div>
                 )}
-                {selectedApp.district && (
+                {(selectedApp.client?.district || selectedApp.district) && (
                   <div>
                     <p className="text-sm text-gray-500">District</p>
-                    <p className="font-semibold">{selectedApp.district}</p>
+                    <p className="font-semibold">{selectedApp.client?.district || selectedApp.district}</p>
                   </div>
                 )}
-                {selectedApp.sector && (
+                {(selectedApp.client?.sector || selectedApp.sector) && (
                   <div>
                     <p className="text-sm text-gray-500">Sector</p>
-                    <p className="font-semibold">{selectedApp.sector}</p>
+                    <p className="font-semibold">{selectedApp.client?.sector || selectedApp.sector}</p>
                   </div>
                 )}
               </div>
@@ -1809,8 +1852,11 @@ const getActionButtons = (app: Application) => {
                   </div>
                 )}
                 <div>
-                  <p className="text-sm text-gray-500">Agent</p>
-                  <p className="font-semibold">{selectedApp.agent ? selectedApp.agent.fullName : 'Client'}</p>
+                  <p className="text-sm text-gray-500">Created By</p>
+                  <p className="font-semibold">
+                    {selectedApp.admin ? `Admin: ${selectedApp.admin.fullName}` : 
+                     selectedApp.agent ? `Agent: ${selectedApp.agent.fullName}` : 'Client'}
+                  </p>
                 </div>
                 {selectedApp.amount && (
                   <div>
@@ -1833,25 +1879,25 @@ const getActionButtons = (app: Application) => {
               {/* Vehicle Information (if applicable) */}
               {(selectedApp.insuranceCategory === 'Car Insurance' || selectedApp.insuranceCategory === 'MotorBike Insurance') && (
   <div className="space-y-4">
-    {selectedApp.vehicleType && (
+    {(selectedApp.vehicle?.vehicleType || selectedApp.vehicleType) && (
       <div>
         <p className="text-sm text-gray-500">Vehicle Type</p>
-        <p className="font-semibold">{selectedApp.vehicleType}</p>
+        <p className="font-semibold">{selectedApp.vehicle?.vehicleType || selectedApp.vehicleType}</p>
       </div>
     )}
-    {selectedApp.vehicleAge && (
+    {(selectedApp.vehicle?.vehicleAge || selectedApp.vehicleAge) && (
       <div>
         <p className="text-sm text-gray-500">Vehicle Year</p>
-        <p className="font-semibold">{selectedApp.vehicleAge}</p>
+        <p className="font-semibold">{selectedApp.vehicle?.vehicleAge || selectedApp.vehicleAge}</p>
       </div>
     )}
-    {selectedApp.vehicleUse && (
+    {(selectedApp.vehicle?.vehicleUse || selectedApp.vehicleUse) && (
       <div>
         <p className="text-sm text-gray-500">Vehicle Use</p>
         <p className="font-semibold">
-          {selectedApp.vehicleUse === 'Other' 
-            ? selectedApp.otherVehicleUse 
-            : selectedApp.vehicleUse}
+          {(selectedApp.vehicle?.vehicleUse || selectedApp.vehicleUse) === 'Other' 
+            ? (selectedApp.vehicle?.otherVehicleUse || selectedApp.otherVehicleUse)
+            : (selectedApp.vehicle?.vehicleUse || selectedApp.vehicleUse)}
         </p>
       </div>
     )}
@@ -1882,7 +1928,7 @@ const getActionButtons = (app: Application) => {
                   className="bg-white p-3 rounded border text-left hover:bg-gray-50"
                   onClick={() => setViewingDocument({
                     name: 'National ID / Passport',
-                    path: selectedApp.nationalID
+                    path: selectedApp.client?.nationalID || selectedApp.nationalID || ''
                   })}
                 >
                   <p className="text-sm font-medium">National ID / Passport</p>

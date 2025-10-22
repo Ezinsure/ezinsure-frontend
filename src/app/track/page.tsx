@@ -35,51 +35,82 @@ const motoUses = [
 export interface Application {
   _id: string;
   applicationNumber: string;
-  fullName: string;
-  email: string;
-  phoneNumber: string;
-  dateOfBirth: string;
-  address: string;
+  insuranceCategory: string;
+  insuranceType: string;
+  insuranceDuration: string;
+  status: string;
+  invoice?: string;
+  insuranceCertificate?: string;
+  proofOfPayment?: string;
+  paymentInstructions?: string;
+  transactionId?: string;
+  amount?: number;
+  companyCommission?: number;
+  agentCommission?: number;
+  administrationFees?: string;
+  insuranceProvider: string;
+  ebm?: string;
+  contract?: string;
+  receipt?: string;
+  submittedAt: string;
+  agent?: {
+    _id: string;
+    fullName: string;
+  } | null;
+  admin?: {
+    _id: string;
+    fullName: string;
+  } | null;
+  client: {
+    _id: string;
+    fullName: string;
+    email: string;
+    phoneNumber: string;
+    dateOfBirth: string;
+    address: string;
+    nationalID: string;
+    identificationDocumentType: string;
+    identificationNumber: string;
+    province: string;
+    district: string;
+    sector: string;
+    createdAt: string;
+  };
+  vehicle?: {
+    _id: string;
+    clientId: string;
+    vehicleType: string;
+    vehicleAge: string;
+    plateNumber?: string;
+    vehicleUse: string;
+    otherVehicleUse?: string;
+    createdAt: string;
+  };
+  // Legacy fields for backward compatibility
+  fullName?: string;
+  email?: string;
+  phoneNumber?: string;
+  dateOfBirth?: string;
+  address?: string;
   province?: string;
   district?: string;
   sector?: string;
-  insuranceCategory: string; 
-  insuranceType: string;
-  insuranceDuration: string;
   vehicleType?: string;
   vehicleAge?: string;
   isCOMESA?: boolean;
   vehicleUse?: string;
   otherVehicleUse?: string;
-  status: string;
-  nationalID: string;
-  yellowCard: string;
-  pastInsuranceCertificate: string | null;
-  agentId: string | null;
+  nationalID?: string;
+  yellowCard?: string;
+  pastInsuranceCertificate?: string | null;
+  agentId?: string | null;
   agentFullName?: string;
-  agent?: {
-    _id: string;
-    fullName: string;
-  };
-  submittedAt: string;
   rejectionReason?: string;
-  reasonForPaymentRejection: string;
-  proofOfPayment?: string;
+  reasonForPaymentRejection?: string;
   otp?: string;
   otpExpires?: string;
-  amount?: number;
-  paymentInstructions?: string;
-  companyCommission?: number;
-  agentCommission?: number;
-  insuranceCertificate?: string;
   invoiceId?: string;
-  invoice?: string;
   invoiceAmount?: string;
-  insuranceProvider: string;
-  transactionId?: string;
-  contract?: string;
-  receipt?: string;
-  ebm?: string;
   createdAt?: string;
   insuranceEndAt?: string;
 }
@@ -249,19 +280,19 @@ const EditApplicationModal = ({ isOpen, onClose, onSave, application, isLoading 
       return {};
     }
     return {
-      fullName: application.fullName,
-      email: application.email,
-      phoneNumber: application.phoneNumber,
-      address: application.address,
-      dateOfBirth: application.dateOfBirth,
+      fullName: application.client?.fullName || application.fullName,
+      email: application.client?.email || application.email,
+      phoneNumber: application.client?.phoneNumber || application.phoneNumber,
+      address: application.client?.address || application.address,
+      dateOfBirth: application.client?.dateOfBirth || application.dateOfBirth,
       insuranceCategory: application.insuranceCategory,
       insuranceType: application.insuranceType,
       insuranceDuration: application.insuranceDuration,
-      vehicleType: application.vehicleType,  
-      vehicleAge: application.vehicleAge, 
-      province: application.province,
-      district: application.district,
-      sector: application.sector,
+      vehicleType: application.vehicle?.vehicleType || application.vehicleType,  
+      vehicleAge: application.vehicle?.vehicleAge || application.vehicleAge, 
+      province: application.client?.province || application.province,
+      district: application.client?.district || application.district,
+      sector: application.client?.sector || application.sector,
       insuranceProvider: application.insuranceProvider,
       vehicleUse: parsedVehicleUse,
       otherVehicleUse: parsedOtherVehicleUse,
@@ -314,19 +345,19 @@ const EditApplicationModal = ({ isOpen, onClose, onSave, application, isLoading 
       const { vehicleUse: parsedVehicleUse, otherVehicleUse: parsedOtherVehicleUse } = parseVehicleUse(application.vehicleUse);
       
       setFormState({
-        fullName: application.fullName,
-        email: application.email,
-        phoneNumber: application.phoneNumber,
-        address: application.address,
-        dateOfBirth: application.dateOfBirth,
+        fullName: application.client?.fullName || application.fullName,
+        email: application.client?.email || application.email,
+        phoneNumber: application.client?.phoneNumber || application.phoneNumber,
+        address: application.client?.address || application.address,
+        dateOfBirth: application.client?.dateOfBirth || application.dateOfBirth,
         insuranceCategory: application.insuranceCategory,
         insuranceType: application.insuranceType,
         insuranceDuration: application.insuranceDuration,
-        vehicleType: application.vehicleType,  
-        vehicleAge: application.vehicleAge, 
-        province: application.province,
-        district: application.district,
-        sector: application.sector,
+        vehicleType: application.vehicle?.vehicleType || application.vehicleType,  
+        vehicleAge: application.vehicle?.vehicleAge || application.vehicleAge, 
+        province: application.client?.province || application.province,
+        district: application.client?.district || application.district,
+        sector: application.client?.sector || application.sector,
         insuranceProvider: application.insuranceProvider,
         vehicleUse: parsedVehicleUse,
         otherVehicleUse: parsedOtherVehicleUse,
@@ -879,7 +910,7 @@ const EditApplicationModal = ({ isOpen, onClose, onSave, application, isLoading 
                       onChange={handleFileChange('nationalID')}
                       error={errors.nationalID}
                       accept="image/*,.pdf"
-                      currentFile={application.nationalID?.split('/').pop()}
+                      currentFile={(application.client?.nationalID || application.nationalID)?.split('/').pop()}
                     />
 
                     <FileInput
@@ -1207,40 +1238,40 @@ const handleEditSuccess = async (): Promise<void> => {
           <div className="space-y-2">
             <div>
               <p className="text-sm text-gray-500">Full Name</p>
-              <p className="font-medium">{application.fullName || 'Unknown'}</p>
+              <p className="font-medium">{application.client?.fullName || application.fullName || 'Unknown'}</p>
             </div>
             <div>
               <p className="text-sm text-gray-500">Email</p>
-              <p className="font-medium">{application.email ? application.email : 'Empty'}</p>
+              <p className="font-medium">{application.client?.email || application.email ? application.client?.email || application.email : 'Empty'}</p>
             </div>
             <div>
               <p className="text-sm text-gray-500">Phone</p>
-              <p className="font-medium">{application.phoneNumber || 'Unknown'}</p>
+              <p className="font-medium">{application.client?.phoneNumber || application.phoneNumber || 'Unknown'}</p>
             </div>
             <div>
               <p className="text-sm text-gray-500">Date of Birth</p>
-              <p className="font-medium">{formatDate(application.dateOfBirth)}</p>
+              <p className="font-medium">{formatDate(application.client?.dateOfBirth || application.dateOfBirth || '')}</p>
             </div>
             <div>
               <p className="text-sm text-gray-500">Address</p>
-              <p className="font-medium">{application.address || 'Unknown' }</p>
+              <p className="font-medium">{application.client?.address || application.address || 'Unknown' }</p>
             </div>
-            {application.province && (
+            {(application.client?.province || application.province) && (
               <div>
                 <p className="text-sm text-gray-500">Province</p>
-                <p className="font-medium">{application.province}</p>
+                <p className="font-medium">{application.client?.province || application.province}</p>
               </div>
             )}
-            {application.district && (
+            {(application.client?.district || application.district) && (
               <div>
                 <p className="text-sm text-gray-500">District</p>
-                <p className="font-medium">{application.district}</p>
+                <p className="font-medium">{application.client?.district || application.district}</p>
               </div>
             )}
-            {application.sector && (
+            {(application.client?.sector || application.sector) && (
               <div>
                 <p className="text-sm text-gray-500">Sector</p>
-                <p className="font-medium">{application.sector}</p>
+                <p className="font-medium">{application.client?.sector || application.sector}</p>
               </div>
             )}
           </div>
@@ -1273,31 +1304,37 @@ const handleEditSuccess = async (): Promise<void> => {
                 <p className="font-medium">{application.agent.fullName}</p>
               </div>
             )}
+            {application.admin && (
+              <div>
+                <p className="text-sm text-gray-500">Admin</p>
+                <p className="font-medium">{application.admin.fullName}</p>
+              </div>
+            )}
             <div>
               <p className="text-sm text-gray-500">Duration</p>
               <p className="font-medium">{application.insuranceDuration}</p>
             </div>
             {(application.insuranceCategory === 'Car Insurance' || application.insuranceCategory === 'MotorBike Insurance') && (
               <>
-                {application.vehicleType && (
+                {(application.vehicle?.vehicleType || application.vehicleType) && (
                   <div>
                     <p className="text-sm text-gray-500">Vehicle Type</p>
-                    <p className="font-medium">{application.vehicleType}</p>
+                    <p className="font-medium">{application.vehicle?.vehicleType || application.vehicleType}</p>
                   </div>
                 )}
-                {application.vehicleAge && (
+                {(application.vehicle?.vehicleAge || application.vehicleAge) && (
                   <div>
                     <p className="text-sm text-gray-500">Vehicle Year</p>
-                    <p className="font-medium">{application.vehicleAge}</p>
+                    <p className="font-medium">{application.vehicle?.vehicleAge || application.vehicleAge}</p>
                   </div>
                 )}
-                {application.vehicleUse && (
+                {(application.vehicle?.vehicleUse || application.vehicleUse) && (
                   <div>
                     <p className="text-sm text-gray-500">Vehicle Use</p>
                     <p className="font-medium">
-                      {application.vehicleUse === 'Other' 
-                        ? application.otherVehicleUse 
-                        : application.vehicleUse}
+                      {(application.vehicle?.vehicleUse || application.vehicleUse) === 'Other' 
+                        ? (application.vehicle?.otherVehicleUse || application.otherVehicleUse)
+                        : (application.vehicle?.vehicleUse || application.vehicleUse)}
                     </p>
                   </div>
                 )}
@@ -1343,7 +1380,7 @@ const handleEditSuccess = async (): Promise<void> => {
             <Button 
               variant="text" 
               size="sm"
-              onClick={() => handleViewDocument('National ID / Passport', application.nationalID)}
+              onClick={() => handleViewDocument('National ID / Passport', application.client?.nationalID || application.nationalID || '')}
             >
               View
             </Button>
