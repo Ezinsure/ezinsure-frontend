@@ -5,6 +5,7 @@ import { MainLayout } from '@/components/ui/main-layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/components/ui/toast';
+import { DocumentViewer } from '@/components/ui/document-viewer';
 import { useAuth } from '@/context/AuthContext';
 
 // Application statuses
@@ -21,53 +22,102 @@ enum ApplicationStatus {
 interface Application {
   _id: string;
   applicationNumber: string;
-  fullName: string;
-  email: string;
-  phoneNumber: string;
-  dateOfBirth: string;
-  address: string;
   insuranceCategory: string;
   insuranceType: string;
   insuranceDuration: string;
-  isCOMESA?: boolean;
-  vehicleUse?: string;
-  otherVehicleUse?: string;
-  insuranceProvider?: string;
   status: string;
-  nationalID: string;
-  yellowCard: string;
-  pastInsuranceCertificate?: string;
-  submittedAt: string;
-  proofOfPayment?: string;
-  insuranceCertificate?: string;
-  invoiceId?: string;
   invoice?: string;
-  invoiceAmount?: string;
-  transactionId?: string;
-  rejectionReason?: string;
-  amount?: number;
+  insuranceCertificate?: string;
+  proofOfPayment?: string;
   paymentInstructions?: string;
+  transactionId?: string;
+  amount?: number;
   companyCommission?: number;
   agentCommission?: number;
-  agentId?: string;
-  agentFullName?: string;
+  administrationFees?: string;
+  insuranceProvider?: string;
+  ebm?: string;
+  contract?: string;
+  receipt?: string;
+  submittedAt: string;
   agent?: {
     _id: string;
     fullName: string;
+  } | null;
+  admin?: {
+    _id: string;
+    fullName: string;
+  } | null;
+  client: {
+    _id: string;
+    fullName: string;
+    email: string;
+    phoneNumber: string;
+    dateOfBirth: string;
+    address: string;
+    nationalID: string;
+    identificationDocumentType: string;
+    identificationNumber: string;
+    province: string;
+    district: string;
+    sector: string;
+    createdAt: string;
   };
+  vehicle?: {
+    _id: string;
+    clientId: string;
+    vehicleType: string;
+    vehicleAge: string;
+    plateNumber?: string;
+    vehicleUse: string;
+    otherVehicleUse?: string;
+    createdAt: string;
+  };
+  // Legacy fields for backward compatibility
+  fullName?: string;
+  email?: string;
+  phoneNumber?: string;
+  dateOfBirth?: string;
+  address?: string;
+  nationalID?: string;
+  yellowCard?: string;
+  pastInsuranceCertificate?: string;
+  invoiceId?: string;
+  invoiceAmount?: string;
+  rejectionReason?: string;
+  agentId?: string;
+  agentFullName?: string;
   reasonForPaymentRejection?: string;
   vehicleType?: string;
   vehicleAge?: string;
+  plateNumber?: string;
   province?: string;
   district?: string;
   sector?: string;
-  contract?: string;
-  receipt?: string;
-  ebm?: string;
   createdAt?: string;
   insuranceEndAt?: string;
   otp?: string;
   otpExpires?: string;
+  isCOMESA?: boolean;
+  vehicleUse?: string;
+  otherVehicleUse?: string;
+  deviceInfo?: {
+    platform: string;
+    operatingSystem: string;
+    browser: string;
+    ipAddress: string;
+    userAgent: string;
+    city: string;
+    country: string;
+    regionName: string;
+  };
+  locationInfo?: {
+    latitude: string;
+    longitude: string;
+    city: string;
+    region: string;
+    country: string;
+  };
 }
 
 interface PaginationProps {
@@ -80,12 +130,17 @@ export default function AdminMyApplicationsPage() {
   const { showToast, ToastContainer } = useToast();
   const { token } = useAuth();
   const [applications, setApplications] = useState<Application[]>([]);
+  const [selectedApp, setSelectedApp] = useState<Application | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [startDate, setStartDate] = useState<string>('');
   const [endDate, setEndDate] = useState<string>('');
   const [isLoading, setIsLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
+  const [viewingDocument, setViewingDocument] = useState<{
+    name: string;
+    path: string;
+  } | null>(null);
   const itemsPerPage = 10;
 
   // Helper functions for date filtering
@@ -109,7 +164,7 @@ export default function AdminMyApplicationsPage() {
   const fetchApplications = async () => {
     try {
       setIsLoading(true);
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/applications`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/getApplicationsByAdmin`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -129,6 +184,8 @@ export default function AdminMyApplicationsPage() {
         const dateB = b.submittedAt ? new Date(b.submittedAt).getTime() : 0;
         return dateB - dateA;
       });
+
+      console.log("Sorted Applications: ", sortedApplications);
       
       setApplications(sortedApplications);
     } catch {
@@ -149,11 +206,15 @@ export default function AdminMyApplicationsPage() {
     // Only search fields that have meaningful data
     const searchableFields = [];
     
-    if (app.fullName && app.fullName.trim()) {
-      searchableFields.push(app.fullName.toLowerCase());
+    // Search in client object (new structure) or legacy fields
+    const clientName = app.client?.fullName || app.fullName;
+    const clientEmail = app.client?.email || app.email;
+    
+    if (clientName && clientName.trim()) {
+      searchableFields.push(clientName.toLowerCase());
     }
-    if (app.email && app.email.trim()) {
-      searchableFields.push(app.email.toLowerCase());
+    if (clientEmail && clientEmail.trim()) {
+      searchableFields.push(clientEmail.toLowerCase());
     }
     if (app.applicationNumber && app.applicationNumber.trim()) {
       searchableFields.push(app.applicationNumber.toLowerCase());
@@ -501,12 +562,11 @@ export default function AdminMyApplicationsPage() {
         <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase tracking-wider">Client</th>
         <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase tracking-wider">Insurance Category</th>
         <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase tracking-wider">Insurance End Date</th>
-        <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase tracking-wider">Agent</th>
         <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase tracking-wider">Amount</th>
         <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase tracking-wider">Company Commission</th>
-        <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase tracking-wider">Agent Commission</th>
         <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase tracking-wider">Date</th>
         <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase tracking-wider">Status</th>
+        <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase tracking-wider">Actions</th>
   </tr>
 </thead>
                 <tbody className="divide-y divide-gray-200">
@@ -518,8 +578,8 @@ export default function AdminMyApplicationsPage() {
     <td className="px-4 py-4 text-sm whitespace-nowrap">
       <div className="flex items-center">
         <div>
-          <div className="text-sm font-medium text-gray-900">{app.fullName || 'N/A'}</div>
-          <div className="text-sm text-gray-500">{app.email || 'N/A'}</div>
+          <div className="text-sm font-medium text-gray-900">{app.client?.fullName || app.fullName || 'N/A'}</div>
+          <div className="text-sm text-gray-500">{app.client?.email || app.email || 'N/A'}</div>
         </div>
       </div>
     </td>
@@ -533,18 +593,6 @@ export default function AdminMyApplicationsPage() {
     </td>
     <td className="px-4 py-4 text-sm whitespace-nowrap">
       <div className="text-sm text-gray-900">
-        {app.agent ? (
-          <>
-            <div className="font-medium text-[var(--main-blue)]">Agent</div>
-            <div className="text-gray-600">{app.agent.fullName}</div>
-          </>
-        ) : (
-          <div className="font-medium text-gray-700">Client</div>
-        )}
-      </div>
-    </td>
-    <td className="px-4 py-4 text-sm whitespace-nowrap">
-      <div className="text-sm text-gray-900">
         {app.amount ? `${app.amount.toLocaleString()} RWF` : '0 RWF'}
       </div>
     </td>
@@ -553,14 +601,22 @@ export default function AdminMyApplicationsPage() {
         {app.companyCommission ? `${app.companyCommission.toLocaleString()} RWF` : '0 RWF'}
       </div>
     </td>
-    <td className="px-4 py-4 text-sm whitespace-nowrap">
-      <div className="text-sm text-gray-900">
-        {app.agentCommission ? `${app.agentCommission.toLocaleString()} RWF` : '0 RWF'}
-      </div>
-    </td>
     <td className="px-4 py-4 text-sm whitespace-nowrap text-gray-500">{app.submittedAt ? new Date(app.submittedAt).toLocaleDateString() : 'N/A'}</td>
     <td className="px-4 py-4 text-sm whitespace-nowrap">
       {getStatusBadge(app.status)}
+    </td>
+    <td className="px-4 py-4 text-sm whitespace-nowrap font-medium">
+      <div className="flex space-x-2">
+        <Button 
+          size="xs" 
+          variant="text"
+          onClick={() => {
+            setSelectedApp(app);
+          }}
+        >
+          View Details
+        </Button>
+      </div>
     </td>
   </tr>
 ))}
@@ -575,6 +631,451 @@ export default function AdminMyApplicationsPage() {
           )}
         </div>
       </div>
+
+      {/* Modal for viewing details */}
+      {selectedApp && (
+        <div className="fixed inset-0 bg-gray-600/50 flex items-center justify-center z-50">
+          <div className="max-h-[90vh] overflow-y-auto bg-white rounded-lg shadow-xl p-8 w-full max-w-4xl mx-4 fade-in">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-xl font-semibold text-gray-900">Application Details</h3>
+              <button onClick={() => setSelectedApp(null)} className="text-gray-400 hover:text-gray-600 transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            
+            <div className="bg-[var(--light-gray)] p-6 rounded-lg mb-6">
+              <div className="flex justify-between items-center">
+                <div>
+                  <p className="text-sm text-gray-500 mb-1">Application ID</p>
+                  <p className="font-semibold text-lg">#{selectedApp.applicationNumber}</p>
+                </div>
+                <div>
+                  {getStatusBadge(selectedApp.status)}
+                </div>
+              </div>
+            </div>
+            
+            {/* Enhanced Application Details Section */}
+            <div className="space-y-6">
+              {/* Personal Information */}
+              <div className="bg-white rounded-lg border border-gray-200 p-6">
+                <h4 className="text-base font-semibold text-gray-900 mb-4">Personal Information</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <p className="text-sm text-gray-500 mb-1">Full Name</p>
+                    <p className="font-medium text-gray-900">{selectedApp.client?.fullName || selectedApp.fullName}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500 mb-1">Email</p>
+                    <p className="font-medium text-gray-900">{selectedApp.client?.email || selectedApp.email ? selectedApp.client?.email || selectedApp.email : 'Empty'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500 mb-1">Phone</p>
+                    <p className="font-medium text-gray-900">{selectedApp.client?.phoneNumber || selectedApp.phoneNumber || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500 mb-1">Date of Birth</p>
+                    <p className="font-medium text-gray-900">{new Date(selectedApp.client?.dateOfBirth || selectedApp.dateOfBirth || '').toLocaleDateString()}</p>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Address Information */}
+              <div className="bg-white rounded-lg border border-gray-200 p-6">
+                <h4 className="text-base font-semibold text-gray-900 mb-4">Address Information</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <p className="text-sm text-gray-500 mb-1">Address</p>
+                    <p className="font-medium text-gray-900">{selectedApp.client?.address || selectedApp.address}</p>
+                  </div>
+                  {(selectedApp.client?.province || selectedApp.province) && (
+                    <div>
+                      <p className="text-sm text-gray-500 mb-1">Province</p>
+                      <p className="font-medium text-gray-900">{selectedApp.client?.province || selectedApp.province}</p>
+                    </div>
+                  )}
+                  {(selectedApp.client?.district || selectedApp.district) && (
+                    <div>
+                      <p className="text-sm text-gray-500 mb-1">District</p>
+                      <p className="font-medium text-gray-900">{selectedApp.client?.district || selectedApp.district}</p>
+                    </div>
+                  )}
+                  {(selectedApp.client?.sector || selectedApp.sector) && (
+                    <div>
+                      <p className="text-sm text-gray-500 mb-1">Sector</p>
+                      <p className="font-medium text-gray-900">{selectedApp.client?.sector || selectedApp.sector}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+              
+              {/* Insurance Information */}
+              <div className="bg-white rounded-lg border border-gray-200 p-6">
+                <h4 className="text-base font-semibold text-gray-900 mb-4">Insurance Information</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <p className="text-sm text-gray-500 mb-1">Insurance Category</p>
+                    <p className="font-medium text-gray-900">{selectedApp.insuranceCategory || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500 mb-1">Insurance Type</p>
+                    <p className="font-medium text-gray-900">{selectedApp.insuranceType || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500 mb-1">Duration</p>
+                    <p className="font-medium text-gray-900">{selectedApp.insuranceDuration || 'N/A'}</p>
+                  </div>
+                  {selectedApp.insuranceEndAt && (
+                    <div>
+                      <p className="text-sm text-gray-500 mb-1">Insurance End Date</p>
+                      <p className="font-medium text-gray-900">{new Date(selectedApp.insuranceEndAt).toLocaleDateString()}</p>
+                    </div>
+                  )}
+                  <div>
+                    <p className="text-sm text-gray-500 mb-1">Created By</p>
+                    <p className="font-medium text-gray-900">
+                      {selectedApp.admin ? `Admin: ${selectedApp.admin.fullName}` : 
+                       selectedApp.agent ? `Agent: ${selectedApp.agent.fullName}` : 'Client'}
+                    </p>
+                  </div>
+                  {selectedApp.amount && (
+                    <div>
+                      <p className="text-sm text-gray-500 mb-1">Amount</p>
+                      <p className="font-medium text-gray-900">{selectedApp.amount.toLocaleString()} RWF</p>
+                    </div>
+                  )}
+                  {selectedApp.insuranceProvider && (
+                    <div>
+                      <p className="text-sm text-gray-500 mb-1">Insurance Provider</p>
+                      <p className="font-medium text-gray-900">{selectedApp.insuranceProvider}</p>
+                    </div>
+                  )}
+                  {selectedApp.isCOMESA !== undefined && (
+                    <div>
+                      <p className="text-sm text-gray-500 mb-1">COMESA Coverage</p>
+                      <p className="font-medium text-gray-900">{selectedApp.isCOMESA ? 'Yes' : 'No'}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+              
+              {/* Vehicle Information (if applicable) */}
+              {(selectedApp.insuranceCategory === 'Car Insurance' || selectedApp.insuranceCategory === 'MotorBike Insurance') && (
+                <div className="bg-white rounded-lg border border-gray-200 p-6">
+                  <h4 className="text-base font-semibold text-gray-900 mb-4">Vehicle Information</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {(selectedApp.vehicle?.vehicleType || selectedApp.vehicleType) && (
+                      <div>
+                        <p className="text-sm text-gray-500 mb-1">Vehicle Type</p>
+                        <p className="font-medium text-gray-900">{selectedApp.vehicle?.vehicleType || selectedApp.vehicleType}</p>
+                      </div>
+                    )}
+                    {(selectedApp.vehicle?.vehicleAge || selectedApp.vehicleAge) && (
+                      <div>
+                        <p className="text-sm text-gray-500 mb-1">Vehicle Year</p>
+                        <p className="font-medium text-gray-900">{selectedApp.vehicle?.vehicleAge || selectedApp.vehicleAge}</p>
+                      </div>
+                    )}
+                    {(selectedApp.vehicle?.plateNumber || selectedApp.plateNumber) && (
+                      <div>
+                        <p className="text-sm text-gray-500 mb-1">Plate Number</p>
+                        <p className="font-medium text-gray-900">{selectedApp.vehicle?.plateNumber || selectedApp.plateNumber}</p>
+                      </div>
+                    )}
+                    {(selectedApp.vehicle?.vehicleUse || selectedApp.vehicleUse) && (
+                      <div>
+                        <p className="text-sm text-gray-500 mb-1">Vehicle Use</p>
+                        <p className="font-medium text-gray-900">
+                          {(selectedApp.vehicle?.vehicleUse || selectedApp.vehicleUse) === 'Other' 
+                            ? (selectedApp.vehicle?.otherVehicleUse || selectedApp.otherVehicleUse)
+                            : (selectedApp.vehicle?.vehicleUse || selectedApp.vehicleUse)}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+              
+              {/* Commission Information (if available) */}
+              {(selectedApp.companyCommission || selectedApp.agentCommission) && (
+                <div className="bg-white rounded-lg border border-gray-200 p-6">
+                  <h4 className="text-base font-semibold text-gray-900 mb-4">Commission Information</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {selectedApp.companyCommission && (
+                      <div>
+                        <p className="text-sm text-gray-500 mb-1">Company Commission</p>
+                        <p className="font-medium text-gray-900">{selectedApp.companyCommission.toLocaleString()} RWF</p>
+                      </div>
+                    )}
+                    {selectedApp.agent && selectedApp.agentCommission && (
+                      <div>
+                        <p className="text-sm text-gray-500 mb-1">Agent Commission</p>
+                        <p className="font-medium text-gray-900">{selectedApp.agentCommission.toLocaleString()} RWF</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+              
+              {/* Device Information (always show) */}
+              <div className="bg-white rounded-lg border border-gray-200 p-6">
+                <h4 className="text-base font-semibold text-gray-900 mb-4">Device Information</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <p className="text-sm text-gray-500 mb-1">Device Type</p>
+                    <p className="font-medium text-gray-900">{selectedApp.deviceInfo?.platform || 'Unknown'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500 mb-1">Operating System</p>
+                    <p className="font-medium text-gray-900">{selectedApp.deviceInfo?.operatingSystem || 'Unknown'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500 mb-1">Browser</p>
+                    <p className="font-medium text-gray-900">{selectedApp.deviceInfo?.browser || 'Unknown'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500 mb-1">IP Address</p>
+                    <p className="font-medium text-gray-900">{selectedApp.deviceInfo?.ipAddress || 'Unknown'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500 mb-1">User Agent</p>
+                    <p className="font-medium text-gray-900 break-all">{selectedApp.deviceInfo?.userAgent || 'Unknown'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500 mb-1">City</p>
+                    <p className="font-medium text-gray-900">{selectedApp.deviceInfo?.city || 'Unknown'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500 mb-1">Country</p>
+                    <p className="font-medium text-gray-900">{selectedApp.deviceInfo?.country || 'Unknown'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500 mb-1">Region</p>
+                    <p className="font-medium text-gray-900">{selectedApp.deviceInfo?.regionName || 'Unknown'}</p>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Location Information (always show) */}
+              <div className="bg-white rounded-lg border border-gray-200 p-6">
+                <h4 className="text-base font-semibold text-gray-900 mb-4">Location Information</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <p className="text-sm text-gray-500 mb-1">City</p>
+                    <p className="font-medium text-gray-900">{selectedApp.locationInfo?.city || 'Unknown'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500 mb-1">Region</p>
+                    <p className="font-medium text-gray-900">{selectedApp.locationInfo?.region || 'Unknown'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500 mb-1">Country</p>
+                    <p className="font-medium text-gray-900">{selectedApp.locationInfo?.country || 'Unknown'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500 mb-1">Coordinates</p>
+                    <p className="font-medium text-gray-900">
+                      {(selectedApp.locationInfo?.latitude && selectedApp.locationInfo?.longitude)
+                        ? `${selectedApp.locationInfo.latitude}, ${selectedApp.locationInfo.longitude}`
+                        : 'Unknown'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            {/* Rejection Reason (if exists) */}
+            {(selectedApp.rejectionReason) && (
+              <div className="mt-6 bg-red-50 p-6 rounded-lg border border-red-100">
+                <h4 className="font-medium text-red-700 mb-2">Rejection Reason</h4>
+                <p className="text-red-600">{selectedApp.rejectionReason}</p>
+              </div>
+            )}
+            
+            {/* Reason For Payment rejection (if exists) */}
+            {(selectedApp.reasonForPaymentRejection) && (
+              <div className="mt-6 bg-red-50 p-6 rounded-lg border border-red-100">
+                <h4 className="font-medium text-red-700 mb-2">Reason For Payment Rejection</h4>
+                <p className="text-red-600">{selectedApp.reasonForPaymentRejection}</p>
+              </div>
+            )}
+            
+            {/* Timestamps */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+              <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+                <p className="text-sm text-gray-500 mb-1">Submitted At</p>
+                <p className="font-medium text-gray-900">
+                  {selectedApp.submittedAt ? new Date(selectedApp.submittedAt).toLocaleString() : 'N/A'}
+                </p>
+              </div>
+              <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+                <p className="text-sm text-gray-500 mb-1">Created At</p>
+                <p className="font-medium text-gray-900">
+                  {selectedApp.createdAt ? new Date(selectedApp.createdAt).toLocaleString() : 'N/A'}
+                </p>
+              </div>
+            </div>
+            
+            {/* Documents Section */}
+            <div className="bg-[var(--light-gray)] p-6 rounded-lg mt-6">
+              <h4 className="text-base font-semibold text-gray-900 mb-4">Documents</h4>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <button 
+                  className="bg-white p-4 rounded-lg border border-gray-200 text-left hover:bg-gray-50 transition-colors"
+                  onClick={() => setViewingDocument({
+                    name: 'National ID / Passport',
+                    path: selectedApp.client?.nationalID || selectedApp.nationalID || ''
+                  })}
+                >
+                  <p className="text-sm font-medium text-gray-900">National ID / Passport</p>
+                  <p className="text-xs text-gray-500 mt-1">View Document</p>
+                </button>
+                
+                <button 
+                  className="bg-white p-4 rounded-lg border border-gray-200 text-left hover:bg-gray-50 transition-colors"
+                  onClick={() => setViewingDocument({
+                    name: 'Yellow Card',
+                    path: selectedApp.yellowCard || ''
+                  })}
+                >
+                  <p className="text-sm font-medium text-gray-900">Yellow Card</p>
+                  <p className="text-xs text-gray-500 mt-1">View Document</p>
+                </button>
+                
+                {selectedApp.pastInsuranceCertificate && (
+                  <button 
+                    className="bg-white p-4 rounded-lg border border-gray-200 text-left hover:bg-gray-50 transition-colors"
+                    onClick={() => setViewingDocument({
+                      name: 'Past Insurance Certificate',
+                      path: selectedApp.pastInsuranceCertificate || ''
+                    })}
+                  >
+                    <p className="text-sm font-medium text-gray-900">Past Insurance</p>
+                    <p className="text-xs text-gray-500 mt-1">View Document</p>
+                  </button>
+                )}
+                
+                {selectedApp.proofOfPayment && (
+                  <button 
+                    className="bg-white p-4 rounded-lg border border-gray-200 text-left hover:bg-gray-50 transition-colors"
+                    onClick={() => setViewingDocument({
+                      name: 'Proof of Payment',
+                      path: selectedApp.proofOfPayment || ''
+                    })}
+                  >
+                    <p className="text-sm font-medium text-gray-900">Proof of Payment</p>
+                    <p className="text-xs text-gray-500 mt-1">View Document</p>
+                  </button>
+                )}
+                
+                {selectedApp.invoice && (
+                  <button 
+                    className="bg-white p-4 rounded-lg border border-gray-200 text-left hover:bg-gray-50 transition-colors"
+                    onClick={() => setViewingDocument({
+                      name: 'Quotation / Invoice',
+                      path: selectedApp.invoice || ''
+                    })}
+                  >
+                    <p className="text-sm font-medium text-gray-900">Quotation / Invoice</p>
+                    <p className="text-xs text-gray-500 mt-1">View Document</p>
+                  </button>
+                )}
+                
+                {selectedApp.insuranceCertificate && (
+                  <button 
+                    className="bg-white p-4 rounded-lg border border-gray-200 text-left hover:bg-gray-50 transition-colors"
+                    onClick={() => setViewingDocument({
+                      name: 'Insurance Certificate',
+                      path: selectedApp.insuranceCertificate || ''
+                    })}
+                  >
+                    <p className="text-sm font-medium text-gray-900">Insurance Certificate</p>
+                    <p className="text-xs text-gray-500 mt-1">View Document</p>
+                  </button>
+                )}
+                {selectedApp.contract && (
+                  <button 
+                    className="bg-white p-4 rounded-lg border border-gray-200 text-left hover:bg-gray-50 transition-colors"
+                    onClick={() => setViewingDocument({
+                      name: 'Contract',
+                      path: selectedApp.contract || ''
+                    })}
+                  >
+                    <p className="text-sm font-medium text-gray-900">Contract</p>
+                    <p className="text-xs text-gray-500 mt-1">View Document</p>
+                  </button>
+                )}
+                {selectedApp.receipt && (
+                  <button 
+                    className="bg-white p-4 rounded-lg border border-gray-200 text-left hover:bg-gray-50 transition-colors"
+                    onClick={() => setViewingDocument({
+                      name: 'Receipt',
+                      path: selectedApp.receipt || ''
+                    })}
+                  >
+                    <p className="text-sm font-medium text-gray-900">Receipt</p>
+                    <p className="text-xs text-gray-500 mt-1">View Document</p>
+                  </button>
+                )}
+                {selectedApp.ebm && (
+                  <button 
+                    className="bg-white p-4 rounded-lg border border-gray-200 text-left hover:bg-gray-50 transition-colors"
+                    onClick={() => setViewingDocument({
+                      name: 'EBM',
+                      path: selectedApp.ebm || ''
+                    })}
+                  >
+                    <p className="text-sm font-medium text-gray-900">EBM</p>
+                    <p className="text-xs text-gray-500 mt-1">View Document</p>
+                  </button>
+                )}
+              </div>
+            </div>
+            
+            {/* Invoice & Payment Information (if available) */}
+            {selectedApp.invoice && (
+              <div className="bg-[var(--light-gray)] p-6 rounded-lg mt-6">
+                <h4 className="text-base font-semibold text-gray-900 mb-4">Invoice & Payment</h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {selectedApp.amount && (
+                    <div className="bg-white p-4 rounded-lg border border-gray-200">
+                      <p className="text-sm font-medium text-gray-900">Amount</p>
+                      <p className="text-sm text-gray-500 mt-1">{selectedApp.amount} RWF</p>
+                    </div>
+                  )}
+                  {selectedApp.paymentInstructions && (
+                    <div className="bg-white p-4 rounded-lg border border-gray-200">
+                      <p className="text-sm font-medium text-gray-900">Payment Instructions</p>
+                      <p className="text-sm text-gray-500 mt-1">{selectedApp.paymentInstructions}</p>
+                    </div>
+                  )}
+                  {selectedApp.transactionId && (
+                    <div className="bg-white p-4 rounded-lg border border-gray-200">
+                      <p className="text-sm font-medium text-gray-900">Transaction ID</p>
+                      <p className="text-sm text-gray-500 mt-1">{selectedApp.transactionId}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+            
+            <div className="flex justify-end mt-6">
+              <Button variant="text" onClick={() => setSelectedApp(null)}>Close</Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Document viewer modal */}
+      {viewingDocument && (
+        <DocumentViewer
+          documentName={viewingDocument.name}
+          documentPath={viewingDocument.path}
+          onClose={() => setViewingDocument(null)}
+        />
+      )}
 
       <ToastContainer />
     </MainLayout>
