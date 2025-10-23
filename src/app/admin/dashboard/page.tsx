@@ -301,7 +301,7 @@ const AdminDashboard = () => {
     fetchRecentApplications(token).then((apps: TrackApplication[] = []) => {
       const mapped: Application[] = apps.map((app) => ({
         id: app.applicationNumber || app._id,
-        client: app.fullName,
+        client: app.fullName || 'Unknown Client',
         type: app.insuranceCategory,
         amount: app.amount ? app.amount.toString() : '-',
         status: app.status,
@@ -576,7 +576,11 @@ const CustomTooltip: React.FC<TooltipProps<number, string>> = ({ active, payload
   });
 
   // Add getStatusBadge helper for status styling
-  const getStatusBadge = (status: string) => {
+  const getStatusBadge = (status: string | undefined) => {
+    if (!status) {
+      return <span className="px-2 py-1 rounded-full bg-gray-100 text-gray-700 text-[9px] font-medium">Unknown</span>;
+    }
+    
     switch (status.toLowerCase()) {
       case 'pending':
         return <span className="px-2 py-1 rounded-full bg-blue-100 text-blue-700 text-[9px] font-medium">Pending</span>;

@@ -1393,7 +1393,7 @@ const handleEditSuccess = async (): Promise<void> => {
             <Button 
               variant="text" 
               size="sm"
-              onClick={() => handleViewDocument('Yellow Card', application.yellowCard)}
+              onClick={() => handleViewDocument('Yellow Card', application.yellowCard || '')}
             >
               View
             </Button>

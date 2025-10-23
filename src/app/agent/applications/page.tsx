@@ -386,7 +386,7 @@ const [formState, setFormState] = useState<Partial<Application>>(() => {
           }
           
           // Get original value from nested objects or legacy fields
-          let originalValue: any;
+          let originalValue: unknown;
           if (key === 'fullName' || key === 'email' || key === 'phoneNumber' || key === 'address' || 
               key === 'dateOfBirth' || key === 'province' || key === 'district' || key === 'sector' ||
               key === 'nationalID' || key === 'identificationDocumentType' || key === 'identificationNumber') {
