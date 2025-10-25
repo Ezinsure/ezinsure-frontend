@@ -238,7 +238,6 @@ interface ApplicationFormData {
   paymentInstructions: string;
   invoice: File | null;
   // Commission Information
-  agentCommission: string;
   companyCommission: string;
   administrationFees: string;
   // Payment Verification
@@ -603,8 +602,6 @@ export default function AdminNewApplicationPage() {
 
     // Commission Information
 
-    agentCommission: '',
-
     companyCommission: '',
 
     administrationFees: '',
@@ -662,7 +659,6 @@ export default function AdminNewApplicationPage() {
     identificationNumber: { required: true },
     // Admin-specific required fields
     amount: { required: true },
-    agentCommission: { required: true },
     companyCommission: { required: true },
     administrationFees: { required: true },
     paymentInstructions: { required: true },
@@ -1147,8 +1143,6 @@ export default function AdminNewApplicationPage() {
             paymentInstructions: 'Please make your payment to one of the following:\nBank of Kigali: 100000129075 (SONARWA)\nOr via Momo Account: 051499 (SONARWA) \nOr Agency at Kimihurura (KBC) under SOLEKTRA',
 
             invoice: null,
-
-            agentCommission: '',
 
             companyCommission: '',
 
@@ -2194,30 +2188,6 @@ export default function AdminNewApplicationPage() {
                         placeholder="Enter amount"
 
                         error={errors.amount}
-
-                        required
-
-                      />
-
-                    </div>
-
-                    <div>
-
-                      <Input
-
-                        label="Agent Commission (RWF)"
-
-                        type="number"
-
-                        name="agentCommission"
-
-                        value={formData.agentCommission}
-
-                        onChange={handleInputChange}
-
-                        placeholder="Enter agent commission"
-
-                        error={errors.agentCommission}
 
                         required
 
