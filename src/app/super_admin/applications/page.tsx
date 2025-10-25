@@ -536,21 +536,21 @@ export default function SuperAdminApplicationsPage() {
   const getStatusBadge = (status: string) => {
     switch (status.toLowerCase()) {
       case ApplicationStatus.PENDING:
-        return <span className="px-2 py-1 rounded-full bg-blue-100 text-blue-700 text-[9px] font-medium">Pending</span>;
+        return <span className="px-3 py-1.5 rounded-full bg-blue-100 text-blue-700 text-xs font-medium">Pending</span>;
       case ApplicationStatus.APPLICATION_APPROVED:
-        return <span className="px-2 py-1 rounded-full bg-green-100 text-green-700 text-[9px] font-medium">Application Approved</span>;
+        return <span className="px-3 py-1.5 rounded-full bg-green-100 text-green-700 text-xs font-medium">Application Approved</span>;
       case ApplicationStatus.WAITING_FOR_USER_ACTION:
-        return <span className="px-2 py-1 rounded-full bg-orange-100 text-orange-700 text-[9px] font-medium">Waiting for User Action</span>;
+        return <span className="px-3 py-1.5 rounded-full bg-orange-100 text-orange-700 text-xs font-medium">Waiting for User Action</span>;
       case ApplicationStatus.INVOICE_SENT:
-        return <span className="px-2 py-1 rounded-full bg-indigo-100 text-indigo-700 text-[9px] font-medium">Invoice Sent</span>;
+        return <span className="px-3 py-1.5 rounded-full bg-indigo-100 text-indigo-700 text-xs font-medium">Invoice Sent</span>;
       case ApplicationStatus.REVIEW_PAYMENT:
-        return <span className="px-2 py-1 rounded-full bg-purple-100 text-purple-700 text-[9px] font-medium">Review Payment</span>;
+        return <span className="px-3 py-1.5 rounded-full bg-purple-100 text-purple-700 text-xs font-medium">Review Payment</span>;
       case ApplicationStatus.PAYMENT_VERIFIED:
-        return <span className="px-2 py-1 rounded-full bg-green-100 text-green-700 text-[9px] font-medium">Payment Verified</span>;
+        return <span className="px-3 py-1.5 rounded-full bg-purple-100 text-purple-700 text-xs font-medium">Payment Verified</span>;
       case ApplicationStatus.INSURANCE_ISSUED:
-        return <span className="px-2 py-1 rounded-full bg-emerald-100 text-emerald-700 text-[9px] font-medium">Insurance Issued</span>;
+        return <span className="px-3 py-1.5 rounded-full bg-emerald-100 text-emerald-700 text-xs font-medium">Insurance Issued</span>;
       default:
-        return <span className="px-2 py-1 rounded-full bg-gray-100 text-gray-700 text-[9px] font-medium">Unknown</span>;
+        return <span className="px-3 py-1.5 rounded-full bg-gray-100 text-gray-700 text-xs font-medium">Unknown</span>;
     }
   };
 
@@ -1162,18 +1162,6 @@ export default function SuperAdminApplicationsPage() {
                     <p className="text-sm text-gray-500 mb-1">User Agent</p>
                     <p className="font-medium text-gray-900 break-all">{selectedApp.deviceInfo?.userAgent || 'Unknown'}</p>
                   </div>
-                  <div>
-                    <p className="text-sm text-gray-500 mb-1">City</p>
-                    <p className="font-medium text-gray-900">{selectedApp.deviceInfo?.city || 'Unknown'}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500 mb-1">Country</p>
-                    <p className="font-medium text-gray-900">{selectedApp.deviceInfo?.country || 'Unknown'}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500 mb-1">Region</p>
-                    <p className="font-medium text-gray-900">{selectedApp.deviceInfo?.regionName || 'Unknown'}</p>
-                  </div>
                 </div>
               </div>
               
@@ -1227,12 +1215,6 @@ export default function SuperAdminApplicationsPage() {
                 <p className="text-sm text-gray-500 mb-1">Submitted At</p>
                 <p className="font-medium text-gray-900">
                   {selectedApp.submittedAt ? new Date(selectedApp.submittedAt).toLocaleString() : 'N/A'}
-                </p>
-              </div>
-              <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
-                <p className="text-sm text-gray-500 mb-1">Created At</p>
-                <p className="font-medium text-gray-900">
-                  {selectedApp.createdAt ? new Date(selectedApp.createdAt).toLocaleString() : 'N/A'}
                 </p>
               </div>
             </div>

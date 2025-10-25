@@ -611,15 +611,15 @@ export default function SuperAdminUsersPage() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'ACTIVE':
-        return <span className="px-2 py-1 rounded-full bg-green-100 text-green-800 text-xs font-medium">Active</span>;
+        return <span className="px-3 py-1.5 rounded-full bg-green-100 text-green-800 text-xs font-medium">Active</span>;
       case 'DEACTIVATED':
-        return <span className="px-2 py-1 rounded-full bg-red-100 text-red-800 text-xs font-medium">Deactivated</span>;
+        return <span className="px-3 py-1.5 rounded-full bg-red-100 text-red-800 text-xs font-medium">Deactivated</span>;
       case 'SENT_FOR_ACTION':
-        return <span className="px-2 py-1 rounded-full bg-orange-100 text-orange-800 text-xs font-medium">Sent for Action</span>;
+        return <span className="px-3 py-1.5 rounded-full bg-orange-100 text-orange-800 text-xs font-medium">Sent for Action</span>;
       case 'PENDING':
-        return <span className="px-2 py-1 rounded-full bg-yellow-100 text-yellow-800 text-xs font-medium">Pending</span>;
+        return <span className="px-3 py-1.5 rounded-full bg-yellow-100 text-yellow-800 text-xs font-medium">Pending</span>;
       default:
-        return <span className="px-2 py-1 rounded-full bg-gray-100 text-gray-800 text-xs font-medium">Unknown</span>;
+        return <span className="px-3 py-1.5 rounded-full bg-gray-100 text-gray-800 text-xs font-medium">Unknown</span>;
     }
   };
 

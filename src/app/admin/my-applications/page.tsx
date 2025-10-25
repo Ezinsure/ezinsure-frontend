@@ -825,18 +825,6 @@ export default function AdminMyApplicationsPage() {
                     <p className="text-sm text-gray-500 mb-1">User Agent</p>
                     <p className="font-medium text-gray-900 break-all">{selectedApp.deviceInfo?.userAgent || 'Unknown'}</p>
                   </div>
-                  <div>
-                    <p className="text-sm text-gray-500 mb-1">City</p>
-                    <p className="font-medium text-gray-900">{selectedApp.deviceInfo?.city || 'Unknown'}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500 mb-1">Country</p>
-                    <p className="font-medium text-gray-900">{selectedApp.deviceInfo?.country || 'Unknown'}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500 mb-1">Region</p>
-                    <p className="font-medium text-gray-900">{selectedApp.deviceInfo?.regionName || 'Unknown'}</p>
-                  </div>
                 </div>
               </div>
             </div>
@@ -863,12 +851,6 @@ export default function AdminMyApplicationsPage() {
                 <p className="text-sm text-gray-500 mb-1">Submitted At</p>
                 <p className="font-medium text-gray-900">
                   {selectedApp.submittedAt ? new Date(selectedApp.submittedAt).toLocaleString() : 'N/A'}
-                </p>
-              </div>
-              <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
-                <p className="text-sm text-gray-500 mb-1">Created At</p>
-                <p className="font-medium text-gray-900">
-                  {selectedApp.createdAt ? new Date(selectedApp.createdAt).toLocaleString() : 'N/A'}
                 </p>
               </div>
             </div>

@@ -2189,6 +2189,8 @@ export default function AdminNewApplicationPage() {
 
                         error={errors.amount}
 
+                        min="0"
+
                         required
 
                       />
@@ -2213,6 +2215,8 @@ export default function AdminNewApplicationPage() {
 
                         error={errors.companyCommission}
 
+                        min="0"
+
                         required
 
                       />
@@ -2236,6 +2240,8 @@ export default function AdminNewApplicationPage() {
                         placeholder="Administration fees (auto-calculated)"
 
                         error={errors.administrationFees}
+
+                        min="0"
 
                         disabled
 
