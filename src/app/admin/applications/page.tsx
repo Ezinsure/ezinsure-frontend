@@ -1406,24 +1406,6 @@ const getActionButtons = (app: Application) => {
             <p className="text-sm text-gray-500">Address</p>
             <p className="font-semibold">{selectedApp.client?.address || selectedApp.address || 'N/A'}</p>
           </div>
-          {(selectedApp.client?.province || selectedApp.province) && (
-            <div>
-              <p className="text-sm text-gray-500">Province</p>
-              <p className="font-semibold">{selectedApp.client?.province || selectedApp.province}</p>
-            </div>
-          )}
-          {(selectedApp.client?.district || selectedApp.district) && (
-            <div>
-              <p className="text-sm text-gray-500">District</p>
-              <p className="font-semibold">{selectedApp.client?.district || selectedApp.district}</p>
-            </div>
-          )}
-          {(selectedApp.client?.sector || selectedApp.sector) && (
-            <div>
-              <p className="text-sm text-gray-500">Sector</p>
-              <p className="font-semibold">{selectedApp.client?.sector || selectedApp.sector}</p>
-            </div>
-          )}
         </div>
         
         {/* Insurance Info */}
@@ -2032,24 +2014,6 @@ const getActionButtons = (app: Application) => {
             <p className="text-sm text-gray-500">Address</p>
             <p className="font-semibold">{selectedApp.client?.address || selectedApp.address || 'N/A'}</p>
           </div>
-          {(selectedApp.client?.province || selectedApp.province) && (
-            <div>
-              <p className="text-sm text-gray-500">Province</p>
-              <p className="font-semibold">{selectedApp.client?.province || selectedApp.province}</p>
-            </div>
-          )}
-          {(selectedApp.client?.district || selectedApp.district) && (
-            <div>
-              <p className="text-sm text-gray-500">District</p>
-              <p className="font-semibold">{selectedApp.client?.district || selectedApp.district}</p>
-            </div>
-          )}
-          {(selectedApp.client?.sector || selectedApp.sector) && (
-            <div>
-              <p className="text-sm text-gray-500">Sector</p>
-              <p className="font-semibold">{selectedApp.client?.sector || selectedApp.sector}</p>
-            </div>
-          )}
         </div>
         
         {/* Insurance Information */}
