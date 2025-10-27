@@ -54,6 +54,14 @@ interface InsuranceDistributionAPI {
 }
 
 // Define interfaces for revenue and daily metrics
+interface RevenueAnalyticsAPIResponse {
+  month: string;
+  totalRevenue?: number;
+  totalApplications?: number;
+  totalAgents?: number;
+  conversionRate?: number;
+}
+
 interface RevenueDataPoint {
   month: string;
   revenue?: number;
@@ -429,7 +437,7 @@ const AdminDashboard = () => {
       .then(res => res.json())
       .then(data => {
         // Transform the data to match the chart's expected structure
-        const transformedData = (data.data || []).map((item: any) => ({
+        const transformedData = (data.data || []).map((item: RevenueAnalyticsAPIResponse) => ({
           month: item.month,
           revenue: item.totalRevenue || 0,
           applications: item.totalApplications || 0,
