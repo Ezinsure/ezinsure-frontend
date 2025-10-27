@@ -203,7 +203,7 @@ export default function SuperAdminUsersPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [token, showToast]);
+  }, [token]);
 
   useEffect(() => {
     fetchUsers();

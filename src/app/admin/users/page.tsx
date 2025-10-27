@@ -193,7 +193,7 @@ setUsers(sortedUsers);
 } finally {
   setIsLoading(false);
 }
-}, [token, showToast]);
+}, [token]);
 
   // Fetch users from API
   useEffect(() => {

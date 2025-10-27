@@ -210,7 +210,7 @@ export default function SuperAdminApplicationsPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [token, showToast]);
+  }, [token]);
 
   useEffect(() => {
     if (token) {

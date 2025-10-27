@@ -238,7 +238,7 @@ const [isRejecting, setIsRejecting] = useState(false);
     } finally {
       setIsLoading(false);
     }
-  }, [token, showToast]);
+  }, [token]);
 
   useEffect(() => {
     if (token) {
