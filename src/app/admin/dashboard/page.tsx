@@ -15,7 +15,7 @@ interface Application {
   status: string;
   insuranceCategory: string;
   insuranceType: string;
-  amount: number;
+  amount?: number;
   submittedAt: string;
   agent: {
     id: string;
@@ -428,9 +428,21 @@ const AdminDashboard = () => {
     })
       .then(res => res.json())
       .then(data => {
-        setRevenueData(data.data || []);
+        // Transform the data to match the chart's expected structure
+        const transformedData = (data.data || []).map((item: any) => ({
+          month: item.month,
+          revenue: item.totalRevenue || 0,
+          applications: item.totalApplications || 0,
+          agents: item.totalAgents || 0,
+          conversion: item.conversionRate || 0
+        }));
+        console.log('Revenue Analytics Data:', transformedData);
+        setRevenueData(transformedData);
       })
-      .catch(() => setRevenueData([]))
+      .catch((error) => {
+        console.error('Error fetching revenue analytics:', error);
+        setRevenueData([]);
+      })
       .finally(() => setIsRevenueLoading(false));
   }, [token]);
 
@@ -908,7 +920,7 @@ const CustomTooltip: React.FC<TooltipProps<number, string>> = ({ active, payload
                       />
                       <div>
                         <span className="text-sm font-medium text-gray-900">{type.name}</span>
-                        <p className="text-xs text-gray-500">{type.value.toLocaleString()} applications</p>
+                        <p className="text-xs text-gray-500">{(type.value || 0).toLocaleString()} applications</p>
                       </div>
                     </div>
                     <span className="text-sm font-bold text-gray-900">{type.percent}%</span>
@@ -1134,7 +1146,7 @@ const CustomTooltip: React.FC<TooltipProps<number, string>> = ({ active, payload
                         </div>
                       </div>
                       <div className="text-right">
-                        <p className="font-bold text-gray-900">{app.amount.toLocaleString()} RWF</p>
+                        <p className="font-bold text-gray-900">{(app.amount || 0).toLocaleString()} RWF</p>
                         {getStatusBadge(app.status)}
                       </div>
                     </div>
