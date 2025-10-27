@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { MainLayout } from '@/components/ui/main-layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -21,48 +21,81 @@ enum ApplicationStatus {
 interface Application {
   _id: string;
   applicationNumber: string;
-  fullName: string;
-  email: string;
-  phoneNumber: string;
-  dateOfBirth: string;
-  address: string;
   insuranceCategory: string;
   insuranceType: string;
   insuranceDuration: string;
-  isCOMESA?: boolean;
-  vehicleUse?: string;
-  otherVehicleUse?: string;
-  insuranceProvider?: string;
   status: string;
-  nationalID: string;
-  yellowCard: string;
-  pastInsuranceCertificate?: string;
-  submittedAt: string;
-  proofOfPayment?: string;
-  insuranceCertificate?: string;
   invoice?: string;
-  invoiceAmount?: string;
-  transactionId?: string;
-  rejectionReason?: string;
-  amount?: number;
+  insuranceCertificate?: string;
+  proofOfPayment?: string;
   paymentInstructions?: string;
+  transactionId?: string;
+  amount?: number;
   companyCommission?: number;
   agentCommission?: number;
-  agentId?: string;
-  agentFullName?: string;
+  administrationFees?: string;
+  insuranceProvider?: string;
+  ebm?: string;
+  contract?: string;
+  receipt?: string;
+  submittedAt: string;
   agent?: {
     _id: string;
     fullName: string;
+  } | null;
+  admin?: {
+    _id: string;
+    fullName: string;
+  } | null;
+  client: {
+    _id: string;
+    fullName: string;
+    email: string;
+    phoneNumber: string;
+    dateOfBirth: string;
+    address: string;
+    nationalID: string;
+    identificationDocumentType: string;
+    identificationNumber: string;
+    province: string;
+    district: string;
+    sector: string;
+    createdAt: string;
   };
-  reasonForPaymentRejection?: string;
-  vehicleType?: string;
-  vehicleAge?: string;
+  vehicle?: {
+    _id: string;
+    clientId: string;
+    vehicleType: string;
+    vehicleAge: string;
+    plateNumber?: string;
+    vehicleUse: string;
+    otherVehicleUse?: string;
+    createdAt: string;
+  };
+  // Legacy fields for backward compatibility
+  fullName?: string;
+  email?: string;
+  phoneNumber?: string;
+  dateOfBirth?: string;
+  address?: string;
   province?: string;
   district?: string;
   sector?: string;
+  isCOMESA?: boolean;
+  vehicleUse?: string;
+  otherVehicleUse?: string;
+  vehicleType?: string;
+  vehicleAge?: string;
+  plateNumber?: string;
+  nationalID?: string;
+  yellowCard?: string;
+  pastInsuranceCertificate?: string;
+  agentId?: string;
+  agentFullName?: string;
+  reasonForPaymentRejection?: string;
   deviceInfo?: {
-    deviceType: string;
-    os: string;
+    platform: string;
+    operatingSystem: string;
     browser: string;
     ipAddress: string;
     userAgent: string;
@@ -78,12 +111,10 @@ interface Application {
     country: string;
   };
   createdAt: string;
-  contract?: string;
-  receipt?: string;
-  ebm?: string;
   insuranceEndAt?: string;
   otp?: string;
   otpExpires?: string;
+  rejectionReason?: string;
 }
 
 export default function SuperAdminApplicationsPage() {
@@ -152,50 +183,55 @@ export default function SuperAdminApplicationsPage() {
     setShowRightFade(scrollLeft < scrollWidth - clientWidth - 1);
   };
 
-  useEffect(() => {
-    const fetchApplications = async () => {
-      try {
-        setIsLoading(true);
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/getApplications`, {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-        if (!response.ok) {
-          throw new Error('Failed to fetch applications');
+  // Fetch applications from API
+  const fetchApplications = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/getApplications`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
         }
-        const data = await response.json();
-        // Sort applications by submittedAt in descending order (newest first)
-        const sortedApplications = data.data.sort((a: Application, b: Application) => {
-          const dateA = a.submittedAt ? new Date(a.submittedAt).getTime() : 0;
-          const dateB = b.submittedAt ? new Date(b.submittedAt).getTime() : 0;
-          return dateB - dateA;
-        });
-        setApplications(sortedApplications);
-        console.log(sortedApplications);
-      } catch (error) {
-        console.error('Error fetching applications:', error);
-        showToast('Failed to load applications', 'error');
-      } finally {
-        setIsLoading(false);
+      });
+      if (!response.ok) {
+        throw new Error('Failed to fetch applications');
       }
-    };
+      const data = await response.json();
+      // Sort applications by submittedAt in descending order (newest first)
+      const sortedApplications = data.data.sort((a: Application, b: Application) => {
+        const dateA = a.submittedAt ? new Date(a.submittedAt).getTime() : 0;
+        const dateB = b.submittedAt ? new Date(b.submittedAt).getTime() : 0;
+        return dateB - dateA;
+      });
+      setApplications(sortedApplications);
+      console.log(sortedApplications);
+    } catch (error) {
+      console.error('Error fetching applications:', error);
+      showToast('Failed to load applications', 'error');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [token]);
 
+  useEffect(() => {
     if (token) {
       fetchApplications();
     }
-  }, [token]);
+  }, [token, fetchApplications]);
 
   // Filter applications based on search query, status, and date range
   const filteredApplications = applications.filter(app => {
     // Only search fields that have meaningful data
     const searchableFields = [];
     
-    if (app.fullName && app.fullName.trim()) {
-      searchableFields.push(app.fullName.toLowerCase());
+    // Search in client object (new structure) or legacy fields
+    const clientName = app.client?.fullName || app.fullName;
+    const clientEmail = app.client?.email || app.email;
+    
+    if (clientName && clientName.trim()) {
+      searchableFields.push(clientName.toLowerCase());
     }
-    if (app.email && app.email.trim()) {
-      searchableFields.push(app.email.toLowerCase());
+    if (clientEmail && clientEmail.trim()) {
+      searchableFields.push(clientEmail.toLowerCase());
     }
     if (app.applicationNumber && app.applicationNumber.trim()) {
       searchableFields.push(app.applicationNumber.toLowerCase());
@@ -325,19 +361,26 @@ export default function SuperAdminApplicationsPage() {
       doc.text(`Total Agent Commission: ${totalAgentCommission.toLocaleString()} RWF`, 14, filterY);
       
       // Prepare table data with text truncation for better fit
-      const tableData = filteredApplications.map((app, index) => [
-        (index + 1).toString(),
-        (app.fullName || '').length > 28 ? (app.fullName || '').substring(0, 28) + '...' : (app.fullName || ''),
-        (app.email || '').length > 32 ? (app.email || '').substring(0, 32) + '...' : (app.email || ''),
-        (app.insuranceCategory || '').length > 22 ? (app.insuranceCategory || '').substring(0, 22) + '...' : (app.insuranceCategory || ''),
-        app.insuranceEndAt ? new Date(app.insuranceEndAt).toLocaleDateString() : 'N/A',
-        (app.agent ? app.agent.fullName : 'Client').length > 22 ? (app.agent ? app.agent.fullName : 'Client').substring(0, 22) + '...' : (app.agent ? app.agent.fullName : 'Client'),
-        app.amount ? `${app.amount.toLocaleString()} RWF` : '0 RWF',
-        app.companyCommission ? `${app.companyCommission.toLocaleString()} RWF` : '0 RWF',
-        app.agentCommission ? `${app.agentCommission.toLocaleString()} RWF` : '0 RWF',
-        app.submittedAt ? new Date(app.submittedAt).toLocaleDateString() : 'N/A',
-        (app.status || '').replace('_', ' ').toUpperCase()
-      ]);
+      const tableData = filteredApplications.map((app, index) => {
+        const clientName = app.client?.fullName || app.fullName || '';
+        const clientEmail = app.client?.email || app.email || '';
+        const createdBy = app.admin ? `Admin: ${app.admin.fullName}` : 
+                         app.agent ? `Agent: ${app.agent.fullName}` : 'Client';
+        
+        return [
+          (index + 1).toString(),
+          clientName.length > 28 ? clientName.substring(0, 28) + '...' : clientName,
+          clientEmail.length > 32 ? clientEmail.substring(0, 32) + '...' : clientEmail,
+          (app.insuranceCategory || '').length > 22 ? (app.insuranceCategory || '').substring(0, 22) + '...' : (app.insuranceCategory || ''),
+          app.insuranceEndAt ? new Date(app.insuranceEndAt).toLocaleDateString() : 'N/A',
+          createdBy.length > 22 ? createdBy.substring(0, 22) + '...' : createdBy,
+          app.amount ? `${app.amount.toLocaleString()} RWF` : '0 RWF',
+          app.companyCommission ? `${app.companyCommission.toLocaleString()} RWF` : '0 RWF',
+          app.agentCommission ? `${app.agentCommission.toLocaleString()} RWF` : '0 RWF',
+          app.submittedAt ? new Date(app.submittedAt).toLocaleDateString() : 'N/A',
+          (app.status || '').replace('_', ' ').toUpperCase()
+        ];
+      });
       
       // Add table
       autoTable.default(doc, {
@@ -419,32 +462,44 @@ export default function SuperAdminApplicationsPage() {
       ];
       
       // Prepare data rows
-      const csvData = filteredApplications.map((app) => [
-        app.fullName,
-        app.email || '',
-        app.phoneNumber,
-        app.insuranceCategory,
-        app.insuranceType,
-        app.insuranceDuration,
-        app.insuranceEndAt ? new Date(app.insuranceEndAt).toLocaleDateString() : 'N/A',
-        app.agent ? app.agent.fullName : 'Client',
-        app.amount ? app.amount.toString() : '0',
-        app.companyCommission ? app.companyCommission.toString() : '0',
-        app.agentCommission ? app.agentCommission.toString() : '0',
-        app.submittedAt ? new Date(app.submittedAt).toLocaleDateString() : 'N/A',
-        app.status.replace('_', ' '),
-        app.address,
-        app.province || '',
-        app.district || '',
-        app.sector || '',
-        app.deviceInfo?.deviceType || '',
-        app.deviceInfo?.os || '',
-        app.deviceInfo?.browser || '',
-        app.deviceInfo?.ipAddress || '',
-        app.deviceInfo?.city || '',
-        app.deviceInfo?.country || '',
-        app.deviceInfo?.regionName || ''
-      ]);
+      const csvData = filteredApplications.map((app) => {
+        const clientName = app.client?.fullName || app.fullName || '';
+        const clientEmail = app.client?.email || app.email || '';
+        const clientPhone = app.client?.phoneNumber || app.phoneNumber || '';
+        const clientAddress = app.client?.address || app.address || '';
+        const clientProvince = app.client?.province || app.province || '';
+        const clientDistrict = app.client?.district || app.district || '';
+        const clientSector = app.client?.sector || app.sector || '';
+        const createdBy = app.admin ? `Admin: ${app.admin.fullName}` : 
+                         app.agent ? `Agent: ${app.agent.fullName}` : 'Client';
+        
+        return [
+          clientName,
+          clientEmail,
+          clientPhone,
+          app.insuranceCategory,
+          app.insuranceType,
+          app.insuranceDuration,
+          app.insuranceEndAt ? new Date(app.insuranceEndAt).toLocaleDateString() : 'N/A',
+          createdBy,
+          app.amount ? app.amount.toString() : '0',
+          app.companyCommission ? app.companyCommission.toString() : '0',
+          app.agentCommission ? app.agentCommission.toString() : '0',
+          app.submittedAt ? new Date(app.submittedAt).toLocaleDateString() : 'N/A',
+          app.status.replace('_', ' '),
+          clientAddress,
+          clientProvince,
+          clientDistrict,
+          clientSector,
+          app.deviceInfo?.platform || '',
+          app.deviceInfo?.operatingSystem || '',
+          app.deviceInfo?.browser || '',
+          app.deviceInfo?.ipAddress || '',
+          app.deviceInfo?.city || '',
+          app.deviceInfo?.country || '',
+          app.deviceInfo?.regionName || ''
+        ];
+      });
       
       // Combine headers and data
       const csvContent = [
@@ -482,21 +537,21 @@ export default function SuperAdminApplicationsPage() {
   const getStatusBadge = (status: string) => {
     switch (status.toLowerCase()) {
       case ApplicationStatus.PENDING:
-        return <span className="px-2 py-1 rounded-full bg-blue-100 text-blue-700 text-[9px] font-medium">Pending</span>;
+        return <span className="px-3 py-1.5 rounded-full bg-blue-100 text-blue-700 text-xs font-medium">Pending</span>;
       case ApplicationStatus.APPLICATION_APPROVED:
-        return <span className="px-2 py-1 rounded-full bg-green-100 text-green-700 text-[9px] font-medium">Application Approved</span>;
+        return <span className="px-3 py-1.5 rounded-full bg-green-100 text-green-700 text-xs font-medium">Application Approved</span>;
       case ApplicationStatus.WAITING_FOR_USER_ACTION:
-        return <span className="px-2 py-1 rounded-full bg-orange-100 text-orange-700 text-[9px] font-medium">Waiting for User Action</span>;
+        return <span className="px-3 py-1.5 rounded-full bg-orange-100 text-orange-700 text-xs font-medium">Waiting for User Action</span>;
       case ApplicationStatus.INVOICE_SENT:
-        return <span className="px-2 py-1 rounded-full bg-indigo-100 text-indigo-700 text-[9px] font-medium">Invoice Sent</span>;
+        return <span className="px-3 py-1.5 rounded-full bg-indigo-100 text-indigo-700 text-xs font-medium">Invoice Sent</span>;
       case ApplicationStatus.REVIEW_PAYMENT:
-        return <span className="px-2 py-1 rounded-full bg-purple-100 text-purple-700 text-[9px] font-medium">Review Payment</span>;
+        return <span className="px-3 py-1.5 rounded-full bg-purple-100 text-purple-700 text-xs font-medium">Review Payment</span>;
       case ApplicationStatus.PAYMENT_VERIFIED:
-        return <span className="px-2 py-1 rounded-full bg-green-100 text-green-700 text-[9px] font-medium">Payment Verified</span>;
+        return <span className="px-3 py-1.5 rounded-full bg-purple-100 text-purple-700 text-xs font-medium">Payment Verified</span>;
       case ApplicationStatus.INSURANCE_ISSUED:
-        return <span className="px-2 py-1 rounded-full bg-emerald-100 text-emerald-700 text-[9px] font-medium">Insurance Issued</span>;
+        return <span className="px-3 py-1.5 rounded-full bg-emerald-100 text-emerald-700 text-xs font-medium">Insurance Issued</span>;
       default:
-        return <span className="px-2 py-1 rounded-full bg-gray-100 text-gray-700 text-[9px] font-medium">Unknown</span>;
+        return <span className="px-3 py-1.5 rounded-full bg-gray-100 text-gray-700 text-xs font-medium">Unknown</span>;
     }
   };
 
@@ -820,8 +875,8 @@ export default function SuperAdminApplicationsPage() {
     <td className="px-4 py-4 text-sm whitespace-nowrap">
       <div className="flex items-center">
         <div>
-          <div className="text-sm font-medium text-gray-900">{app.fullName}</div>
-          <div className="text-sm text-gray-500">{app.email ? app.email : 'Empty'}</div>
+          <div className="text-sm font-medium text-gray-900">{app.client?.fullName || app.fullName}</div>
+          <div className="text-sm text-gray-500">{app.client?.email || app.email ? app.client?.email || app.email : 'Empty'}</div>
         </div>
       </div>
     </td>
@@ -835,7 +890,12 @@ export default function SuperAdminApplicationsPage() {
     </td>
     <td className="px-4 py-4 text-sm whitespace-nowrap">
       <div className="text-sm text-gray-900">
-        {app.agent ? (
+        {app.admin ? (
+          <>
+            <div className="font-medium text-[var(--main-blue)]">Admin</div>
+            <div className="text-gray-600">{app.admin.fullName}</div>
+          </>
+        ) : app.agent ? (
           <>
             <div className="font-medium text-[var(--main-blue)]">Agent</div>
             <div className="text-gray-600">{app.agent.fullName}</div>
@@ -925,19 +985,19 @@ export default function SuperAdminApplicationsPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <p className="text-sm text-gray-500 mb-1">Full Name</p>
-                    <p className="font-medium text-gray-900">{selectedApp.fullName}</p>
+                    <p className="font-medium text-gray-900">{selectedApp.client?.fullName || selectedApp.fullName}</p>
                   </div>
                   <div>
                     <p className="text-sm text-gray-500 mb-1">Email</p>
-                    <p className="font-medium text-gray-900">{selectedApp.email ? selectedApp.email : 'Empty'}</p>
+                    <p className="font-medium text-gray-900">{selectedApp.client?.email || selectedApp.email ? selectedApp.client?.email || selectedApp.email : 'Empty'}</p>
                   </div>
                   <div>
                     <p className="text-sm text-gray-500 mb-1">Phone</p>
-                    <p className="font-medium text-gray-900">{selectedApp.phoneNumber || 'N/A'}</p>
+                    <p className="font-medium text-gray-900">{selectedApp.client?.phoneNumber || selectedApp.phoneNumber || 'N/A'}</p>
                   </div>
                   <div>
                     <p className="text-sm text-gray-500 mb-1">Date of Birth</p>
-                    <p className="font-medium text-gray-900">{new Date(selectedApp.dateOfBirth).toLocaleDateString()}</p>
+                    <p className="font-medium text-gray-900">{new Date(selectedApp.client?.dateOfBirth || selectedApp.dateOfBirth || '').toLocaleDateString()}</p>
                   </div>
                 </div>
               </div>
@@ -948,24 +1008,24 @@ export default function SuperAdminApplicationsPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <p className="text-sm text-gray-500 mb-1">Address</p>
-                    <p className="font-medium text-gray-900">{selectedApp.address}</p>
+                    <p className="font-medium text-gray-900">{selectedApp.client?.address || selectedApp.address}</p>
                   </div>
-                  {selectedApp.province && (
+                  {(selectedApp.client?.province || selectedApp.province) && (
                     <div>
                       <p className="text-sm text-gray-500 mb-1">Province</p>
-                      <p className="font-medium text-gray-900">{selectedApp.province}</p>
+                      <p className="font-medium text-gray-900">{selectedApp.client?.province || selectedApp.province}</p>
                     </div>
                   )}
-                  {selectedApp.district && (
+                  {(selectedApp.client?.district || selectedApp.district) && (
                     <div>
                       <p className="text-sm text-gray-500 mb-1">District</p>
-                      <p className="font-medium text-gray-900">{selectedApp.district}</p>
+                      <p className="font-medium text-gray-900">{selectedApp.client?.district || selectedApp.district}</p>
                     </div>
                   )}
-                  {selectedApp.sector && (
+                  {(selectedApp.client?.sector || selectedApp.sector) && (
                     <div>
                       <p className="text-sm text-gray-500 mb-1">Sector</p>
-                      <p className="font-medium text-gray-900">{selectedApp.sector}</p>
+                      <p className="font-medium text-gray-900">{selectedApp.client?.sector || selectedApp.sector}</p>
                     </div>
                   )}
                 </div>
@@ -994,8 +1054,11 @@ export default function SuperAdminApplicationsPage() {
                     </div>
                   )}
                   <div>
-                    <p className="text-sm text-gray-500 mb-1">Agent</p>
-                    <p className="font-medium text-gray-900">{selectedApp.agent ? selectedApp.agent.fullName : 'Client'}</p>
+                    <p className="text-sm text-gray-500 mb-1">Created By</p>
+                    <p className="font-medium text-gray-900">
+                      {selectedApp.admin ? `Admin: ${selectedApp.admin.fullName}` : 
+                       selectedApp.agent ? `Agent: ${selectedApp.agent.fullName}` : 'Client'}
+                    </p>
                   </div>
                   {selectedApp.amount && (
                     <div>
@@ -1023,25 +1086,31 @@ export default function SuperAdminApplicationsPage() {
                 <div className="bg-white rounded-lg border border-gray-200 p-6">
                   <h4 className="text-base font-semibold text-gray-900 mb-4">Vehicle Information</h4>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {selectedApp.vehicleType && (
+                    {(selectedApp.vehicle?.vehicleType || selectedApp.vehicleType) && (
                       <div>
                         <p className="text-sm text-gray-500 mb-1">Vehicle Type</p>
-                        <p className="font-medium text-gray-900">{selectedApp.vehicleType}</p>
+                        <p className="font-medium text-gray-900">{selectedApp.vehicle?.vehicleType || selectedApp.vehicleType}</p>
                       </div>
                     )}
-                    {selectedApp.vehicleAge && (
+                    {(selectedApp.vehicle?.vehicleAge || selectedApp.vehicleAge) && (
                       <div>
                         <p className="text-sm text-gray-500 mb-1">Vehicle Year</p>
-                        <p className="font-medium text-gray-900">{selectedApp.vehicleAge}</p>
+                        <p className="font-medium text-gray-900">{selectedApp.vehicle?.vehicleAge || selectedApp.vehicleAge}</p>
                       </div>
                     )}
-                    {selectedApp.vehicleUse && (
+                    {(selectedApp.vehicle?.plateNumber || selectedApp.plateNumber) && (
+                      <div>
+                        <p className="text-sm text-gray-500 mb-1">Plate Number</p>
+                        <p className="font-medium text-gray-900">{selectedApp.vehicle?.plateNumber || selectedApp.plateNumber}</p>
+                      </div>
+                    )}
+                    {(selectedApp.vehicle?.vehicleUse || selectedApp.vehicleUse) && (
                       <div>
                         <p className="text-sm text-gray-500 mb-1">Vehicle Use</p>
                         <p className="font-medium text-gray-900">
-                          {selectedApp.vehicleUse === 'Other' 
-                            ? selectedApp.otherVehicleUse 
-                            : selectedApp.vehicleUse}
+                          {(selectedApp.vehicle?.vehicleUse || selectedApp.vehicleUse) === 'Other' 
+                            ? (selectedApp.vehicle?.otherVehicleUse || selectedApp.otherVehicleUse)
+                            : (selectedApp.vehicle?.vehicleUse || selectedApp.vehicleUse)}
                         </p>
                       </div>
                     )}
@@ -1076,11 +1145,11 @@ export default function SuperAdminApplicationsPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <p className="text-sm text-gray-500 mb-1">Device Type</p>
-                    <p className="font-medium text-gray-900">{selectedApp.deviceInfo?.deviceType || 'Unknown'}</p>
+                    <p className="font-medium text-gray-900">{selectedApp.deviceInfo?.platform || 'Unknown'}</p>
                   </div>
                   <div>
                     <p className="text-sm text-gray-500 mb-1">Operating System</p>
-                    <p className="font-medium text-gray-900">{selectedApp.deviceInfo?.os || 'Unknown'}</p>
+                    <p className="font-medium text-gray-900">{selectedApp.deviceInfo?.operatingSystem || 'Unknown'}</p>
                   </div>
                   <div>
                     <p className="text-sm text-gray-500 mb-1">Browser</p>
@@ -1093,18 +1162,6 @@ export default function SuperAdminApplicationsPage() {
                   <div>
                     <p className="text-sm text-gray-500 mb-1">User Agent</p>
                     <p className="font-medium text-gray-900 break-all">{selectedApp.deviceInfo?.userAgent || 'Unknown'}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500 mb-1">City</p>
-                    <p className="font-medium text-gray-900">{selectedApp.deviceInfo?.city || 'Unknown'}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500 mb-1">Country</p>
-                    <p className="font-medium text-gray-900">{selectedApp.deviceInfo?.country || 'Unknown'}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500 mb-1">Region</p>
-                    <p className="font-medium text-gray-900">{selectedApp.deviceInfo?.regionName || 'Unknown'}</p>
                   </div>
                 </div>
               </div>
@@ -1161,12 +1218,6 @@ export default function SuperAdminApplicationsPage() {
                   {selectedApp.submittedAt ? new Date(selectedApp.submittedAt).toLocaleString() : 'N/A'}
                 </p>
               </div>
-              <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
-                <p className="text-sm text-gray-500 mb-1">Created At</p>
-                <p className="font-medium text-gray-900">
-                  {selectedApp.createdAt ? new Date(selectedApp.createdAt).toLocaleString() : 'N/A'}
-                </p>
-              </div>
             </div>
             
             {/* Documents Section */}
@@ -1177,7 +1228,7 @@ export default function SuperAdminApplicationsPage() {
                   className="bg-white p-4 rounded-lg border border-gray-200 text-left hover:bg-gray-50 transition-colors"
                   onClick={() => setViewingDocument({
                     name: 'National ID / Passport',
-                    path: selectedApp.nationalID
+                    path: selectedApp.client?.nationalID || selectedApp.nationalID || ''
                   })}
                 >
                   <p className="text-sm font-medium text-gray-900">National ID / Passport</p>
@@ -1188,7 +1239,7 @@ export default function SuperAdminApplicationsPage() {
                   className="bg-white p-4 rounded-lg border border-gray-200 text-left hover:bg-gray-50 transition-colors"
                   onClick={() => setViewingDocument({
                     name: 'Yellow Card',
-                    path: selectedApp.yellowCard
+                    path: selectedApp.yellowCard || ''
                   })}
                 >
                   <p className="text-sm font-medium text-gray-900">Yellow Card</p>

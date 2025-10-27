@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { MainLayout } from '@/components/ui/main-layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -176,37 +176,38 @@ export default function SuperAdminUsersPage() {
 
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
-  useEffect(() => {
-    const fetchUsers = async () => {
-      try {
-        setIsLoading(true);
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/getAllusers`, {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          }
-        });
-        if (!response.ok) {
-          throw new Error('Failed to fetch users');
+  // Fetch users from API
+  const fetchUsers = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/getAllusers`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
         }
-
-        const data = await response.json();
-        // console.log(data);
-        const sortedUsers = data.data.sort((a: User, b: User) => {
-          return new Date(b.createdAt || '').getTime() - new Date(a.createdAt || '').getTime();
-        });
-        setUsers(sortedUsers);
-      } catch (error) {
-        console.error('Error fetching users:', error);
-        showToast('Failed to load users', 'error');
-      } finally {
-        setIsLoading(false);
+      });
+      if (!response.ok) {
+        throw new Error('Failed to fetch users');
       }
-    };
 
+      const data = await response.json();
+      // console.log(data);
+      const sortedUsers = data.data.sort((a: User, b: User) => {
+        return new Date(b.createdAt || '').getTime() - new Date(a.createdAt || '').getTime();
+      });
+      setUsers(sortedUsers);
+    } catch (error) {
+      console.error('Error fetching users:', error);
+      showToast('Failed to load users', 'error');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [token]);
+
+  useEffect(() => {
     fetchUsers();
-  }, []);
+  }, [fetchUsers]);
 
   const filteredUsers = users.filter(user => {
     const matchesSearch = 
@@ -611,15 +612,15 @@ export default function SuperAdminUsersPage() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'ACTIVE':
-        return <span className="px-2 py-1 rounded-full bg-green-100 text-green-800 text-xs font-medium">Active</span>;
+        return <span className="px-3 py-1.5 rounded-full bg-green-100 text-green-800 text-xs font-medium">Active</span>;
       case 'DEACTIVATED':
-        return <span className="px-2 py-1 rounded-full bg-red-100 text-red-800 text-xs font-medium">Deactivated</span>;
+        return <span className="px-3 py-1.5 rounded-full bg-red-100 text-red-800 text-xs font-medium">Deactivated</span>;
       case 'SENT_FOR_ACTION':
-        return <span className="px-2 py-1 rounded-full bg-orange-100 text-orange-800 text-xs font-medium">Sent for Action</span>;
+        return <span className="px-3 py-1.5 rounded-full bg-orange-100 text-orange-800 text-xs font-medium">Sent for Action</span>;
       case 'PENDING':
-        return <span className="px-2 py-1 rounded-full bg-yellow-100 text-yellow-800 text-xs font-medium">Pending</span>;
+        return <span className="px-3 py-1.5 rounded-full bg-yellow-100 text-yellow-800 text-xs font-medium">Pending</span>;
       default:
-        return <span className="px-2 py-1 rounded-full bg-gray-100 text-gray-800 text-xs font-medium">Unknown</span>;
+        return <span className="px-3 py-1.5 rounded-full bg-gray-100 text-gray-800 text-xs font-medium">Unknown</span>;
     }
   };
 

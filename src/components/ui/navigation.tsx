@@ -47,7 +47,7 @@ export const Navigation = () => {
         newLinks.push(
           { href: `${rolePrefix}/applications`, label: 'Applications' },
           { href: `${rolePrefix}/my-applications`, label: 'My Applications' },
-          { href: `${rolePrefix}/new-application`, label: 'New Application' },
+          { href: `${rolePrefix}/new-application`, label: 'Apply' },
           { href: `${rolePrefix}/users`, label: 'Manage Users' }
         );
       } else if (user.role === 'SUPER_ADMIN') {
@@ -58,7 +58,7 @@ export const Navigation = () => {
       } else if (user.role === 'AGENT') {
         newLinks.push(
           { href: `${rolePrefix}/applications`, label: 'My Applications' },
-          { href: `${rolePrefix}/apply`, label: 'New Application' }
+          { href: `${rolePrefix}/apply`, label: 'Apply' }
         );
       } else if (user.role === 'FINANCE') {
         newLinks.push(
