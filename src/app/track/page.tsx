@@ -430,12 +430,23 @@ const EditApplicationModal = ({ isOpen, onClose, onSave, application, isLoading 
     
     try {
       if (isInvoiceSent) {
-        if (!files.proofOfPayment || !transactionId) {
-          throw new Error('Please select a proof of payment file');
+        // Set validation errors
+        const newErrors: { [key: string]: string } = {};
+        if (!transactionId.trim()) {
+          newErrors.transactionId = 'Transaction ID is required';
+        }
+        if (!files.proofOfPayment) {
+          newErrors.proofOfPayment = 'Proof of payment file is required';
+        }
+        
+        if (Object.keys(newErrors).length > 0) {
+          setErrors(newErrors);
+          setIsSubmitting(false);
+          return;
         }
 
         const paymentFormData = new FormData();
-        paymentFormData.append('proofOfPayment', files.proofOfPayment);
+        paymentFormData.append('proofOfPayment', files.proofOfPayment!); // Non-null assertion safe because of validation above
         paymentFormData.append('transactionId', transactionId);
 
         const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/sendProofofPayment/${application._id}`, {
@@ -453,7 +464,8 @@ const EditApplicationModal = ({ isOpen, onClose, onSave, application, isLoading 
         }
   showToast('Application updated successfully!', 'success');
         if (onSave) {
-          await onSave({ proofOfPayment: files.proofOfPayment.name, transactionId }, { proofOfPayment: files.proofOfPayment });
+          const proofOfPaymentFile = files.proofOfPayment!; // Non-null assertion safe because of validation above
+          await onSave({ proofOfPayment: proofOfPaymentFile.name, transactionId }, { proofOfPayment: proofOfPaymentFile });
         }
       
       onClose();
@@ -601,9 +613,19 @@ const EditApplicationModal = ({ isOpen, onClose, onSave, application, isLoading 
       label="Transaction ID"
       name="transactionId"
       value={transactionId}
-      onChange={(e) => setTransactionId(e.target.value)}
+      onChange={(e) => {
+        setTransactionId(e.target.value);
+        if (errors.transactionId) {
+          setErrors(prev => {
+            const newErrors = { ...prev };
+            delete newErrors.transactionId;
+            return newErrors;
+          });
+        }
+      }}
       error={errors.transactionId}
       placeholder="Enter your payment transaction ID"
+      required
     />
                 <FileInput
                   label="Proof of Payment"
@@ -612,6 +634,7 @@ const EditApplicationModal = ({ isOpen, onClose, onSave, application, isLoading 
                   error={errors.proofOfPayment}
                   accept="image/*,.pdf"
                   currentFile={application.proofOfPayment?.split('/').pop()}
+                  required
                 />
               </div>
             ) : (
