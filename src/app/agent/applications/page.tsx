@@ -13,48 +13,83 @@ import { rwandaProvinces } from '@/utils/rwanda-administrative';
 interface Application {
   _id: string;
   applicationNumber: string;
-  fullName: string;
-  email: string;
-  phoneNumber: string;
-  dateOfBirth: string;
-  address: string;
-  province?: string;
-  district?: string;
-  sector?: string;
   insuranceCategory: string;
   insuranceType: string;
   insuranceDuration: string;
-  isCOMESA?: boolean;
-  vehicleUse?: string;
-  otherVehicleUse?: string;
-  insuranceProvider?: string;
-  vehicleType?: string;
-  vehicleAge?: string;
   status: string;
-  nationalID: string;
-  yellowCard: string;
-  pastInsuranceCertificate?: string;
-  submittedAt: string;
-  proofOfPayment?: string;
-  insuranceCertificate?: string;
-  invoiceId?: string;
   invoice?: string;
-  invoiceAmount?: string;
+  insuranceCertificate?: string;
+  proofOfPayment?: string;
+  paymentInstructions?: string;
   transactionId?: string;
-  rejectionReason?: string;
-  reasonForPaymentRejection?: string;
   amount?: number;
   companyCommission?: number;
   agentCommission?: number;
-  agentId?: string;
-  agentFullName?: string;
+  administrationFees?: string;
+  insuranceProvider?: string;
+  ebm?: string;
+  contract?: string;
+  receipt?: string;
+  submittedAt: string;
   agent?: {
     _id: string;
     fullName: string;
+  } | null;
+  admin?: {
+    _id: string;
+    fullName: string;
+  } | null;
+  client: {
+    _id: string;
+    fullName: string;
+    email: string;
+    phoneNumber: string;
+    dateOfBirth: string;
+    address: string;
+    nationalID: string;
+    identificationDocumentType: string;
+    identificationNumber: string;
+    province: string;
+    district: string;
+    sector: string;
+    createdAt: string;
   };
-  contract?: string;
-  receipt?: string;
-  ebm?: string;
+  vehicle?: {
+    _id: string;
+    clientId: string;
+    vehicleType: string;
+    vehicleAge: string;
+    plateNumber?: string;
+    vehicleUse: string;
+    otherVehicleUse?: string;
+    createdAt: string;
+  };
+  // Legacy fields for backward compatibility
+  fullName?: string;
+  email?: string;
+  phoneNumber?: string;
+  dateOfBirth?: string;
+  address?: string;
+  province?: string;
+  district?: string;
+  sector?: string;
+  isCOMESA?: boolean;
+  vehicleUse?: string;
+  otherVehicleUse?: string;
+  vehicleType?: string;
+  vehicleAge?: string;
+  plateNumber?: string;
+  nationalID?: string;
+  identificationDocumentType?: string;
+  identificationNumber?: string;
+  yellowCard?: string;
+  pastInsuranceCertificate?: string;
+  invoiceId?: string;
+  invoiceAmount?: string;
+  rejectionReason?: string;
+  reasonForPaymentRejection?: string;
+  agentId?: string;
+  agentFullName?: string;
   createdAt?: string;
   insuranceEndAt?: string;
   otp?: string;
@@ -113,33 +148,44 @@ const [formState, setFormState] = useState<Partial<Application>>(() => {
     return {}; // Empty state for payment rejection case
   }
   
-  // Parse vehicle use to handle "Other - [description]" format
-  let vehicleUse = application.vehicleUse || '';
-  let otherVehicleUse = application.otherVehicleUse || '';
+  // Parse vehicle use to handle different formats
+  let vehicleUse = application.vehicle?.vehicleUse || application.vehicleUse || '';
+  let otherVehicleUse = application.vehicle?.otherVehicleUse || application.otherVehicleUse || '';
   
-  if (vehicleUse.startsWith('Other - ')) {
+  // Handle "Other - [description]" format (only for truly custom "Other" entries)
+  if (vehicleUse.startsWith('Other - ') && !vehicleUse.includes('Commercial - ') && !vehicleUse.includes('Private - ') && !vehicleUse.includes('PSV - ')) {
     otherVehicleUse = vehicleUse.substring(8); // Remove "Other - " prefix
     vehicleUse = 'Other';
   }
+  // For all other cases, keep the original value as it matches the dropdown options
   
   return {
-    fullName: application.fullName,
-    email: application.email,
-    phoneNumber: application.phoneNumber,
-    address: application.address,
-    dateOfBirth: application.dateOfBirth,
-    insuranceCategory: application.insuranceCategory,
+    // Client information - use nested client object or fallback to legacy fields
+    fullName: application.client?.fullName || application.fullName,
+    email: application.client?.email || application.email,
+    phoneNumber: application.client?.phoneNumber || application.phoneNumber,
+    address: application.client?.address || application.address,
+    dateOfBirth: application.client?.dateOfBirth || application.dateOfBirth,
+    province: application.client?.province || application.province,
+    district: application.client?.district || application.district,
+    sector: application.client?.sector || application.sector || '',
+    nationalID: application.client?.nationalID || application.nationalID,
+    identificationDocumentType: (application.client?.identificationDocumentType || 'nationalID') as string,
+    identificationNumber: (application.client?.identificationNumber || '') as string,
     
+    // Insurance information
+    insuranceCategory: application.insuranceCategory,
+    insuranceType: application.insuranceType,
     insuranceDuration: application.insuranceDuration,
-    vehicleType: application.vehicleType,
-    vehicleAge: application.vehicleAge,
-    province: application.province,
-    district: application.district,
-    sector: application.sector,
+    insuranceProvider: application.insuranceProvider,
+    
+    // Vehicle information - use nested vehicle object or fallback to legacy fields
+    vehicleType: application.vehicle?.vehicleType || application.vehicleType,
+    vehicleAge: application.vehicle?.vehicleAge || application.vehicleAge,
+    plateNumber: (application.vehicle?.plateNumber || application.plateNumber || '') as string,
     vehicleUse: vehicleUse,
     otherVehicleUse: otherVehicleUse,
     isCOMESA: application.isCOMESA,
-    insuranceProvider: application.insuranceProvider,
   };
 });
 
@@ -150,6 +196,21 @@ const [formState, setFormState] = useState<Partial<Application>>(() => {
     proofOfPayment: null, // Added for payment rejection case
   });
 
+  // Update files state when application changes (for prefilling existing documents)
+  useEffect(() => {
+    if (!isPaymentRejection) {
+      setFiles({
+        nationalID: null, // Keep as null since we're not uploading new files initially
+        yellowCard: null,
+        pastInsuranceCertificate: null,
+        proofOfPayment: null,
+      });
+      
+      // Clear any existing errors when switching applications
+      setErrors({});
+    }
+  }, [application, isPaymentRejection]);
+
   const [availableDistricts, setAvailableDistricts] = useState<{name: string, sectors?: string[]}[]>([]);
   const [availableSectors, setAvailableSectors] = useState<string[]>([]);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
@@ -157,25 +218,75 @@ const [formState, setFormState] = useState<Partial<Application>>(() => {
   const { showToast } = useToast();
   const [transactionId, setTransactionId] = useState(''); // Added for payment rejection case
 
+  // Update form state when application changes (for prefilling)
+  useEffect(() => {
+    if (!isPaymentRejection) {
+      // Parse vehicle use to handle different formats
+      let vehicleUse = application.vehicle?.vehicleUse || application.vehicleUse || '';
+      let otherVehicleUse = application.vehicle?.otherVehicleUse || application.otherVehicleUse || '';
+      
+      // Handle "Other - [description]" format (only for truly custom "Other" entries)
+      if (vehicleUse.startsWith('Other - ') && !vehicleUse.includes('Commercial - ') && !vehicleUse.includes('Private - ') && !vehicleUse.includes('PSV - ')) {
+        otherVehicleUse = vehicleUse.substring(8); // Remove "Other - " prefix
+        vehicleUse = 'Other';
+      }
+      // For all other cases, keep the original value as it matches the dropdown options
+      
+      setFormState({
+        // Client information - use nested client object or fallback to legacy fields
+        fullName: application.client?.fullName || application.fullName,
+        email: application.client?.email || application.email,
+        phoneNumber: application.client?.phoneNumber || application.phoneNumber,
+        address: application.client?.address || application.address,
+        dateOfBirth: application.client?.dateOfBirth || application.dateOfBirth,
+        province: application.client?.province || application.province,
+        district: application.client?.district || application.district,
+        sector: application.client?.sector || application.sector,
+        nationalID: application.client?.nationalID || application.nationalID,
+        identificationDocumentType: (application.client?.identificationDocumentType || 'nationalID') as string,
+        identificationNumber: (application.client?.identificationNumber || '') as string,
+        
+        // Insurance information
+        insuranceCategory: application.insuranceCategory,
+        insuranceType: application.insuranceType,
+        insuranceDuration: application.insuranceDuration,
+        insuranceProvider: application.insuranceProvider,
+        
+        // Vehicle information - use nested vehicle object or fallback to legacy fields
+        vehicleType: application.vehicle?.vehicleType || application.vehicleType,
+        vehicleAge: application.vehicle?.vehicleAge || application.vehicleAge,
+        plateNumber: (application.vehicle?.plateNumber || application.plateNumber || '') as string,
+        vehicleUse: vehicleUse,
+        otherVehicleUse: otherVehicleUse,
+        isCOMESA: application.isCOMESA,
+      });
+    }
+  }, [application, isPaymentRejection]);
+
   // Initialize districts and sectors when component mounts or application changes
   useEffect(() => {
-    if (!isPaymentRejection && application.province) {
-      const selectedProvince = rwandaProvinces.find(p => p.name === application.province);
-      const districts = selectedProvince?.districts || [];
-      // Transform districts to match expected format
-      const transformedDistricts = districts.map(district => ({
-        name: district.name,
-        sectors: district.sectors?.map(sector => sector.name) || []
-      }));
-      setAvailableDistricts(transformedDistricts);
+    if (!isPaymentRejection) {
+      const province = application.client?.province || application.province;
+      const district = application.client?.district || application.district;
       
-      if (application.district) {
-        const selectedDistrict = transformedDistricts.find(d => d.name === application.district);
-        const sectors = selectedDistrict?.sectors || [];
-        setAvailableSectors(sectors);
+      if (province) {
+        const selectedProvince = rwandaProvinces.find(p => p.name === province);
+        const districts = selectedProvince?.districts || [];
+        // Transform districts to match expected format
+        const transformedDistricts = districts.map(district => ({
+          name: district.name,
+          sectors: district.sectors?.map(sector => sector.name) || []
+        }));
+        setAvailableDistricts(transformedDistricts);
+        
+        if (district) {
+          const selectedDistrict = transformedDistricts.find(d => d.name === district);
+          const sectors = selectedDistrict?.sectors || [];
+          setAvailableSectors(sectors);
+        }
       }
     }
-  }, [application.province, application.district, isPaymentRejection]);
+  }, [application.client?.province, application.client?.district, application.province, application.district, isPaymentRejection]);
 
   // Update districts when province changes (only for regular edit mode)
   useEffect(() => {
@@ -274,7 +385,20 @@ const [formState, setFormState] = useState<Partial<Application>>(() => {
             return;
           }
           
-          const originalValue = application[key as keyof Application];
+          // Get original value from nested objects or legacy fields
+          let originalValue: unknown;
+          if (key === 'fullName' || key === 'email' || key === 'phoneNumber' || key === 'address' || 
+              key === 'dateOfBirth' || key === 'province' || key === 'district' || key === 'sector' ||
+              key === 'nationalID' || key === 'identificationDocumentType' || key === 'identificationNumber') {
+            // Client fields - check nested client object first
+            originalValue = application.client?.[key as keyof typeof application.client] || application[key as keyof Application];
+          } else if (key === 'vehicleType' || key === 'vehicleAge' || key === 'plateNumber') {
+            // Vehicle fields - check nested vehicle object first
+            originalValue = application.vehicle?.[key as keyof typeof application.vehicle] || application[key as keyof Application];
+          } else {
+            // Other fields
+            originalValue = application[key as keyof Application];
+          }
           
           if (value !== undefined && value !== originalValue && value !== '') {
             const formattedValue = key === 'dateOfBirth' && value 
@@ -351,7 +475,7 @@ const [formState, setFormState] = useState<Partial<Application>>(() => {
 
   return (
     <div className="fixed inset-0 bg-gray-800/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-xl shadow-xl max-w-6xl w-full max-h-[90vh] overflow-y-auto">
         <div className="p-6">
           <div className="flex justify-between items-center mb-6">
             <h3 className="text-xl font-bold text-gray-900">
@@ -408,282 +532,377 @@ const [formState, setFormState] = useState<Partial<Application>>(() => {
               </div>
             ) : (
               <>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <Input
-                    label="Full Name"
-                    name="fullName"
-                    value={formState.fullName || ''}
-                    onChange={handleInputChange}
-                    error={errors.fullName}
-                  />
+                {/* Personal Information Section */}
+                <fieldset className="mb-8 border-2 border-[var(--main-blue)] rounded-lg p-6 bg-gray-50">
+                  <legend className="text-lg font-semibold text-[var(--main-blue)] px-3 bg-white border border-[var(--main-blue)] rounded-md">
+                    Personal Information
+                  </legend>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Identification Document Type */}
+                    <div>
+                      <label className="block text-sm font-medium mb-1">
+                        Identification Document Type <span className="text-red-500">*</span>
+                      </label>
+                      <select
+                        name="identificationDocumentType"
+                        value={formState.identificationDocumentType || 'nationalID'}
+                        onChange={handleInputChange}
+                        className="w-full py-2 px-3 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none"
+                      >
+                        <option value="nationalID">National ID</option>
+                        <option value="passport">Passport</option>
+                        <option value="drivingLicense">Driving License</option>
+                      </select>
+                      {errors.identificationDocumentType && (
+                        <p className="mt-1 text-sm text-red-600">{errors.identificationDocumentType}</p>
+                      )}
+                    </div>
 
-                  <Input
-                    label="Email Address"
-                    type="email"
-                    name="email"
-                    value={formState.email || ''}
-                    onChange={handleInputChange}
-                    error={errors.email}
-                  />
-
-                  <Input
-                    label="Phone Number"
-                    name="phoneNumber"
-                    value={formState.phoneNumber || ''}
-                    onChange={handleInputChange}
-                    error={errors.phoneNumber}
-                  />
-
-                  <Input
-                    label="Date of Birth"
-                    type="date"
-                    name="dateOfBirth"
-                    value={formState.dateOfBirth ? new Date(formState.dateOfBirth).toISOString().split('T')[0] : ''}
-                    onChange={handleInputChange}
-                    error={errors.dateOfBirth}
-                  />
-
-                  <Input
-                    label="Address"
-                    name="address"
-                    value={formState.address || ''}
-                    onChange={handleInputChange}
-                    error={errors.address}
-                  />
-
-                  {/* Province Select */}
-                  <div>
-                    <label className="block text-sm font-medium mb-1">
-                      Province <span className="text-red-500">*</span>
-                    </label>
-                    <select
-                      name="province"
-                      value={formState.province || ''}
+                    <Input
+                      label="Identification Number"
+                      name="identificationNumber"
+                      value={formState.identificationNumber || ''}
                       onChange={handleInputChange}
-                      className="w-full py-2 px-3 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none"
-                    >
-                      <option value="">Select Province</option>
-                      {rwandaProvinces.map(province => (
-                        <option key={province.name} value={province.name}>{province.name}</option>
-                      ))}
-                    </select>
-                    {errors.province && (
-                      <p className="mt-1 text-sm text-red-600">{errors.province}</p>
-                    )}
-                  </div>
+                      error={errors.identificationNumber}
+                      placeholder="e.g., 1234567890123456"
+                    />
 
-                  {/* District Select */}
-                  <div>
-                    <label className="block text-sm font-medium mb-1">
-                      District <span className="text-red-500">*</span>
-                    </label>
-                    <select
-                      name="district"
-                      value={formState.district || ''}
+                    <Input
+                      label="Full Name"
+                      name="fullName"
+                      value={formState.fullName || ''}
                       onChange={handleInputChange}
-                      disabled={!formState.province}
-                      className="w-full py-2 px-3 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none disabled:bg-gray-100 disabled:cursor-not-allowed"
-                    >
-                      <option value="">Select District</option>
-                      {availableDistricts.map(district => (
-                        <option key={district.name} value={district.name}>{district.name}</option>
-                      ))}
-                    </select>
-                    {errors.district && (
-                      <p className="mt-1 text-sm text-red-600">{errors.district}</p>
-                    )}
-                  </div>
+                      error={errors.fullName}
+                      placeholder="Jean Claude Niyonzima"
+                    />
 
-                  {/* Sector Select */}
-                  <div>
-                    <label className="block text-sm font-medium mb-1">
-                      Sector <span className="text-red-500">*</span>
-                    </label>
-                    <select
-  name="sector"
-  value={formState.sector || ''}
-  onChange={handleInputChange}
-  disabled={!formState.district}
-  className="w-full py-2 px-3 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none disabled:bg-gray-100 disabled:cursor-not-allowed"
->
-  <option value="">Select Sector</option>
-  {availableSectors.map(sector => (
-    <option key={sector} value={sector}>{sector}</option>
-  ))}
-</select>
-                    {errors.sector && (
-                      <p className="mt-1 text-sm text-red-600">{errors.sector}</p>
-                    )}
-                  </div>
-
-                  <div>
-  <label className="block text-sm font-medium mb-1">
-    Insurance Provider <span className="text-red-500">*</span>
-  </label>
-  <select
-    name="insuranceProvider"
-    value={formState.insuranceProvider || 'SONARWA'}
-    onChange={handleInputChange}
-    className="w-full py-2 px-3 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none"
-  >
-    <option value="SONARWA">SONARWA</option>
-  </select>
-</div>
-
-
-
-                  <div>
-                    <label className="block text-sm font-medium mb-1">
-                      Insurance Category <span className="text-red-500">*</span>
-                    </label>
-                    <select
-                      name="insuranceCategory"
-                      value={formState.insuranceCategory || ''}
+                    <Input
+                      label="Email Address"
+                      type="email"
+                      name="email"
+                      value={formState.email || ''}
                       onChange={handleInputChange}
-                      className="w-full py-2 px-3 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none"
-                    >
-                      <option value="Car Insurance">Car Insurance</option>
-                      <option value="Motorbike Insurance">Motorbike Insurance</option>
-                      <option value="Building Insurance">Building Insurance</option>
-                      <option value="Travel Insurance">Travel Insurance</option>
-                      <option value="Health Insurance">Health Insurance</option>
-                      <option value="Fire Insurance Coverage">Fire Insurance Coverage</option>
-                    </select>
-                    {errors.insuranceCategory && (
-                      <p className="mt-1 text-sm text-red-600">{errors.insuranceCategory}</p>
-                    )}
-                  </div>
+                      error={errors.email}
+                      placeholder="johndoe@example.com"
+                    />
 
-                  <div>
-                    <label className="block text-sm font-medium mb-1">
-                      Insurance Type <span className="text-red-500">*</span>
-                    </label>
-                    <select
-                      name="insuranceType"
-                      value={formState.insuranceType || ''}
+                    <Input
+                      label="Phone Number"
+                      name="phoneNumber"
+                      value={formState.phoneNumber || ''}
                       onChange={handleInputChange}
-                      className="w-full py-2 px-3 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none"
-                    >
-                      <option value="Comprehensive Insurance (covers everything)">Comprehensive Insurance</option>
-                      <option value="Third Party Insurance (covers partial)">Third Party Insurance</option>
-                    </select>
-                    {errors.insuranceType && (
-                      <p className="mt-1 text-sm text-red-600">{errors.insuranceType}</p>
-                    )}
-                  </div>
+                      error={errors.phoneNumber}
+                    />
 
-                  <div>
-                    <label className="block text-sm font-medium mb-1">
-                      Insurance Duration <span className="text-red-500">*</span>
-                    </label>
-                    <select
-                      name="insuranceDuration"
-                      value={formState.insuranceDuration || ''}
+                    <Input
+                      label="Date of Birth"
+                      type="date"
+                      name="dateOfBirth"
+                      value={formState.dateOfBirth ? new Date(formState.dateOfBirth).toISOString().split('T')[0] : ''}
                       onChange={handleInputChange}
-                      className="w-full py-2 px-3 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none"
-                    >
-                      <option value="1 Month">1 Month</option>
-                      <option value="2 Months">2 Months</option>
-                      <option value="3 Months">3 Months</option>
-                      <option value="6 Months">6 Months</option>
-                      <option value="9 Months">9 Months</option>
-                      <option value="12 Months">12 Months</option>
-                    </select>
-                    {errors.insuranceDuration && (
-                      <p className="mt-1 text-sm text-red-600">{errors.insuranceDuration}</p>
+                      error={errors.dateOfBirth}
+                    />
+
+                    <Input
+                      label="Address"
+                      name="address"
+                      value={formState.address || ''}
+                      onChange={handleInputChange}
+                      error={errors.address}
+                      placeholder="eg: KN 5 RD, Kigali - Rwanda"
+                    />
+
+                    {/* Province Select */}
+                    <div>
+                      <label className="block text-sm font-medium mb-1">
+                        Province <span className="text-red-500">*</span>
+                      </label>
+                      <select
+                        name="province"
+                        value={formState.province || ''}
+                        onChange={handleInputChange}
+                        className="w-full py-2 px-3 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none"
+                      >
+                        <option value="">Select Province</option>
+                        {rwandaProvinces.map(province => (
+                          <option key={province.name} value={province.name}>{province.name}</option>
+                        ))}
+                      </select>
+                      {errors.province && (
+                        <p className="mt-1 text-sm text-red-600">{errors.province}</p>
+                      )}
+                    </div>
+
+                    {/* District Select */}
+                    <div>
+                      <label className="block text-sm font-medium mb-1">
+                        District <span className="text-red-500">*</span>
+                      </label>
+                      <select
+                        name="district"
+                        value={formState.district || ''}
+                        onChange={handleInputChange}
+                        disabled={!formState.province}
+                        className="w-full py-2 px-3 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none disabled:bg-gray-100 disabled:cursor-not-allowed"
+                      >
+                        <option value="">Select District</option>
+                        {availableDistricts.map(district => (
+                          <option key={district.name} value={district.name}>{district.name}</option>
+                        ))}
+                      </select>
+                      {errors.district && (
+                        <p className="mt-1 text-sm text-red-600">{errors.district}</p>
+                      )}
+                    </div>
+
+                    {/* Sector Select */}
+                    <div>
+                      <label className="block text-sm font-medium mb-1">
+                        Sector <span className="text-red-500">*</span>
+                      </label>
+                      <select
+                        name="sector"
+                        value={formState.sector || ''}
+                        onChange={handleInputChange}
+                        disabled={!formState.district}
+                        className="w-full py-2 px-3 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none disabled:bg-gray-100 disabled:cursor-not-allowed"
+                      >
+                        <option value="">Select Sector</option>
+                        {availableSectors.map(sector => (
+                          <option key={sector} value={sector}>{sector}</option>
+                        ))}
+                      </select>
+                      {errors.sector && (
+                        <p className="mt-1 text-sm text-red-600">{errors.sector}</p>
+                      )}
+                    </div>
+                  </div>
+                </fieldset>
+
+                {/* Insurance Information Section */}
+                <fieldset className="mb-8 border-2 border-[var(--main-blue)] rounded-lg p-6 bg-gray-50">
+                  <legend className="text-lg font-semibold text-[var(--main-blue)] px-3 bg-white border border-[var(--main-blue)] rounded-md">
+                    Insurance Information
+                  </legend>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-sm font-medium mb-1">
+                        Insurance Category <span className="text-red-500">*</span>
+                      </label>
+                      <select
+                        name="insuranceCategory"
+                        value={formState.insuranceCategory || ''}
+                        onChange={handleInputChange}
+                        className="w-full py-2 px-3 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none"
+                      >
+                        <option value="Car Insurance">Car Insurance</option>
+                        <option value="Motorbike Insurance">Motorbike Insurance</option>
+                        <option value="Building Insurance">Building Insurance</option>
+                        <option value="Travel Insurance">Travel Insurance</option>
+                        <option value="Health Insurance">Health Insurance</option>
+                        <option value="Fire Insurance Coverage">Fire Insurance Coverage</option>
+                      </select>
+                      {errors.insuranceCategory && (
+                        <p className="mt-1 text-sm text-red-600">{errors.insuranceCategory}</p>
+                      )}
+                    </div>
+
+                    {/* Plate Number Field - Only for Car/Motorbike */}
+                    {(formState.insuranceCategory === 'Car Insurance' || formState.insuranceCategory === 'Motorbike Insurance') && (
+                      <div>
+                        <label className="block text-sm font-medium mb-1">
+                          Plate Number
+                        </label>
+                        <input
+                          type="text"
+                          name="plateNumber"
+                          value={formState.plateNumber || ''}
+                          onChange={handleInputChange}
+                          placeholder="e.g., RAB 123A"
+                          className="w-full py-2 px-3 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none"
+                        />
+                        {errors.plateNumber && (
+                          <p className="mt-1 text-sm text-red-600">{errors.plateNumber}</p>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Insurance Provider */}
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-medium mb-1">
+                        Insurance Provider <span className="text-red-500">*</span>
+                      </label>
+                      <select
+                        name="insuranceProvider"
+                        value={formState.insuranceProvider || 'SONARWA'}
+                        onChange={handleInputChange}
+                        className="w-full py-2 px-3 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none"
+                      >
+                        <option value="SONARWA">SONARWA</option>
+                      </select>
+                      {errors.insuranceProvider && (
+                        <p className="mt-1 text-sm text-red-600">{errors.insuranceProvider}</p>
+                      )}
+                    </div>
+
+                    {/* Vehicle Type (only shown for car/motorbike insurance) */}
+                    {(formState.insuranceCategory === 'Car Insurance' || formState.insuranceCategory === 'Motorbike Insurance') && (
+                      <div>
+                        <label className="block text-sm font-medium mb-1">
+                          Vehicle Type <span className="text-red-500">*</span>
+                        </label>
+                        <select
+                          name="vehicleType"
+                          value={formState.vehicleType || ''}
+                          onChange={handleInputChange}
+                          className="w-full py-2 px-3 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none"
+                        >
+                          <option value="">Select Vehicle Type</option>
+                          {formState.insuranceCategory === 'Car Insurance' ? (
+                            carTypes.map(type => (
+                              <option key={type} value={type}>{type}</option>
+                            ))
+                          ) : (
+                            motoTypes.map(type => (
+                              <option key={type} value={type}>{type}</option>
+                            ))
+                          )}
+                        </select>
+                        {errors.vehicleType && (
+                          <p className="mt-1 text-sm text-red-600">{errors.vehicleType}</p>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Vehicle Year (only shown for car/motorbike insurance) */}
+                    {(formState.insuranceCategory === 'Car Insurance' || formState.insuranceCategory === 'Motorbike Insurance') && (
+                      <div>
+                        <label className="block text-sm font-medium mb-1">
+                          Vehicle Year <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          name="vehicleAge"
+                          value={formState.vehicleAge || ''}
+                          onChange={handleInputChange}
+                          placeholder="e.g., 2020"
+                          className="w-full py-2 px-3 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none"
+                        />
+                        {errors.vehicleAge && (
+                          <p className="mt-1 text-sm text-red-600">{errors.vehicleAge}</p>
+                        )}
+                      </div>
+                    )}
+
+                    <div>
+                      <label className="block text-sm font-medium mb-1">
+                        Insurance Type <span className="text-red-500">*</span>
+                      </label>
+                      <select
+                        name="insuranceType"
+                        value={formState.insuranceType || ''}
+                        onChange={handleInputChange}
+                        className="w-full py-2 px-3 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none"
+                      >
+                        <option value="Comprehensive Insurance (covers everything)">Comprehensive Insurance</option>
+                        <option value="Third Party Insurance (covers partial)">Third Party Insurance</option>
+                      </select>
+                      {errors.insuranceType && (
+                        <p className="mt-1 text-sm text-red-600">{errors.insuranceType}</p>
+                      )}
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium mb-1">
+                        Insurance Duration <span className="text-red-500">*</span>
+                      </label>
+                      <select
+                        name="insuranceDuration"
+                        value={formState.insuranceDuration || ''}
+                        onChange={handleInputChange}
+                        className="w-full py-2 px-3 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none"
+                      >
+                        <option value="1 Month">1 Month</option>
+                        <option value="2 Months">2 Months</option>
+                        <option value="3 Months">3 Months</option>
+                        <option value="6 Months">6 Months</option>
+                        <option value="9 Months">9 Months</option>
+                        <option value="12 Months">12 Months</option>
+                      </select>
+                      {errors.insuranceDuration && (
+                        <p className="mt-1 text-sm text-red-600">{errors.insuranceDuration}</p>
+                      )}
+                    </div>
+
+                    {/* Vehicle Use (only shown for car/motorbike insurance) */}
+                    {(formState.insuranceCategory === 'Car Insurance' || formState.insuranceCategory === 'Motorbike Insurance') && (
+                      <div>
+                        <label className="block text-sm font-medium mb-1">
+                          Vehicle Use <span className="text-red-500">*</span>
+                        </label>
+                        <select
+                          name="vehicleUse"
+                          value={formState.vehicleUse || ''}
+                          onChange={handleInputChange}
+                          className="w-full py-2 px-3 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none"
+                        >
+                          <option value="">Select Vehicle Use</option>
+                          {formState.insuranceCategory === 'Car Insurance' ? (
+                            carUses.map(use => (
+                              <option key={use} value={use}>{use}</option>
+                            ))
+                          ) : (
+                            motoUses.map(use => (
+                              <option key={use} value={use}>{use}</option>
+                            ))
+                          )}
+                        </select>
+                        {errors.vehicleUse && (
+                          <p className="mt-1 text-sm text-red-600">{errors.vehicleUse}</p>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Other Vehicle Use */}
+                    {formState.vehicleUse === 'Other' && (
+                      <div className="md:col-span-2">
+                        <Input
+                          label="Specify Vehicle Use"
+                          name="otherVehicleUse"
+                          value={formState.otherVehicleUse || ''}
+                          onChange={handleInputChange}
+                          error={errors.otherVehicleUse}
+                          required
+                        />
+                      </div>
+                    )}
+
+                    {/* COMESA Coverage */}
+                    {(formState.insuranceCategory === 'Car Insurance' || formState.insuranceCategory === 'Motorbike Insurance') && (
+                      <div className="flex items-center">
+                        <input
+                          type="checkbox"
+                          name="isCOMESA"
+                          checked={formState.isCOMESA || false}
+                          onChange={(e) => setFormState(prev => ({ ...prev, isCOMESA: e.target.checked }))}
+                          className="h-4 w-4 rounded border-gray-300 text-[var(--main-blue)] focus:ring-[var(--main-blue)]"
+                        />
+                        <label className="ml-2 block text-sm text-gray-700">
+                          COMESA Coverage
+                        </label>
+                      </div>
                     )}
                   </div>
+                </fieldset>
 
-                  {(formState.insuranceCategory === 'Car Insurance' || formState.insuranceCategory === 'MotorBike Insurance') && (
-  <div>
-    <label className="block text-sm font-medium mb-1">
-      Vehicle Type <span className="text-red-500">*</span>
-    </label>
-    <select
-      name="vehicleType"
-      value={formState.vehicleType || ''}
-      onChange={handleInputChange}
-      className="w-full py-2 px-3 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none"
-    >
-      <option value="">Select Vehicle Type</option>
-      {formState.insuranceCategory === 'Car Insurance' ? (
-        carTypes.map(type => (
-          <option key={type} value={type}>{type}</option>
-        ))
-      ) : (
-        motoTypes.map(type => (
-          <option key={type} value={type}>{type}</option>
-        ))
-      )}
-    </select>
-    {errors.vehicleType && (
-      <p className="mt-1 text-sm text-red-600">{errors.vehicleType}</p>
-    )}
-  </div>
-)}
-
-{(formState.insuranceCategory === 'Car Insurance' || formState.insuranceCategory === 'MotorBike Insurance') && (
-  <>
-    <div>
-      <label className="block text-sm font-medium mb-1">
-        Vehicle Use <span className="text-red-500">*</span>
-      </label>
-      <select
-        name="vehicleUse"
-        value={formState.vehicleUse || ''}
-        onChange={handleInputChange}
-        className="w-full py-2 px-3 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none"
-      >
-        <option value="">Select Vehicle Use</option>
-        {formState.insuranceCategory === 'Car Insurance' ? (
-          carUses.map(use => (
-            <option key={use} value={use}>{use}</option>
-          ))
-        ) : (
-          motoUses.map(use => (
-            <option key={use} value={use}>{use}</option>
-          ))
-        )}
-      </select>
-      {errors.vehicleUse && (
-        <p className="mt-1 text-sm text-red-600">{errors.vehicleUse}</p>
-      )}
-    </div>
-
-    {formState.vehicleUse === 'Other' && (
-      <div className="md:col-span-2">
-        <Input
-          label="Specify Vehicle Use"
-          name="otherVehicleUse"
-          value={formState.otherVehicleUse || ''}
-          onChange={handleInputChange}
-          error={errors.otherVehicleUse}
-          required
-        />
-      </div>
-    )}
-
-<div className="flex items-center">
-  <input
-    type="checkbox"
-    name="isCOMESA"
-    checked={formState.isCOMESA || false}
-    onChange={(e) => setFormState(prev => ({ ...prev, isCOMESA: e.target.checked }))}
-    className="h-4 w-4 rounded border-gray-300 text-[var(--main-blue)] focus:ring-[var(--main-blue)]"
-  />
-  <label className="ml-2 block text-sm text-gray-700">
-    COMESA Coverage
-  </label>
-</div>
-  </>
-)}
-                </div>
-
+                {/* Documents Section */}
                 <div className="mt-6">
-                  <h3 className="text-lg font-semibold mb-4">Documents</h3>
+                  <h3 className="text-lg font-semibold mb-4">Required Documents</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <FileInput
-                      label="National ID Card / Passport"
+                      label="National ID Card / Passport / Driving License"
                       name="nationalID"
                       onChange={handleFileChange('nationalID')}
                       error={errors.nationalID}
@@ -822,7 +1041,7 @@ export default function AgentApplicationsPage() {
     
     const data = await response.json();
 
-    // console.log(data);
+    console.log('agent applications',data); 
     // Sort applications by submittedAt in descending order (newest first)
     const sortedApplications = data.data.sort((a: Application, b: Application) => {
       return new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime();
@@ -848,11 +1067,15 @@ useEffect(() => {
     // Only search fields that have meaningful data
     const searchableFields = [];
     
-    if (app.fullName && app.fullName.trim()) {
-      searchableFields.push(app.fullName.toLowerCase());
+    // Search in client object (new structure) or legacy fields
+    const clientName = app.client?.fullName || app.fullName;
+    const clientEmail = app.client?.email || app.email;
+    
+    if (clientName && clientName.trim()) {
+      searchableFields.push(clientName.toLowerCase());
     }
-    if (app.email && app.email.trim()) {
-      searchableFields.push(app.email.toLowerCase());
+    if (clientEmail && clientEmail.trim()) {
+      searchableFields.push(clientEmail.toLowerCase());
     }
     if (app.applicationNumber && app.applicationNumber.trim()) {
       searchableFields.push(app.applicationNumber.toLowerCase());
@@ -982,19 +1205,26 @@ useEffect(() => {
       doc.text(`Total Agent Commission: ${totalAgentCommission.toLocaleString()} RWF`, 14, filterY);
       
       // Prepare table data with text truncation for better fit
-      const tableData = filteredApplications.map((app, index) => [
-        (index + 1).toString(),
-        (app.fullName || '').length > 28 ? (app.fullName || '').substring(0, 28) + '...' : (app.fullName || ''),
-                  (app.email || '').length > 32 ? (app.email || '').substring(0, 32) + '...' : (app.email || ''),
+      const tableData = filteredApplications.map((app, index) => {
+        const clientName = app.client?.fullName || app.fullName || '';
+        const clientEmail = app.client?.email || app.email || '';
+        const createdBy = app.admin ? `Admin: ${app.admin.fullName}` : 
+                         app.agent ? `Agent: ${app.agent.fullName}` : 'Client';
+        
+        return [
+          (index + 1).toString(),
+          clientName.length > 28 ? clientName.substring(0, 28) + '...' : clientName,
+          clientEmail.length > 32 ? clientEmail.substring(0, 32) + '...' : clientEmail,
           (app.insuranceCategory || '').length > 22 ? (app.insuranceCategory || '').substring(0, 22) + '...' : (app.insuranceCategory || ''),
-                  (app.insuranceType || '').length > 22 ? (app.insuranceType || '').substring(0, 22) + '...' : (app.insuranceType || ''),
-        (app.agent ? app.agent.fullName : 'Client').length > 22 ? (app.agent ? app.agent.fullName : 'Client').substring(0, 22) + '...' : (app.agent ? app.agent.fullName : 'Client'),
-        app.amount ? `${app.amount.toLocaleString()} RWF` : '0 RWF',
-        app.companyCommission ? `${app.companyCommission.toLocaleString()} RWF` : '0 RWF',
-        app.agentCommission ? `${app.agentCommission.toLocaleString()} RWF` : '0 RWF',
-        app.submittedAt ? new Date(app.submittedAt).toLocaleDateString() : 'N/A',
-        (app.status || '').replace('_', ' ').toUpperCase()
-      ]);
+          (app.insuranceType || '').length > 22 ? (app.insuranceType || '').substring(0, 22) + '...' : (app.insuranceType || ''),
+          createdBy.length > 22 ? createdBy.substring(0, 22) + '...' : createdBy,
+          app.amount ? `${app.amount.toLocaleString()} RWF` : '0 RWF',
+          app.companyCommission ? `${app.companyCommission.toLocaleString()} RWF` : '0 RWF',
+          app.agentCommission ? `${app.agentCommission.toLocaleString()} RWF` : '0 RWF',
+          app.submittedAt ? new Date(app.submittedAt).toLocaleDateString() : 'N/A',
+          (app.status || '').replace('_', ' ').toUpperCase()
+        ];
+      });
       
       // Add table
       autoTable.default(doc, {
@@ -1578,9 +1808,9 @@ const getActionButtons = (app: Application) => {
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap">
                         <div className="text-sm font-medium text-gray-900">
-                          {app.fullName || 'N/A'}
+                          {app.client?.fullName || app.fullName || 'N/A'}
                         </div>
-                        <div className="text-sm text-gray-500">{app.phoneNumber || 'N/A'}</div>
+                        <div className="text-sm text-gray-500">{app.client?.phoneNumber || app.phoneNumber || 'N/A'}</div>
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-900 capitalize">
@@ -1628,7 +1858,7 @@ const getActionButtons = (app: Application) => {
         <div className="fixed inset-0 bg-gray-600/50 flex items-center justify-center z-50">
           <div className="max-h-[90vh] overflow-y-auto bg-white rounded-lg shadow-xl p-6 w-full max-w-md mx-4 fade-in">
             <h3 className="text-lg font-semibold mb-4">
-              Upload Payment Proof for {selectedApp.fullName || 'N/A'}
+              Upload Payment Proof for {selectedApp.client?.fullName || selectedApp.fullName || 'N/A'}
             </h3>
             <div className="space-y-4">
               <div className="border rounded-lg p-4 bg-gray-50">
@@ -1746,19 +1976,19 @@ const getActionButtons = (app: Application) => {
               <div className="space-y-4">
                 <div>
                   <p className="text-sm text-gray-500">Full Name</p>
-                                          <p className="font-semibold">{selectedApp.fullName || 'N/A'}</p>
+                  <p className="font-semibold">{selectedApp.client?.fullName || selectedApp.fullName || 'N/A'}</p>
                 </div>
                 <div>
                   <p className="text-sm text-gray-500">Email</p>
-                  <p className="font-semibold">{selectedApp.email ? selectedApp.email : 'Empty'}</p>
+                  <p className="font-semibold">{selectedApp.client?.email || selectedApp.email ? selectedApp.client?.email || selectedApp.email : 'Empty'}</p>
                 </div>
                 <div>
                   <p className="text-sm text-gray-500">Phone</p>
-                  <p className="font-semibold">{selectedApp.phoneNumber}</p>
+                  <p className="font-semibold">{selectedApp.client?.phoneNumber || selectedApp.phoneNumber}</p>
                 </div>
                 <div>
                   <p className="text-sm text-gray-500">Date of Birth</p>
-                  <p className="font-semibold">{formatDate(selectedApp.dateOfBirth)}</p>
+                  <p className="font-semibold">{formatDate(selectedApp.client?.dateOfBirth || selectedApp.dateOfBirth || '')}</p>
                 </div>
               </div>
 
@@ -1766,24 +1996,24 @@ const getActionButtons = (app: Application) => {
               <div className="space-y-4">
                 <div>
                   <p className="text-sm text-gray-500">Address</p>
-                  <p className="font-semibold">{selectedApp.address}</p>
+                  <p className="font-semibold">{selectedApp.client?.address || selectedApp.address}</p>
                 </div>
-                {selectedApp.province && (
+                {(selectedApp.client?.province || selectedApp.province) && (
                   <div>
                     <p className="text-sm text-gray-500">Province</p>
-                    <p className="font-semibold">{selectedApp.province}</p>
+                    <p className="font-semibold">{selectedApp.client?.province || selectedApp.province}</p>
                   </div>
                 )}
-                {selectedApp.district && (
+                {(selectedApp.client?.district || selectedApp.district) && (
                   <div>
                     <p className="text-sm text-gray-500">District</p>
-                    <p className="font-semibold">{selectedApp.district}</p>
+                    <p className="font-semibold">{selectedApp.client?.district || selectedApp.district}</p>
                   </div>
                 )}
-                {selectedApp.sector && (
+                {(selectedApp.client?.sector || selectedApp.sector) && (
                   <div>
                     <p className="text-sm text-gray-500">Sector</p>
-                    <p className="font-semibold">{selectedApp.sector}</p>
+                    <p className="font-semibold">{selectedApp.client?.sector || selectedApp.sector}</p>
                   </div>
                 )}
               </div>
@@ -1809,8 +2039,11 @@ const getActionButtons = (app: Application) => {
                   </div>
                 )}
                 <div>
-                  <p className="text-sm text-gray-500">Agent</p>
-                  <p className="font-semibold">{selectedApp.agent ? selectedApp.agent.fullName : 'Client'}</p>
+                  <p className="text-sm text-gray-500">Created By</p>
+                  <p className="font-semibold">
+                    {selectedApp.admin ? `Admin: ${selectedApp.admin.fullName}` : 
+                     selectedApp.agent ? `Agent: ${selectedApp.agent.fullName}` : 'Client'}
+                  </p>
                 </div>
                 {selectedApp.amount && (
                   <div>
@@ -1833,25 +2066,25 @@ const getActionButtons = (app: Application) => {
               {/* Vehicle Information (if applicable) */}
               {(selectedApp.insuranceCategory === 'Car Insurance' || selectedApp.insuranceCategory === 'MotorBike Insurance') && (
   <div className="space-y-4">
-    {selectedApp.vehicleType && (
+    {(selectedApp.vehicle?.vehicleType || selectedApp.vehicleType) && (
       <div>
         <p className="text-sm text-gray-500">Vehicle Type</p>
-        <p className="font-semibold">{selectedApp.vehicleType}</p>
+        <p className="font-semibold">{selectedApp.vehicle?.vehicleType || selectedApp.vehicleType}</p>
       </div>
     )}
-    {selectedApp.vehicleAge && (
+    {(selectedApp.vehicle?.vehicleAge || selectedApp.vehicleAge) && (
       <div>
         <p className="text-sm text-gray-500">Vehicle Year</p>
-        <p className="font-semibold">{selectedApp.vehicleAge}</p>
+        <p className="font-semibold">{selectedApp.vehicle?.vehicleAge || selectedApp.vehicleAge}</p>
       </div>
     )}
-    {selectedApp.vehicleUse && (
+    {(selectedApp.vehicle?.vehicleUse || selectedApp.vehicleUse) && (
       <div>
         <p className="text-sm text-gray-500">Vehicle Use</p>
         <p className="font-semibold">
-          {selectedApp.vehicleUse === 'Other' 
-            ? selectedApp.otherVehicleUse 
-            : selectedApp.vehicleUse}
+          {(selectedApp.vehicle?.vehicleUse || selectedApp.vehicleUse) === 'Other' 
+            ? (selectedApp.vehicle?.otherVehicleUse || selectedApp.otherVehicleUse)
+            : (selectedApp.vehicle?.vehicleUse || selectedApp.vehicleUse)}
         </p>
       </div>
     )}
@@ -1882,7 +2115,7 @@ const getActionButtons = (app: Application) => {
                   className="bg-white p-3 rounded border text-left hover:bg-gray-50"
                   onClick={() => setViewingDocument({
                     name: 'National ID / Passport',
-                    path: selectedApp.nationalID
+                    path: selectedApp.client?.nationalID || selectedApp.nationalID || ''
                   })}
                 >
                   <p className="text-sm font-medium">National ID / Passport</p>
@@ -1893,7 +2126,7 @@ const getActionButtons = (app: Application) => {
                   className="bg-white p-3 rounded border text-left hover:bg-gray-50"
                   onClick={() => setViewingDocument({
                     name: 'Yellow Card',
-                    path: selectedApp.yellowCard
+                    path: selectedApp.yellowCard || ''
                   })}
                 >
                   <p className="text-sm font-medium">Yellow Card</p>
