@@ -193,7 +193,7 @@ export default function AdminMyApplicationsPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [token, showToast]);
+  }, [token]);
 
   useEffect(() => {
     if (token) {
