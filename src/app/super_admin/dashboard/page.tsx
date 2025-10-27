@@ -24,6 +24,14 @@ interface InsuranceDistributionAPI {
 }
 
 // Define interfaces for revenue and daily metrics
+interface RevenueAnalyticsAPIResponse {
+  month: string;
+  totalRevenue?: number;
+  totalApplications?: number;
+  totalAgents?: number;
+  conversionRate?: number;
+}
+
 interface RevenueDataPoint {
   month: string;
   revenue?: number;
@@ -360,9 +368,21 @@ const SuperAdminDashboard = () => {
     })
       .then(res => res.json())
       .then(data => {
-        setRevenueData(data.data || []);
+        // Transform the data to match the chart's expected structure
+        const transformedData = (data.data || []).map((item: RevenueAnalyticsAPIResponse) => ({
+          month: item.month,
+          revenue: item.totalRevenue || 0,
+          applications: item.totalApplications || 0,
+          agents: item.totalAgents || 0,
+          conversion: item.conversionRate || 0
+        }));
+        console.log('Revenue Analytics Data:', transformedData);
+        setRevenueData(transformedData);
       })
-      .catch(() => setRevenueData([]))
+      .catch((error) => {
+        console.error('Error fetching revenue analytics:', error);
+        setRevenueData([]);
+      })
       .finally(() => setIsRevenueLoading(false));
   }, [token]);
 
@@ -645,7 +665,7 @@ const SuperAdminDashboard = () => {
                         />
                         <div>
                           <span className="text-sm font-medium text-gray-900">{type.name}</span>
-                          <p className="text-xs text-gray-500">{type.value.toLocaleString()} applications</p>
+                          <p className="text-xs text-gray-500">{(type.value || 0).toLocaleString()} applications</p>
                         </div>
                       </div>
                       <span className="text-sm font-bold text-gray-900">{type.percent}%</span>
