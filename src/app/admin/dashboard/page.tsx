@@ -7,7 +7,6 @@ import type { TooltipProps } from 'recharts';
 import { MainLayout } from '@/components/ui/main-layout';
 import { useAuth } from '@/context/AuthContext';
 import Link from 'next/link';
-import type { Application as TrackApplication } from "../../track/page";
 
 // Define types for the data
 interface Application {

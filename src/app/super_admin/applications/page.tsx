@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { MainLayout } from '@/components/ui/main-layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -183,39 +183,40 @@ export default function SuperAdminApplicationsPage() {
     setShowRightFade(scrollLeft < scrollWidth - clientWidth - 1);
   };
 
-  useEffect(() => {
-    const fetchApplications = async () => {
-      try {
-        setIsLoading(true);
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/getApplications`, {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-        if (!response.ok) {
-          throw new Error('Failed to fetch applications');
+  // Fetch applications from API
+  const fetchApplications = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/getApplications`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
         }
-        const data = await response.json();
-        // Sort applications by submittedAt in descending order (newest first)
-        const sortedApplications = data.data.sort((a: Application, b: Application) => {
-          const dateA = a.submittedAt ? new Date(a.submittedAt).getTime() : 0;
-          const dateB = b.submittedAt ? new Date(b.submittedAt).getTime() : 0;
-          return dateB - dateA;
-        });
-        setApplications(sortedApplications);
-        console.log(sortedApplications);
-      } catch (error) {
-        console.error('Error fetching applications:', error);
-        showToast('Failed to load applications', 'error');
-      } finally {
-        setIsLoading(false);
+      });
+      if (!response.ok) {
+        throw new Error('Failed to fetch applications');
       }
-    };
+      const data = await response.json();
+      // Sort applications by submittedAt in descending order (newest first)
+      const sortedApplications = data.data.sort((a: Application, b: Application) => {
+        const dateA = a.submittedAt ? new Date(a.submittedAt).getTime() : 0;
+        const dateB = b.submittedAt ? new Date(b.submittedAt).getTime() : 0;
+        return dateB - dateA;
+      });
+      setApplications(sortedApplications);
+      console.log(sortedApplications);
+    } catch (error) {
+      console.error('Error fetching applications:', error);
+      showToast('Failed to load applications', 'error');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [token, showToast]);
 
+  useEffect(() => {
     if (token) {
       fetchApplications();
     }
-  }, [token]);
+  }, [token, fetchApplications]);
 
   // Filter applications based on search query, status, and date range
   const filteredApplications = applications.filter(app => {

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { MainLayout } from '@/components/ui/main-layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -176,37 +176,38 @@ export default function SuperAdminUsersPage() {
 
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
-  useEffect(() => {
-    const fetchUsers = async () => {
-      try {
-        setIsLoading(true);
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/getAllusers`, {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          }
-        });
-        if (!response.ok) {
-          throw new Error('Failed to fetch users');
+  // Fetch users from API
+  const fetchUsers = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/getAllusers`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
         }
-
-        const data = await response.json();
-        // console.log(data);
-        const sortedUsers = data.data.sort((a: User, b: User) => {
-          return new Date(b.createdAt || '').getTime() - new Date(a.createdAt || '').getTime();
-        });
-        setUsers(sortedUsers);
-      } catch (error) {
-        console.error('Error fetching users:', error);
-        showToast('Failed to load users', 'error');
-      } finally {
-        setIsLoading(false);
+      });
+      if (!response.ok) {
+        throw new Error('Failed to fetch users');
       }
-    };
 
+      const data = await response.json();
+      // console.log(data);
+      const sortedUsers = data.data.sort((a: User, b: User) => {
+        return new Date(b.createdAt || '').getTime() - new Date(a.createdAt || '').getTime();
+      });
+      setUsers(sortedUsers);
+    } catch (error) {
+      console.error('Error fetching users:', error);
+      showToast('Failed to load users', 'error');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [token, showToast]);
+
+  useEffect(() => {
     fetchUsers();
-  }, []);
+  }, [fetchUsers]);
 
   const filteredUsers = users.filter(user => {
     const matchesSearch = 

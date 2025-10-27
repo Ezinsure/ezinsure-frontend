@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { MainLayout } from '@/components/ui/main-layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -207,7 +207,7 @@ const [isRejecting, setIsRejecting] = useState(false);
   };
 
   // Fetch applications from API
-  const fetchApplications = async () => {
+  const fetchApplications = useCallback(async () => {
     try {
       setIsLoading(true);
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/applications`, {
@@ -238,13 +238,13 @@ const [isRejecting, setIsRejecting] = useState(false);
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [token, showToast]);
 
   useEffect(() => {
     if (token) {
       fetchApplications();
     }
-  }, [token]);
+  }, [token, fetchApplications]);
 
   // Filter applications based on search query, status, and date range
   const filteredApplications = applications.filter(app => {

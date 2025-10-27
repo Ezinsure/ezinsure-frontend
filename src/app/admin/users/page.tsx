@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { MainLayout } from '@/components/ui/main-layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -167,7 +167,7 @@ const [formData, setFormData] = useState({
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
   // Update the fetchUsers function in the useEffect
-const fetchUsers = async () => {
+const fetchUsers = useCallback(async () => {
 try {
   setIsLoading(true);
   const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/users`, {
@@ -193,12 +193,12 @@ setUsers(sortedUsers);
 } finally {
   setIsLoading(false);
 }
-};
+}, [token, showToast]);
 
   // Fetch users from API
   useEffect(() => {
     fetchUsers();
-  }, []);
+  }, [fetchUsers]);
 
   const filteredUsers = users.filter(user => {
     const matchesSearch = 
