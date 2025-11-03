@@ -173,23 +173,6 @@ export const SearchInput = ({
     }
   };
 
-  const getSearchIcon = () => {
-    if (isSearching) {
-      return <Loader2 className="w-5 h-5 animate-spin text-white" />;
-    }
-    
-    switch (searchStatus) {
-      case 'success':
-        return <CheckCircle className="w-5 h-5 text-white" />;
-      case 'error':
-        return <XCircle className="w-5 h-5 text-white" />;
-      case 'unknown':
-        return <TriangleAlert className="w-5 h-5 text-white" />;
-      default:
-        return <Search className="w-5 h-5 text-white" />;
-    }
-  };
-
   return (
     <div className="space-y-2">
       <label className="block text-sm font-medium text-gray-700">
