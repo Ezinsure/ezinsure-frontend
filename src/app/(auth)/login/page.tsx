@@ -203,9 +203,9 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="h-screen bg-white flex overflow-hidden">
+    <div className="h-screen bg-white flex overflow-x-hidden overflow-y-auto text-xs">
       {/* Left Panel - Visual/Content */}
-      <div className="hidden lg:flex lg:w-2/5 bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-800 relative overflow-hidden h-full">
+      <div className="hidden lg:flex lg:w-2/5 bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-800 relative overflow-hidden h-full text-[0.85rem]">
         {/* Background Pattern */}
         <div className="absolute inset-0 opacity-20">
           <div className="absolute inset-0" style={{
@@ -214,20 +214,20 @@ export default function LoginPage() {
         </div>
         
         {/* Content */}
-        <div className="relative z-10 flex flex-col justify-center px-12 py-16 text-white">
+        <div className="relative z-10 flex flex-col justify-center px-8 py-8 text-white">
           <motion.div
             initial={{ opacity: 0, x: -30 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.8 }}
-            className="mb-8"
+            className="mb-4"
           >
-            <div className="flex items-center mb-6">
-              <Link href="/" className="text-3xl font-bold text-white">
+            <div className="flex items-center mb-3">
+              <Link href="/" className="text-2xl font-bold text-white">
                 EZ<span className="text-orange-300">INSURE</span>
               </Link>
             </div>
-            <h2 className="text-4xl font-bold mb-4 leading-tight">Insurance Made Simple</h2>
-            <p className="text-blue-100 text-lg leading-relaxed mb-6">
+            <h2 className="text-2xl font-bold mb-2 leading-snug">Insurance Made Simple</h2>
+            <p className="text-blue-100 text-sm leading-relaxed mb-3">
               Streamline your insurance management with our powerful platform designed for agents and administrators.
             </p>
             
@@ -256,23 +256,23 @@ export default function LoginPage() {
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.3 }}
-            className="mt-8"
+            className="mt-4"
           >
-            <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 border border-white/20 shadow-xl">
-              <div className="flex items-center mb-4">
-                <div className="w-14 h-14 rounded-full overflow-hidden mr-4 shadow-lg ring-2 ring-white/30">
-                  <Image src="/support.jpg" alt="Client" width={56} height={56} className="w-14 h-14 object-cover" />
+            <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-4 border border-white/20 shadow-xl">
+              <div className="flex items-center mb-3">
+                <div className="w-10 h-10 rounded-full overflow-hidden mr-3 shadow-lg ring-2 ring-white/30">
+                  <Image src="/support.jpg" alt="Client" width={40} height={40} className="w-10 h-10 object-cover" />
                 </div>
                 <div>
-                  <p className="text-white font-semibold text-lg">Josiane Uwimana</p>
-                  <p className="text-blue-200 text-sm">Business Owner</p>
+                  <p className="text-white font-semibold">Josiane Uwimana</p>
+                  <p className="text-blue-200 text-[0.7rem]">Business Owner</p>
                 </div>
               </div>
               <div>
-                <p className="text-blue-100 italic text-base leading-relaxed pl-4">
+                <p className="text-blue-100 italic text-sm leading-relaxed pl-3">
                   &ldquo;The process was incredibly simple. I had my business insured within minutes, and their customer service team was very helpful when I had questions.&rdquo;
                 </p>
-                <div className="mt-3 text-orange-300">
+                <div className="mt-2 text-orange-300">
                   {Array(5).fill(0).map((_, i) => (
                     <span key={i} className="inline-block">★</span>
                   ))}
@@ -284,24 +284,21 @@ export default function LoginPage() {
       </div>
 
       {/* Right Panel - Login Form */}
-      <div className="flex-1 lg:w-3/5 flex flex-col justify-center px-8 py-6 lg:px-16 relative min-h-screen overflow-hidden">
+      <div className="flex-1 lg:w-3/5 flex flex-col justify-center px-4 py-4 lg:px-10 relative min-h-screen overflow-x-hidden overflow-y-auto text-[0.9rem]">
         {/* Decorative animated background */}
         <div className="pointer-events-none absolute inset-0 -z-0 overflow-hidden">
           <div className="login-orb login-orb--blue animate-float" style={{ width: 220, height: 220, top: -40, right: -60 }} />
           <div className="login-orb login-orb--indigo animate-float" style={{ width: 180, height: 180, bottom: 20, left: -50, animationDelay: '1.5s' }} />
-          <div className="login-decor-line" style={{ top: 120, left: '10%' }} />
-          <div className="login-decor-line" style={{ top: 220, right: '8%', transform: 'rotate(180deg)' }} />
-          <div className="login-decor-line animate-rotate-slow" style={{ bottom: 100, left: '20%', width: 260 }} />
         </div>
         {/* Back to Home link - visible on all breakpoints */}
         <motion.div 
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
-          className="mb-6"
+          className="mb-3"
         >
           <Link href="/" className="inline-flex items-center text-gray-600 hover:text-gray-800 font-medium">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
             Back to Home
           </Link>
         </motion.div>
@@ -433,10 +430,10 @@ export default function LoginPage() {
       </AnimatePresence>
 
         {/* Rubik's Cube decorative element */}
-        <div className="absolute top-4 left-4 sm:top-8 sm:left-8 z-10 scale-50 sm:scale-100 origin-top-left">
+        <div className="absolute top-3 left-3 sm:top-6 sm:left-6 z-10 scale-50 sm:scale-90 origin-top-left">
           <RubiksCube size={90} lineColor="#94a3b8" lineOpacity={0.5} />
         </div>
-        <div className="absolute bottom-12 right-10 sm:bottom-24 sm:right-20 z-10 scale-50 sm:scale-100 origin-bottom-right">
+        <div className="absolute bottom-10 right-8 sm:bottom-20 sm:right-16 z-10 scale-50 sm:scale-90 origin-bottom-right">
           <RubiksCube size={72} lineColor="#cbd5e1" lineOpacity={0.35} />
         </div>
 
@@ -445,17 +442,17 @@ export default function LoginPage() {
           initial={{ opacity: 0, x: 30 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.8, delay: 0.2 }}
-          className="max-w-md w-full mx-auto"
+          className="max-w-sm w-full mx-auto"
         >
           {/* Header */}
-          <div className="text-center mb-8">
+          <div className="text-center mb-4">
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.4 }}
             >
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">Welcome back</h1>
-            <p className="text-gray-600">
+              <h1 className="text-2xl font-bold text-gray-900 mb-1">Welcome back</h1>
+            <p className="text-gray-600 text-[0.85rem]">
                 Sign in to your insurance management account
             </p>
             </motion.div>
@@ -467,9 +464,9 @@ export default function LoginPage() {
             animate={{ opacity: 1 }}
             transition={{ duration: 0.5, delay: 0.6 }}
             onSubmit={handleSubmit} 
-            className="space-y-6"
+            className="space-y-4"
           >
-            <div className="space-y-4">
+            <div className="space-y-3">
             <Input
               label="Email Address"
               type="email"
@@ -525,24 +522,24 @@ export default function LoginPage() {
             />
             </div>
 
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between mt-1">
               <div className="flex items-center">
                 <input
                   id="show-password"
                   name="show-password"
                   type="checkbox"
-                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  className="h-3.5 w-3.5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                   checked={showPassword}
                   onChange={e => setShowPassword(e.target.checked)}
                 />
-                <label htmlFor="show-password" className="ml-2 block text-sm text-gray-600">
+                <label htmlFor="show-password" className="ml-1.5 block text-[0.8rem] text-gray-600">
                   Show password
                 </label>
               </div>
 
                 <button
                   type="button"
-                className="text-sm font-medium text-blue-600 hover:text-blue-500 transition-colors"
+                className="text-[0.8rem] font-medium text-blue-600 hover:text-blue-500 transition-colors"
                   onClick={() => setShowForgotPasswordModal(true)}
                 >
                 Forgot password?
@@ -556,14 +553,14 @@ export default function LoginPage() {
             <Button
               type="submit"
               variant="primary"
-              size="lg"
+              size="sm"
               fullWidth
               disabled={isSubmitting}
-                className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-lg"
+                className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow"
               >
                 {isSubmitting ? (
                   <div className="flex items-center">
-                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
@@ -581,16 +578,16 @@ export default function LoginPage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.5, delay: 0.8 }}
-            className="mt-8 pt-6 border-t border-gray-200"
+            className="mt-4 pt-3 border-t border-gray-200"
           >
             <div className="text-center space-y-3">
-            <p className="text-sm text-gray-600">
+            <p className="text-[0.85rem] text-gray-600">
               Want to become an agent?{' '}
                 <Link href="/register" className="font-medium text-blue-600 hover:text-blue-500 transition-colors">
                 Apply here
               </Link>
             </p>
-              <p className="text-sm text-gray-600">
+              <p className="text-[0.85rem] text-gray-600">
               Are you a client looking to apply for insurance?{' '}
                 <Link href="/apply" className="font-medium text-blue-600 hover:text-blue-500 transition-colors">
                 Apply online
