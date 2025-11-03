@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Search, CheckCircle, XCircle, Loader2, TriangleAlert } from 'lucide-react';
+import { Search, CheckCircle, XCircle, Loader2, TriangleAlert, X } from 'lucide-react';
 import { useToast } from '@/components/ui/toast';
 
 interface SearchInputProps {
@@ -36,6 +36,7 @@ export const SearchInput = ({
   const [isSearching, setIsSearching] = useState(false);
   const [searchStatus, setSearchStatus] = useState<'idle' | 'success' | 'error' | 'unknown'>('idle');
   const [searchMessage, setSearchMessage] = useState<string>('');
+  const [isDirty, setIsDirty] = useState(false); // typing since last search
   const { showToast } = useToast();
 
   // Reset search status when resetTrigger changes
@@ -54,6 +55,7 @@ export const SearchInput = ({
     setIsSearching(true);
     setSearchStatus('idle');
     setSearchMessage('');
+    setIsDirty(false);
 
     try {
       // Determine the API endpoint based on search type
@@ -171,23 +173,6 @@ export const SearchInput = ({
     }
   };
 
-  const getSearchIcon = () => {
-    if (isSearching) {
-      return <Loader2 className="w-5 h-5 animate-spin text-white" />;
-    }
-    
-    switch (searchStatus) {
-      case 'success':
-        return <CheckCircle className="w-5 h-5 text-white" />;
-      case 'error':
-        return <XCircle className="w-5 h-5 text-white" />;
-      case 'unknown':
-        return <TriangleAlert className="w-5 h-5 text-white" />;
-      default:
-        return <Search className="w-5 h-5 text-white" />;
-    }
-  };
-
   return (
     <div className="space-y-2">
       <label className="block text-sm font-medium text-gray-700">
@@ -201,10 +186,17 @@ export const SearchInput = ({
           name={name}
           placeholder={placeholder}
           value={value}
-          onChange={(e) => {
-            onChange(e.target.value);
-            setSearchStatus('idle'); // Reset status when typing
-            setSearchMessage(''); // Clear message when typing
+        onChange={(e) => {
+            const next = e.target.value;
+            onChange(next);
+            // Immediately require a search after any user change
+            setSearchStatus('error');
+            setSearchMessage(
+              next.trim()
+                ? 'Please click the Search button to validate this value before continuing.'
+                : 'Please enter a value and click the Search button before continuing.'
+            );
+            setIsDirty(true);
           }}
           onKeyPress={handleKeyPress}
           disabled={disabled || isSearching}
@@ -223,18 +215,39 @@ export const SearchInput = ({
           }`}
         />
         
-        <button
-          type="button"
-          onClick={handleSearch}
-          disabled={disabled || isSearching || !value.trim()}
-          className={`absolute right-0 top-0 bottom-0 w-12 flex items-center justify-center rounded-r-lg transition-all duration-200 text-white ${
-            disabled || isSearching || !value.trim()
-              ? 'cursor-not-allowed opacity-60 bg-gray-400'
-              : 'cursor-pointer bg-[var(--main-blue)] hover:bg-[var(--secondary-blue)]'
-          }`}
-        >
-          {getSearchIcon()}
-        </button>
+        {(() => {
+          const showClear = !isSearching && (searchStatus === 'success' || searchStatus === 'unknown' || (searchStatus === 'error' && !isDirty));
+          const onClick = showClear
+            ? () => {
+                onChange('');
+                setSearchStatus('idle');
+                setSearchMessage('');
+                setIsDirty(false);
+              }
+            : handleSearch;
+          const isDisabled = showClear ? (disabled || isSearching) : (disabled || isSearching || !value.trim());
+          return (
+            <button
+              type="button"
+              onClick={onClick}
+              disabled={isDisabled}
+              aria-label={showClear ? 'Clear' : 'Search'}
+              className={`absolute right-0 top-0 bottom-0 w-12 flex items-center justify-center rounded-r-lg transition-all duration-200 text-white ${
+                isDisabled
+                  ? 'cursor-not-allowed opacity-60 bg-gray-400'
+                  : 'cursor-pointer bg-[var(--main-blue)] hover:bg-[var(--secondary-blue)]'
+              }`}
+            >
+              {isSearching ? (
+                <Loader2 className="w-5 h-5 animate-spin text-white" />
+              ) : showClear ? (
+                <X className="w-5 h-5 text-white" />
+              ) : (
+                <Search className="w-5 h-5 text-white" />
+              )}
+            </button>
+          );
+        })()}
       </div>
       
       {error && (

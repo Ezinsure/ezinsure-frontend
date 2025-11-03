@@ -673,17 +673,9 @@ export default function AdminNewApplicationPage() {
   // Calculate administration fees based on insurance category
 
   const calculateAdministrationFees = (insuranceCategory: string) => {
-
-    if (insuranceCategory.toLowerCase().includes('motobike')) {
-
-      return Math.round(2500 * 0.25); // 25% of 2500 for MOTO
-
-    } else {
-
-      return Math.round(5000 * 0.25); // 25% of 5000 for all other applications
-
-    }
-
+    const cat = insuranceCategory.toLowerCase();
+    const isCarOrMoto = cat.includes('car') || cat.includes('motor') || cat.includes('moto');
+    return Math.round((isCarOrMoto ? 2500 : 5000) * 0.25);
   };
 
   // Auto-calculate administration fees when insurance category changes
