@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff, Search } from 'lucide-react';
 import Link from 'next/link';
 import { MainLayout } from '@/components/ui/main-layout';
 import type { TooltipProps } from 'recharts';
@@ -49,19 +49,55 @@ const Dashboard = () => {
 
   // Define types for the data
   interface Application {
-    id: string;
-    client: string;
-    type: string;
-    amount: string;
+    _id: string;
+    applicationNumber: string;
     status: string;
-    time: string;
+    insuranceCategory: string;
+    insuranceType: string;
+    amount?: number;
+    submittedAt: string;
+    agent?: {
+      id: string;
+      fullName: string;
+      email: string;
+    } | null;
+    admin?: {
+      id: string;
+      fullName: string;
+      email: string;
+    };
+    client: {
+      id: string;
+      fullName: string;
+      email: string;
+      phoneNumber: string;
+      province: string;
+      district: string;
+    };
+    vehicle?: {
+      id: string;
+      plateNumber: string;
+    };
   }
   interface RecentApplicationAPI {
+    _id: string;
+    applicationNumber: string;
     fullName: string;
     insuranceCategory: string;
+    insuranceType: string;
     amount?: number;
     status: string;
     submittedAt?: string;
+    client?: {
+      fullName: string;
+      email: string;
+      phoneNumber: string;
+      province: string;
+      district: string;
+    };
+    vehicle?: {
+      plateNumber?: string;
+    };
   }
   interface InsuranceDistribution {
     name: string;
@@ -95,6 +131,8 @@ const Dashboard = () => {
   const [isRecentApplicationsLoading, setIsRecentApplicationsLoading] = useState(true);
   const [isWeeklyStatsLoading, setIsWeeklyStatsLoading] = useState(true);
   const [isMonthlyStatsLoading, setIsMonthlyStatsLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedInsuranceType, setSelectedInsuranceType] = useState('all');
 
   // Fetch data on mount
   useEffect(() => {
@@ -115,11 +153,27 @@ const Dashboard = () => {
         console.log("Recent: ", data)
         // Map API data to the expected structure for the dashboard
         const mapped = (data.data || []).map((item: RecentApplicationAPI) => ({
-          client: item.fullName,
-          type: item.insuranceCategory,
-          amount: item.amount ? `${Number(item.amount).toLocaleString()} RWF` : 'N/A',
+          _id: item._id || '',
+          applicationNumber: item.applicationNumber || '',
           status: item.status,
-          time: item.submittedAt ? new Date(item.submittedAt).toLocaleDateString() : '',
+          insuranceCategory: item.insuranceCategory,
+          insuranceType: item.insuranceType,
+          amount: item.amount,
+          submittedAt: item.submittedAt || '',
+          agent: null,
+          admin: undefined,
+          client: {
+            id: '',
+            fullName: item.client?.fullName || item.fullName,
+            email: item.client?.email || '',
+            phoneNumber: item.client?.phoneNumber || '',
+            province: item.client?.province || '',
+            district: item.client?.district || '',
+          },
+          vehicle: item.vehicle ? {
+            id: '',
+            plateNumber: item.vehicle.plateNumber || '',
+          } : undefined,
         }));
         setRecentApplications(mapped);
       } catch (error) {
@@ -211,6 +265,23 @@ const Dashboard = () => {
 
   // Add a combined loading state
   const isAnyLoading = isWeeklyStatsLoading || isMonthlyStatsLoading || isRecentApplicationsLoading || isInsuranceDistributionLoading;
+
+  // Filter for recent applications based on search and type
+  const filteredApplications = recentApplications.filter((app: Application) => {
+    const matchesSearch =
+      app.client.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      app.applicationNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      app.insuranceCategory.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      app.insuranceType.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesType = selectedInsuranceType === 'all' ||
+      (selectedInsuranceType === 'car' && app.insuranceCategory.toLowerCase().includes('car')) ||
+      (selectedInsuranceType === 'health' && app.insuranceCategory.toLowerCase().includes('health')) ||
+      (selectedInsuranceType === 'travel' && app.insuranceCategory.toLowerCase().includes('travel')) ||
+      (selectedInsuranceType === 'building' && app.insuranceCategory.toLowerCase().includes('building')) ||
+      (selectedInsuranceType === 'fire' && app.insuranceCategory.toLowerCase().includes('fire')) ||
+      (selectedInsuranceType === 'motorbike' && app.insuranceCategory.toLowerCase().includes('motorbike'));
+    return matchesSearch && matchesType;
+  });
 
 
 const CustomTooltip = ({ active, payload, label }: TooltipProps<number, string>) => {
@@ -488,70 +559,107 @@ const CustomTooltip = ({ active, payload, label }: TooltipProps<number, string>)
           </div>
 
           {/* Recent Applications */}
-          <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
-            <div className="flex justify-between items-center mb-6">
+          <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
               <div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-1">Recent Applications</h3>
-                <p className="text-gray-600 text-sm">Latest client submissions</p>
+                <h3 className="text-2xl font-bold text-gray-900 mb-1">Recent Applications</h3>
+                <p className="text-gray-600 text-sm">Latest policy applications</p>
               </div>
-              <Link href='/agent/applications' className="text-blue-600 text-sm font-medium hover:text-blue-700">
-                View All
-              </Link>
+              
+              <div className="flex flex-col sm:flex-row gap-3">
+                <div className="relative">
+                  <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Search..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                  />
+                </div>
+                <select 
+                  value={selectedInsuranceType}
+                  onChange={(e) => setSelectedInsuranceType(e.target.value)}
+                  className="px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                >
+                  <option value="all">All Types</option>
+                  <option value="car">Car Insurance</option>
+                  <option value="health">Health Insurance</option>
+                  <option value="travel">Travel Insurance</option>
+                  <option value="building">Building Insurance</option>
+                  <option value="fire">Fire Insurance</option>
+                  <option value="motorbike">MotorBike Insurance</option>
+                </select>
+              </div>
             </div>
             
-            <div className="space-y-4">
+            <div className="space-y-3 max-h-96 overflow-y-auto">
               {isRecentApplicationsLoading ? (
-                <div className="space-y-4 animate-pulse">
+                <div className="space-y-3 animate-pulse">
                   {[...Array(4)].map((_, idx) => (
-                    <div key={idx} className="flex items-center justify-between p-6 bg-gray-100 rounded-xl">
-                      <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 bg-gray-300 rounded-full" />
-                        <div>
-                          <div className="w-32 h-5 bg-gray-300 rounded mb-2" />
-                          <div className="w-24 h-4 bg-gray-200 rounded" />
+                    <div key={idx} className="p-4 bg-gray-100 rounded-xl">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 bg-gray-300 rounded-full" />
+                          <div>
+                            <div className="w-32 h-4 bg-gray-300 rounded mb-2" />
+                            <div className="w-24 h-3 bg-gray-200 rounded" />
+                          </div>
                         </div>
-                      </div>
-                      <div className="text-right">
-                        <div className="w-20 h-5 bg-gray-300 rounded mb-2" />
-                        <div className="w-16 h-4 bg-gray-200 rounded" />
+                        <div className="text-right">
+                          <div className="w-20 h-4 bg-gray-300 rounded mb-2" />
+                          <div className="w-16 h-3 bg-gray-200 rounded" />
+                        </div>
                       </div>
                     </div>
                   ))}
                 </div>
-              ) : recentApplications.length === 0 ? (
-                <div className="text-center py-8">
-                  <p className="text-gray-500">No recent applications found.</p>
-                </div>
+              ) : filteredApplications.length === 0 ? (
+                <div className="text-center text-gray-500 py-8">No matching applications found for the selected filter or search.</div>
               ) : (
-                recentApplications.map((app, index) => (
-                  <div 
-                    key={index} 
-                    className="flex items-center justify-between p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                        <span className="text-blue-600 font-semibold text-sm">
-                          {typeof app.client === 'string' && app.client.trim()
-                            ? app.client.split(' ').map((n: string) => n[0]).join('')
-                            : '--'}
-                        </span>
+                filteredApplications.map((app, index) => (
+                  <div key={index} className="p-4 bg-gradient-to-r from-gray-50 to-blue-50 rounded-xl hover:shadow-md transition-all">
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-600 rounded-full flex items-center justify-center text-white font-semibold text-sm">
+                          {app.client.fullName.split(' ').map((n: string) => n[0]).join('')}
+                        </div>
+                        <div>
+                          <p className="font-semibold text-gray-900">{app.client.fullName}</p>
+                          <p className="text-sm text-gray-600">{app.applicationNumber}</p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="font-medium text-gray-900">{app.client}</p>
-                        <p className="text-sm text-gray-500">{app.type} Insurance • {app.time}</p>
+                      <div className="text-right">
+                        <p className="font-bold text-gray-900">{(app.amount || 0).toLocaleString()} RWF</p>
+                        {getStatusBadge(app.status)}
                       </div>
                     </div>
                     
-                    <div className="text-right">
-                      <p className="font-semibold text-gray-900">{app.amount}</p>
-                      <span className={`text-xs px-2 py-1 rounded-full ${
-                        app.status === 'completed' ? 'bg-green-100 text-green-700' :
-                        app.status === 'approved' ? 'bg-blue-100 text-blue-700' :
-                        'bg-yellow-100 text-yellow-700'
-                      }`}>
-                        {getStatusBadge(app.status)}
-                      </span>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                      <div>
+                        <p className="text-gray-600"><span className="font-medium">Insurance:</span> {app.insuranceCategory}</p>
+                        <p className="text-gray-600"><span className="font-medium">Type:</span> {app.insuranceType}</p>
+                        <p className="text-gray-600"><span className="font-medium">Location:</span> {app.client.province}, {app.client.district}</p>
+                      </div>
+                      <div>
+                        <p className="text-gray-600"><span className="font-medium">Phone:</span> {app.client.phoneNumber}</p>
+                        <p className="text-gray-600"><span className="font-medium">Submitted:</span> {new Date(app.submittedAt).toLocaleString()}</p>
+                        {app.vehicle?.plateNumber && (
+                          <p className="text-gray-600"><span className="font-medium">Plate:</span> {app.vehicle.plateNumber}</p>
+                        )}
+                      </div>
                     </div>
+                    
+                    {app.admin && (
+                      <div className="mt-3 pt-3 border-t border-gray-200">
+                        <div className="flex flex-wrap gap-4 text-xs">
+                          <div className="flex items-center gap-2">
+                            <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded-full font-medium">Admin</span>
+                            <span className="text-gray-600">{app.admin.fullName}</span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ))
               )}
