@@ -1644,9 +1644,13 @@ const getActionButtons = (app: Application) => {
           required
         />
         <p className="text-xs text-gray-500 mt-1">
-          {selectedApp.insuranceCategory.toLowerCase().includes('moto') 
-            ? 'Calculated as 25% of 2500 RWF for MOTO insurance' 
-            : 'Calculated as 25% of 5000 RWF for other insurance types'}
+          {(() => {
+            const cat = selectedApp.insuranceCategory.toLowerCase();
+            const isCarOrMoto = cat.includes('car') || cat.includes('motor') || cat.includes('moto');
+            return isCarOrMoto
+              ? 'Calculated as 25% of 2500 RWF for both motorbike and car insurance'
+              : 'Calculated as 25% of 5000 RWF for other insurance types (including fire and building)';
+          })()}
         </p>
       </div>
       
