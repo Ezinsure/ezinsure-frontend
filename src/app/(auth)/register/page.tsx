@@ -219,7 +219,19 @@ export default function AgentRegistrationPage() {
     district: { required: true },
     sector: { required: true },
     bankName: { required: true },
-  bankAccountNumber: { required: true, minLength: 5, pattern: /^[0-9]+$/ },
+    bankAccountNumber: { 
+      required: true, 
+      minLength: 10,
+      maxLength: 16,
+      pattern: /^[0-9]+$/,
+      validate: (value: string) => {
+        if (!value) return 'Bank account number is required';
+        if (!/^\d+$/.test(value)) return 'Bank account number must contain only digits (0-9)';
+        if (value.length < 10) return 'Bank account number must be at least 10 digits';
+        if (value.length > 16) return 'Bank account number must be at most 16 digits';
+        return true;
+      }
+    },
     emergencyContact1Name: { required: true, minLength: 2 },
     emergencyContact1PhoneNumber: { required: true, pattern: validationPatterns.phone },
     emergencyContact1Relationship: { required: true },
@@ -842,13 +854,14 @@ const resetApplicationState = () => {
 
     <Input
       label="Bank Account Number"
-      type="number"
+      type="text"
       name="bankAccountNumber"
-      placeholder="Enter your account number"
+      placeholder="Enter your account number (10-16 digits)"
       value={formState.bankAccountNumber}
       onChange={handleInputChange}
       error={errors.bankAccountNumber}
       required
+      maxLength={16}
     />
     </div>
 
