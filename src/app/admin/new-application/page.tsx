@@ -1691,7 +1691,7 @@ export default function AdminNewApplicationPage() {
 
                         name="plateNumber"
 
-                        placeholder="e.g. RAA 123A"
+                        placeholder={formData.insuranceCategory === 'Car Insurance' ? 'e.g. RAA 123A' : 'e.g. RA 123A'}
 
                         value={formData.plateNumber}
 

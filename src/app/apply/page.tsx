@@ -894,7 +894,7 @@ export default function ApplyPage() {
                       <SearchInput
                         label="Plate Number"
                         name="plateNumber"
-                        placeholder="e.g. RAA 123A"
+                        placeholder={formState.insuranceCategory === 'car' ? 'e.g. RAA 123A' : 'e.g. RA 123A'}
                         value={formState.plateNumber}
                         onChange={(value) => {
                           setFormState(prev => ({ 
