@@ -73,11 +73,23 @@ const getDeviceInfo = (): DeviceInfo => {
   };
 
   const getOperatingSystem = () => {
+    // Prioritize navigator.platform as it's more reliable than userAgent
+    const platform = navigator.platform.toLowerCase();
+    
+    // Check platform first (most reliable)
+    if (platform.includes('win')) return 'Windows';
+    if (platform.includes('mac')) return 'macOS';
+    if (platform.includes('linux')) return 'Linux';
+    if (platform.includes('iphone') || platform.includes('ipad') || platform.includes('ipod')) return 'iOS';
+    if (platform.includes('android')) return 'Android';
+    
+    // Fallback to userAgent parsing if platform doesn't help
     if (ua.includes('Windows')) return 'Windows';
-    if (ua.includes('Mac OS X')) return 'macOS';
-    if (ua.includes('Linux')) return 'Linux';
     if (ua.includes('Android')) return 'Android';
-    if (ua.includes('iOS') || ua.includes('iPhone') || ua.includes('iPad')) return 'iOS';
+    if (ua.includes('iPhone') || ua.includes('iPad')) return 'iOS';
+    if (ua.includes('Mac OS X') && !ua.includes('iPhone') && !ua.includes('iPad')) return 'macOS';
+    if (ua.includes('Linux')) return 'Linux';
+    
     return 'Unknown';
   };
 
@@ -265,10 +277,12 @@ export default function AgentApplyPage() {
   useEffect(() => {
     const initializeTracking = async () => {
       try {
+        console.log('[Agent Apply] Starting tracking data capture...');
         const data = await getTrackingData();
+        console.log('[Agent Apply] Tracking data captured successfully:', data);
         setTrackingData(data);
       } catch (error) {
-        console.debug('Tracking initialization failed:', error);
+        console.error('[Agent Apply] Tracking initialization failed:', error);
       }
     };
 
@@ -679,8 +693,13 @@ export default function AgentApplyPage() {
         }
 
         // Append tracking data
+        console.log('[Agent Apply] Checking tracking data before submission...');
+        console.log('[Agent Apply] Tracking data state:', trackingData);
         if (trackingData) {
           formData.append('trackingData', JSON.stringify(trackingData));
+          console.log('[Agent Apply] Tracking data appended to FormData');
+        } else {
+          console.warn('[Agent Apply] No tracking data available - it was not captured!');
         }
 
         const token = getTokenFromStorage();
@@ -691,14 +710,23 @@ export default function AgentApplyPage() {
         }
 
         // Log FormData contents before sending
-        // This will log all key-value pairs, including files (as File objects)
-        // const formDataEntries = Array.from(formData.entries()).map(([key, value]) => {
-        //   if (value instanceof File) {
-        //     return [key, `File: ${value.name} (${value.type}, ${value.size} bytes)`];
-        //   }
-        //   return [key, value];
-        // });
-        // console.log('Submitting FormData:', Object.fromEntries(formDataEntries));
+        console.log('[Agent Apply] FormData being sent to API:');
+        const formDataEntries = Array.from(formData.entries()).map(([key, value]) => {
+          if (value instanceof File) {
+            return [key, `File: ${value.name} (${value.type}, ${value.size} bytes)`];
+          }
+          // Check if this is the trackingData field
+          if (key === 'trackingData' && typeof value === 'string') {
+            try {
+              const parsed = JSON.parse(value);
+              return [key, `TrackingData: ${JSON.stringify(parsed, null, 2)}`];
+            } catch {
+              return [key, value];
+            }
+          }
+          return [key, value];
+        });
+        console.log('[Agent Apply] FormData entries:', Object.fromEntries(formDataEntries));
 
         const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/newApply`, {
           method: 'POST',
