@@ -17,6 +17,7 @@ interface InputProps {
   className?: string;
   min?: string;
   max?: string;
+  maxLength?: number;
 }
 
 export const Input = ({
@@ -33,6 +34,7 @@ export const Input = ({
   className = '',
   min,
   max,
+  maxLength,
 }: InputProps) => {
   const [isFocused, setIsFocused] = useState(false);
 
@@ -64,6 +66,7 @@ export const Input = ({
           disabled={disabled}
           min={min}
           max={max}
+          maxLength={maxLength}
           onFocus={() => setIsFocused(true)}
           onBlur={() => setIsFocused(false)}
         />

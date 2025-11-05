@@ -88,11 +88,23 @@ const getDeviceInfo = (): DeviceInfo => {
   };
 
   const getOperatingSystem = () => {
+    // Prioritize navigator.platform as it's more reliable than userAgent
+    const platform = navigator.platform.toLowerCase();
+    
+    // Check platform first (most reliable)
+    if (platform.includes('win')) return 'Windows';
+    if (platform.includes('mac')) return 'macOS';
+    if (platform.includes('linux')) return 'Linux';
+    if (platform.includes('iphone') || platform.includes('ipad') || platform.includes('ipod')) return 'iOS';
+    if (platform.includes('android')) return 'Android';
+    
+    // Fallback to userAgent parsing if platform doesn't help
     if (ua.includes('Windows')) return 'Windows';
-    if (ua.includes('Mac OS X')) return 'macOS';
-    if (ua.includes('Linux')) return 'Linux';
     if (ua.includes('Android')) return 'Android';
-    if (ua.includes('iOS') || ua.includes('iPhone') || ua.includes('iPad')) return 'iOS';
+    if (ua.includes('iPhone') || ua.includes('iPad')) return 'iOS';
+    if (ua.includes('Mac OS X') && !ua.includes('iPhone') && !ua.includes('iPad')) return 'macOS';
+    if (ua.includes('Linux')) return 'Linux';
+    
     return 'Unknown';
   };
 

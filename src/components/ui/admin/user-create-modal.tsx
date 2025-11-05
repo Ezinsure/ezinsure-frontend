@@ -26,7 +26,7 @@ interface FormData {
   nationalIdDocument: File | null;
   criminalRecordCertificate: File | null;
   passportPhoto: File | null;
-    bankName: string;
+  bankName: string;
   bankAccountNumber: string;
   [key: string]: string | File | null;
 }
@@ -56,12 +56,12 @@ interface FileUploadFieldProps {
   onChange: (e: React.ChangeEvent<HTMLInputElement>, fieldName: string) => void;
 }
 
-const FileUploadField = ({ 
-  label, 
-  name, 
-  accept, 
-  error, 
-  file, 
+const FileUploadField = ({
+  label,
+  name,
+  accept,
+  error,
+  file,
   description,
   onChange
 }: FileUploadFieldProps) => {
@@ -88,7 +88,7 @@ const FileUploadField = ({
     e.preventDefault();
     e.stopPropagation();
     setIsDragging(false);
-    
+
     const droppedFile = e.dataTransfer.files[0];
     if (droppedFile) {
       // Directly call onChange with a synthetic event for file input
@@ -109,10 +109,9 @@ const FileUploadField = ({
       <label className="block text-sm font-medium text-gray-700 mb-2">
         {label} <span className="text-red-500">*</span>
       </label>
-      <div 
-        className={`mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-lg transition-colors ${
-          isDragging ? 'border-[var(--main-blue)] bg-blue-50' : 'hover:border-[var(--main-blue)]'
-        }`}
+      <div
+        className={`mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-lg transition-colors ${isDragging ? 'border-[var(--main-blue)] bg-blue-50' : 'hover:border-[var(--main-blue)]'
+          }`}
         onDragEnter={handleDragEnter}
         onDragLeave={handleDragLeave}
         onDragOver={handleDragOver}
@@ -180,7 +179,7 @@ export const UserCreateModal = ({
 }: UserCreateModalProps) => {
   const { showToast, ToastContainer } = useToast();
   const [districts, setDistricts] = useState<AdministrativeDivision[]>([]);
-const [sectors, setSectors] = useState<string[]>([]);
+  const [sectors, setSectors] = useState<string[]>([]);
   const validationRules: ValidationRules = {
     fullName: { required: true, minLength: 3 },
     email: { required: true, pattern: /^[^\s@]+@[^\s@]+\.[^\s@]+$/ },
@@ -194,28 +193,28 @@ const [sectors, setSectors] = useState<string[]>([]);
     emergencyContact2PhoneNumber: { required: true, pattern: /^250\d{9}$/ },
     emergencyContact2Relationship: { required: true },
     nationalIdDocument: { required: true },
-  criminalRecordCertificate: { required: true },
-  passportPhoto: { required: true },
+    criminalRecordCertificate: { required: true },
+    passportPhoto: { required: true },
     bankName: { required: true },
-    bankAccountNumber: { 
-      required: true, 
+    bankAccountNumber: {
+      required: true,
       validate: (value: string) => {
         if (!value) return 'Bank account number is required';
         if (!/^\d+$/.test(value)) return 'Bank account number must contain only digits (0-9)';
         if (value.length < 10) return 'Bank account number must be at least 10 digits';
-        if (value.length > 15) return 'Bank account number must be at most 15 digits';
+        if (value.length > 16) return 'Bank account number must be at most 16 digits';
         return true;
       }
     },
     province: { required: true },
-    district: { required: true }, 
+    district: { required: true },
     sector: { required: true },
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData((prev: FormData) => ({ ...prev, [name]: value }));
-    
+
     if (errors[name]) {
       setErrors((prev: Errors) => {
         const newErrors = { ...prev };
@@ -225,18 +224,18 @@ const [sectors, setSectors] = useState<string[]>([]);
     }
   };
 
-const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, fieldName: string) => {
-  const file = e.target.files?.[0] || null;
-  setFormData((prev: FormData) => ({ ...prev, [fieldName]: file }));
-  
-  if (errors[fieldName]) {
-    setErrors((prev: Errors) => {
-      const newErrors = { ...prev };
-      delete newErrors[fieldName];
-      return newErrors;
-    });
-  }
-};
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, fieldName: string) => {
+    const file = e.target.files?.[0] || null;
+    setFormData((prev: FormData) => ({ ...prev, [fieldName]: file }));
+
+    if (errors[fieldName]) {
+      setErrors((prev: Errors) => {
+        const newErrors = { ...prev };
+        delete newErrors[fieldName];
+        return newErrors;
+      });
+    }
+  };
 
   const validateFiles = () => {
     const fileErrors: Errors = {};
@@ -292,48 +291,48 @@ const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, fieldName: str
 
     if (Object.keys(allErrors).length === 0) {
       onCreate(formData);
-    }else {
+    } else {
       showToast('Please correct the errors in the form.', 'error');
     }
   };
 
   useEffect(() => {
-  if (formData.province) {
-    const selectedProvince = rwandaProvinces.find(p => p.name === formData.province);
-    setDistricts(selectedProvince?.districts || []);
-    setFormData(prev => ({ ...prev, district: '', sector: '' }));
-  } else {
-    setDistricts([]);
-    setFormData(prev => ({ ...prev, district: '', sector: '' }));
-  }
-}, [formData.province]);
+    if (formData.province) {
+      const selectedProvince = rwandaProvinces.find(p => p.name === formData.province);
+      setDistricts(selectedProvince?.districts || []);
+      setFormData(prev => ({ ...prev, district: '', sector: '' }));
+    } else {
+      setDistricts([]);
+      setFormData(prev => ({ ...prev, district: '', sector: '' }));
+    }
+  }, [formData.province]);
 
-useEffect(() => {
-  if (formData.district) {
-    const selectedDistrict = districts.find(d => d.name === formData.district);
-    const sectors = selectedDistrict?.sectors || [];
-    // Extract sector names as strings
-    const sectorNames = sectors.map(sector => sector.name);
-    setSectors(sectorNames);
-    setFormData(prev => ({ ...prev, sector: '' }));
-  } else {
-    setSectors([]);
-    setFormData(prev => ({ ...prev, sector: '' }));
-  }
-}, [formData.district, districts]);
+  useEffect(() => {
+    if (formData.district) {
+      const selectedDistrict = districts.find(d => d.name === formData.district);
+      const sectors = selectedDistrict?.sectors || [];
+      // Extract sector names as strings
+      const sectorNames = sectors.map(sector => sector.name);
+      setSectors(sectorNames);
+      setFormData(prev => ({ ...prev, sector: '' }));
+    } else {
+      setSectors([]);
+      setFormData(prev => ({ ...prev, sector: '' }));
+    }
+  }, [formData.district, districts]);
 
   if (!isOpen) return null;
 
   const getDateLimits = () => {
-  const today = new Date();
-  const maxDate = new Date(today.getFullYear() - 18, today.getMonth(), today.getDate());
-  const minDate = new Date(today.getFullYear() - 65, today.getMonth(), today.getDate());
-  
-  return {
-    min: minDate.toISOString().split('T')[0],
-    max: maxDate.toISOString().split('T')[0]
+    const today = new Date();
+    const maxDate = new Date(today.getFullYear() - 18, today.getMonth(), today.getDate());
+    const minDate = new Date(today.getFullYear() - 65, today.getMonth(), today.getDate());
+
+    return {
+      min: minDate.toISOString().split('T')[0],
+      max: maxDate.toISOString().split('T')[0]
+    };
   };
-};
 
 
   return (
@@ -396,8 +395,8 @@ useEffect(() => {
               onChange={handleInputChange}
               error={errors.dateOfBirth}
               required
-               min={getDateLimits().min}
-  max={getDateLimits().max}
+              min={getDateLimits().min}
+              max={getDateLimits().max}
             />
           </div>
 
@@ -419,81 +418,83 @@ useEffect(() => {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-  <div>
-    <label className="block text-sm font-medium text-gray-700 mb-1">Province *</label>
-    <select
-      className="w-full border border-gray-300 rounded-md p-2"
-      value={formData.province}
-      onChange={(e) => setFormData({...formData, province: e.target.value})}
-      required
-    >
-      <option value="">Select Province</option>
-      {rwandaProvinces.map(province => (
-        <option key={province.name} value={province.name}>{province.name}</option>
-      ))}
-    </select>
-  </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Province *</label>
+              <select
+                className="w-full border border-gray-300 rounded-md p-2"
+                value={formData.province}
+                onChange={(e) => setFormData({ ...formData, province: e.target.value })}
+                required
+              >
+                <option value="">Select Province</option>
+                {rwandaProvinces.map(province => (
+                  <option key={province.name} value={province.name}>{province.name}</option>
+                ))}
+              </select>
+            </div>
 
-  <div>
-    <label className="block text-sm font-medium text-gray-700 mb-1">District *</label>
-    <select
-      className="w-full border border-gray-300 rounded-md p-2"
-      value={formData.district}
-      onChange={(e) => setFormData({...formData, district: e.target.value})}
-      required
-      disabled={!formData.province}
-    >
-      <option value="">Select District</option>
-      {districts.map(district => (
-        <option key={district.name} value={district.name}>{district.name}</option>
-      ))}
-    </select>
-  </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">District *</label>
+              <select
+                className="w-full border border-gray-300 rounded-md p-2"
+                value={formData.district}
+                onChange={(e) => setFormData({ ...formData, district: e.target.value })}
+                required
+                disabled={!formData.province}
+              >
+                <option value="">Select District</option>
+                {districts.map(district => (
+                  <option key={district.name} value={district.name}>{district.name}</option>
+                ))}
+              </select>
+            </div>
 
-  <div>
-    <label className="block text-sm font-medium text-gray-700 mb-1">Sector *</label>
-    <select
-      className="w-full border border-gray-300 rounded-md p-2"
-      value={formData.sector}
-      onChange={(e) => setFormData({...formData, sector: e.target.value})}
-      required
-      disabled={!formData.district}
-    >
-      <option value="">Select Sector</option>
-      {sectors.map(sector => (
-        <option key={sector} value={sector}>{sector}</option>
-      ))}
-    </select>
-  </div>
-</div>
-          
-<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-  <div>
-    <label className="block text-sm font-medium text-gray-700 mb-1">
-      Bank Name <span className="text-red-500">*</span>
-    </label>
-    <select
-      className="w-full border border-gray-300 rounded-md p-2"
-      value={formData.bankName}
-      onChange={(e) => setFormData({...formData, bankName: e.target.value})}
-      required
-    >
-      <option value="">Select Bank</option>
-      {rwandaBanks.map(bank => (
-        <option key={bank} value={bank}>{bank}</option>
-      ))}
-    </select>
-  </div>
-  <Input
-    label="Bank Account Number"
-    name="bankAccountNumber"
-    type="number"
-    value={formData.bankAccountNumber}
-    onChange={(e) => setFormData({ ...formData, bankAccountNumber: e.target.value })}
-    error={errors.bankAccountNumber}
-    required
-  />
-</div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Sector *</label>
+              <select
+                className="w-full border border-gray-300 rounded-md p-2"
+                value={formData.sector}
+                onChange={(e) => setFormData({ ...formData, sector: e.target.value })}
+                required
+                disabled={!formData.district}
+              >
+                <option value="">Select Sector</option>
+                {sectors.map(sector => (
+                  <option key={sector} value={sector}>{sector}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Bank Name <span className="text-red-500">*</span>
+              </label>
+              <select
+                className="w-full border border-gray-300 rounded-md p-2"
+                value={formData.bankName}
+                onChange={(e) => setFormData({ ...formData, bankName: e.target.value })}
+                required
+              >
+                <option value="">Select Bank</option>
+                {rwandaBanks.map(bank => (
+                  <option key={bank} value={bank}>{bank}</option>
+                ))}
+              </select>
+            </div>
+            <Input
+              label="Bank Account Number"
+              name="bankAccountNumber"
+              type="text"
+              value={formData.bankAccountNumber}
+              onChange={(e) => setFormData({ ...formData, bankAccountNumber: e.target.value })}
+              error={errors.bankAccountNumber}
+              required
+              maxLength={16}
+              placeholder="Enter account number (10-16 digits)"
+            />
+          </div>
           <div>
             <label className="block text-sm font-medium mb-1">
               Role <span className="text-red-500">*</span>
@@ -509,126 +510,126 @@ useEffect(() => {
             </select>
           </div>
 
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <h4 className="font-medium mb-3">Required Documents</h4>
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                 <FileUploadField
-  label="National ID"
-  name="nationalIdDocument"
-  accept=".pdf,.jpg,.jpeg,.png"
-  error={errors.nationalIdDocument}
-  file={formData.nationalIdDocument}
-  description="PDF, JPEG, or PNG up to 5MB"
-  onChange={handleFileChange}
-/>
-                  <FileUploadField
-                    label="Criminal Record Certificate"
-                    name="criminalRecordCertificate"
-                    accept=".pdf,.jpg,.jpeg,.png"
-                    error={errors.criminalRecordCertificate}
-                    file={formData.criminalRecordCertificate}
-                    description="PDF, JPEG, or PNG up to 5MB"
-                    onChange={handleFileChange}
-                  />
-                </div>
-                <div className="mt-6">
-                  <FileUploadField
-                    label="Recent Passport Photo"
-                    name="passportPhoto"
-                    accept=".jpg,.jpeg,.png"
-                    error={errors.passportPhoto}
-                    file={formData.passportPhoto}
-                    description="JPEG or PNG up to 5MB"
-                    onChange={handleFileChange}
-                  />
-                </div>
-              </div>
+          <div className="bg-gray-50 p-4 rounded-lg">
+            <h4 className="font-medium mb-3">Required Documents</h4>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <FileUploadField
+                label="National ID"
+                name="nationalIdDocument"
+                accept=".pdf,.jpg,.jpeg,.png"
+                error={errors.nationalIdDocument}
+                file={formData.nationalIdDocument}
+                description="PDF, JPEG, or PNG up to 5MB"
+                onChange={handleFileChange}
+              />
+              <FileUploadField
+                label="Criminal Record Certificate"
+                name="criminalRecordCertificate"
+                accept=".pdf,.jpg,.jpeg,.png"
+                error={errors.criminalRecordCertificate}
+                file={formData.criminalRecordCertificate}
+                description="PDF, JPEG, or PNG up to 5MB"
+                onChange={handleFileChange}
+              />
+            </div>
+            <div className="mt-6">
+              <FileUploadField
+                label="Recent Passport Photo"
+                name="passportPhoto"
+                accept=".jpg,.jpeg,.png"
+                error={errors.passportPhoto}
+                file={formData.passportPhoto}
+                description="JPEG or PNG up to 5MB"
+                onChange={handleFileChange}
+              />
+            </div>
+          </div>
 
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <h4 className="font-medium mb-3">Emergency Contacts</h4>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                  <Input
-                    label="Full Name"
-                    name="emergencyContact1Name"
-                    placeholder="Contact name"
-                    value={formData.emergencyContact1Name}
-                    onChange={handleInputChange}
-                    error={errors.emergencyContact1Name}
-                    required
-                  />
-                  <Input
-                    label="Phone Number"
-                    type="tel"
-                    name="emergencyContact1PhoneNumber"
-                    placeholder="2507XXXXXXXX"
-                    value={formData.emergencyContact1PhoneNumber}
-                    onChange={handleInputChange}
-                    error={errors.emergencyContact1PhoneNumber}
-                    required
-                  />
-                  <div>
-                    <label className="block text-sm font-medium mb-1">
-                      Relationship <span className="text-red-500">*</span>
-                    </label>
-                    <select
-                      name="emergencyContact1Relationship"
-                      value={formData.emergencyContact1Relationship}
-                      onChange={handleInputChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[var(--main-blue)] focus:border-[var(--main-blue)]"
-                    >
-                      <option value="">Select relationship</option>
-                      <option value="Parent">Parent</option>
-                      <option value="Sibling">Sibling</option>
-                      <option value="Spouse">Spouse</option>
-                      <option value="Friend">Friend</option>
-                    </select>
-                    {errors.emergencyContact1Relationship && (
-                      <p className="mt-2 text-sm text-red-600">{errors.emergencyContact1Relationship}</p>
-                    )}
-                  </div>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <Input
-                    label="Full Name"
-                    name="emergencyContact2Name"
-                    placeholder="Contact name"
-                    value={formData.emergencyContact2Name}
-                    onChange={handleInputChange}
-                    error={errors.emergencyContact2Name}
-                    required
-                  />
-                  <Input
-                    label="Phone Number"
-                    type="tel"
-                    name="emergencyContact2PhoneNumber"
-                    placeholder="2507XXXXXXXX"
-                    value={formData.emergencyContact2PhoneNumber}
-                    onChange={handleInputChange}
-                    error={errors.emergencyContact2PhoneNumber}
-                    required
-                  />
-                  <div>
-                    <label className="block text-sm font-medium mb-1">
-                      Relationship <span className="text-red-500">*</span>
-                    </label>
-                    <select
-                      name="emergencyContact2Relationship"
-                      value={formData.emergencyContact2Relationship}
-                      onChange={handleInputChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[var(--main-blue)] focus:border-[var(--main-blue)]"
-                    >
-                      <option value="">Select relationship</option>
-                      <option value="Parent">Parent</option>
-                      <option value="Sibling">Sibling</option>
-                      <option value="Spouse">Spouse</option>
-                      <option value="Friend">Friend</option>
-                    </select>
-                    {errors.emergencyContact2Relationship && (
-                      <p className="mt-2 text-sm text-red-600">{errors.emergencyContact2Relationship}</p>
-                    )}
-                  </div>
-                </div>
+          <div className="bg-gray-50 p-4 rounded-lg">
+            <h4 className="font-medium mb-3">Emergency Contacts</h4>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+              <Input
+                label="Full Name"
+                name="emergencyContact1Name"
+                placeholder="Contact name"
+                value={formData.emergencyContact1Name}
+                onChange={handleInputChange}
+                error={errors.emergencyContact1Name}
+                required
+              />
+              <Input
+                label="Phone Number"
+                type="tel"
+                name="emergencyContact1PhoneNumber"
+                placeholder="2507XXXXXXXX"
+                value={formData.emergencyContact1PhoneNumber}
+                onChange={handleInputChange}
+                error={errors.emergencyContact1PhoneNumber}
+                required
+              />
+              <div>
+                <label className="block text-sm font-medium mb-1">
+                  Relationship <span className="text-red-500">*</span>
+                </label>
+                <select
+                  name="emergencyContact1Relationship"
+                  value={formData.emergencyContact1Relationship}
+                  onChange={handleInputChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[var(--main-blue)] focus:border-[var(--main-blue)]"
+                >
+                  <option value="">Select relationship</option>
+                  <option value="Parent">Parent</option>
+                  <option value="Sibling">Sibling</option>
+                  <option value="Spouse">Spouse</option>
+                  <option value="Friend">Friend</option>
+                </select>
+                {errors.emergencyContact1Relationship && (
+                  <p className="mt-2 text-sm text-red-600">{errors.emergencyContact1Relationship}</p>
+                )}
               </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <Input
+                label="Full Name"
+                name="emergencyContact2Name"
+                placeholder="Contact name"
+                value={formData.emergencyContact2Name}
+                onChange={handleInputChange}
+                error={errors.emergencyContact2Name}
+                required
+              />
+              <Input
+                label="Phone Number"
+                type="tel"
+                name="emergencyContact2PhoneNumber"
+                placeholder="2507XXXXXXXX"
+                value={formData.emergencyContact2PhoneNumber}
+                onChange={handleInputChange}
+                error={errors.emergencyContact2PhoneNumber}
+                required
+              />
+              <div>
+                <label className="block text-sm font-medium mb-1">
+                  Relationship <span className="text-red-500">*</span>
+                </label>
+                <select
+                  name="emergencyContact2Relationship"
+                  value={formData.emergencyContact2Relationship}
+                  onChange={handleInputChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[var(--main-blue)] focus:border-[var(--main-blue)]"
+                >
+                  <option value="">Select relationship</option>
+                  <option value="Parent">Parent</option>
+                  <option value="Sibling">Sibling</option>
+                  <option value="Spouse">Spouse</option>
+                  <option value="Friend">Friend</option>
+                </select>
+                {errors.emergencyContact2Relationship && (
+                  <p className="mt-2 text-sm text-red-600">{errors.emergencyContact2Relationship}</p>
+                )}
+              </div>
+            </div>
+          </div>
 
           <div className="flex justify-end gap-2 mt-6">
             <Button
