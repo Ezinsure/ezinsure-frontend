@@ -78,7 +78,16 @@ export const UserEditModal = ({ user, onClose, onSave, isLoading }: UserEditModa
     district: { required: true },
     sector: { required: true },
     bankName: { required: true },
-    bankAccountNumber: { required: true, pattern: /^\d{10,15}$/ },
+    bankAccountNumber: { 
+      required: true, 
+      validate: (value: string) => {
+        if (!value) return 'Bank account number is required';
+        if (!/^\d+$/.test(value)) return 'Bank account number must contain only digits (0-9)';
+        if (value.length < 10) return 'Bank account number must be at least 10 digits';
+        if (value.length > 15) return 'Bank account number must be at most 15 digits';
+        return true;
+      }
+    },
   };
 
   useEffect(() => {
