@@ -14,6 +14,187 @@ import { FileInput } from '@/components/ui/file-input';
 import { Application, EditUserOnTrackingPage } from '@/components/ui/admin/EditUserOnTrackingPage';
 import Link from 'next/link';
 
+// Device tracking utility types and functions
+interface DeviceInfo {
+  userAgent: string;
+  platform: string;
+  timezone: string;
+  deviceMemory?: number;
+  devicePixelRatio: number;
+  viewportSize: string;
+  browserName: string;
+  browserVersion: string;
+  operatingSystem: string;
+}
+
+interface LocationInfo {
+  latitude?: number;
+  longitude?: number;
+  accuracy?: number;
+  timestamp?: number;
+  error?: string;
+  ipLocation?: {
+    country?: string;
+    region?: string;
+    city?: string;
+    timezone?: string;
+  };
+}
+
+interface TrackingData {
+  deviceInfo: DeviceInfo;
+  locationInfo: LocationInfo;
+  sessionId: string;
+  timestamp: number;
+}
+
+// Device info utility
+const getDeviceInfo = (): DeviceInfo => {
+  const ua = navigator.userAgent;
+  
+  const getBrowserInfo = () => {
+    const browsers = [
+      { name: 'Chrome', regex: /Chrome\/([0-9.]+)/ },
+      { name: 'Firefox', regex: /Firefox\/([0-9.]+)/ },
+      { name: 'Safari', regex: /Safari\/([0-9.]+)/ },
+      { name: 'Edge', regex: /Edge\/([0-9.]+)/ },
+      { name: 'Opera', regex: /Opera\/([0-9.]+)/ },
+    ];
+    
+    for (const browser of browsers) {
+      const match = ua.match(browser.regex);
+      if (match) {
+        return { name: browser.name, version: match[1] };
+      }
+    }
+    return { name: 'Unknown', version: 'Unknown' };
+  };
+
+  const getOperatingSystem = () => {
+    // Prioritize navigator.platform as it's more reliable than userAgent
+    const platform = navigator.platform.toLowerCase();
+    
+    // Check platform first (most reliable)
+    if (platform.includes('win')) return 'Windows';
+    if (platform.includes('mac')) return 'macOS';
+    if (platform.includes('linux')) return 'Linux';
+    if (platform.includes('iphone') || platform.includes('ipad') || platform.includes('ipod')) return 'iOS';
+    if (platform.includes('android')) return 'Android';
+    
+    // Fallback to userAgent parsing if platform doesn't help
+    if (ua.includes('Windows')) return 'Windows';
+    if (ua.includes('Android')) return 'Android';
+    if (ua.includes('iPhone') || ua.includes('iPad')) return 'iOS';
+    if (ua.includes('Mac OS X') && !ua.includes('iPhone') && !ua.includes('iPad')) return 'macOS';
+    if (ua.includes('Linux')) return 'Linux';
+    
+    return 'Unknown';
+  };
+
+  const browser = getBrowserInfo();
+  
+  return {
+    userAgent: ua,
+    platform: navigator.platform,
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    deviceMemory: (navigator as unknown as { deviceMemory?: number }).deviceMemory,
+    devicePixelRatio: window.devicePixelRatio,
+    viewportSize: `${window.innerWidth}x${window.innerHeight}`,
+    browserName: browser.name,
+    browserVersion: browser.version,
+    operatingSystem: getOperatingSystem(),
+  };
+};
+
+// Location info utility
+const getLocationInfo = async (): Promise<LocationInfo> => {
+  const locationInfo: LocationInfo = {};
+
+  // Try GPS location (silent)
+  try {
+    const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+      if (!navigator.geolocation) {
+        reject(new Error('Geolocation not supported'));
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        resolve,
+        reject,
+        {
+          enableHighAccuracy: false,
+          timeout: 5000,
+          maximumAge: 300000,
+        }
+      );
+    });
+
+    locationInfo.latitude = position.coords.latitude;
+    locationInfo.longitude = position.coords.longitude;
+    locationInfo.accuracy = position.coords.accuracy;
+    locationInfo.timestamp = position.timestamp;
+  } catch (error) {
+    locationInfo.error = error instanceof Error ? error.message : 'Location access denied';
+  }
+
+  // Try IP-based location
+  try {
+    const response = await fetch('https://ipapi.co/json/');
+    if (response.ok) {
+      const ipData = await response.json();
+      locationInfo.ipLocation = {
+        country: ipData.country_name,
+        region: ipData.region,
+        city: ipData.city,
+        timezone: ipData.timezone,
+      };
+    }
+  } catch (error) {
+    console.debug('IP location lookup failed:', error);
+  }
+
+  return locationInfo;
+};
+
+// Session ID utility
+const getSessionId = (): string => {
+  const storageKey = 'ezinsure_session_id';
+  let sessionId;
+  
+  try {
+    sessionId = sessionStorage.getItem(storageKey);
+  } catch (error) {
+    console.log('Session storage access failed:', error);
+    sessionId = null;
+  }
+  
+  if (!sessionId) {
+    sessionId = `session_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
+    try {
+      sessionStorage.setItem(storageKey, sessionId);
+    } catch (error) {
+      console.log('Failed to set session ID in storage:', error);
+    }
+  }
+  
+  return sessionId;
+};
+
+// Get complete tracking data
+const getTrackingData = async (): Promise<TrackingData> => {
+  const [deviceInfo, locationInfo] = await Promise.all([
+    Promise.resolve(getDeviceInfo()),
+    getLocationInfo(),
+  ]);
+
+  return {
+    deviceInfo,
+    locationInfo,
+    sessionId: getSessionId(),
+    timestamp: Date.now(),
+  };
+};
+
 
 interface FormState {
   [key: string]: string | File | null;
@@ -176,6 +357,7 @@ export default function AgentRegistrationPage() {
   // const router = useRouter();
   const { showToast, ToastContainer } = useToast();
   const [showEditModal, setShowEditModal] = useState(false);
+  const [trackingData, setTrackingData] = useState<TrackingData | null>(null);
   const [formState, setFormState] = useState<FormState>({
     fullName: '',
     email: '',
@@ -290,6 +472,22 @@ export default function AgentRegistrationPage() {
       setFormState(prev => ({ ...prev, sector: '' }));
     }
   }, [formState.district, availableDistricts]);
+
+  // Initialize tracking data on component mount
+  useEffect(() => {
+    const initializeTracking = async () => {
+      try {
+        console.log('[Register] Starting tracking data capture...');
+        const data = await getTrackingData();
+        console.log('[Register] Tracking data captured successfully:', data);
+        setTrackingData(data);
+      } catch (error) {
+        console.error('[Register] Tracking initialization failed:', error);
+      }
+    };
+
+    initializeTracking();
+  }, []);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -408,7 +606,37 @@ const handleSubmit = async (e: React.FormEvent) => {
       formData.append('emergencyContacts2Phone', formState.emergencyContact2PhoneNumber);
       formData.append('emergencyContacts2Relationship', formState.emergencyContact2Relationship);
 
-      console.log("Submitting form data:", formData)
+      // Append tracking data
+      console.log('[Register] Checking tracking data before submission...');
+      console.log('[Register] Tracking data state:', trackingData);
+      if (trackingData) {
+        formData.append('trackingData', JSON.stringify(trackingData));
+        console.log('[Register] Tracking data appended to FormData');
+      } else {
+        console.warn('[Register] No tracking data available - it was not captured!');
+      }
+
+      // Log FormData contents before sending
+      console.log('[Register] ========== FormData being sent to API ==========');
+      const formDataEntries = Array.from(formData.entries()).map(([key, value]) => {
+        if (value instanceof File) {
+          return [key, `File: ${value.name} (${value.type}, ${value.size} bytes)`];
+        }
+        // Check if this is the trackingData field
+        if (key === 'trackingData' && typeof value === 'string') {
+          try {
+            const parsed = JSON.parse(value);
+            return [key, parsed];
+          } catch {
+            return [key, value];
+          }
+        }
+        return [key, value];
+      });
+      const formDataObject = Object.fromEntries(formDataEntries);
+      console.log('[Register] FormData entries:', formDataObject);
+      console.log('[Register] FormData as JSON (readable):', JSON.stringify(formDataObject, null, 2));
+      console.log('[Register] =================================================');
 
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/agents/apply`, {
         method: 'POST',
