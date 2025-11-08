@@ -363,6 +363,8 @@ export default function ApplyPage() {
       case 'nationalID': return 'National ID Number';
       case 'passport': return 'Passport Number';
       case 'drivingLicense': return 'Driving License Number';
+      case 'plateNumber': return 'Plate Number';
+      case 'tinNumber': return 'TIN Number';
       default: return 'National ID Number';
     }
   };
@@ -372,6 +374,8 @@ export default function ApplyPage() {
       case 'nationalID': return 'e.g. 1234567890123456';
       case 'passport': return 'e.g. RN1234567';
       case 'drivingLicense': return 'e.g. DL123456789';
+      case 'plateNumber': return 'e.g. RAA 123A';
+      case 'tinNumber': return 'e.g. 123456789';
       default: return 'e.g. 1234567890123456';
     }
   };
@@ -654,6 +658,8 @@ export default function ApplyPage() {
                     <option value="nationalID">National ID</option>
                     <option value="passport">Passport</option>
                     <option value="drivingLicense">Driving License</option>
+                    <option value="plateNumber">Plate Number</option>
+                    <option value="tinNumber">TIN Number</option>
                   </select>
                   {errors.identificationDocumentType && (
                     <p className="mt-1 text-sm text-[var(--error-red)]">

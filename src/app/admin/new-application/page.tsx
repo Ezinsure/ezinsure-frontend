@@ -359,229 +359,132 @@ export default function AdminNewApplicationPage() {
   ];
 
   // Helper functions for document types
-
   const getIdentificationDocumentLabel = (type: string) => {
-
     switch (type) {
-
       case 'nationalID': return 'National ID Number';
-
       case 'passport': return 'Passport Number';
-
       case 'drivingLicense': return 'Driving License Number';
-
+      case 'plateNumber': return 'Plate Number';
+      case 'tinNumber': return 'TIN Number';
       default: return 'National ID Number';
-
     }
-
   };
 
   const getIdentificationDocumentPlaceholder = (type: string) => {
-
     switch (type) {
-
       case 'nationalID': return 'e.g. 1234567890123456';
-
       case 'passport': return 'e.g. RN1234567';
-
       case 'drivingLicense': return 'e.g. DL123456789';
-
+      case 'plateNumber': return 'e.g. RAA 123A';
+      case 'tinNumber': return 'e.g. 123456789';
       default: return 'e.g. 1234567890123456';
-
     }
-
   };
 
   const getDateLimits = () => {
-
     const today = new Date();
-
     const maxDate = new Date(today.getFullYear() - 18, today.getMonth(), today.getDate());
-
     const minDate = new Date(today.getFullYear() - 100, today.getMonth(), today.getDate());
-
     return {
-
       min: minDate.toISOString().split('T')[0],
-
       max: maxDate.toISOString().split('T')[0]
-
     };
-
   };
 
   // Handle identification search success
-
   const handleIdentificationSearchSuccess = (data: Record<string, unknown>) => {
-
     setFormData(prev => ({
-
       ...prev,
-
       fullName: (data.fullName as string) || prev.fullName,
-
       email: (data.email as string) || prev.email,
-
       phoneNumber: (data.phoneNumber as string) || prev.phoneNumber,
-
       address: (data.address as string) || prev.address,
-
       dateOfBirth: (data.dateOfBirth as string) || prev.dateOfBirth,
-
       province: (data.province as string) || prev.province,
-
       district: (data.district as string) || prev.district,
-
       sector: (data.sector as string) || prev.sector,
-
     }));
 
     // Update districts and sectors if province is set
-
     if (data.province) {
-
       const selectedProvince = rwandaProvinces.find(p => p.name === (data.province as string));
-
       const districts = selectedProvince?.districts || [];
-
       const transformedDistricts = districts.map(district => ({
-
         name: district.name,
-
         sectors: district.sectors?.map(sector => sector.name) || []
-
       }));
-
       setAvailableDistricts(transformedDistricts);
 
       if (data.district) {
-
         const selectedDistrict = transformedDistricts.find(d => d.name === (data.district as string));
-
         setAvailableSectors(selectedDistrict?.sectors || []);
-
       }
-
     }
-
     showToast('Client information loaded successfully', 'success');
-
   };
 
   // Handle search success for plate number
-
   const handlePlateSearchSuccess = (data: Record<string, unknown>) => {
-
     setFormData(prev => ({
-
       ...prev,
-
       // Client information from vehicle owner
-
       fullName: (data.fullName as string) || prev.fullName,
-
       email: (data.email as string) || prev.email,
-
       phoneNumber: (data.phoneNumber as string) || prev.phoneNumber,
-
       // Vehicle-specific fields
-
       vehicleType: (data.vehicleType as string) || prev.vehicleType,
-
       vehicleAge: (data.vehicleAge as string) || prev.vehicleAge,
-
       vehicleUse: (data.vehicleUse as string) || prev.vehicleUse,
-
       otherVehicleUse: (data.otherVehicleUse as string) || prev.otherVehicleUse,
-
       // Store additional IDs for reference
-
       vehicleId: (data.vehicleId as string) || prev.vehicleId,
-
       clientId: (data.clientId as string) || prev.clientId,
-
     }));
-
     showToast('Vehicle information loaded successfully', 'success');
-
   };
 
   // Handle search results to track isNewClient and isNewVehicle
-
   const handleSearchResult = (exists: boolean, searchType: 'plateNumber' | 'identificationNumber') => {
-
     setSearchResults(prev => ({
-
       ...prev,
-
       [searchType === 'identificationNumber' ? 'isNewClient' : 'isNewVehicle']: !exists
-
     }));
-
   };
 
   const getTokenFromStorage = () => {
-
     try {
-
       return sessionStorage.getItem('ezinsure_token');
-
     } catch (error) {
-
       console.error('Error accessing sessionStorage:', error);
-
       return null;
-
     }
-
   };
 
   const [formData, setFormData] = useState<ApplicationFormData>({
 
     // Personal Information
-
     fullName: '',
-
     email: '',
-
     phoneNumber: '',
-
     dateOfBirth: '',
-
     address: '',
-
     province: '',
-
     district: '',
-
     sector: '',
-
     identificationDocumentType: 'nationalID',
-
     identificationNumber: '',
-
     // Insurance Information
 
     insuranceCategory: 'Car Insurance',
-
     insuranceType: 'Comprehensive Insurance (covers everything)',
-
     insuranceDuration: '1 Month',
-
     insuranceProvider: 'SONARWA',
-
     isCOMESA: false,
-
     plateNumber: '',
-
     // Vehicle Information
-
     vehicleType: '',
-
     vehicleAge: '',
-
     vehicleUse: '',
-
     otherVehicleUse: '',
 
     // Documents
@@ -1317,6 +1220,10 @@ export default function AdminNewApplicationPage() {
                     <option value="passport">Passport</option>
 
                     <option value="drivingLicense">Driving License</option>
+
+                    <option value="plateNumber">Plate Number</option>
+
+                    <option value="tinNumber">TIN Number</option>
 
                   </select>
 

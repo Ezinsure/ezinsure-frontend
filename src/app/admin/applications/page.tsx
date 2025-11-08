@@ -127,7 +127,9 @@ export default function ManageApplicationsPage() {
   const [ebmFile, setEbmFile] = useState<File | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isApproving, setIsApproving] = useState(false);
-const [isRejecting, setIsRejecting] = useState(false);
+  const [isRejecting, setIsRejecting] = useState(false);
+  const [isApprovingPayment, setIsApprovingPayment] = useState(false);
+  const [isRejectingPayment, setIsRejectingPayment] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [invoiceAmount, setInvoiceAmount] = useState('');
   const [agentCommission, setAgentCommission] = useState('');
@@ -419,7 +421,13 @@ const [isRejecting, setIsRejecting] = useState(false);
 const handleVerifyPayment = async (action: 'approve' | 'reject') => {
   if (!selectedApp) return;
   
-  setIsProcessing(true);
+  // Set the appropriate loading state based on action
+  if (action === 'approve') {
+    setIsApprovingPayment(true);
+  } else {
+    setIsRejectingPayment(true);
+  }
+  
   try {
     const response = await fetch(
       `${process.env.NEXT_PUBLIC_API_BASE_URL}/verifyPayment/${selectedApp._id}`,
@@ -456,7 +464,12 @@ const handleVerifyPayment = async (action: 'approve' | 'reject') => {
     console.error('Error verifying payment:', error);
     showToast(error instanceof Error ? error.message : 'Failed to verify payment', 'error');
   } finally {
-    setIsProcessing(false);
+    // Clear the appropriate loading state based on action
+    if (action === 'approve') {
+      setIsApprovingPayment(false);
+    } else {
+      setIsRejectingPayment(false);
+    }
   }
 };
 
@@ -1778,30 +1791,24 @@ const getActionButtons = (app: Application) => {
           variant="text" 
           size='sm'
           onClick={() =>{setSelectedApp(null); setActiveModal(null);}} 
-          disabled={isProcessing}
+          disabled={isApprovingPayment || isRejectingPayment}
         >
           Cancel
         </Button>
         <Button 
           variant="danger" 
           size='sm'
-          onClick={() => {
-            setIsProcessing(true);
-            handleVerifyPayment('reject').finally(() => setIsProcessing(false));
-          }}
-          disabled={!rejectionComment || isProcessing}
+          onClick={() => handleVerifyPayment('reject')}
+          disabled={!rejectionComment || isRejectingPayment || isApprovingPayment}
         >
-          {isProcessing ? 'Processing...' : 'Reject Payment'}
+          {isRejectingPayment ? 'Processing...' : 'Reject Payment'}
         </Button>
         <Button 
           size='sm'
-          onClick={() => {
-            setIsProcessing(true);
-            handleVerifyPayment('approve').finally(() => setIsProcessing(false));
-          }}
-          disabled={rejectionComment.length > 0 || isProcessing}
+          onClick={() => handleVerifyPayment('approve')}
+          disabled={rejectionComment.length > 0 || isApprovingPayment || isRejectingPayment}
         >
-          {isProcessing ? 'Processing...' : 'Approve Payment'}
+          {isApprovingPayment ? 'Processing...' : 'Approve Payment'}
         </Button>
       </div>
           </div>
