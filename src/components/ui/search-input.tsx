@@ -104,8 +104,8 @@ export const SearchInput = ({
         // Not found case - valid format but no data
         setSearchStatus('unknown');
         const friendlyMessage = searchType === 'identificationNumber' 
-          ? 'No client found with this identification number. This will be saved as a new entry.'
-          : 'No vehicle found with this plate number. This will be saved as a new entry.';
+          ? 'Welcome! We\'re excited to help you with your insurance application. Please continue filling out the form.'
+          : 'Welcome! We\'re ready to register this vehicle for insurance. Please continue with the application below.';
         setSearchMessage(friendlyMessage);
         showToast(friendlyMessage, 'info');
         console.log(`New entry for ${searchType}:`, responseData.message);
