@@ -86,6 +86,7 @@ export const SearchInput = ({
       });
 
       const responseData = await response.json();
+      console.log('responseData', responseData);
 
       if (response.ok && responseData.exists) {
         // Success case - data found

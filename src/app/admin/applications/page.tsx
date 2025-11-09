@@ -417,7 +417,6 @@ export default function ManageApplicationsPage() {
 };
 
   // Verify client payment
-// Replace the existing handleVerifyPayment function with this:
 const handleVerifyPayment = async (action: 'approve' | 'reject') => {
   if (!selectedApp) return;
   
@@ -449,11 +448,11 @@ const handleVerifyPayment = async (action: 'approve' | 'reject') => {
       throw new Error(errorData.message || 'Failed to verify payment');
     }
 
-    showToast(
+        showToast(
       action === 'approve' 
         ? `Payment from ${selectedApp.client?.fullName || selectedApp.fullName} verified` 
-        : `Payment from ${selectedApp.client?.fullName || selectedApp.fullName} rejected`,
-      action === 'approve' ? 'success' : 'error'
+        : `Additional action is required from ${selectedApp.client?.fullName || selectedApp.fullName}`,
+      action === 'approve' ? 'success' : 'info'
     );
     setRejectionComment('');
     setSelectedApp(null);
@@ -473,10 +472,10 @@ const handleVerifyPayment = async (action: 'approve' | 'reject') => {
   }
 };
 
-  // Reject application or payment
+  // Request action for application or payment
 const handleReject = async (action: 'application' | 'payment') => {
   if (!selectedApp || !rejectionComment) {
-    showToast('Please enter rejection reason', 'error');
+    showToast('Please enter required action', 'error');
     return;
   }
   
@@ -499,14 +498,14 @@ const handleReject = async (action: 'application' | 'payment') => {
 
     if (!response.ok) {
       const errorData = await response.json();
-      throw new Error(errorData.message || 'Failed to reject');
+      throw new Error(errorData.message || 'Failed to request action');
     }
 
     showToast(
       action === 'application' 
-        ? `Application from ${selectedApp.client?.fullName || selectedApp.fullName} rejected` 
-        : `Payment from ${selectedApp.client?.fullName || selectedApp.fullName} rejected`, 
-      'error'
+        ? `Action requested for ${selectedApp.client?.fullName || selectedApp.fullName}'s application` 
+        : `Payment action requested for ${selectedApp.client?.fullName || selectedApp.fullName}`, 
+      'info'
     );
     setRejectionComment('');
     setSelectedApp(null);
@@ -514,8 +513,8 @@ const handleReject = async (action: 'application' | 'payment') => {
     // Refetch applications to get updated status
     await fetchApplications();
   } catch (error) {
-    console.error('Error rejecting:', error);
-    showToast(error instanceof Error ? error.message : 'Failed to reject', 'error');
+    console.error('Error requesting action:', error);
+    showToast(error instanceof Error ? error.message : 'Failed to request action', 'error');
   } finally {
     setIsRejecting(false);
   }
@@ -1559,13 +1558,13 @@ const getActionButtons = (app: Application) => {
       </div>
       
       <div className="mt-4">
-        <label className="block text-sm font-medium text-gray-700 mb-1">Rejection Reason (if rejecting)</label>
+        <label className="block text-sm font-medium text-gray-700 mb-1">Action Required Reason (if requesting action)</label>
         <textarea
           className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[var(--main-blue)] focus:border-[var(--main-blue)] sm:text-sm"
           rows={4}
           value={rejectionComment}
           onChange={(e) => setRejectionComment(e.target.value)}
-          placeholder="Enter reason for rejecting this application..."
+          placeholder="Enter reason for requesting action on this application..."
         />
       </div>
       
@@ -1583,7 +1582,7 @@ const getActionButtons = (app: Application) => {
     disabled={!rejectionComment || isRejecting || isApproving}
     // loading={isRejecting}
   >
-    {isRejecting ? 'Processing...' : 'Reject Application'}
+    {isRejecting ? 'Processing...' : 'Request For Action'}
   </Button>
   <Button 
     onClick={handleApproveApplication}
@@ -1776,13 +1775,13 @@ const getActionButtons = (app: Application) => {
             </div>
 
             <div className="mt-4">
-        <label className="block text-sm font-medium text-gray-700 mb-1">Rejection Reason (if rejecting)</label>
+        <label className="block text-sm font-medium text-gray-700 mb-1">Action Required Reason (if requesting action)</label>
         <textarea
           className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[var(--main-blue)] focus:border-[var(--main-blue)] sm:text-sm"
           rows={4}
           value={rejectionComment}
           onChange={(e) => setRejectionComment(e.target.value)}
-          placeholder="Enter reason for rejecting this payment..."
+          placeholder="Enter reason for requesting payment action..."
         />
       </div>
             
@@ -1801,7 +1800,7 @@ const getActionButtons = (app: Application) => {
           onClick={() => handleVerifyPayment('reject')}
           disabled={!rejectionComment || isRejectingPayment || isApprovingPayment}
         >
-          {isRejectingPayment ? 'Processing...' : 'Reject Payment'}
+          {isRejectingPayment ? 'Processing...' : 'Request Payment Action'}
         </Button>
         <Button 
           size='sm'
@@ -2125,18 +2124,18 @@ const getActionButtons = (app: Application) => {
         )}
       </div>
       
-      {/* Rejection Reason (if exists) */}
+      {/* Action Required Reason (if exists) */}
       {(selectedApp.rejectionReason) && (
-        <div className="mt-4 bg-red-50 p-4 rounded-lg">
-          <h4 className="font-medium text-red-700 mb-2">Rejection Reason</h4>
-          <p className="text-red-600">{selectedApp.rejectionReason}</p>
+        <div className="mt-4 bg-orange-50 p-4 rounded-lg">
+          <h4 className="font-medium text-orange-700 mb-2">Action Required Reason</h4>
+          <p className="text-orange-600">{selectedApp.rejectionReason}</p>
         </div>
       )}
-      {/* Reason For Payment rejection (if exists) */}
+      {/* Reason For Payment Action Required (if exists) */}
       {(selectedApp.reasonForPaymentRejection) && (
-        <div className="mt-4 bg-red-50 p-4 rounded-lg">
-          <h4 className="font-medium text-red-700 mb-2">Reason For Payment Rejection</h4>
-          <p className="text-red-600">{selectedApp.reasonForPaymentRejection}</p>
+        <div className="mt-4 bg-orange-50 p-4 rounded-lg">
+          <h4 className="font-medium text-orange-700 mb-2">Reason For Payment Further Action</h4>
+          <p className="text-orange-600">{selectedApp.reasonForPaymentRejection}</p>
         </div>
       )}
       
