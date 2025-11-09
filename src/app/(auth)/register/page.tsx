@@ -1413,16 +1413,16 @@ const resetApplicationState = () => {
             </div>
 
             {application.status === "SENT_FOR_ACTION" && application.rejectionReason && (
-            <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-6 rounded-lg">
+            <div className="bg-orange-50 border-l-4 border-orange-500 p-4 mb-6 rounded-lg">
               <div className="flex">
               <div className="flex-shrink-0">
-                <svg className="h-5 w-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="h-5 w-5 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </div>
               <div className="ml-3">
-                <h3 className="text-sm font-medium text-red-800">Action Required</h3>
-                <div className="mt-2 text-sm text-red-700">
+                <h3 className="text-sm font-medium text-orange-800">Action Required</h3>
+                <div className="mt-2 text-sm text-orange-700">
                 <p>{application.rejectionReason}</p>
                 </div>
               </div>
@@ -1569,10 +1569,10 @@ const resetApplicationState = () => {
             </div>
             )}
             {application.status === 'REJECTED' && (
-            <div className="mt-6 bg-red-50 p-4 rounded-lg">
-              <h4 className="font-medium text-red-700 mb-2">Application Rejected</h4>
-              <p className="text-sm text-gray-600">
-              We&apos;re sorry to inform you that your application has been rejected. Please contact support if you have any questions.
+            <div className="mt-6 bg-orange-50 p-4 rounded-lg border-l-4 border-orange-500">
+              <h4 className="font-medium text-orange-700 mb-2">Action Required</h4>
+              <p className="text-sm text-orange-600">
+              Your application needs additional information. Please review the requirements and resubmit with the necessary updates. Contact support if you have any questions.
               </p>
             </div>
             )}
