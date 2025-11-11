@@ -12,7 +12,7 @@ const generalFaqItems = [
       'Fill in the required form and submit.',
       'You will receive a confirmation with a tracking number via email/SMS.'
     ],
-    videoLink: 'https://www.youtube.com/watch?v=qB9GpOy_N98'
+    videoLink: ''
   },
   {
     question: 'How do I track my insurance application?',
@@ -22,16 +22,16 @@ const generalFaqItems = [
       'Verify your identity via OTP sent by email or SMS.',
       'View your current status, approval, or rejection feedback.'
     ],
-    videoLink: 'https://www.youtube.com/watch?v=qB9GpOy_N98'
+    videoLink: ''
   },
   {
-    question: 'What should I do if my application is rejected?',
+    question: 'What should I do if my application is in Action Required?',
     answer: [
-      'Track your application to view the rejection reason.',
+      'Track your application to view the Action Required reason.',
       'Edit your information based on the provided feedback.',
       'Resubmit the corrected application for review.'
     ],
-    videoLink: 'https://www.youtube.com/watch?v=qB9GpOy_N98'
+    videoLink: ''
   },
   {
     question: 'When and how will I receive a quotation?',
@@ -39,7 +39,7 @@ const generalFaqItems = [
       'After your application is approved by the admin, you will be notified via email/SMS.',
       'Track your application again to download your personalized quotation.'
     ],
-    videoLink: 'https://www.youtube.com/watch?v=qB9GpOy_N98'
+    videoLink: ''
   },
   {
     question: 'How do I pay for my insurance?',
@@ -47,16 +47,16 @@ const generalFaqItems = [
       'Use the payment details provided in your quotation.',
       'After payment, go back to "Track Application" and upload your proof of payment.'
     ],
-    videoLink: 'https://www.youtube.com/watch?v=qB9GpOy_N98'
+    videoLink: ''
   },
   {
-    question: 'What if my payment proof is rejected?',
+    question: 'What if my payment proof is in Action Required?',
     answer: [
-      'Track your application to view the rejection reason.',
+      'Track your application to view the Action Required reason.',
       'Make the necessary corrections or pay the remaining balance.',
       'Re-upload your updated proof of payment.'
     ],
-    videoLink: 'https://www.youtube.com/watch?v=qB9GpOy_N98'
+    videoLink: ''
   },
   {
     question: 'When do I receive my insurance certificate and documents?',
@@ -64,7 +64,7 @@ const generalFaqItems = [
       'After your payment is approved, the admin will send your certificate, EBM, contract, and receipt.',
       'You\'ll be notified via email/SMS to track and download the final documents.'
     ],
-    videoLink: 'https://www.youtube.com/watch?v=qB9GpOy_N98'
+    videoLink: ''
   },
   {
     question: 'How do I apply to become an Agent?',
@@ -73,7 +73,7 @@ const generalFaqItems = [
       'Fill in and submit the application form.',
       'Wait for approval (usually within 3 business days).'
     ],
-    videoLink: 'https://www.youtube.com/watch?v=qB9GpOy_N98'
+    videoLink: ''
   },
   {
     question: 'How do I track my agent application?',
@@ -81,7 +81,7 @@ const generalFaqItems = [
       'Track using your application number and OTP if not yet approved.',
       'After approval, log in to your dashboard to view your agent status.'
     ],
-    videoLink: 'https://www.youtube.com/watch?v=qB9GpOy_N98'
+    videoLink: ''
   }
 ];
 
@@ -94,16 +94,16 @@ const agentFaqItems = [
       'Click on "New Application" and fill in the application on behalf of your client.',
       'Submit to initiate the review process.'
     ],
-    videoLink: 'https://www.youtube.com/watch?v=qB9GpOy_N98'
+    videoLink: ''
   },
   {
-    question: 'How can I edit a client\'s rejected application?',
+    question: 'How can I edit a client\'s application in Action Required?',
     answer: [
       'Log in and go to "My Applications" from the navbar.',
-      'Find the rejected application and click "Edit".',
+      'Find the application in Action Required and click "Edit".',
       'Update the details as per feedback and resubmit.'
     ],
-    videoLink: 'https://www.youtube.com/watch?v=qB9GpOy_N98'
+    videoLink: ''
   },
   {
     question: 'How do I upload proof of payment for a client?',
@@ -111,7 +111,7 @@ const agentFaqItems = [
       'Go to "My Applications" → locate the relevant application.',
       'Click "Upload Proof" and submit the payment confirmation document.'
     ],
-    videoLink: 'https://www.youtube.com/watch?v=qB9GpOy_N98'
+    videoLink: ''
   },
   {
     question: 'How do I download final client documents?',
@@ -119,7 +119,7 @@ const agentFaqItems = [
       'Once the admin uploads them, you will be notified.',
       'Go to "My Applications" → download the certificate, EBM, contract, and receipt.'
     ],
-    videoLink: 'https://www.youtube.com/watch?v=qB9GpOy_N98'
+    videoLink: ''
   },
   {
     question: 'How do I change my password?',
@@ -128,20 +128,21 @@ const agentFaqItems = [
       'Select "Change Password".',
       'Enter your current password, followed by the new password and confirmation.'
     ],
-    videoLink: 'https://www.youtube.com/watch?v=qB9GpOy_N98'
+    videoLink: ''
   }
 ];
 
 // Combine general and agent FAQ items
 const allAgentFaqItems = [...generalFaqItems, ...agentFaqItems];
 
-const getEmbedUrl = (url: string) => {
-  const match = url.match(/(?:https?:\/\/)?(?:www\.)?youtube\.com\/watch\?v=([^&]+)/);
-  if (match && match[1]) {
-    return `https://www.youtube.com/embed/${match[1]}`;
-  }
-  return url;
-};
+// Commented out - will be used when video links are added
+// const getEmbedUrl = (url: string) => {
+//   const match = url.match(/(?:https?:\/\/)?(?:www\.)?youtube\.com\/watch\?v=([^&]+)/);
+//   if (match && match[1]) {
+//     return `https://www.youtube.com/embed/${match[1]}`;
+//   }
+//   return url;
+// };
 
 export default function AgentFAQPage() {
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
@@ -183,12 +184,13 @@ export default function AgentFAQPage() {
                 id={`faq-content-${index}`}
                 className={`px-6 pb-6 ${activeIndex === index ? 'block' : 'hidden'}`}
               >
-                <ol className="list-decimal list-inside space-y-2 mb-4 text-gray-600">
+                <ol className="list-decimal list-inside space-y-2 text-gray-600">
                   {item.answer.map((step: string, idx: number) => (
                     <li key={idx} className="text-sm leading-relaxed">{step}</li>
                   ))}
                 </ol>
-                <div className="aspect-w-16 aspect-h-9 mb-4">
+                {/* Video section - to be added later with actual YouTube links */}
+                {/* <div className="aspect-w-16 aspect-h-9 mb-4">
                   <iframe
                     width="100%"
                     height="315"
@@ -207,7 +209,7 @@ export default function AgentFAQPage() {
                   className="text-[var(--secondary-blue)] hover:text-[var(--main-blue)] font-medium transition-colors"
                 >
                   Watch on YouTube ↗
-                </a>
+                </a> */}
               </div>
             </div>
           ))}

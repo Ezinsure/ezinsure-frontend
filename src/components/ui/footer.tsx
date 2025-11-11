@@ -1,7 +1,70 @@
+"use client";
+
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useAuth } from '@/context/AuthContext';
+
+interface NavLink {
+  href: string;
+  label: string;
+}
 
 export const Footer = () => {
   const currentYear = new Date().getFullYear();
+  const { user } = useAuth();
+  const [footerLinks, setFooterLinks] = useState<NavLink[]>([
+    { href: '/', label: 'Home' },
+    { href: '/apply', label: 'Apply Now' },
+    { href: '/track', label: 'Track Application' },
+    { href: '/FAQ', label: 'FAQ' },
+  ]);
+
+  useEffect(() => {
+    // Update footer links based on user role (same as navbar)
+    if (user) {
+      const rolePrefix = `/${user.role.toLowerCase()}`;
+      const newLinks = [
+        { href: `${rolePrefix}/dashboard`, label: 'Dashboard' },
+      ];
+
+      if (user.role === 'ADMIN') {
+        newLinks.push(
+          { href: `${rolePrefix}/applications`, label: 'Applications' },
+          { href: `${rolePrefix}/my-applications`, label: 'My Applications' },
+          { href: `${rolePrefix}/new-application`, label: 'Apply' },
+          { href: `${rolePrefix}/users`, label: 'Manage Users' }
+        );
+      } else if (user.role === 'SUPER_ADMIN') {
+        newLinks.push(
+          { href: `${rolePrefix}/applications`, label: 'Applications' },
+          { href: `${rolePrefix}/users`, label: 'Manage Users' }
+        );
+      } else if (user.role === 'AGENT') {
+        newLinks.push(
+          { href: `${rolePrefix}/applications`, label: 'My Applications' },
+          { href: `${rolePrefix}/apply`, label: 'Apply' }
+        );
+      } else if (user.role === 'FINANCE') {
+        newLinks.push(
+          { href: `${rolePrefix}/history`, label: 'Payment History' }
+        );
+      }
+
+      // Add FAQ and Profile links for all logged-in users
+      newLinks.push({ href: `${rolePrefix}/FAQ`, label: 'FAQ' });
+      newLinks.push({ href: `${rolePrefix}/profile`, label: 'Profile' });
+
+      setFooterLinks(newLinks);
+    } else {
+      // Default links for non-logged in users (without About Us)
+      setFooterLinks([
+        { href: '/', label: 'Home' },
+        { href: '/apply', label: 'Apply Now' },
+        { href: '/track', label: 'Track Application' },
+        { href: '/FAQ', label: 'FAQ' },
+      ]);
+    }
+  }, [user]);
 
   return (
     <footer className="bg-[#0A2540] text-white pt-16 pb-8">
@@ -66,54 +129,16 @@ export const Footer = () => {
           <div>
             <h3 className="text-lg font-semibold mb-4">Quick Links</h3>
             <ul className="space-y-2">
-              <li>
-                <Link
-                  href="/"
-                  className="text-gray-300 hover:text-white transition-colors"
-                >
-                  Home
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="/#"
-                  className="text-gray-300 hover:text-white transition-colors"
-                >
-                  About Us
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="/apply"
-                  className="text-gray-300 hover:text-white transition-colors"
-                >
-                  Apply Now
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="/track"
-                  className="text-gray-300 hover:text-white transition-colors"
-                >
-                  Track Application
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="/FAQ"
-                  className="text-gray-300 hover:text-white transition-colors"
-                >
-                  FAQ
-                </Link>
-              </li>
-              {/* <li>
-                <Link
-                  href="/#"
-                  className="text-gray-300 hover:text-white transition-colors"
-                >
-                  Contact Us
-                </Link>
-              </li> */}
+              {footerLinks.map((link) => (
+                <li key={link.href}>
+                  <Link
+                    href={link.href}
+                    className="text-gray-300 hover:text-white transition-colors"
+                  >
+                    {link.label}
+                  </Link>
+                </li>
+              ))}
             </ul>
           </div>
 
