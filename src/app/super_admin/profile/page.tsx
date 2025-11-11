@@ -512,7 +512,7 @@ export default function SuperAdminProfilePage() {
           const errorData = await response.json();
           console.log('Backend error response:', errorData);
           errorMessage = errorData.message || errorMessage;
-        } catch (e) {
+        } catch {
           console.log('Could not parse error response');
         }
         throw new Error(errorMessage);

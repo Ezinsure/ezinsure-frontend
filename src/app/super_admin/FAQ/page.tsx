@@ -218,13 +218,14 @@ const superAdminFaqItems = [
 // Combine all FAQ items for super admin
 const allSuperAdminFaqItems = [...generalFaqItems, ...agentFaqItems, ...adminFaqItems, ...superAdminFaqItems];
 
-const getEmbedUrl = (url: string) => {
-  const match = url.match(/(?:https?:\/\/)?(?:www\.)?youtube\.com\/watch\?v=([^&]+)/);
-  if (match && match[1]) {
-    return `https://www.youtube.com/embed/${match[1]}`;
-  }
-  return url;
-};
+// Commented out - will be used when video links are added
+// const getEmbedUrl = (url: string) => {
+//   const match = url.match(/(?:https?:\/\/)?(?:www\.)?youtube\.com\/watch\?v=([^&]+)/);
+//   if (match && match[1]) {
+//     return `https://www.youtube.com/embed/${match[1]}`;
+//   }
+//   return url;
+// };
 
 export default function SuperAdminFAQPage() {
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
