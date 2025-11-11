@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/toast';
 import { validateForm, ValidationRules, validationPatterns } from '@/components/ui/form-validation';
 import { useAuth } from '@/context/AuthContext';
-import { Trash2, FileText, Eye, EyeClosed, Settings, Users } from 'lucide-react';
+import { Trash2, FileText, Eye, EyeClosed, Settings, Users, Mail } from 'lucide-react';
 import { rwandaProvinces } from '@/utils/rwanda-administrative';
 
 interface User {
@@ -65,8 +65,12 @@ interface PasswordValidation {
 interface SystemSettings {
   maintenanceMode: boolean;
   allowNewRegistrations: boolean;
-  defaultCommissionRate: number;
   passwordResetExpiry: number; // in hours
+}
+
+interface ClientMessage {
+  message: string;
+  recipientCount?: number;
 }
 
 export default function SuperAdminProfilePage() {
@@ -95,10 +99,14 @@ export default function SuperAdminProfilePage() {
   const [systemSettings, setSystemSettings] = useState<SystemSettings>({
     maintenanceMode: false,
     allowNewRegistrations: true,
-    defaultCommissionRate: 5,
     passwordResetExpiry: 24
   });
   const [isSavingSettings, setIsSavingSettings] = useState(false);
+  const [clientMessage, setClientMessage] = useState<ClientMessage>({
+    message: ''
+  });
+  const [isSendingMessage, setIsSendingMessage] = useState(false);
+  const [messageErrors, setMessageErrors] = useState<{ [key: string]: string }>({});
   
   const [profile, setProfile] = useState<User>({
     _id: '',
@@ -446,6 +454,80 @@ export default function SuperAdminProfilePage() {
       showToast('Error updating system settings', 'error');
     } finally {
       setIsSavingSettings(false);
+    }
+  };
+
+  const handleMessageInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setClientMessage(prev => ({ ...prev, [name]: value }));
+    
+    // Clear error when typing
+    if (messageErrors[name]) {
+      setMessageErrors((prev) => {
+        const newErrors = { ...prev };
+        delete newErrors[name];
+        return newErrors;
+      });
+    }
+  };
+
+  const sendClientMessage = async () => {
+    // Validate message
+    const errors: { [key: string]: string } = {};
+    if (!clientMessage.message.trim()) {
+      errors.message = 'Message is required';
+    }
+    
+    setMessageErrors(errors);
+    
+    if (Object.keys(errors).length > 0) {
+      showToast('Please fill in all required fields', 'error');
+      return;
+    }
+    
+    setIsSendingMessage(true);
+    
+    try {
+      // Send as URL-encoded form data
+      const formData = new URLSearchParams();
+      formData.append('message', clientMessage.message);
+      
+      // Debug: Log the message being sent
+      console.log('Sending message:', clientMessage.message);
+      console.log('Form data:', formData.toString());
+
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/sendSMSToAllclients`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        body: formData
+      });
+
+      if (!response.ok) {
+        // Try to get error message from response
+        let errorMessage = 'Failed to send SMS message';
+        try {
+          const errorData = await response.json();
+          console.log('Backend error response:', errorData);
+          errorMessage = errorData.message || errorMessage;
+        } catch {
+          console.log('Could not parse error response');
+        }
+        throw new Error(errorMessage);
+      }
+
+      const result = await response.json();
+      console.log('Success response:', result);
+      showToast(`SMS sent successfully to ${result.recipientCount || 'all'} clients!`, 'success');
+      setClientMessage({ message: '' });
+      setMessageErrors({});
+    } catch (error) {
+      console.error('Full error details:', error);
+      showToast(error instanceof Error ? error.message : 'Error sending SMS to clients', 'error');
+    } finally {
+      setIsSendingMessage(false);
     }
   };
 
@@ -916,22 +998,40 @@ export default function SuperAdminProfilePage() {
                     </div>
                   </div>
                   
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <h3 className="font-medium text-gray-900 mb-4">Agent Settings</h3>
+                  <div className="bg-gray-50 p-4 rounded-lg md:col-span-2">
+                    <div className="flex items-center gap-2 mb-4">
+                      <Mail className="text-[var(--main-blue)]" size={20} />
+                      <h3 className="font-medium text-gray-900">Client SMS Messaging</h3>
+                    </div>
+                    <p className="text-xs text-gray-500 mb-4">Draft and send SMS messages to all clients in the database</p>
                     
                     <div className="space-y-4">
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Default Commission Rate (%)</label>
-                        <input
-                          type="number"
-                          min="0"
-                          max="100"
-                          step="0.1"
-                          value={systemSettings.defaultCommissionRate}
-                          onChange={(e) => handleSystemSettingChange('defaultCommissionRate', parseFloat(e.target.value))}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[var(--main-blue)] focus:border-transparent"
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          SMS Message <span className="text-red-500">*</span>
+                        </label>
+                        <textarea
+                          name="message"
+                          value={clientMessage.message}
+                          onChange={handleMessageInputChange}
+                          placeholder="Enter SMS message content..."
+                          rows={6}
+                          className={`w-full px-3 py-2 border ${messageErrors.message ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[var(--main-blue)] focus:border-transparent resize-none`}
                         />
-                        <p className="text-xs text-gray-500 mt-1">Default commission rate for new agents</p>
+                        {messageErrors.message && (
+                          <p className="text-xs text-red-500 mt-1">{messageErrors.message}</p>
+                        )}
+                        <p className="text-xs text-gray-500 mt-1">This message will be sent to all clients via SMS</p>
+                      </div>
+                      
+                      <div className="flex justify-end">
+                        <Button
+                          onClick={sendClientMessage}
+                          variant="primary"
+                          disabled={isSendingMessage || !clientMessage.message.trim()}
+                        >
+                          {isSendingMessage ? 'Sending SMS...' : 'Send SMS to All Clients'}
+                        </Button>
                       </div>
                     </div>
                   </div>
