@@ -488,29 +488,44 @@ export default function SuperAdminProfilePage() {
     setIsSendingMessage(true);
     
     try {
-      // Send as FormData as per API specification
-      const formData = new FormData();
+      // Send as URL-encoded form data
+      const formData = new URLSearchParams();
       formData.append('message', clientMessage.message);
+      
+      // Debug: Log the message being sent
+      console.log('Sending message:', clientMessage.message);
+      console.log('Form data:', formData.toString());
 
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/sendSMSToAllclients`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${token}`
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/x-www-form-urlencoded'
         },
         body: formData
       });
 
       if (!response.ok) {
-        throw new Error('Failed to send SMS message');
+        // Try to get error message from response
+        let errorMessage = 'Failed to send SMS message';
+        try {
+          const errorData = await response.json();
+          console.log('Backend error response:', errorData);
+          errorMessage = errorData.message || errorMessage;
+        } catch (e) {
+          console.log('Could not parse error response');
+        }
+        throw new Error(errorMessage);
       }
 
       const result = await response.json();
+      console.log('Success response:', result);
       showToast(`SMS sent successfully to ${result.recipientCount || 'all'} clients!`, 'success');
       setClientMessage({ message: '' });
       setMessageErrors({});
     } catch (error) {
-      console.log(error);
-      showToast('Error sending SMS to clients', 'error');
+      console.error('Full error details:', error);
+      showToast(error instanceof Error ? error.message : 'Error sending SMS to clients', 'error');
     } finally {
       setIsSendingMessage(false);
     }
