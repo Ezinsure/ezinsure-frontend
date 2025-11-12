@@ -22,7 +22,6 @@ export const Navigation = () => {
   const [navLinks, setNavLinks] = useState<NavLink[]>([
     { href: '/', label: 'Home' },
     { href: '/track', label: 'Track Application' },
-    { href: '/apply', label: 'Apply Now' },
     { href: '/FAQ', label: 'FAQ' },
     { href: '/login', label: 'Login' },
     { href: '/register', label: 'Become an Agent' },
@@ -137,7 +136,7 @@ export const Navigation = () => {
                 href="/apply"
                 className="bg-[var(--main-blue)] hover:bg-[var(--secondary-blue)] text-white py-2 px-3 lg:px-4 rounded-lg font-medium text-xs lg:text-sm transition-colors"
               >
-                Get Insured
+                Apply Now
               </Link>
             ) : (
               <div className="relative">
@@ -236,7 +235,7 @@ export const Navigation = () => {
               onClick={() => setIsMobileMenuOpen(false)}
               className="block w-full text-center bg-[var(--main-blue)] hover:bg-[var(--secondary-blue)] text-white py-2 px-4 rounded-lg font-medium text-xs sm:text-sm mt-2"
             >
-              Get Insured
+              Apply Now
             </Link>
           ) : (
             <>

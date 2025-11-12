@@ -1267,7 +1267,7 @@ export default function AdminNewApplicationPage() {
 
                     name="fullName"
 
-                    placeholder="Jean Claude Niyonzima"
+                    placeholder="John Doe"
 
                     value={formData.fullName}
 

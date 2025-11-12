@@ -913,7 +913,7 @@ export default function AgentApplyPage() {
                   <Input
                     label="Full Name"
                     name="fullName"
-                    placeholder="Jean Claude Niyonzima"
+                    placeholder="John Doe"
                     value={formState.fullName}
                     onChange={handleInputChange}
                     error={errors.fullName}
