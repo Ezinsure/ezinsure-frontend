@@ -713,7 +713,7 @@ export default function ApplyPage() {
                   <Input
                     label="Full Name"
                     name="fullName"
-                    placeholder="Jean Claude Niyonzima"
+                    placeholder="John Doe"
                     value={formState.fullName}
                     onChange={handleInputChange}
                     error={errors.fullName}
