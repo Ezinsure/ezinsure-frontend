@@ -10,6 +10,7 @@ import { RwandaPhoneInput } from '@/components/ui/rwanda-phone-input';
 import { useToast } from '@/components/ui/toast';
 import { useAuth } from '@/context/AuthContext';
 import { rwandaProvinces } from '@/utils/rwanda-administrative';
+import { formatErrorMessage } from '@/utils/error-formatter';
 import {
   validateForm,
   ValidationRules,
@@ -1117,7 +1118,9 @@ export default function AdminNewApplicationPage() {
 
           const errorData = await response.json();
 
-          showToast(errorData.message || 'Failed to create application', 'error');
+          const errorMessage = formatErrorMessage(errorData.error || errorData.message || 'Failed to create application');
+
+          showToast(errorMessage, 'error');
 
         }
 
@@ -1125,7 +1128,9 @@ export default function AdminNewApplicationPage() {
 
         console.error('Error creating application:', error);
 
-        showToast('An error occurred while creating the application', 'error');
+        const errorMessage = formatErrorMessage(error);
+
+        showToast(errorMessage, 'error');
 
       } finally {
 

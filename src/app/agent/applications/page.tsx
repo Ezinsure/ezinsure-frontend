@@ -25,7 +25,7 @@ interface Application {
   amount?: number;
   companyCommission?: number;
   agentCommission?: number;
-  agentCommissionPaymentStatus?: 'PENDING' | 'READY_TO_BE_PAID' | 'PAID' | 'ON_HOLD';
+  agentCommissionPaymentStatus?: 'PENDING' | 'PENDING_ADMIN_REVIEW' | 'READY_TO_BE_PAID' | 'PAID' | 'ON_HOLD';
   administrationFees?: string;
   insuranceProvider?: string;
   ebm?: string;
@@ -1386,6 +1386,15 @@ const handleEditSuccess = async () => {
               <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
             </svg>
             Pending
+          </span>
+        );
+      case 'PENDING_ADMIN_REVIEW':
+        return (
+          <span className="px-3 py-1 rounded-full bg-purple-100 text-purple-700 text-[10px] font-medium flex items-center gap-1 w-fit">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+            </svg>
+            Pending Admin Review
           </span>
         );
       case 'ON_HOLD':

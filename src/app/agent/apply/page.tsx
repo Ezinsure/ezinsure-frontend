@@ -15,6 +15,7 @@ import {
   hasErrors,
 } from '@/components/ui/form-validation';
 import { rwandaProvinces } from '@/utils/rwanda-administrative';
+import { formatErrorMessage } from '@/utils/error-formatter';
 
 // Device tracking utility types and functions
 interface DeviceInfo {
@@ -754,7 +755,8 @@ export default function AgentApplyPage() {
         if (!response.ok) {
           const errorData = await response.json();
           console.error('Submission error:', errorData);
-          throw new Error(errorData.error || 'Application submission failed');
+          const errorMessage = errorData.error || errorData.message || 'Application submission failed';
+          throw new Error(errorMessage);
         }
 
         const data = await response.json();
@@ -811,10 +813,7 @@ export default function AgentApplyPage() {
 
       } catch (error: unknown) {
         console.error('Application error:', error);
-        const errorMessage =
-          error instanceof Error
-            ? error.message
-            : 'Failed to submit application. Please try again.';
+        const errorMessage = formatErrorMessage(error);
         showToast(errorMessage, 'error');
       } finally {
         setIsSubmitting(false);
