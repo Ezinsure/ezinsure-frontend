@@ -540,6 +540,14 @@ export default function AgentApplyPage() {
     showToast('Vehicle information loaded successfully', 'success');
   };
 
+  // Handle search results to track isNewClient and isNewVehicle
+  const handleSearchResult = (exists: boolean, searchType: 'plateNumber' | 'identificationNumber') => {
+    setSearchResults(prev => ({
+      ...prev,
+      [searchType === 'identificationNumber' ? 'isNewClient' : 'isNewVehicle']: !exists
+    }));
+  };
+
 
   const formatInsuranceDuration = (duration: string) => {
     switch (duration) {
@@ -894,6 +902,12 @@ export default function AgentApplyPage() {
                         // Reset dependent selects
                         setAvailableDistricts([]);
                         setAvailableSectors([]);
+                        // Reset isNewClient to true when identification number changes
+                        // (will be updated when user performs search)
+                        setSearchResults(prev => ({
+                          ...prev,
+                          isNewClient: true
+                        }));
                         if (errors.identificationNumber) {
                           setErrors(prev => {
                             const newErrors = { ...prev };
@@ -903,6 +917,7 @@ export default function AgentApplyPage() {
                         }
                       }}
                       onSearchSuccess={handleIdentificationSearchSuccess}
+                      onSearchResult={handleSearchResult}
                       searchType="identificationNumber"
                       error={errors.identificationNumber}
                       required
@@ -1117,6 +1132,12 @@ export default function AgentApplyPage() {
                             vehicleUse: '',
                             otherVehicleUse: '',
                           }));
+                          // Reset isNewVehicle to true when plate number changes
+                          // (will be updated when user performs search)
+                          setSearchResults(prev => ({
+                            ...prev,
+                            isNewVehicle: true
+                          }));
                           if (errors.plateNumber) {
                             setErrors(prev => {
                               const newErrors = { ...prev };
@@ -1126,6 +1147,7 @@ export default function AgentApplyPage() {
                           }
                         }}
                         onSearchSuccess={handlePlateSearchSuccess}
+                        onSearchResult={handleSearchResult}
                         searchType="plateNumber"
                         error={errors.plateNumber}
                         required
