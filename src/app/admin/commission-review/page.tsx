@@ -8,7 +8,6 @@ import { FileInput } from '@/components/ui/file-input';
 import { useToast } from '@/components/ui/toast';
 import { useAuth } from '@/context/AuthContext';
 import { DocumentViewer } from '@/components/ui/document-viewer';
-import { rwandaProvinces } from '@/utils/rwanda-administrative';
 
 interface Application {
   _id: string;
@@ -110,8 +109,8 @@ const AdminCommissionReviewPage = () => {
   const [isPuttingOnHold, setIsPuttingOnHold] = useState(false);
   const [isMarkingReady, setIsMarkingReady] = useState(false);
   const [editingApp, setEditingApp] = useState<Application | null>(null);
-  const [editFormData, setEditFormData] = useState<any>(null);
-  const [originalEditFormData, setOriginalEditFormData] = useState<any>(null);
+  const [editFormData, setEditFormData] = useState<Record<string, string | number | boolean | File | null> | null>(null);
+  const [originalEditFormData, setOriginalEditFormData] = useState<Record<string, string | number | boolean | File | null> | null>(null);
   const [isSubmittingEdit, setIsSubmittingEdit] = useState(false);
   const itemsPerPage = 10;
 
@@ -152,11 +151,6 @@ const AdminCommissionReviewPage = () => {
 
       const data = await response.json();
       const fetched: Application[] = data.data || [];
-      console.log('Applications In admin Review: ', data);
-      // Log status values to verify format
-      if (fetched.length > 0) {
-        console.log('Sample application status:', fetched[0].status);
-      }
 
       // Sort by submittedAt (newest first)
       const sorted = fetched.slice().sort((a, b) => {
@@ -375,14 +369,13 @@ const AdminCommissionReviewPage = () => {
           const errorData = await clonedResponse.json();
           errorMessage = errorData.message || errorMessage;
           console.error('Error response data:', errorData);
-        } catch (parseError) {
+        } catch {
           // If response is not JSON, try to get text
           try {
             const errorText = await response.text();
             console.error('Error response text:', errorText);
             errorMessage = errorText || errorMessage;
-          } catch (textError) {
-            console.error('Could not parse error response:', textError);
+          } catch {
             errorMessage = `HTTP ${response.status}: ${response.statusText}`;
           }
         }
@@ -452,7 +445,7 @@ const AdminCommissionReviewPage = () => {
     if (!editingApp || !editFormData || !originalEditFormData) return;
 
     // Find changed fields
-    const changedFields: any = {};
+    const changedFields: Record<string, string | number | boolean | File> = {};
     Object.keys(editFormData).forEach((key) => {
       const currentValue = editFormData[key];
       const originalValue = originalEditFormData[key];
@@ -463,7 +456,7 @@ const AdminCommissionReviewPage = () => {
       }
       // Compare other values (handle string/number conversions)
       else if (String(currentValue || '') !== String(originalValue || '')) {
-        changedFields[key] = currentValue;
+        changedFields[key] = currentValue as string | number | boolean;
       }
     });
 
@@ -502,7 +495,7 @@ const AdminCommissionReviewPage = () => {
         try {
           const errorData = await response.json();
           errorMessage = errorData.message || errorMessage;
-        } catch (parseError) {
+        } catch {
           const errorText = await response.text();
           errorMessage = errorText || errorMessage;
         }
@@ -526,26 +519,34 @@ const AdminCommissionReviewPage = () => {
     }
   };
 
-  // Constants for vehicle types (from new-application page)
-  const carTypes = ['Jeep', 'Voiture', 'Camionette', 'Poid Lourds', 'Remorque', 'Daihatsu', 'Ambulance', 'Pickup', 'Other'];
-  const motoTypes = ['Electric', 'Moped', 'Scooter', 'Motorcycle', 'Other'];
-  const carUses = ['Private', 'PSV', 'Taxi', 'Rental', 'Commercial', 'Other'];
-  const motoUses = ['Private', 'Commercial', 'Other'];
+  // Helper to safely convert form data value to string for inputs
+  const getFormValue = (value: string | number | boolean | File | null | undefined): string => {
+    if (value === null || value === undefined) return '';
+    if (typeof value === 'boolean') return value.toString();
+    if (value instanceof File) return '';
+    return String(value);
+  };
 
   // Handle edit form input changes
   const handleEditInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target;
     const checked = type === 'checkbox' ? (e.target as HTMLInputElement).checked : undefined;
     
-    setEditFormData((prev: any) => ({
-      ...prev,
-      [name]: type === 'checkbox' ? checked : value
-    }));
+    setEditFormData((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        [name]: type === 'checkbox' ? checked : value
+      } as Record<string, string | number | boolean | File | null>;
+    });
   };
 
   // Handle file changes in edit form
   const handleEditFileChange = useCallback((field: string) => (file: File | null) => {
-    setEditFormData((prev: any) => ({ ...prev, [field]: file }));
+    setEditFormData((prev) => {
+      if (!prev) return prev;
+      return { ...prev, [field]: file };
+    });
   }, []);
 
   // Get status badge helper (same as in admin/applications)
@@ -1513,7 +1514,7 @@ const AdminCommissionReviewPage = () => {
                     <label className="block text-xs font-medium mb-1">Insurance Category</label>
                     <input
                       type="text"
-                      value={editFormData.insuranceCategory || ''}
+                      value={getFormValue(editFormData.insuranceCategory)}
                       disabled
                       className="w-full py-1.5 px-2 text-xs rounded-lg bg-gray-100 border border-gray-300 text-gray-600"
                     />
@@ -1524,7 +1525,7 @@ const AdminCommissionReviewPage = () => {
                         <label className="block text-xs font-medium mb-1">Plate Number</label>
                         <input
                           type="text"
-                          value={editFormData.plateNumber || ''}
+                          value={getFormValue(editFormData.plateNumber)}
                           disabled
                           className="w-full py-1.5 px-2 text-xs rounded-lg bg-gray-100 border border-gray-300 text-gray-600"
                         />
@@ -1533,7 +1534,7 @@ const AdminCommissionReviewPage = () => {
                         <label className="block text-xs font-medium mb-1">Vehicle Type</label>
                         <input
                           type="text"
-                          value={editFormData.vehicleType || ''}
+                          value={getFormValue(editFormData.vehicleType)}
                           disabled
                           className="w-full py-1.5 px-2 text-xs rounded-lg bg-gray-100 border border-gray-300 text-gray-600"
                         />
@@ -1542,7 +1543,7 @@ const AdminCommissionReviewPage = () => {
                         <label className="block text-xs font-medium mb-1">Vehicle Age (Year)</label>
                         <input
                           type="text"
-                          value={editFormData.vehicleAge || ''}
+                          value={getFormValue(editFormData.vehicleAge)}
                           disabled
                           className="w-full py-1.5 px-2 text-xs rounded-lg bg-gray-100 border border-gray-300 text-gray-600"
                         />
@@ -1551,7 +1552,7 @@ const AdminCommissionReviewPage = () => {
                         <label className="block text-xs font-medium mb-1">Vehicle Use</label>
                         <input
                           type="text"
-                          value={editFormData.vehicleUse || ''}
+                          value={getFormValue(editFormData.vehicleUse)}
                           disabled
                           className="w-full py-1.5 px-2 text-xs rounded-lg bg-gray-100 border border-gray-300 text-gray-600"
                         />
@@ -1561,7 +1562,7 @@ const AdminCommissionReviewPage = () => {
                           <label className="block text-xs font-medium mb-1">Specify Vehicle Use</label>
                           <input
                             type="text"
-                            value={editFormData.otherVehicleUse || ''}
+                            value={getFormValue(editFormData.otherVehicleUse)}
                             disabled
                             className="w-full py-1.5 px-2 text-xs rounded-lg bg-gray-100 border border-gray-300 text-gray-600"
                           />
@@ -1571,7 +1572,7 @@ const AdminCommissionReviewPage = () => {
                         <label className="flex items-center space-x-2">
                           <input
                             type="checkbox"
-                            checked={editFormData.isCOMESA || false}
+                            checked={typeof editFormData.isCOMESA === 'boolean' ? editFormData.isCOMESA : false}
                             disabled
                             className="rounded h-3 border-gray-300 bg-gray-100"
                           />
@@ -1584,7 +1585,7 @@ const AdminCommissionReviewPage = () => {
                     <label className="block text-xs font-medium mb-1">Insurance Provider</label>
                     <input
                       type="text"
-                      value={editFormData.insuranceProvider || ''}
+                      value={getFormValue(editFormData.insuranceProvider)}
                       disabled
                       className="w-full py-1.5 px-2 text-xs rounded-lg bg-gray-100 border border-gray-300 text-gray-600"
                     />
@@ -1593,7 +1594,7 @@ const AdminCommissionReviewPage = () => {
                     <label className="block text-xs font-medium mb-1">Insurance Type</label>
                     <input
                       type="text"
-                      value={editFormData.insuranceType || ''}
+                      value={getFormValue(editFormData.insuranceType)}
                       disabled
                       className="w-full py-1.5 px-2 text-xs rounded-lg bg-gray-100 border border-gray-300 text-gray-600"
                     />
@@ -1602,7 +1603,7 @@ const AdminCommissionReviewPage = () => {
                     <label className="block text-xs font-medium mb-1">Insurance Duration</label>
                     <input
                       type="text"
-                      value={editFormData.insuranceDuration || ''}
+                      value={getFormValue(editFormData.insuranceDuration)}
                       disabled
                       className="w-full py-1.5 px-2 text-xs rounded-lg bg-gray-100 border border-gray-300 text-gray-600"
                     />
@@ -1621,7 +1622,7 @@ const AdminCommissionReviewPage = () => {
                     <input
                       type="number"
                       name="amount"
-                      value={editFormData.amount || ''}
+                      value={getFormValue(editFormData.amount)}
                       onChange={handleEditInputChange}
                       className="w-full py-1.5 px-2 text-xs rounded-lg focus:outline-none border border-gray-300 focus:border-[var(--main-blue)]"
                     />
@@ -1631,7 +1632,7 @@ const AdminCommissionReviewPage = () => {
                     <input
                       type="number"
                       name="agentCommission"
-                      value={editFormData.agentCommission || ''}
+                      value={getFormValue(editFormData.agentCommission)}
                       onChange={handleEditInputChange}
                       className="w-full py-1.5 px-2 text-xs rounded-lg focus:outline-none border border-gray-300 focus:border-[var(--main-blue)]"
                     />
@@ -1641,7 +1642,7 @@ const AdminCommissionReviewPage = () => {
                     <input
                       type="number"
                       name="companyCommission"
-                      value={editFormData.companyCommission || ''}
+                      value={getFormValue(editFormData.companyCommission)}
                       onChange={handleEditInputChange}
                       className="w-full py-1.5 px-2 text-xs rounded-lg focus:outline-none border border-gray-300 focus:border-[var(--main-blue)]"
                     />
@@ -1651,7 +1652,7 @@ const AdminCommissionReviewPage = () => {
                     <input
                       type="text"
                       name="administrationFees"
-                      value={editFormData.administrationFees || ''}
+                      value={getFormValue(editFormData.administrationFees)}
                       onChange={handleEditInputChange}
                       className="w-full py-1.5 px-2 text-xs rounded-lg focus:outline-none border border-gray-300 focus:border-[var(--main-blue)]"
                     />
@@ -1661,7 +1662,7 @@ const AdminCommissionReviewPage = () => {
                     <input
                       type="text"
                       name="transactionId"
-                      value={editFormData.transactionId || ''}
+                      value={getFormValue(editFormData.transactionId)}
                       onChange={handleEditInputChange}
                       className="w-full py-1.5 px-2 text-xs rounded-lg focus:outline-none border border-gray-300 focus:border-[var(--main-blue)]"
                     />
@@ -1670,7 +1671,7 @@ const AdminCommissionReviewPage = () => {
                     <label className="block text-xs font-medium mb-1">Payment Instructions</label>
                     <textarea
                       name="paymentInstructions"
-                      value={editFormData.paymentInstructions || ''}
+                      value={getFormValue(editFormData.paymentInstructions)}
                       onChange={handleEditInputChange}
                       rows={3}
                       className="w-full py-1.5 px-2 text-xs rounded-lg focus:outline-none border border-gray-300 focus:border-[var(--main-blue)]"
@@ -1689,7 +1690,7 @@ const AdminCommissionReviewPage = () => {
                     <label className="block text-xs font-medium mb-1">Status</label>
                     <select
                       name="status"
-                      value={editFormData.status || ''}
+                      value={getFormValue(editFormData.status)}
                       onChange={handleEditInputChange}
                       className="w-full py-1.5 px-2 text-xs rounded-lg focus:outline-none border border-gray-300 focus:border-[var(--main-blue)]"
                     >
@@ -1706,7 +1707,7 @@ const AdminCommissionReviewPage = () => {
                     <label className="block text-xs font-medium mb-1">Insurance End Date</label>
                     <input
                       type="text"
-                      value={editFormData.insuranceEndAt ? new Date(editFormData.insuranceEndAt).toISOString().split('T')[0] : ''}
+                      value={editFormData.insuranceEndAt && typeof editFormData.insuranceEndAt === 'string' ? new Date(editFormData.insuranceEndAt).toISOString().split('T')[0] : ''}
                       disabled
                       className="w-full py-1.5 px-2 text-xs rounded-lg bg-gray-100 border border-gray-300 text-gray-600"
                     />
