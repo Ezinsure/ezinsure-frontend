@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { MainLayout } from '@/components/ui/main-layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/components/ui/toast';
 import { useAuth } from '@/context/AuthContext';
+import { DocumentViewer } from '@/components/ui/document-viewer';
 
 interface Application {
   _id: string;
@@ -28,6 +29,8 @@ interface Application {
   ebm?: string;
   contract?: string;
   receipt?: string;
+  yellowCard?: string;
+  pastInsuranceCertificate?: string;
   submittedAt: string;
   insuranceEndAt?: string;
   agent?: {
@@ -53,10 +56,21 @@ interface Application {
     sector: string;
     createdAt: string;
   };
+  vehicle?: {
+    _id: string;
+    clientId: string;
+    vehicleType: string;
+    vehicleAge: string;
+    plateNumber?: string;
+    vehicleUse: string;
+    otherVehicleUse?: string;
+    createdAt: string;
+  };
   // Legacy / optional fields
   fullName?: string;
   email?: string;
   phoneNumber?: string;
+  address?: string;
 }
 
 interface PaginationProps {
@@ -68,8 +82,14 @@ interface PaginationProps {
 const AdminCommissionReviewPage = () => {
   const { showToast, ToastContainer } = useToast();
   const { token } = useAuth();
+  const showToastRef = useRef(showToast);
+
+  // Keep ref updated with latest showToast (without useEffect to avoid loops)
+  showToastRef.current = showToast;
 
   const [applications, setApplications] = useState<Application[]>([]);
+  const [totalCommission, setTotalCommission] = useState<number>(0);
+  const [totalApplications, setTotalApplications] = useState<number>(0);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [startDate, setStartDate] = useState<string>('');
@@ -79,11 +99,15 @@ const AdminCommissionReviewPage = () => {
   const [showRightFade, setShowRightFade] = useState(true);
   const [showScrollHint, setShowScrollHint] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
+  const [selectedApp, setSelectedApp] = useState<Application | null>(null);
+  const [viewingDocument, setViewingDocument] = useState<{
+    name: string;
+    path: string;
+  } | null>(null);
+  const [holdComment, setHoldComment] = useState('');
+  const [isPuttingOnHold, setIsPuttingOnHold] = useState(false);
+  const [isMarkingReady, setIsMarkingReady] = useState(false);
   const itemsPerPage = 10;
-
-  const getBaseUrl = () => {
-    return process.env.NEXT_PUBLIC_API_BASE_URL || 'https://ezinsure-backend.onrender.com';
-  };
 
   // Helper to format dates
   const formatDate = (dateString: string) => {
@@ -103,44 +127,47 @@ const AdminCommissionReviewPage = () => {
   };
 
   // Fetch applications ready to be paid
-  useEffect(() => {
+  const fetchApplications = useCallback(async () => {
     if (!token) return;
 
-    const fetchApplications = async () => {
-      try {
-        setIsLoading(true);
-        const response = await fetch(`${getBaseUrl()}/getAllApplicationsReadyToBePaid`, {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-        });
+    try {
+      setIsLoading(true);
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/getAllApplicationsPendingAdminReview`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+      });
 
-        if (!response.ok) {
-          throw new Error('Failed to fetch applications ready to be paid');
-        }
-
-        const data = await response.json();
-        const fetched: Application[] = data.data || [];
-        console.log('Applications In admin Review: ', data);
-
-        // Sort by submittedAt (newest first)
-        const sorted = fetched.slice().sort((a, b) => {
-          return new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime();
-        });
-
-        setApplications(sorted);
-      } catch (error) {
-        console.error('Error fetching applications ready to be paid:', error);
-        showToast('Failed to load applications to review for commission payment.', 'error');
-      } finally {
-        setIsLoading(false);
+      if (!response.ok) {
+        throw new Error('Failed to fetch applications ready to be paid');
       }
-    };
 
-    fetchApplications();
+      const data = await response.json();
+      const fetched: Application[] = data.data || [];
+      console.log('Applications In admin Review: ', data);
+
+      // Sort by submittedAt (newest first)
+      const sorted = fetched.slice().sort((a, b) => {
+        return new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime();
+      });
+
+      setApplications(sorted);
+      // Use values returned by API instead of calculating on the frontend
+      setTotalCommission(data.totalAgentCommission || 0);
+      setTotalApplications(data.count || fetched.length);
+    } catch (error) {
+      console.error('Error fetching applications ready to be paid:', error);
+      showToastRef.current('Failed to load applications to review for commission payment.', 'error');
+    } finally {
+      setIsLoading(false);
+    }
   }, [token]);
+
+  useEffect(() => {
+    fetchApplications();
+  }, [fetchApplications]);
 
   // Scroll hint visibility
   useEffect(() => {
@@ -158,11 +185,6 @@ const AdminCommissionReviewPage = () => {
     setShowLeftFade(scrollLeft > 0);
     setShowRightFade(scrollLeft < scrollWidth - clientWidth - 1);
   };
-
-  // Derived data: total commission for these applications
-  const totalCommission = applications.reduce((total, app) => {
-    return total + (app.agentCommission || 0);
-  }, 0);
 
   // Filter applications (search, status, date range)
   const filteredApplications = applications.filter((app) => {
@@ -253,10 +275,132 @@ const AdminCommissionReviewPage = () => {
     }
   };
 
+
+  const getActionButtons = (app: Application) => {
+    return (
+      <div className="flex space-x-2">
+        <Button size="xs" variant="outline">
+          Edit
+        </Button>
+        <Button 
+          size="xs"
+          onClick={() => setSelectedApp(app)}
+        >
+          Review
+        </Button>
+      </div>
+    );
+  };
+
+  // Handle putting application on hold
+  const handlePutOnHold = async () => {
+    if (!selectedApp || !holdComment.trim()) {
+      showToast('Please provide a comment for putting this application on hold', 'error');
+      return;
+    }
+
+    setIsPuttingOnHold(true);
+    try {
+      // Use URLSearchParams for application/x-www-form-urlencoded (as shown in Swagger)
+      const formData = new URLSearchParams();
+      formData.append('comment', holdComment.trim());
+
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/markAsBlockedAdmin/${selectedApp._id}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: formData,
+      });
+
+      console.log('Put on hold response status:', response.status);
+      console.log('Put on hold response headers:', response.headers);
+
+      if (!response.ok) {
+        let errorMessage = 'Failed to put application on hold';
+        try {
+          // Clone response to read it without consuming the body
+          const clonedResponse = response.clone();
+          const errorData = await clonedResponse.json();
+          errorMessage = errorData.message || errorMessage;
+          console.error('Error response data:', errorData);
+        } catch (parseError) {
+          // If response is not JSON, try to get text
+          try {
+            const errorText = await response.text();
+            console.error('Error response text:', errorText);
+            errorMessage = errorText || errorMessage;
+          } catch (textError) {
+            console.error('Could not parse error response:', textError);
+            errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+          }
+        }
+        throw new Error(errorMessage);
+      }
+
+      const responseData = await response.json();
+      console.log('Put on hold response: ', responseData);
+      
+      // Use the message from API response or fallback to default
+      const successMessage = responseData.message || 'Application has been put on hold successfully';
+      showToast(successMessage, 'success');
+      setSelectedApp(null);
+      setHoldComment('');
+      // Refetch applications
+      await fetchApplications();
+    } catch (error) {
+      console.error('Error putting application on hold:', error);
+      showToast(error instanceof Error ? error.message : 'Failed to put application on hold', 'error');
+    } finally {
+      setIsPuttingOnHold(false);
+    }
+  };
+
+  // Handle marking application as ready to be paid
+  const handleMarkAsReady = async () => {
+    if (!selectedApp) {
+      return;
+    }
+
+    setIsMarkingReady(true);
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/markAsReadyToBePaid/${selectedApp._id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to mark application as ready to be paid');
+      }
+
+      const responseData = await response.json();
+      console.log('Mark as ready response: ', responseData);
+      
+      // Use the message from API response or fallback to default
+      const successMessage = responseData.message || 'Application has been marked as ready to be paid successfully';
+      showToast(successMessage, 'success');
+      setSelectedApp(null);
+      setHoldComment('');
+      // Refetch applications
+      await fetchApplications();
+    } catch (error) {
+      console.error('Error marking application as ready:', error);
+      showToast(error instanceof Error ? error.message : 'Failed to mark application as ready', 'error');
+    } finally {
+      setIsMarkingReady(false);
+    }
+  };
+
+  // Get status badge helper (same as in admin/applications)
   const getStatusBadge = (status: string) => {
     if (!status) {
       return (
-        <span className="px-2 py-1 rounded-full bg-gray-100 text-gray-700 text-[9px] font-medium">
+        <span className="px-2 py-1 rounded-full bg-gray-100 text-gray-700 text-[10px] font-medium">
           Unknown
         </span>
       );
@@ -265,66 +409,53 @@ const AdminCommissionReviewPage = () => {
     switch (status.toLowerCase()) {
       case 'pending':
         return (
-          <span className="px-2 py-1 rounded-full bg-blue-100 text-blue-700 text-[9px] font-medium">
+          <span className="px-2 py-1 rounded-full bg-blue-100 text-blue-700 text-[10px] font-medium">
             Pending
           </span>
         );
       case 'application_approved':
         return (
-          <span className="px-2 py-1 rounded-full bg-green-100 text-green-700 text-[9px] font-medium">
+          <span className="px-2 py-1 rounded-full bg-green-100 text-green-700 text-[10px] font-medium">
             Approved
           </span>
         );
       case 'waiting_for_user_action':
         return (
-          <span className="px-2 py-1 rounded-full bg-yellow-100 text-yellow-700 text-[9px] font-medium">
+          <span className="px-2 py-1 rounded-full bg-orange-100 text-orange-700 text-[10px] font-medium">
             Action Required
           </span>
         );
       case 'invoice_sent':
         return (
-          <span className="px-2 py-1 rounded-full bg-purple-100 text-purple-700 text-[9px] font-medium">
+          <span className="px-2 py-1 rounded-full bg-indigo-100 text-indigo-700 text-[10px] font-medium">
             Invoice Sent
           </span>
         );
       case 'review_payment':
         return (
-          <span className="px-2 py-1 rounded-full bg-indigo-100 text-indigo-700 text-[9px] font-medium">
-            Review Payment
+          <span className="px-2 py-1 rounded-full bg-purple-100 text-purple-700 text-[10px] font-medium">
+            Payment Review
           </span>
         );
       case 'payment_verified':
         return (
-          <span className="px-2 py-1 rounded-full bg-emerald-100 text-emerald-700 text-[9px] font-medium">
+          <span className="px-2 py-1 rounded-full bg-green-100 text-green-700 text-[10px] font-medium">
             Payment Verified
           </span>
         );
       case 'insurance_issued':
         return (
-          <span className="px-2 py-1 rounded-full bg-teal-100 text-teal-700 text-[9px] font-medium">
+          <span className="px-2 py-1 rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-medium">
             Insurance Issued
           </span>
         );
       default:
         return (
-          <span className="px-2 py-1 rounded-full bg-gray-100 text-gray-700 text-[9px] font-medium">
+          <span className="px-2 py-1 rounded-full bg-gray-100 text-gray-700 text-[10px] font-medium">
             {status}
           </span>
         );
     }
-  };
-
-  const getActionButtons = (app: Application) => {
-    return (
-      <div className="flex space-x-2">
-        <Button size="xs" variant="outline">
-          Edit
-        </Button>
-        <Button size="xs">
-          Review
-        </Button>
-      </div>
-    );
   };
 
   const Pagination = ({ currentPage, totalPages, onPageChange }: PaginationProps) => {
@@ -472,7 +603,7 @@ const AdminCommissionReviewPage = () => {
               </div>
               <div>
                 <p className="text-sm text-gray-600">Total Applications</p>
-                <p className="text-xl font-semibold text-gray-800">{applications.length}</p>
+                <p className="text-xl font-semibold text-gray-800">{totalApplications}</p>
               </div>
             </div>
           </div>
@@ -694,6 +825,430 @@ const AdminCommissionReviewPage = () => {
           )}
         </div>
       </div>
+
+      {/* Review Modal */}
+      {selectedApp && (
+        <div className="fixed inset-0 bg-gray-600/50 flex items-center justify-center z-50">
+          <div className="max-h-[90vh] overflow-y-auto bg-white rounded-lg shadow-xl p-6 w-full max-w-3xl mx-4 fade-in">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold">Review Application</h3>
+              <button
+                onClick={() => {
+                  setSelectedApp(null);
+                  setHoldComment('');
+                }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-6 w-6"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+            </div>
+
+            <div className="bg-[var(--light-gray)] p-4 rounded-lg mb-4">
+              <div className="flex justify-between items-center">
+                <div>
+                  <p className="text-sm text-gray-500">Application ID</p>
+                  <p className="font-semibold">#{selectedApp.applicationNumber}</p>
+                </div>
+                <div>
+                  {getStatusBadge(selectedApp.status)}
+                </div>
+              </div>
+            </div>
+
+            {/* Enhanced Application Details Section */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+              {/* Personal Information */}
+              <div className="space-y-2">
+                <div>
+                  <p className="text-sm text-gray-500">Full Name</p>
+                  <p className="font-semibold">
+                    {selectedApp.client?.fullName || selectedApp.fullName || 'N/A'}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">Email</p>
+                  <p className="font-semibold">
+                    {selectedApp.client?.email || selectedApp.email || 'N/A'}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">Phone</p>
+                  <p className="font-semibold">
+                    {selectedApp.client?.phoneNumber || selectedApp.phoneNumber || 'N/A'}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">Date of Birth</p>
+                  <p className="font-semibold">
+                    {selectedApp.client?.dateOfBirth
+                      ? new Date(selectedApp.client.dateOfBirth).toLocaleDateString()
+                      : 'N/A'}
+                  </p>
+                </div>
+              </div>
+
+              {/* Address Information */}
+              <div className="space-y-2">
+                <div>
+                  <p className="text-sm text-gray-500">Address</p>
+                  <p className="font-semibold">
+                    {selectedApp.client?.address || selectedApp.address || 'N/A'}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">Province</p>
+                  <p className="font-semibold">{selectedApp.client?.province || 'N/A'}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">District</p>
+                  <p className="font-semibold">{selectedApp.client?.district || 'N/A'}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">Sector</p>
+                  <p className="font-semibold">{selectedApp.client?.sector || 'N/A'}</p>
+                </div>
+              </div>
+
+              {/* Insurance Information */}
+              <div className="space-y-2">
+                <div>
+                  <p className="text-sm text-gray-500">Insurance Category</p>
+                  <p className="font-semibold">{selectedApp.insuranceCategory || 'N/A'}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">Insurance Type</p>
+                  <p className="font-semibold">{selectedApp.insuranceType || 'N/A'}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">Duration</p>
+                  <p className="font-semibold">{selectedApp.insuranceDuration || 'N/A'}</p>
+                </div>
+                {selectedApp.insuranceEndAt && (
+                  <div>
+                    <p className="text-sm text-gray-500">Insurance End Date</p>
+                    <p className="font-semibold">
+                      {new Date(selectedApp.insuranceEndAt).toLocaleDateString()}
+                    </p>
+                  </div>
+                )}
+                <div>
+                  <p className="text-sm text-gray-500">Created By</p>
+                  <p className="font-semibold">
+                    {selectedApp.admin
+                      ? `Admin: ${selectedApp.admin.fullName}`
+                      : selectedApp.agent
+                        ? `Agent: ${selectedApp.agent.fullName}`
+                        : 'Client'}
+                  </p>
+                </div>
+                {selectedApp.amount && (
+                  <div>
+                    <p className="text-sm text-gray-500">Amount</p>
+                    <p className="font-semibold">{selectedApp.amount.toLocaleString()} RWF</p>
+                  </div>
+                )}
+                {selectedApp.insuranceProvider && (
+                  <div>
+                    <p className="text-sm text-gray-500">Insurance Provider</p>
+                    <p className="font-semibold">{selectedApp.insuranceProvider}</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Vehicle Information (if applicable) */}
+              {(selectedApp.insuranceCategory === 'Car Insurance' ||
+                selectedApp.insuranceCategory === 'MotorBike Insurance') && (
+                <div className="space-y-2">
+                  {selectedApp.vehicle?.vehicleType && (
+                    <div>
+                      <p className="text-sm text-gray-500">Vehicle Type</p>
+                      <p className="font-semibold">{selectedApp.vehicle.vehicleType}</p>
+                    </div>
+                  )}
+                  {selectedApp.vehicle?.vehicleAge && (
+                    <div>
+                      <p className="text-sm text-gray-500">Vehicle Year</p>
+                      <p className="font-semibold">{selectedApp.vehicle.vehicleAge}</p>
+                    </div>
+                  )}
+                  {selectedApp.vehicle?.vehicleUse && (
+                    <div>
+                      <p className="text-sm text-gray-500">Vehicle Use</p>
+                      <p className="font-semibold">
+                        {selectedApp.vehicle.vehicleUse === 'Other'
+                          ? selectedApp.vehicle.otherVehicleUse || 'Other'
+                          : selectedApp.vehicle.vehicleUse}
+                      </p>
+                    </div>
+                  )}
+                  {selectedApp.vehicle?.plateNumber && (
+                    <div>
+                      <p className="text-sm text-gray-500">Plate Number</p>
+                      <p className="font-semibold">{selectedApp.vehicle.plateNumber}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Commission Information */}
+              {(selectedApp.companyCommission || selectedApp.agentCommission) && (
+                <div className="space-y-2">
+                  {selectedApp.companyCommission && (
+                    <div>
+                      <p className="text-sm text-gray-500">Company Commission</p>
+                      <p className="font-semibold">
+                        {selectedApp.companyCommission.toLocaleString()} RWF
+                      </p>
+                    </div>
+                  )}
+                  {selectedApp.agent && selectedApp.agentCommission && (
+                    <div>
+                      <p className="text-sm text-gray-500">Agent Commission</p>
+                      <p className="font-semibold">
+                        {selectedApp.agentCommission.toLocaleString()} RWF
+                      </p>
+                    </div>
+                  )}
+                  {selectedApp.administrationFees && (
+                    <div>
+                      <p className="text-sm text-gray-500">Administration Fees</p>
+                      <p className="font-semibold">{selectedApp.administrationFees} RWF</p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Documents Section */}
+            <div className="bg-[var(--light-gray)] p-4 rounded-lg mb-4 mt-6">
+              <h4 className="font-medium mb-2">Documents</h4>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <button
+                  className="bg-white p-3 rounded border text-left hover:bg-gray-50"
+                  onClick={() =>
+                    setViewingDocument({
+                      name: 'National ID / Passport',
+                      path: selectedApp.client?.nationalID || '',
+                    })
+                  }
+                >
+                  <p className="text-sm font-medium">National ID / Passport</p>
+                  <p className="text-xs text-gray-500">View Document</p>
+                </button>
+
+                <button
+                  className="bg-white p-3 rounded border text-left hover:bg-gray-50"
+                  onClick={() =>
+                    setViewingDocument({
+                      name: 'Yellow Card',
+                      path: selectedApp.yellowCard || '',
+                    })
+                  }
+                >
+                  <p className="text-sm font-medium">Yellow Card</p>
+                  <p className="text-xs text-gray-500">View Document</p>
+                </button>
+
+                {selectedApp.pastInsuranceCertificate && (
+                  <button
+                    className="bg-white p-3 rounded border text-left hover:bg-gray-50"
+                    onClick={() =>
+                      setViewingDocument({
+                        name: 'Past Insurance Certificate',
+                        path: selectedApp.pastInsuranceCertificate || '',
+                      })
+                    }
+                  >
+                    <p className="text-sm font-medium">Past Insurance</p>
+                    <p className="text-xs text-gray-500">View Document</p>
+                  </button>
+                )}
+
+                {selectedApp.proofOfPayment && (
+                  <button
+                    className="bg-white p-3 rounded border text-left hover:bg-gray-50"
+                    onClick={() =>
+                      setViewingDocument({
+                        name: 'Proof of Payment',
+                        path: selectedApp.proofOfPayment || '',
+                      })
+                    }
+                  >
+                    <p className="text-sm font-medium">Proof of Payment</p>
+                    <p className="text-xs text-gray-500">View Document</p>
+                  </button>
+                )}
+
+                {selectedApp.invoice && (
+                  <button
+                    className="bg-white p-3 rounded border text-left hover:bg-gray-50"
+                    onClick={() =>
+                      setViewingDocument({
+                        name: 'Quotation / Invoice',
+                        path: selectedApp.invoice || '',
+                      })
+                    }
+                  >
+                    <p className="text-sm font-medium">Quotation / Invoice</p>
+                    <p className="text-xs text-gray-500">View Document</p>
+                  </button>
+                )}
+
+                {selectedApp.insuranceCertificate && (
+                  <button
+                    className="bg-white p-3 rounded border text-left hover:bg-gray-50"
+                    onClick={() =>
+                      setViewingDocument({
+                        name: 'Insurance Certificate',
+                        path: selectedApp.insuranceCertificate || '',
+                      })
+                    }
+                  >
+                    <p className="text-sm font-medium">Insurance Certificate</p>
+                    <p className="text-xs text-gray-500">View Document</p>
+                  </button>
+                )}
+
+                {selectedApp.contract && (
+                  <button
+                    className="bg-white p-3 rounded border text-left hover:bg-gray-50"
+                    onClick={() =>
+                      setViewingDocument({
+                        name: 'Contract',
+                        path: selectedApp.contract || '',
+                      })
+                    }
+                  >
+                    <p className="text-sm font-medium">Contract</p>
+                    <p className="text-xs text-gray-500">View Document</p>
+                  </button>
+                )}
+
+                {selectedApp.receipt && (
+                  <button
+                    className="bg-white p-3 rounded border text-left hover:bg-gray-50"
+                    onClick={() =>
+                      setViewingDocument({
+                        name: 'Receipt',
+                        path: selectedApp.receipt || '',
+                      })
+                    }
+                  >
+                    <p className="text-sm font-medium">Receipt</p>
+                    <p className="text-xs text-gray-500">View Document</p>
+                  </button>
+                )}
+
+                {selectedApp.ebm && (
+                  <button
+                    className="bg-white p-3 rounded border text-left hover:bg-gray-50"
+                    onClick={() =>
+                      setViewingDocument({
+                        name: 'EBM',
+                        path: selectedApp.ebm || '',
+                      })
+                    }
+                  >
+                    <p className="text-sm font-medium">EBM</p>
+                    <p className="text-xs text-gray-500">View Document</p>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Invoice & Payment Information */}
+            {selectedApp.invoice && (
+              <div className="bg-[var(--light-gray)] p-4 rounded-lg mb-4">
+                <h4 className="font-medium mb-2">Invoice & Payment</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {selectedApp.amount && (
+                    <div className="bg-white p-3 rounded border">
+                      <p className="text-sm font-medium">Amount</p>
+                      <p className="text-xs text-gray-500">{selectedApp.amount} RWF</p>
+                    </div>
+                  )}
+                  {selectedApp.paymentInstructions && (
+                    <div className="bg-white p-3 rounded border">
+                      <p className="text-sm font-medium">Payment Instructions</p>
+                      <p className="text-xs text-gray-500">{selectedApp.paymentInstructions}</p>
+                    </div>
+                  )}
+                  {selectedApp.transactionId && (
+                    <div className="bg-white p-3 rounded border">
+                      <p className="text-sm font-medium">Transaction ID</p>
+                      <p className="text-xs text-gray-500">{selectedApp.transactionId}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Comment field for putting on hold */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Comment (Required for putting on hold)
+              </label>
+              <textarea
+                value={holdComment}
+                onChange={(e) => setHoldComment(e.target.value)}
+                placeholder="Enter reason for putting this application on hold..."
+                rows={3}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--main-blue)] focus:border-[var(--main-blue)] bg-white"
+              />
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex justify-end gap-3">
+              <Button
+                variant="text"
+                onClick={() => {
+                  setSelectedApp(null);
+                  setHoldComment('');
+                }}
+                disabled={isPuttingOnHold || isMarkingReady}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="danger"
+                onClick={handlePutOnHold}
+                disabled={!holdComment.trim() || isPuttingOnHold || isMarkingReady}
+              >
+                {isPuttingOnHold ? 'Putting on Hold...' : 'Put on Hold'}
+              </Button>
+              <Button
+                onClick={handleMarkAsReady}
+                disabled={isPuttingOnHold || isMarkingReady}
+              >
+                {isMarkingReady ? 'Marking as Ready...' : 'Mark as Ready to be Paid'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Document viewer modal */}
+      {viewingDocument && (
+        <DocumentViewer
+          documentName={viewingDocument.name}
+          documentPath={viewingDocument.path}
+          onClose={() => setViewingDocument(null)}
+        />
+      )}
+
       <ToastContainer />
     </MainLayout>
   );
