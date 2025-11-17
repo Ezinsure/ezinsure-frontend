@@ -1,11 +1,10 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import Link from 'next/link';
 import { MainLayout } from '@/components/ui/main-layout';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/components/ui/toast';
-import { Search, RefreshCw, Download, Calendar, CheckCircle2, AlertCircle, Users, DollarSign, Loader2 } from 'lucide-react';
+import { Search, RefreshCw, Download, Calendar, AlertCircle, Users, DollarSign, Loader2 } from 'lucide-react';
 
 interface PaymentInitiatedApplication {
   _id: string;
