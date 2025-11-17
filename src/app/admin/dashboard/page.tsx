@@ -111,6 +111,7 @@ const fetchActiveAgentsCount = async (token: string) => {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
     const data = await response.json();
+    console.log('[Admin Dashboard] Active agents count response:', data);
     return data.data || 0;
   } catch (error) {
     console.error('Error fetching active agents count:', error);
@@ -131,6 +132,7 @@ const fetchApplicationsThisMonth = async (token: string) => {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
     const data = await response.json();
+    console.log('[Admin Dashboard] Applications this month response:', data);
     return data.data || 0;
   } catch (error) {
     console.error('Error fetching applications count:', error);
@@ -151,6 +153,7 @@ const fetchCoveredProvinces = async (token: string) => {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
     const data = await response.json();
+    console.log('[Admin Dashboard] Covered provinces response:', data);
     return data.data || 0;
   } catch (error) {
     console.error('Error fetching covered provinces:', error);
@@ -171,6 +174,7 @@ const fetchTotalCommission = async (token: string) => {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
     const data = await response.json();
+    console.log('[Admin Dashboard] Total commission response:', data);
     return data.data || 0;
   } catch (error) {
     console.error('Error fetching total commission:', error);
@@ -212,6 +216,7 @@ const fetchInsuranceDistribution = async (token: string) => {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
     const data = await response.json();
+    console.log('[Admin Dashboard] Insurance distribution response:', data);
     return data.data || [];
   } catch (error) {
     console.error('Error fetching insurance distribution:', error);
@@ -361,7 +366,10 @@ const AdminDashboard = () => {
       }
     })
       .then(res => res.json())
-      .then(data => setTopAgents(data.data || []))
+      .then(data => {
+        console.log('[Admin Dashboard] Top agents response:', data);
+        setTopAgents(data.data || []);
+      })
       .catch(() => setTopAgents([]))
       .finally(() => setIsTopAgentsLoading(false));
   }, [token]);
@@ -378,7 +386,10 @@ const AdminDashboard = () => {
       }
     })
       .then(res => res.json())
-      .then(data => setRegionalPerformance(data.data || []))
+      .then(data => {
+        console.log('[Admin Dashboard] Regional performance response:', data);
+        setRegionalPerformance(data.data || []);
+      })
       .catch(() => setRegionalPerformance([]))
       .finally(() => setIsRegionalPerformanceLoading(false));
   }, [token]);
@@ -396,6 +407,7 @@ const AdminDashboard = () => {
     })
       .then(res => res.json())
       .then(data => {
+        console.log('[Admin Dashboard] Monthly average agent commission response:', data);
         setAverageCommission(data.data?.averageCommission ?? 0);
         setTotalAgents(data.data?.totalAgents ?? 0);
       })
@@ -418,7 +430,10 @@ const AdminDashboard = () => {
       }
     })
       .then(res => res.json())
-      .then(data => setTotalClients(data.data ?? 0))
+      .then(data => {
+        console.log('[Admin Dashboard] Total clients response:', data);
+        setTotalClients(data.data ?? 0);
+      })
       .catch(() => setTotalClients(0))
       .finally(() => setIsTotalClientsLoading(false));
   }, [token]);
@@ -436,6 +451,7 @@ const AdminDashboard = () => {
     })
       .then(res => res.json())
       .then(data => {
+        console.log('[Admin Dashboard] Revenue analytics raw response:', data);
         // Transform the data to match the chart's expected structure
         const transformedData = (data.data || []).map((item: RevenueAnalyticsAPIResponse) => ({
           month: item.month,

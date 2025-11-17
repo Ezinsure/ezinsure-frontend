@@ -2,8 +2,9 @@
 "use client"
 
 import React, { useState, useEffect, useCallback } from 'react';
+import Link from 'next/link';
 import { MainLayout } from '@/components/ui/main-layout';
-import { Search, Download, RefreshCw, Calendar } from 'lucide-react';
+import { Search, RefreshCw, Calendar } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 
 interface PaginationProps {
@@ -75,7 +76,6 @@ const PaymentHistory = () => {
   const itemsPerPage = 10;
   const { token } = useAuth();
   const [showPaymentDetails, setShowPaymentDetails] = useState<PaymentDetailsModal | null>(null);
-  const [markingAsPaid, setMarkingAsPaid] = useState<{month: string | number, year: number} | null>(null);
 
   const fetchPaymentHistory = useCallback(async () => {
     try {
@@ -116,130 +116,6 @@ const PaymentHistory = () => {
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
   );
-
-  const handleExport = async (monthYear: string) => {
-    try {
-      const [month, year] = monthYear.split(' ');
-      const monthNumber = new Date(`${month} 1, ${year}`).getMonth() + 1;
-      
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_BASE_URL}/getMonthlyCommissionHistoryDetails?month=${monthNumber}&year=${year}`,
-        {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          }
-        }
-      );
-
-      if (!response.ok) throw new Error('Failed to fetch payment details');
-      
-      const data = await response.json();
-      
-      const headers = ['Agent ID', 'Agent Name', 'Phone', 'Email', 'Bank Name', 'Account Number', 'Commission'];
-      const csvContent = [
-        headers.join(','),
-        ...data.data.map((agent: PaymentHistoryDetails['data'][0]) => [
-          agent.agentId,
-          `"${agent.agentFullName || agent.name}"`,
-          agent.phoneNumber || '',
-          agent.email || '',
-          agent.bankName || '',
-          agent.bankAccountNumber || '',
-          agent.totalCommission
-        ].join(','))
-      ].join('\n');
-
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.setAttribute('href', url);
-      link.setAttribute('download', `${monthYear.replace(' ', '_')}_ezinsure_payment_details.csv`);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    } catch (error) {
-      console.error('Error exporting payment details:', error);
-    }
-  };
-
-  const markAsPaid = async (month: string | number, year: number) => {
-    let monthNumber;
-    
-    // Check if trying to mark current month as paid
-    const now = new Date();
-    const currentMonth = now.getMonth() + 1;
-    const currentYear = now.getFullYear();
-    
-    // Improved month conversion logic
-    if (typeof month === 'string') {
-      // Handle month names like "January", "February", etc.
-      const monthNames = [
-        'January', 'February', 'March', 'April', 'May', 'June',
-        'July', 'August', 'September', 'October', 'November', 'December'
-      ];
-      const monthIndex = monthNames.findIndex(m => m.toLowerCase() === month.toLowerCase());
-      if (monthIndex !== -1) {
-        monthNumber = monthIndex + 1;
-      } else {
-        // Try to parse as number
-        monthNumber = parseInt(month);
-        if (isNaN(monthNumber)) {
-          console.error('Invalid month format:', month);
-          setMarkingAsPaid(null);
-          return;
-        }
-      }
-    } else {
-      monthNumber = Number(month);
-      if (isNaN(monthNumber)) {
-        console.error('Invalid month number:', month);
-        setMarkingAsPaid(null);
-        return;
-      }
-    }
-    
-    // Check if trying to mark current month as paid
-    if (monthNumber === currentMonth && year === currentYear) {
-      alert('Cannot mark current month as paid. You can only mark past months as paid.');
-      return;
-    }
-    
-    // Set loading state after validation
-    setMarkingAsPaid({ month, year });
-    
-    try {
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_BASE_URL}/markAsPaid?month=${monthNumber}&year=${year}`,
-        {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          }
-        }
-      );
-      
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ message: 'Failed to mark payment as paid' }));
-        throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
-      }
-      
-      // Refresh the data
-      await fetchPaymentHistory();
-      
-      // Show success message (you can add a toast system here)
-      alert(`Successfully marked ${month} ${year} as paid!`);
-      
-    } catch (error) {
-      console.error('Error marking payment as paid:', error);
-      // Show error message to user
-      alert(`Error: ${error instanceof Error ? error.message : 'Failed to mark payment as paid'}`);
-    } finally {
-      setMarkingAsPaid(null);
-    }
-  };
 
   const viewPaymentDetails = async (month: string, year: number) => {
     try {
@@ -414,20 +290,20 @@ const PaymentHistory = () => {
         <div className="absolute top-0 left-0 w-full h-[10vh] overflow-hidden z-0 bg-gradient-to-br from-[#0A2540] to-[#126BB3]"></div>
         
         {/* Header Section */}
-        <div className="mt-10 bg-gradient-to-r from-blue-900 via-blue-800 to-indigo-900 shadow-xl">
-          <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8 py-8">
-            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
+        <div className="mt-10 bg-gradient-to-r from-blue-900 via-blue-800 to-indigo-900 shadow-xl rounded-lg">
+          <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 py-4">
+            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
               <div className="text-white">
-                <h1 className="text-4xl font-bold mb-2">Payment History</h1>
-                <p className="text-blue-100 text-lg">Past months commission payments to agents</p>
+                <h1 className="text-2xl sm:text-3xl font-bold mb-1">Payment History</h1>
+                <p className="text-blue-100 text-sm">Past months commission payments to agents</p>
               </div>
               
-              <div className="flex flex-col sm:flex-row gap-4">
-                <div className="flex flex-col sm:flex-row gap-3">
+              <div className="flex flex-col sm:flex-row gap-2 w-full lg:w-auto">
+                <div className="flex flex-col sm:flex-row gap-2">
                   <select
                     value={selectedYear}
                     onChange={(e) => setSelectedYear(e.target.value)}
-                    className="px-4 py-2 border border-blue-300 rounded-lg bg-white/90 backdrop-blur text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                    className="px-2.5 py-1.5 text-sm border border-blue-300 rounded-md bg-white/90 backdrop-blur text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400 cursor-pointer"
                   >
                     {[2025, 2024, 2023, 2022, 2021].map(year => (
                       <option key={year} value={year}>{year}</option>
@@ -435,12 +311,12 @@ const PaymentHistory = () => {
                   </select>
                 </div>
                 
-                <div className="flex gap-3">
+                <div className="flex gap-2">
                   <button 
                     onClick={fetchPaymentHistory}
-                    className="flex items-center gap-2 px-4 py-2 bg-white/20 backdrop-blur text-white rounded-lg hover:bg-white/30 transition-all border border-white/30 cursor-pointer"
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 text-sm bg-white/20 backdrop-blur text-white rounded-md hover:bg-white/30 transition-all border border-white/30 cursor-pointer"
                   >
-                    <RefreshCw className="w-4 h-4" />
+                    <RefreshCw className="w-3.5 h-3.5" />
                     Refresh
                   </button>
                 </div>
@@ -514,24 +390,10 @@ const PaymentHistory = () => {
                           <td className="px-6 py-4 whitespace-nowrap text-right text-[10px] font-medium">
                             <button
                               onClick={() => viewPaymentDetails(payment.month, payment.year)}
-                              className="text-blue-600 hover:text-blue-900 cursor-pointer"
+                              className="text-blue-600 hover:text-blue-900 cursor-pointer font-medium"
                             >
                               View
                             </button>
-                            {!payment.isPaid && (
-                              markingAsPaid && markingAsPaid.month === payment.month && markingAsPaid.year === payment.year ? (
-                                <span className="inline-block w-6 h-6 align-middle">
-                                  <span className="inline-block animate-spin rounded-full h-6 w-6 border-2 border-green-200 border-t-green-600"></span>
-                                </span>
-                              ) : (
-                                <button
-                                  onClick={() => markAsPaid(payment.month, payment.year)}
-                                  className="ml-2 text-green-600 hover:text-green-900 cursor-pointer"
-                                >
-                                  Mark as Paid
-                                </button>
-                              )
-                            )}
                           </td>
                         </tr>
                       ))}
@@ -576,13 +438,15 @@ const PaymentHistory = () => {
                     Total Paid: {showPaymentDetails.data.reduce((sum, agent) => sum + agent.totalCommission, 0).toLocaleString()} RWF
                   </p>
                 </div>
-                <button 
-                  onClick={() => handleExport(`${showPaymentDetails.month} ${showPaymentDetails.year}`)}
-                  className="flex items-center cursor-pointer gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                >
-                  <Download className="w-4 h-4" />
-                  Export This Data
-                </button>
+                <div className="text-right">
+                  <p className="text-xs text-gray-500">Exports are available in the Payment Initiated workspace.</p>
+                  <Link 
+                    href="/finance/payment-initiated"
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-sm bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors cursor-pointer font-medium mt-2"
+                  >
+                    Go to Payment Initiated
+                  </Link>
+                </div>
               </div>
               
               <div className="overflow-x-auto">
@@ -626,7 +490,7 @@ const PaymentHistory = () => {
               <div className="mt-6 flex justify-end">
                 <button
                   onClick={() => setShowPaymentDetails(null)}
-                  className="px-4 py-2 border cursor-pointer border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+                  className="px-2.5 py-1.5 text-sm border border-gray-300 rounded-md font-medium text-gray-700 bg-white hover:bg-gray-50 cursor-pointer"
                 >
                   Close
                 </button>

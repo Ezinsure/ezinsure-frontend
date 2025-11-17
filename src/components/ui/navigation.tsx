@@ -17,6 +17,7 @@ export const Navigation = () => {
   const { user, logout } = useAuth();
   const pathname = usePathname();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const isAdmin = user?.role === 'ADMIN';
 
   // Default navigation links for non-logged in users
   const [navLinks, setNavLinks] = useState<NavLink[]>([
@@ -47,6 +48,7 @@ export const Navigation = () => {
           { href: `${rolePrefix}/applications`, label: 'Applications' },
           { href: `${rolePrefix}/my-applications`, label: 'My Applications' },
           { href: `${rolePrefix}/new-application`, label: 'Apply' },
+          { href: `${rolePrefix}/commission-review`, label: 'Commission Review' },
           { href: `${rolePrefix}/users`, label: 'Manage Users' }
         );
       } else if (user.role === 'SUPER_ADMIN') {
@@ -61,6 +63,7 @@ export const Navigation = () => {
         );
       } else if (user.role === 'FINANCE') {
         newLinks.push(
+          { href: `${rolePrefix}/payment-initiated`, label: 'Initiated Payments' },
           { href: `${rolePrefix}/history`, label: 'Payment History' }
         );
       }
@@ -115,12 +118,18 @@ export const Navigation = () => {
           </Link>
 
           {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center space-x-4 lg:space-x-6 ml-8 lg:ml-12">
+          <div
+            className={`hidden md:flex items-center ${
+              isAdmin ? 'space-x-3 lg:space-x-4 ml-6 lg:ml-10' : 'space-x-4 lg:space-x-6 ml-8 lg:ml-12'
+            }`}
+          >
             {navLinks.map((link) => (
               <Link
                 key={link.href}
                 href={link.href}
-                className={`font-semibold cursor-pointer text-sm lg:text-md transition-colors ${isScrolled ? 'text-[var(--foreground)] hover:text-[var(--accent-orange)]' : 'text-[var(--light-gray)] hover:text-[var(--accent-orange)]'} ${
+                className={`cursor-pointer transition-colors ${
+                  isAdmin ? 'font-medium text-[11px] lg:text-xs' : 'font-semibold text-xs lg:text-sm'
+                } ${isScrolled ? 'text-[var(--foreground)] hover:text-[var(--accent-orange)]' : 'text-[var(--light-gray)] hover:text-[var(--accent-orange)]'} ${
                   pathname === link.href
                     ? 'underline underline-offset-4 underline-[var(--accent-orange)]'
                     : 'hover:text-[var(--accent-orange)]'

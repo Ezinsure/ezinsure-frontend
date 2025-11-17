@@ -25,7 +25,7 @@ interface Application {
   amount?: number;
   companyCommission?: number;
   agentCommission?: number;
-  agentCommissionPaymentStatus?: 'PENDING' | 'READY_TO_BE_PAID' | 'PAID' | 'ON_HOLD';
+  agentCommissionPaymentStatus?: 'PENDING' | 'PENDING_ADMIN_REVIEW' | 'READY_TO_BE_PAID' | 'PAID' | 'ON_HOLD' | 'PAYMENT_INITIATED';
   administrationFees?: string;
   insuranceProvider?: string;
   ebm?: string;
@@ -963,6 +963,7 @@ export default function AgentApplicationsPage() {
   const [paymentProof, setPaymentProof] = useState<File | null>(null);
   const [transactionId, setTransactionId] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isSubmittingPayment, setIsSubmittingPayment] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [startDate, setStartDate] = useState<string>('');
@@ -1296,49 +1297,54 @@ useEffect(() => {
   };
 
   // Handle payment proof submission
-const handleSubmitPayment = async () => {
-  if (!selectedApp || !paymentProof || !transactionId) {
-    showToast('Please fill all required fields', 'error');
-    return;
-  }
-
-  setIsLoading(true);
-  try {
-    const formData = new FormData();
-    formData.append('proofOfPayment', paymentProof);
-    formData.append('transactionId', transactionId);
-
-    const response = await fetch(
-      `${process.env.NEXT_PUBLIC_API_BASE_URL}/sendProofofPayment/${selectedApp._id}`,
-      {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        },
-        body: formData
-      }
-    );
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.message || 'Failed to submit payment proof');
+  const handleSubmitPayment = async () => {
+    if (!selectedApp || !paymentProof || !transactionId) {
+      showToast('Please fill all required fields', 'error');
+      return;
     }
 
-    showToast('Payment proof submitted successfully!', 'success');
-    // Instead of manually updating, refetch all applications
-    await fetchApplications();
-    
-    setPaymentProof(null);
-    setTransactionId('');
-    setSelectedApp(null);
-    setActiveModal('none');
-  } catch (error) {
-    console.error('Error submitting payment proof:', error);
-    showToast(error instanceof Error ? error.message : 'Failed to submit payment proof', 'error');
-  } finally {
-    setIsLoading(false);
-  }
-};
+    setIsSubmittingPayment(true);
+    try {
+      const formData = new FormData();
+      formData.append('proofOfPayment', paymentProof);
+      formData.append('transactionId', transactionId);
+
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/sendProofofPayment/${selectedApp._id}`,
+        {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          },
+          body: formData
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to submit payment proof');
+      }
+
+      showToast('Payment proof submitted successfully!', 'success');
+
+      // Close modal immediately
+      setPaymentProof(null);
+      setTransactionId('');
+      setSelectedApp(null);
+      setActiveModal('none');
+
+      // Refetch applications (shows main table loading)
+      await fetchApplications();
+    } catch (error) {
+      console.error('Error submitting payment proof:', error);
+      showToast(
+        error instanceof Error ? error.message : 'Failed to submit payment proof',
+        'error'
+      );
+    } finally {
+      setIsSubmittingPayment(false);
+    }
+  };
 
   // Handle successful edit
 const handleEditSuccess = async () => {
@@ -1379,6 +1385,15 @@ const handleEditSuccess = async () => {
             Ready to be Paid
           </span>
         );
+      case 'PAYMENT_INITIATED':
+        return (
+          <span className="px-3 py-1 rounded-full bg-cyan-100 text-cyan-700 text-[10px] font-medium flex items-center gap-1 w-fit">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V6h10a2 2 0 00-2-2H4zm2 6a2 2 0 012-2h8a2 2 0 012 2v4a2 2 0 01-2 2H8a2 2 0 01-2-2v-4zm6 4a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
+            </svg>
+            Payment Initiated
+          </span>
+        );
       case 'PENDING':
         return (
           <span className="px-3 py-1 rounded-full bg-yellow-100 text-yellow-700 text-[10px] font-medium flex items-center gap-1 w-fit">
@@ -1386,6 +1401,15 @@ const handleEditSuccess = async () => {
               <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
             </svg>
             Pending
+          </span>
+        );
+      case 'PENDING_ADMIN_REVIEW':
+        return (
+          <span className="px-3 py-1 rounded-full bg-purple-100 text-purple-700 text-[10px] font-medium flex items-center gap-1 w-fit">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+            </svg>
+            Pending Admin Review
           </span>
         );
       case 'ON_HOLD':
@@ -1398,33 +1422,37 @@ const handleEditSuccess = async () => {
           </span>
         );
       default:
-        return <span className="px-3 py-1 rounded-full bg-gray-100 text-gray-700 text-[10px] font-medium flex items-center gap-1 w-fit">Unknown</span>;
+        return (
+          <span className="px-3 py-1 rounded-full bg-gray-100 text-gray-700 text-[10px] font-medium flex items-center gap-1 w-fit">
+            {status}
+          </span>
+        );
     }
   };
 
   // Get status badge based on application status
   const getStatusBadge = (status: string) => {
     if (!status) {
-      return <span className="px-2 py-1 rounded-full bg-gray-100 text-gray-700 text-[9px] font-medium">Unknown</span>;
+      return <span className="px-2 py-1 rounded-full bg-gray-100 text-gray-700 text-[10px] font-medium">Unknown</span>;
     }
     
     switch (status.toLowerCase()) {
       case 'pending':
-        return <span className="px-2 py-1 rounded-full bg-blue-100 text-blue-700 text-[9px] font-medium">Pending</span>;
+        return <span className="px-2 py-1 rounded-full bg-blue-100 text-blue-700 text-[10px] font-medium">Pending</span>;
       case 'application_approved':
-        return <span className="px-2 py-1 rounded-full bg-green-100 text-green-700 text-[9px] font-medium">Approved</span>;
+        return <span className="px-2 py-1 rounded-full bg-green-100 text-green-700 text-[10px] font-medium">Approved</span>;
       case 'waiting_for_user_action':
-        return <span className="px-2 py-1 rounded-full bg-orange-100 text-orange-700 text-[9px] font-medium">Action Required</span>;
+        return <span className="px-2 py-1 rounded-full bg-orange-100 text-orange-700 text-[10px] font-medium">Action Required</span>;
       case 'invoice_sent':
-        return <span className="px-2 py-1 rounded-full bg-indigo-100 text-indigo-700 text-[9px] font-medium">Invoice Sent</span>;
+        return <span className="px-2 py-1 rounded-full bg-indigo-100 text-indigo-700 text-[10px] font-medium">Invoice Sent</span>;
       case 'review_payment':
-        return <span className="px-2 py-1 rounded-full bg-purple-100 text-purple-700 text-[9px] font-medium">Payment Review</span>;
+        return <span className="px-2 py-1 rounded-full bg-purple-100 text-purple-700 text-[10px] font-medium">Payment Review</span>;
       case 'payment_verified':
-        return <span className="px-2 py-1 rounded-full bg-green-100 text-green-700 text-[9px] font-medium">Payment Verified</span>;
+        return <span className="px-2 py-1 rounded-full bg-green-100 text-green-700 text-[10px] font-medium">Payment Verified</span>;
       case 'insurance_issued':
-        return <span className="px-2 py-1 rounded-full bg-emerald-100 text-emerald-700 text-[9px] font-medium">Insurance Issued</span>;
+        return <span className="px-2 py-1 rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-medium">Insurance Issued</span>;
       default:
-        return <span className="px-2 py-1 rounded-full bg-gray-100 text-gray-700 text-[9px] font-medium">Unknown</span>;
+        return <span className="px-2 py-1 rounded-full bg-gray-100 text-gray-700 text-[10px] font-medium">Unknown</span>;
     }
   };
 
@@ -1979,15 +2007,15 @@ const getActionButtons = (app: Application) => {
                     setPaymentProof(null);
                     setTransactionId('');
                   }}
-                  disabled={isLoading}
+                  disabled={isSubmittingPayment}
                 >
                   Cancel
                 </Button>
                 <Button
                   onClick={handleSubmitPayment}
-                  disabled={!paymentProof || !transactionId || isLoading}
+                  disabled={!paymentProof || !transactionId || isSubmittingPayment}
                 >
-                  {isLoading ? 'Submitting...' : 'Submit Payment'}
+                  {isSubmittingPayment ? 'Submitting...' : 'Submit Payment'}
                 </Button>
               </div>
             </div>
