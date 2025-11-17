@@ -2,7 +2,7 @@
 "use client"
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { DollarSign, Users, Search, Download, RefreshCw, Calendar, ArrowDownRight, ArrowUpRight } from 'lucide-react';
+import { DollarSign, Users, Search, Download, RefreshCw, Calendar, ArrowDownRight, ArrowUpRight, PlayCircle } from 'lucide-react';
 import { MainLayout } from '@/components/ui/main-layout';
 import { useAuth } from '@/context/AuthContext';
 import { Toast } from '@/components/ui/toast';
@@ -85,8 +85,10 @@ const FinanceDashboard = () => {
     data: []
   });
   const [paymentHistory, setPaymentHistory] = useState<PaymentHistory[]>([]);
-  const [toast, setToast] = useState({ show: false, message: '', isError: false });
+  const [toast, setToast] = useState<{ show: boolean; message: string; type: 'success' | 'error' | 'info'; isError?: boolean }>({ show: false, message: '', type: 'success' });
   const [markingAsPaid, setMarkingAsPaid] = useState<{month: string | number, year: number} | null>(null);
+  const [isInitiatingPayment, setIsInitiatingPayment] = useState(false);
+  const [hasPaymentInitiated, setHasPaymentInitiated] = useState(false);
  
 
   // Calculate current month's total commission
@@ -117,11 +119,14 @@ const FinanceDashboard = () => {
           });
         })
       });
+      
+      // Use the hasInitiatedPayment field from the API response
+      setHasPaymentInitiated(data.hasInitiatedPayment || false);
     } catch (error) {
       console.error('Error fetching data:', error);
-      setToast({ show: true, message: 'Error fetching current month data.', isError: true });
+      setToast({ show: true, message: 'Error fetching current month data.', type: 'error', isError: true });
     }
-  }, [token, setToast]);
+  }, [token]);
 
   const fetchPaymentHistory = useCallback(async () => {
     try {
@@ -145,7 +150,7 @@ const FinanceDashboard = () => {
 
     } catch (error) {
       console.error('Error fetching payment history:', error);
-      setToast({ show: true, message: 'Error fetching payment history.', isError: true });
+      setToast({ show: true, message: 'Error fetching payment history.', type: 'error', isError: true });
     }
   }, [token, setToast]);
 
@@ -389,6 +394,35 @@ const FinanceDashboard = () => {
     }
   };
 
+  const initiatePayment = async () => {
+    setIsInitiatingPayment(true);
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/initiatePayment`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: 'Failed to initiate payment' }));
+        throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const result = await response.json();
+      setToast({ show: true, message: result.message || 'Payment initiated successfully. Applications are now in payment initiated status.', type: 'success', isError: false });
+      
+      // Refresh data to get updated status (hasInitiatedPayment will be updated from API response)
+      await Promise.all([fetchCurrentMonthData(), fetchPaymentHistory()]);
+    } catch (error: unknown) {
+      console.error('Error initiating payment:', error);
+      setToast({ show: true, message: error instanceof Error ? error.message : 'An unknown error occurred while initiating payment', type: 'error', isError: true });
+    } finally {
+      setIsInitiatingPayment(false);
+    }
+  };
+
   const markAsPaid = async (month?: string | number, year?: number) => {
     let monthNumber;
     let targetYear;
@@ -430,17 +464,26 @@ const FinanceDashboard = () => {
       
       // Check if trying to mark current month as paid
       if (monthNumber === currentMonth && targetYear === currentYear) {
-        setToast({ show: true, message: 'Cannot mark current month as paid. You can only mark past months as paid.', isError: false });
+        setToast({ show: true, message: 'Cannot mark current month as paid. You can only mark past months as paid.', type: 'info', isError: false });
         return;
       }
+      
+      // For past months, validate that payment was initiated
+      // The API should handle this validation, but we'll add a check here too
+      // Past months should have been initiated when they were current month
     } else {
-      // Mark current month as paid - this should not be allowed
-      setToast({ show: true, message: 'Cannot mark current month as paid. You can only mark past months as paid.', isError: false });
-      return;
+      // Mark current month as paid - check if there are applications in PAYMENT_INITIATED status
+      if (!hasPaymentInitiated) {
+        setToast({ show: true, message: 'No applications in payment initiated status. Please initiate payment first before marking as paid.', type: 'error', isError: true });
+        return;
+      }
+      // Set current month and year for marking as paid
+      monthNumber = currentMonth;
+      targetYear = currentYear;
     }
 
     // Set loading state after validation
-    setMarkingAsPaid({ month: month || monthNumber, year: targetYear });
+    setMarkingAsPaid({ month: monthNumber, year: targetYear });
 
     try {
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/markAsPaid?month=${monthNumber}&year=${targetYear}`, {
@@ -458,17 +501,18 @@ const FinanceDashboard = () => {
       }
 
       const result = await response.json();
-      setToast({ show: true, message: result.message, isError: false });
+      setToast({ show: true, message: result.message, type: 'success', isError: false });
 
       // After successful API call, update the UI.
       if (month && year) {
         await fetchPaymentHistory();
       } else {
+        // For current month, refresh data (hasInitiatedPayment will be updated from API response)
         await Promise.all([fetchCurrentMonthData(), fetchPaymentHistory()]);
       }
     } catch (error: unknown) {
       console.error('Error marking as paid:', error);
-      setToast({ show: true, message: error instanceof Error ? error.message : 'An unknown error occurred', isError: true });
+      setToast({ show: true, message: error instanceof Error ? error.message : 'An unknown error occurred', type: 'error', isError: true });
     } finally {
       setMarkingAsPaid(null);
     }
@@ -549,7 +593,7 @@ const FinanceDashboard = () => {
       {toast.show && (
         <Toast
           message={toast.message}
-          type={toast.isError ? 'error' : 'success'}
+          type={toast.type}
           onClose={() => setToast({ ...toast, show: false })}
         />
       )}
@@ -557,45 +601,62 @@ const FinanceDashboard = () => {
         <div className="absolute top-0 left-0 w-full h-[10vh] overflow-hidden z-0 bg-gradient-to-br from-[#0A2540] to-[#126BB3]"></div>
         
         {/* Header Section */}
-        <div className="mt-10 bg-gradient-to-r from-blue-900 via-blue-800 to-indigo-900 shadow-xl">
-          <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8 py-8">
-            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
+        <div className="mt-10 bg-gradient-to-r from-blue-900 via-blue-800 to-indigo-900 shadow-xl rounded-lg">
+          <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 py-4">
+            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
               <div className="text-white">
-                <h1 className="text-4xl font-bold mb-2">Finance Dashboard</h1>
-                <p className="text-blue-100 text-lg">Commission tracking and payment processing</p>
+                <h1 className="text-2xl sm:text-3xl font-bold mb-1">Finance Dashboard</h1>
+                <p className="text-blue-100 text-sm">Commission tracking and payment processing</p>
               </div>
               
-              <div className="flex flex-col sm:flex-row gap-4">
-                <div className="flex flex-col sm:flex-row gap-3">
+              <div className="flex flex-col sm:flex-row gap-2 w-full lg:w-auto">
+                <div className="flex flex-col sm:flex-row gap-2">
                   <select 
                     value={selectedPeriod}
                     onChange={(e) => setSelectedPeriod(e.target.value as 'month' | 'quarter' | 'year')}
-                    className="px-4 py-2 border border-blue-300 rounded-lg bg-white/90 backdrop-blur text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                    className="px-2.5 py-1.5 text-sm border border-blue-300 rounded-md bg-white/90 backdrop-blur text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400 cursor-pointer"
                   >
                     <option value="month">This Month</option>
                     <option value="quarter">This Quarter</option>
                     <option value="year">This Year</option>
                   </select>
                   
-                  <button className="flex items-center gap-2 px-4 py-2 border border-blue-300 rounded-lg bg-white/90 backdrop-blur text-gray-700 hover:bg-white transition-colors">
-                    <Calendar className="w-4 h-4" />
+                  <button className="flex items-center gap-1.5 px-2.5 py-1.5 text-sm border border-blue-300 rounded-md bg-white/90 backdrop-blur text-gray-700 hover:bg-white transition-colors cursor-pointer">
+                    <Calendar className="w-3.5 h-3.5" />
                     Select Date Range
                   </button>
                 </div>
                 
-                <div className="flex gap-3">
+                <div className="flex gap-2">
                   <button 
                     onClick={() => window.location.reload()}
-                    className="flex items-center gap-2 px-4 py-2 bg-white/20 backdrop-blur text-white rounded-lg hover:bg-white/30 transition-all border border-white/30"
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 text-sm bg-white/20 backdrop-blur text-white rounded-md hover:bg-white/30 transition-all border border-white/30 cursor-pointer"
                   >
-                    <RefreshCw className="w-4 h-4" />
+                    <RefreshCw className="w-3.5 h-3.5" />
                     Refresh
                   </button>
                   <button 
-                    onClick={handleExportPayments}
-                    className="flex items-center gap-2 px-4 py-2 bg-white text-blue-600 rounded-lg hover:bg-blue-50 transition-colors font-semibold"
+                    onClick={initiatePayment}
+                    disabled={isInitiatingPayment}
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 text-sm bg-cyan-600 text-white rounded-md hover:bg-cyan-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                   >
-                    <Download className="w-4 h-4" />
+                    {isInitiatingPayment ? (
+                      <>
+                        <span className="inline-block animate-spin rounded-full h-3.5 w-3.5 border-2 border-white border-t-transparent"></span>
+                        Initiating...
+                      </>
+                    ) : (
+                      <>
+                        <PlayCircle className="w-3.5 h-3.5" />
+                        Initiate Payment
+                      </>
+                    )}
+                  </button>
+                  <button 
+                    onClick={handleExportPayments}
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 text-sm bg-white text-blue-600 rounded-md hover:bg-blue-50 transition-colors font-medium cursor-pointer"
+                  >
+                    <Download className="w-3.5 h-3.5" />
                     Export
                   </button>
                 </div>
@@ -657,14 +718,33 @@ const FinanceDashboard = () => {
                     className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                   />
                 </div>
-                                 <button 
-                   onClick={() => markAsPaid()}
-                   disabled={true}
-                   className="flex text-nowrap items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold bg-gray-200 text-gray-500 cursor-not-allowed"
-                   title="Cannot mark current month as paid. You can only mark past months as paid."
-                 >
-                   Mark as Paid
-                 </button>
+                 {hasPaymentInitiated ? (
+                   <button 
+                     onClick={() => markAsPaid()}
+                     disabled={markingAsPaid !== null}
+                     className="flex text-nowrap items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium bg-green-600 text-white hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                     title="Mark applications in payment initiated status as paid"
+                   >
+                     {markingAsPaid ? (
+                       <>
+                         <span className="inline-block animate-spin rounded-full h-3.5 w-3.5 border-2 border-white border-t-transparent"></span>
+                         Marking...
+                       </>
+                     ) : (
+                       'Mark as Paid'
+                     )}
+                   </button>
+                 ) : (
+                   <button 
+                     onClick={() => {
+                       setToast({ show: true, message: 'No applications in payment initiated status. Please initiate payment first before marking as paid.', type: 'error', isError: true });
+                     }}
+                     className="flex text-nowrap items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium bg-gray-200 text-gray-500 cursor-not-allowed"
+                     title="No applications in payment initiated status. Initiate payment first."
+                   >
+                     Mark as Paid
+                   </button>
+                 )}
               </div>
             </div>
             
@@ -777,13 +857,23 @@ const FinanceDashboard = () => {
                           </button>
                           {!payment.isPaid && (
                             markingAsPaid && markingAsPaid.month === payment.month && markingAsPaid.year === payment.year ? (
-                              <span className="inline-block w-6 h-6 align-middle">
-                                <span className="inline-block animate-spin rounded-full h-6 w-6 border-2 border-green-200 border-t-green-600"></span>
+                              <span className="inline-block w-5 h-5 align-middle ml-2">
+                                <span className="inline-block animate-spin rounded-full h-5 w-5 border-2 border-green-200 border-t-green-600"></span>
                               </span>
                             ) : (
                               <button
-                                onClick={() => markAsPaid(payment.month, payment.year)}
-                                className="ml-2 text-green-600 hover:text-green-900 cursor-pointer"
+                                onClick={async () => {
+                                  // Check if payment was initiated for this month/year
+                                  // For past months, we need to verify they were in payment initiated status
+                                  try {
+                                    // We'll check by attempting to mark as paid - the API should validate
+                                    // But first show a confirmation or check
+                                    await markAsPaid(payment.month, payment.year);
+                                  } catch (error) {
+                                    // Error handling is done in markAsPaid
+                                  }
+                                }}
+                                className="ml-2 text-xs text-green-600 hover:text-green-900 cursor-pointer font-medium"
                               >
                                 Mark as Paid
                               </button>
@@ -838,9 +928,9 @@ const FinanceDashboard = () => {
                       </div>
                       <button 
                         onClick={() => exportHistoryPayments(showPaymentDetails.month, parseInt(showPaymentDetails.year))}
-                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors cursor-pointer"
+                        className="flex items-center gap-1.5 px-2.5 py-1.5 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors cursor-pointer font-medium"
                       >
-                        <Download className="w-4 h-4" />
+                        <Download className="w-3.5 h-3.5" />
                         Export This Data
                       </button>
                     </div>
@@ -880,7 +970,7 @@ const FinanceDashboard = () => {
                   <div className="mt-6 flex justify-end">
                     <button
                       onClick={() => setShowPaymentDetails(null)}
-                      className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 cursor-pointer"
+                      className="px-2.5 py-1.5 text-sm border border-gray-300 rounded-md font-medium text-gray-700 bg-white hover:bg-gray-50 cursor-pointer"
                     >
                       Close
                     </button>

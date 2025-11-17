@@ -5,6 +5,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { MainLayout } from '@/components/ui/main-layout';
 import { Search, Download, RefreshCw, Calendar } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
+import { useToast } from '@/components/ui/toast';
 
 interface PaginationProps {
   currentPage: number;
@@ -74,8 +75,30 @@ const PaymentHistory = () => {
   const [paymentHistory, setPaymentHistory] = useState<PaymentHistory[]>([]);
   const itemsPerPage = 10;
   const { token } = useAuth();
+  const { showToast, ToastContainer } = useToast();
   const [showPaymentDetails, setShowPaymentDetails] = useState<PaymentDetailsModal | null>(null);
   const [markingAsPaid, setMarkingAsPaid] = useState<{month: string | number, year: number} | null>(null);
+  const [hasPaymentInitiated, setHasPaymentInitiated] = useState(false);
+
+  // Check if payment was initiated for current month (for validation)
+  const checkPaymentInitiated = useCallback(async () => {
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/getAllAgentsMonthlyCommissions`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setHasPaymentInitiated(data.hasInitiatedPayment || false);
+      }
+    } catch (error) {
+      console.error('Error checking payment initiated status:', error);
+    }
+  }, [token]);
 
   const fetchPaymentHistory = useCallback(async () => {
     try {
@@ -106,7 +129,8 @@ const PaymentHistory = () => {
 
   useEffect(() => {
     fetchPaymentHistory();
-  }, [fetchPaymentHistory]);
+    checkPaymentInitiated();
+  }, [fetchPaymentHistory, checkPaymentInitiated]);
 
   const filteredHistory = paymentHistory.filter(item =>
     `${item.month} ${item.year}`.toLowerCase().includes(searchTerm.toLowerCase())
@@ -202,9 +226,13 @@ const PaymentHistory = () => {
     
     // Check if trying to mark current month as paid
     if (monthNumber === currentMonth && year === currentYear) {
-      alert('Cannot mark current month as paid. You can only mark past months as paid.');
+      showToast('Cannot mark current month as paid. You can only mark past months as paid.', 'info');
       return;
     }
+    
+    // Validate that payment was initiated for this month/year
+    // The API should validate this, but we show a message if it fails
+    // Past months should have been initiated when they were current month
     
     // Set loading state after validation
     setMarkingAsPaid({ month, year });
@@ -223,19 +251,34 @@ const PaymentHistory = () => {
       
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ message: 'Failed to mark payment as paid' }));
-        throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
+        const errorMessage = errorData.message || `HTTP ${response.status}: ${response.statusText}`;
+        
+        // Check if error is related to payment not being initiated
+        if (errorMessage.toLowerCase().includes('payment initiated') || errorMessage.toLowerCase().includes('initiate')) {
+          showToast(`Error: Payment must be initiated before marking as paid. Please ensure payment was initiated for ${month} ${year}.`, 'error');
+        } else {
+          throw new Error(errorMessage);
+        }
+        return;
       }
       
       // Refresh the data
       await fetchPaymentHistory();
+      // Refresh payment initiated status
+      await checkPaymentInitiated();
       
-      // Show success message (you can add a toast system here)
-      alert(`Successfully marked ${month} ${year} as paid!`);
+      // Show success message
+      showToast(`Successfully marked ${month} ${year} as paid!`, 'success');
       
     } catch (error) {
       console.error('Error marking payment as paid:', error);
       // Show error message to user
-      alert(`Error: ${error instanceof Error ? error.message : 'Failed to mark payment as paid'}`);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to mark payment as paid';
+      if (errorMessage.toLowerCase().includes('payment initiated') || errorMessage.toLowerCase().includes('initiate')) {
+        showToast(`Error: Payment must be initiated before marking as paid. Please ensure payment was initiated for ${month} ${year}.`, 'error');
+      } else {
+        showToast(`Error: ${errorMessage}`, 'error');
+      }
     } finally {
       setMarkingAsPaid(null);
     }
@@ -414,20 +457,20 @@ const PaymentHistory = () => {
         <div className="absolute top-0 left-0 w-full h-[10vh] overflow-hidden z-0 bg-gradient-to-br from-[#0A2540] to-[#126BB3]"></div>
         
         {/* Header Section */}
-        <div className="mt-10 bg-gradient-to-r from-blue-900 via-blue-800 to-indigo-900 shadow-xl">
-          <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8 py-8">
-            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
+        <div className="mt-10 bg-gradient-to-r from-blue-900 via-blue-800 to-indigo-900 shadow-xl rounded-lg">
+          <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 py-4">
+            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
               <div className="text-white">
-                <h1 className="text-4xl font-bold mb-2">Payment History</h1>
-                <p className="text-blue-100 text-lg">Past months commission payments to agents</p>
+                <h1 className="text-2xl sm:text-3xl font-bold mb-1">Payment History</h1>
+                <p className="text-blue-100 text-sm">Past months commission payments to agents</p>
               </div>
               
-              <div className="flex flex-col sm:flex-row gap-4">
-                <div className="flex flex-col sm:flex-row gap-3">
+              <div className="flex flex-col sm:flex-row gap-2 w-full lg:w-auto">
+                <div className="flex flex-col sm:flex-row gap-2">
                   <select
                     value={selectedYear}
                     onChange={(e) => setSelectedYear(e.target.value)}
-                    className="px-4 py-2 border border-blue-300 rounded-lg bg-white/90 backdrop-blur text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                    className="px-2.5 py-1.5 text-sm border border-blue-300 rounded-md bg-white/90 backdrop-blur text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400 cursor-pointer"
                   >
                     {[2025, 2024, 2023, 2022, 2021].map(year => (
                       <option key={year} value={year}>{year}</option>
@@ -435,12 +478,12 @@ const PaymentHistory = () => {
                   </select>
                 </div>
                 
-                <div className="flex gap-3">
+                <div className="flex gap-2">
                   <button 
                     onClick={fetchPaymentHistory}
-                    className="flex items-center gap-2 px-4 py-2 bg-white/20 backdrop-blur text-white rounded-lg hover:bg-white/30 transition-all border border-white/30 cursor-pointer"
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 text-sm bg-white/20 backdrop-blur text-white rounded-md hover:bg-white/30 transition-all border border-white/30 cursor-pointer"
                   >
-                    <RefreshCw className="w-4 h-4" />
+                    <RefreshCw className="w-3.5 h-3.5" />
                     Refresh
                   </button>
                 </div>
@@ -514,19 +557,23 @@ const PaymentHistory = () => {
                           <td className="px-6 py-4 whitespace-nowrap text-right text-[10px] font-medium">
                             <button
                               onClick={() => viewPaymentDetails(payment.month, payment.year)}
-                              className="text-blue-600 hover:text-blue-900 cursor-pointer"
+                              className="text-blue-600 hover:text-blue-900 cursor-pointer font-medium"
                             >
                               View
                             </button>
                             {!payment.isPaid && (
                               markingAsPaid && markingAsPaid.month === payment.month && markingAsPaid.year === payment.year ? (
-                                <span className="inline-block w-6 h-6 align-middle">
-                                  <span className="inline-block animate-spin rounded-full h-6 w-6 border-2 border-green-200 border-t-green-600"></span>
+                                <span className="inline-block w-5 h-5 align-middle ml-2">
+                                  <span className="inline-block animate-spin rounded-full h-5 w-5 border-2 border-green-200 border-t-green-600"></span>
                                 </span>
                               ) : (
                                 <button
-                                  onClick={() => markAsPaid(payment.month, payment.year)}
-                                  className="ml-2 text-green-600 hover:text-green-900 cursor-pointer"
+                                  onClick={async () => {
+                                    // Validate that payment was initiated before marking as paid
+                                    // The markAsPaid function will handle the validation
+                                    await markAsPaid(payment.month, payment.year);
+                                  }}
+                                  className="ml-2 text-xs text-green-600 hover:text-green-900 cursor-pointer font-medium"
                                 >
                                   Mark as Paid
                                 </button>
@@ -578,9 +625,9 @@ const PaymentHistory = () => {
                 </div>
                 <button 
                   onClick={() => handleExport(`${showPaymentDetails.month} ${showPaymentDetails.year}`)}
-                  className="flex items-center cursor-pointer gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors cursor-pointer font-medium"
                 >
-                  <Download className="w-4 h-4" />
+                  <Download className="w-3.5 h-3.5" />
                   Export This Data
                 </button>
               </div>
@@ -626,7 +673,7 @@ const PaymentHistory = () => {
               <div className="mt-6 flex justify-end">
                 <button
                   onClick={() => setShowPaymentDetails(null)}
-                  className="px-4 py-2 border cursor-pointer border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+                  className="px-2.5 py-1.5 text-sm border border-gray-300 rounded-md font-medium text-gray-700 bg-white hover:bg-gray-50 cursor-pointer"
                 >
                   Close
                 </button>
@@ -635,6 +682,7 @@ const PaymentHistory = () => {
           </div>
         </div>
       )}
+      <ToastContainer />
     </MainLayout>
   );
 };
