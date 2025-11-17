@@ -422,7 +422,8 @@ const PaymentInitiatedPage = () => {
 
   return (
     <MainLayout>
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-8">
+      <div className="absolute top-0 left-0 w-full h-[10vh] overflow-hidden z-0 bg-gradient-to-br from-[#0A2540] to-[#126BB3]" />
+      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-8">
         <div className="bg-gradient-to-r from-indigo-900 via-blue-900 to-blue-700 text-white rounded-2xl p-8 shadow-lg">
           <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
             <div>
