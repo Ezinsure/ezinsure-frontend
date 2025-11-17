@@ -25,7 +25,7 @@ interface Application {
   amount?: number;
   companyCommission?: number;
   agentCommission?: number;
-  agentCommissionPaymentStatus?: 'PENDING' | 'PENDING_ADMIN_REVIEW' | 'READY_TO_BE_PAID' | 'PAID' | 'ON_HOLD';
+  agentCommissionPaymentStatus?: 'PENDING' | 'PENDING_ADMIN_REVIEW' | 'READY_TO_BE_PAID' | 'PAID' | 'ON_HOLD' | 'PAYMENT_INITIATED';
   administrationFees?: string;
   insuranceProvider?: string;
   ebm?: string;
@@ -1383,6 +1383,15 @@ const handleEditSuccess = async () => {
               <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V7z" clipRule="evenodd" />
             </svg>
             Ready to be Paid
+          </span>
+        );
+      case 'PAYMENT_INITIATED':
+        return (
+          <span className="px-3 py-1 rounded-full bg-cyan-100 text-cyan-700 text-[10px] font-medium flex items-center gap-1 w-fit">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V6h10a2 2 0 00-2-2H4zm2 6a2 2 0 012-2h8a2 2 0 012 2v4a2 2 0 01-2 2H8a2 2 0 01-2-2v-4zm6 4a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
+            </svg>
+            Payment Initiated
           </span>
         );
       case 'PENDING':

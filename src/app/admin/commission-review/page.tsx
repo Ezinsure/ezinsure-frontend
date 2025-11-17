@@ -157,6 +157,7 @@ const AdminCommissionReviewPage = () => {
         return new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime();
       });
 
+      console.log('Fetched applications for commission review:', sorted);
       setApplications(sorted);
       // Use values returned by API instead of calculating on the frontend
       setTotalCommission(data.totalAgentCommission || 0);
@@ -256,6 +257,12 @@ const AdminCommissionReviewPage = () => {
         return (
           <span className="px-3 py-1 rounded-full bg-purple-100 text-purple-700 text-[10px] font-medium flex items-center gap-1 w-fit">
             Pending Admin Review
+          </span>
+        );
+      case 'PAYMENT_INITIATED':
+        return (
+          <span className="px-3 py-1 rounded-full bg-cyan-100 text-cyan-700 text-[10px] font-medium flex items-center gap-1 w-fit">
+            Payment Initiated
           </span>
         );
       case 'PENDING':
@@ -527,6 +534,16 @@ const AdminCommissionReviewPage = () => {
     return String(value);
   };
 
+  const hasExistingValue = (value: unknown): boolean => {
+    if (value === null || value === undefined) return false;
+    if (typeof value === 'string') return value.trim().length > 0;
+    if (typeof value === 'number') return !Number.isNaN(value);
+    if (typeof value === 'boolean') return value === true;
+    if (Array.isArray(value)) return value.length > 0;
+    if (value instanceof File) return true;
+    return true;
+  };
+
   // Handle edit form input changes
   const handleEditInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target;
@@ -734,6 +751,128 @@ const AdminCommissionReviewPage = () => {
     );
   };
 
+  // Visibility helpers for edit form sections
+  const clientFullNameValue = editingApp?.client?.fullName || editingApp?.fullName || '';
+  const clientEmailValue = editingApp?.client?.email || editingApp?.email || '';
+  const clientPhoneValue = editingApp?.client?.phoneNumber || editingApp?.phoneNumber || '';
+  const clientDobValue = editingApp?.client?.dateOfBirth
+    ? new Date(editingApp.client.dateOfBirth).toISOString().split('T')[0]
+    : '';
+  const clientAddressValue = editingApp?.client?.address || editingApp?.address || '';
+  const clientProvinceValue = editingApp?.client?.province || '';
+  const clientDistrictValue = editingApp?.client?.district || '';
+  const clientSectorValue = editingApp?.client?.sector || '';
+  const clientIdentificationValue =
+    editingApp?.client?.identificationNumber || editingApp?.client?.nationalID || '';
+
+  const showClientFullName = hasExistingValue(clientFullNameValue);
+  const showClientEmail = hasExistingValue(clientEmailValue);
+  const showClientPhone = hasExistingValue(clientPhoneValue);
+  const showClientDob = hasExistingValue(clientDobValue);
+  const showClientAddress = hasExistingValue(clientAddressValue);
+  const showClientProvince = hasExistingValue(clientProvinceValue);
+  const showClientDistrict = hasExistingValue(clientDistrictValue);
+  const showClientSector = hasExistingValue(clientSectorValue);
+  const showClientIdentification = hasExistingValue(clientIdentificationValue);
+
+  const showClientInfoSection =
+    showClientFullName ||
+    showClientEmail ||
+    showClientPhone ||
+    showClientDob ||
+    showClientAddress ||
+    showClientProvince ||
+    showClientDistrict ||
+    showClientSector ||
+    showClientIdentification;
+
+  const insuranceCategoryValue = editFormData ? getFormValue(editFormData.insuranceCategory) : '';
+  const plateNumberValue = editFormData ? getFormValue(editFormData.plateNumber) : '';
+  const vehicleTypeValue = editFormData ? getFormValue(editFormData.vehicleType) : '';
+  const vehicleAgeValue = editFormData ? getFormValue(editFormData.vehicleAge) : '';
+  const vehicleUseValue = editFormData ? getFormValue(editFormData.vehicleUse) : '';
+  const otherVehicleUseValue = editFormData ? getFormValue(editFormData.otherVehicleUse) : '';
+  const insuranceProviderValue = editFormData ? getFormValue(editFormData.insuranceProvider) : '';
+  const insuranceTypeValue = editFormData ? getFormValue(editFormData.insuranceType) : '';
+  const insuranceDurationValue = editFormData ? getFormValue(editFormData.insuranceDuration) : '';
+
+  const isVehicleInsurance =
+    editFormData?.insuranceCategory === 'Car Insurance' ||
+    editFormData?.insuranceCategory === 'MotorBike Insurance';
+
+  const showInsuranceCategory = hasExistingValue(insuranceCategoryValue);
+  const showPlateNumber = isVehicleInsurance && hasExistingValue(plateNumberValue);
+  const showVehicleType = isVehicleInsurance && hasExistingValue(vehicleTypeValue);
+  const showVehicleAge = isVehicleInsurance && hasExistingValue(vehicleAgeValue);
+  const showVehicleUse = isVehicleInsurance && hasExistingValue(vehicleUseValue);
+  const showOtherVehicleUse = isVehicleInsurance && hasExistingValue(otherVehicleUseValue);
+  const showComesaField =
+    isVehicleInsurance && typeof editFormData?.isCOMESA === 'boolean' && editFormData.isCOMESA;
+  const showInsuranceProvider = hasExistingValue(insuranceProviderValue);
+  const showInsuranceType = hasExistingValue(insuranceTypeValue);
+  const showInsuranceDuration = hasExistingValue(insuranceDurationValue);
+
+  const showInsuranceDetailsSection =
+    showInsuranceCategory ||
+    showPlateNumber ||
+    showVehicleType ||
+    showVehicleAge ||
+    showVehicleUse ||
+    showOtherVehicleUse ||
+    showComesaField ||
+    showInsuranceProvider ||
+    showInsuranceType ||
+    showInsuranceDuration;
+
+  const amountValue = editFormData ? getFormValue(editFormData.amount) : '';
+  const agentCommissionValue = editFormData ? getFormValue(editFormData.agentCommission) : '';
+  const companyCommissionValue = editFormData ? getFormValue(editFormData.companyCommission) : '';
+  const administrationFeesValue = editFormData ? getFormValue(editFormData.administrationFees) : '';
+  const transactionIdValue = editFormData ? getFormValue(editFormData.transactionId) : '';
+  const paymentInstructionsValue = editFormData ? getFormValue(editFormData.paymentInstructions) : '';
+
+  const showAmountField = hasExistingValue(amountValue);
+  const showAgentCommissionField = hasExistingValue(agentCommissionValue);
+  const showCompanyCommissionField = hasExistingValue(companyCommissionValue);
+  const showAdministrationFeesField = hasExistingValue(administrationFeesValue);
+  const showTransactionIdField = hasExistingValue(transactionIdValue);
+  const showPaymentInstructionsField = hasExistingValue(paymentInstructionsValue);
+
+  const showPaymentSection =
+    showAmountField ||
+    showAgentCommissionField ||
+    showCompanyCommissionField ||
+    showAdministrationFeesField ||
+    showTransactionIdField ||
+    showPaymentInstructionsField;
+
+  const statusValue = editFormData ? getFormValue(editFormData.status) : '';
+  const showStatusField = hasExistingValue(statusValue);
+  const insuranceEndDateValue = editingApp?.insuranceEndAt
+    ? new Date(editingApp.insuranceEndAt).toISOString().split('T')[0]
+    : '';
+  const showInsuranceEndDateField = hasExistingValue(insuranceEndDateValue);
+  const showStatusSection = showStatusField || showInsuranceEndDateField;
+
+  const showInvoiceUpload = hasExistingValue(editingApp?.invoice);
+  const showInsuranceCertificateUpload = hasExistingValue(editingApp?.insuranceCertificate);
+  const showContractUpload = hasExistingValue(editingApp?.contract);
+  const showReceiptUpload = hasExistingValue(editingApp?.receipt);
+  const showEbmUpload = hasExistingValue(editingApp?.ebm);
+  const showInsuranceDocumentsSection =
+    showInvoiceUpload ||
+    showInsuranceCertificateUpload ||
+    showContractUpload ||
+    showReceiptUpload ||
+    showEbmUpload;
+
+  const showProofOfPaymentInfo = hasExistingValue(editingApp?.proofOfPayment);
+  const showTransactionIdInfo = hasExistingValue(editingApp?.transactionId);
+  const showYellowCardInfo = hasExistingValue(editingApp?.yellowCard);
+  const showPastInsuranceCertificateInfo = hasExistingValue(editingApp?.pastInsuranceCertificate);
+  const showAgentInfoSection =
+    showProofOfPaymentInfo || showTransactionIdInfo || showYellowCardInfo || showPastInsuranceCertificateInfo;
+
   return (
     <MainLayout containerClass="p-0" fullWidth>
       <div className="container mx-auto px-4 py-8">
@@ -914,9 +1053,6 @@ const AdminCommissionReviewPage = () => {
                         Payment Status
                       </th>
                       <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase tracking-wider">
-                        Status
-                      </th>
-                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase tracking-wider">
                         Actions
                       </th>
                     </tr>
@@ -957,9 +1093,6 @@ const AdminCommissionReviewPage = () => {
                         </td>
                         <td className="px-4 py-4 whitespace-nowrap">
                           {getPaymentStatusBadge(app.agentCommissionPaymentStatus)}
-                        </td>
-                        <td className="px-4 py-4 whitespace-nowrap">
-                          {getStatusBadge(app.status)}
                         </td>
                         <td className="px-4 py-4 whitespace-nowrap text-sm font-medium">
                           {getActionButtons(app)}
@@ -1415,377 +1548,447 @@ const AdminCommissionReviewPage = () => {
 
             <form onSubmit={handleEditSubmit} className="p-4">
               {/* Client Information Section - READONLY */}
-              <fieldset className="mb-4 border-2 border-gray-300 rounded-lg p-3 bg-gray-50">
-                <legend className="text-xs font-semibold text-gray-600 px-2 bg-white border border-gray-300 rounded-md">
-                  Client Information (Read Only)
-                </legend>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-medium mb-1">Full Name</label>
-                    <input
-                      type="text"
-                      value={editingApp.client?.fullName || ''}
-                      disabled
-                      className="w-full py-1.5 px-2 text-xs rounded-lg bg-gray-100 border border-gray-300 text-gray-600"
-                    />
+              {showClientInfoSection && (
+                <fieldset className="mb-4 border-2 border-gray-300 rounded-lg p-3 bg-gray-50">
+                  <legend className="text-xs font-semibold text-gray-600 px-2 bg-white border border-gray-300 rounded-md">
+                    Client Information (Read Only)
+                  </legend>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {showClientFullName && (
+                      <div>
+                        <label className="block text-xs font-medium mb-1">Full Name</label>
+                        <input
+                          type="text"
+                          value={clientFullNameValue}
+                          disabled
+                          className="w-full py-1.5 px-2 text-xs rounded-lg bg-gray-100 border border-gray-300 text-gray-600"
+                        />
+                      </div>
+                    )}
+                    {showClientEmail && (
+                      <div>
+                        <label className="block text-xs font-medium mb-1">Email</label>
+                        <input
+                          type="email"
+                          value={clientEmailValue}
+                          disabled
+                          className="w-full py-1.5 px-2 text-xs rounded-lg bg-gray-100 border border-gray-300 text-gray-600"
+                        />
+                      </div>
+                    )}
+                    {showClientPhone && (
+                      <div>
+                        <label className="block text-xs font-medium mb-1">Phone Number</label>
+                        <input
+                          type="text"
+                          value={clientPhoneValue}
+                          disabled
+                          className="w-full py-1.5 px-2 text-xs rounded-lg bg-gray-100 border border-gray-300 text-gray-600"
+                        />
+                      </div>
+                    )}
+                    {showClientDob && (
+                      <div>
+                        <label className="block text-xs font-medium mb-1">Date of Birth</label>
+                        <input
+                          type="text"
+                          value={clientDobValue}
+                          disabled
+                          className="w-full py-1.5 px-2 text-xs rounded-lg bg-gray-100 border border-gray-300 text-gray-600"
+                        />
+                      </div>
+                    )}
+                    {showClientAddress && (
+                      <div>
+                        <label className="block text-xs font-medium mb-1">Address</label>
+                        <input
+                          type="text"
+                          value={clientAddressValue}
+                          disabled
+                          className="w-full py-1.5 px-2 text-xs rounded-lg bg-gray-100 border border-gray-300 text-gray-600"
+                        />
+                      </div>
+                    )}
+                    {showClientProvince && (
+                      <div>
+                        <label className="block text-xs font-medium mb-1">Province</label>
+                        <input
+                          type="text"
+                          value={clientProvinceValue}
+                          disabled
+                          className="w-full py-1.5 px-2 text-xs rounded-lg bg-gray-100 border border-gray-300 text-gray-600"
+                        />
+                      </div>
+                    )}
+                    {showClientDistrict && (
+                      <div>
+                        <label className="block text-xs font-medium mb-1">District</label>
+                        <input
+                          type="text"
+                          value={clientDistrictValue}
+                          disabled
+                          className="w-full py-1.5 px-2 text-xs rounded-lg bg-gray-100 border border-gray-300 text-gray-600"
+                        />
+                      </div>
+                    )}
+                    {showClientSector && (
+                      <div>
+                        <label className="block text-xs font-medium mb-1">Sector</label>
+                        <input
+                          type="text"
+                          value={clientSectorValue}
+                          disabled
+                          className="w-full py-1.5 px-2 text-xs rounded-lg bg-gray-100 border border-gray-300 text-gray-600"
+                        />
+                      </div>
+                    )}
+                    {showClientIdentification && (
+                      <div>
+                        <label className="block text-xs font-medium mb-1">Identification Number</label>
+                        <input
+                          type="text"
+                          value={clientIdentificationValue}
+                          disabled
+                          className="w-full py-1.5 px-2 text-xs rounded-lg bg-gray-100 border border-gray-300 text-gray-600"
+                        />
+                      </div>
+                    )}
                   </div>
-                  <div>
-                    <label className="block text-xs font-medium mb-1">Email</label>
-                    <input
-                      type="email"
-                      value={editingApp.client?.email || ''}
-                      disabled
-                      className="w-full py-1.5 px-2 text-xs rounded-lg bg-gray-100 border border-gray-300 text-gray-600"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium mb-1">Phone Number</label>
-                    <input
-                      type="text"
-                      value={editingApp.client?.phoneNumber || ''}
-                      disabled
-                      className="w-full py-1.5 px-2 text-xs rounded-lg bg-gray-100 border border-gray-300 text-gray-600"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium mb-1">Date of Birth</label>
-                    <input
-                      type="text"
-                      value={editingApp.client?.dateOfBirth ? new Date(editingApp.client.dateOfBirth).toISOString().split('T')[0] : ''}
-                      disabled
-                      className="w-full py-1.5 px-2 text-xs rounded-lg bg-gray-100 border border-gray-300 text-gray-600"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium mb-1">Address</label>
-                    <input
-                      type="text"
-                      value={editingApp.client?.address || ''}
-                      disabled
-                      className="w-full py-1.5 px-2 text-xs rounded-lg bg-gray-100 border border-gray-300 text-gray-600"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium mb-1">Province</label>
-                    <input
-                      type="text"
-                      value={editingApp.client?.province || ''}
-                      disabled
-                      className="w-full py-1.5 px-2 text-xs rounded-lg bg-gray-100 border border-gray-300 text-gray-600"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium mb-1">District</label>
-                    <input
-                      type="text"
-                      value={editingApp.client?.district || ''}
-                      disabled
-                      className="w-full py-1.5 px-2 text-xs rounded-lg bg-gray-100 border border-gray-300 text-gray-600"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium mb-1">Sector</label>
-                    <input
-                      type="text"
-                      value={editingApp.client?.sector || ''}
-                      disabled
-                      className="w-full py-1.5 px-2 text-xs rounded-lg bg-gray-100 border border-gray-300 text-gray-600"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium mb-1">Identification Number</label>
-                    <input
-                      type="text"
-                      value={editingApp.client?.identificationNumber || ''}
-                      disabled
-                      className="w-full py-1.5 px-2 text-xs rounded-lg bg-gray-100 border border-gray-300 text-gray-600"
-                    />
-                  </div>
-                </div>
-              </fieldset>
+                </fieldset>
+              )}
 
               {/* Insurance Details Section - READONLY */}
-              <fieldset className="mb-4 border-2 border-gray-300 rounded-lg p-3 bg-gray-50">
-                <legend className="text-xs font-semibold text-gray-600 px-2 bg-white border border-gray-300 rounded-md">
-                  Insurance Details (Read Only)
-                </legend>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-medium mb-1">Insurance Category</label>
-                    <input
-                      type="text"
-                      value={getFormValue(editFormData.insuranceCategory)}
-                      disabled
-                      className="w-full py-1.5 px-2 text-xs rounded-lg bg-gray-100 border border-gray-300 text-gray-600"
-                    />
-                  </div>
-                  {(editFormData.insuranceCategory === 'Car Insurance' || editFormData.insuranceCategory === 'MotorBike Insurance') && (
-                    <>
+              {showInsuranceDetailsSection && (
+                <fieldset className="mb-4 border-2 border-gray-300 rounded-lg p-3 bg-gray-50">
+                  <legend className="text-xs font-semibold text-gray-600 px-2 bg-white border border-gray-300 rounded-md">
+                    Insurance Details (Read Only)
+                  </legend>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {showInsuranceCategory && (
+                      <div>
+                        <label className="block text-xs font-medium mb-1">Insurance Category</label>
+                        <input
+                          type="text"
+                          value={insuranceCategoryValue}
+                          disabled
+                          className="w-full py-1.5 px-2 text-xs rounded-lg bg-gray-100 border border-gray-300 text-gray-600"
+                        />
+                      </div>
+                    )}
+                    {showPlateNumber && (
                       <div>
                         <label className="block text-xs font-medium mb-1">Plate Number</label>
                         <input
                           type="text"
-                          value={getFormValue(editFormData.plateNumber)}
+                          value={plateNumberValue}
                           disabled
                           className="w-full py-1.5 px-2 text-xs rounded-lg bg-gray-100 border border-gray-300 text-gray-600"
                         />
                       </div>
+                    )}
+                    {showVehicleType && (
                       <div>
                         <label className="block text-xs font-medium mb-1">Vehicle Type</label>
                         <input
                           type="text"
-                          value={getFormValue(editFormData.vehicleType)}
+                          value={vehicleTypeValue}
                           disabled
                           className="w-full py-1.5 px-2 text-xs rounded-lg bg-gray-100 border border-gray-300 text-gray-600"
                         />
                       </div>
+                    )}
+                    {showVehicleAge && (
                       <div>
                         <label className="block text-xs font-medium mb-1">Vehicle Age (Year)</label>
                         <input
                           type="text"
-                          value={getFormValue(editFormData.vehicleAge)}
+                          value={vehicleAgeValue}
                           disabled
                           className="w-full py-1.5 px-2 text-xs rounded-lg bg-gray-100 border border-gray-300 text-gray-600"
                         />
                       </div>
+                    )}
+                    {showVehicleUse && (
                       <div>
                         <label className="block text-xs font-medium mb-1">Vehicle Use</label>
                         <input
                           type="text"
-                          value={getFormValue(editFormData.vehicleUse)}
+                          value={vehicleUseValue}
                           disabled
                           className="w-full py-1.5 px-2 text-xs rounded-lg bg-gray-100 border border-gray-300 text-gray-600"
                         />
                       </div>
-                      {editFormData.vehicleUse === 'Other' && editFormData.otherVehicleUse && (
-                        <div>
-                          <label className="block text-xs font-medium mb-1">Specify Vehicle Use</label>
-                          <input
-                            type="text"
-                            value={getFormValue(editFormData.otherVehicleUse)}
-                            disabled
-                            className="w-full py-1.5 px-2 text-xs rounded-lg bg-gray-100 border border-gray-300 text-gray-600"
-                          />
-                        </div>
-                      )}
+                    )}
+                    {showOtherVehicleUse && (
+                      <div>
+                        <label className="block text-xs font-medium mb-1">Specify Vehicle Use</label>
+                        <input
+                          type="text"
+                          value={otherVehicleUseValue}
+                          disabled
+                          className="w-full py-1.5 px-2 text-xs rounded-lg bg-gray-100 border border-gray-300 text-gray-600"
+                        />
+                      </div>
+                    )}
+                    {showComesaField && (
                       <div className="md:col-span-2">
                         <label className="flex items-center space-x-2">
                           <input
                             type="checkbox"
-                            checked={typeof editFormData.isCOMESA === 'boolean' ? editFormData.isCOMESA : false}
+                            checked
                             disabled
                             className="rounded h-3 border-gray-300 bg-gray-100"
                           />
                           <span className="text-xs font-medium text-gray-600">Ext. Territorial (COMESA)</span>
                         </label>
                       </div>
-                    </>
-                  )}
-                  <div>
-                    <label className="block text-xs font-medium mb-1">Insurance Provider</label>
-                    <input
-                      type="text"
-                      value={getFormValue(editFormData.insuranceProvider)}
-                      disabled
-                      className="w-full py-1.5 px-2 text-xs rounded-lg bg-gray-100 border border-gray-300 text-gray-600"
-                    />
+                    )}
+                    {showInsuranceProvider && (
+                      <div>
+                        <label className="block text-xs font-medium mb-1">Insurance Provider</label>
+                        <input
+                          type="text"
+                          value={insuranceProviderValue}
+                          disabled
+                          className="w-full py-1.5 px-2 text-xs rounded-lg bg-gray-100 border border-gray-300 text-gray-600"
+                        />
+                      </div>
+                    )}
+                    {showInsuranceType && (
+                      <div>
+                        <label className="block text-xs font-medium mb-1">Insurance Type</label>
+                        <input
+                          type="text"
+                          value={insuranceTypeValue}
+                          disabled
+                          className="w-full py-1.5 px-2 text-xs rounded-lg bg-gray-100 border border-gray-300 text-gray-600"
+                        />
+                      </div>
+                    )}
+                    {showInsuranceDuration && (
+                      <div>
+                        <label className="block text-xs font-medium mb-1">Insurance Duration</label>
+                        <input
+                          type="text"
+                          value={insuranceDurationValue}
+                          disabled
+                          className="w-full py-1.5 px-2 text-xs rounded-lg bg-gray-100 border border-gray-300 text-gray-600"
+                        />
+                      </div>
+                    )}
                   </div>
-                  <div>
-                    <label className="block text-xs font-medium mb-1">Insurance Type</label>
-                    <input
-                      type="text"
-                      value={getFormValue(editFormData.insuranceType)}
-                      disabled
-                      className="w-full py-1.5 px-2 text-xs rounded-lg bg-gray-100 border border-gray-300 text-gray-600"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium mb-1">Insurance Duration</label>
-                    <input
-                      type="text"
-                      value={getFormValue(editFormData.insuranceDuration)}
-                      disabled
-                      className="w-full py-1.5 px-2 text-xs rounded-lg bg-gray-100 border border-gray-300 text-gray-600"
-                    />
-                  </div>
-                </div>
-              </fieldset>
+                </fieldset>
+              )}
 
               {/* Payment & Commission Information - EDITABLE */}
-              <fieldset className="mb-4 border-2 border-[var(--main-blue)] rounded-lg p-3 bg-gray-50">
-                <legend className="text-xs font-semibold text-[var(--main-blue)] px-2 bg-white border border-[var(--main-blue)] rounded-md">
-                  Payment & Commission Information
-                </legend>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-medium mb-1">Amount (RWF)</label>
-                    <input
-                      type="number"
-                      name="amount"
-                      value={getFormValue(editFormData.amount)}
-                      onChange={handleEditInputChange}
-                      className="w-full py-1.5 px-2 text-xs rounded-lg focus:outline-none border border-gray-300 focus:border-[var(--main-blue)]"
-                    />
+              {showPaymentSection && (
+                <fieldset className="mb-4 border-2 border-[var(--main-blue)] rounded-lg p-3 bg-gray-50">
+                  <legend className="text-xs font-semibold text-[var(--main-blue)] px-2 bg-white border border-[var(--main-blue)] rounded-md">
+                    Payment & Commission Information
+                  </legend>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {showAmountField && (
+                      <div>
+                        <label className="block text-xs font-medium mb-1">Amount (RWF)</label>
+                        <input
+                          type="number"
+                          name="amount"
+                          value={amountValue}
+                          onChange={handleEditInputChange}
+                          className="w-full py-1.5 px-2 text-xs rounded-lg focus:outline-none border border-gray-300 focus:border-[var(--main-blue)]"
+                        />
+                      </div>
+                    )}
+                    {showAgentCommissionField && (
+                      <div>
+                        <label className="block text-xs font-medium mb-1">Agent Commission (RWF)</label>
+                        <input
+                          type="number"
+                          name="agentCommission"
+                          value={agentCommissionValue}
+                          onChange={handleEditInputChange}
+                          className="w-full py-1.5 px-2 text-xs rounded-lg focus:outline-none border border-gray-300 focus:border-[var(--main-blue)]"
+                        />
+                      </div>
+                    )}
+                    {showCompanyCommissionField && (
+                      <div>
+                        <label className="block text-xs font-medium mb-1">Company Commission (RWF)</label>
+                        <input
+                          type="number"
+                          name="companyCommission"
+                          value={companyCommissionValue}
+                          onChange={handleEditInputChange}
+                          className="w-full py-1.5 px-2 text-xs rounded-lg focus:outline-none border border-gray-300 focus:border-[var(--main-blue)]"
+                        />
+                      </div>
+                    )}
+                    {showAdministrationFeesField && (
+                      <div>
+                        <label className="block text-xs font-medium mb-1">Administration Fees (RWF)</label>
+                        <input
+                          type="text"
+                          name="administrationFees"
+                          value={administrationFeesValue}
+                          onChange={handleEditInputChange}
+                          className="w-full py-1.5 px-2 text-xs rounded-lg focus:outline-none border border-gray-300 focus:border-[var(--main-blue)]"
+                        />
+                      </div>
+                    )}
+                    {showTransactionIdField && (
+                      <div>
+                        <label className="block text-xs font-medium mb-1">Transaction ID</label>
+                        <input
+                          type="text"
+                          name="transactionId"
+                          value={transactionIdValue}
+                          onChange={handleEditInputChange}
+                          className="w-full py-1.5 px-2 text-xs rounded-lg focus:outline-none border border-gray-300 focus:border-[var(--main-blue)]"
+                        />
+                      </div>
+                    )}
+                    {showPaymentInstructionsField && (
+                      <div className="md:col-span-2">
+                        <label className="block text-xs font-medium mb-1">Payment Instructions</label>
+                        <textarea
+                          name="paymentInstructions"
+                          value={paymentInstructionsValue}
+                          onChange={handleEditInputChange}
+                          rows={3}
+                          className="w-full py-1.5 px-2 text-xs rounded-lg focus:outline-none border border-gray-300 focus:border-[var(--main-blue)]"
+                        />
+                      </div>
+                    )}
                   </div>
-                  <div>
-                    <label className="block text-xs font-medium mb-1">Agent Commission (RWF)</label>
-                    <input
-                      type="number"
-                      name="agentCommission"
-                      value={getFormValue(editFormData.agentCommission)}
-                      onChange={handleEditInputChange}
-                      className="w-full py-1.5 px-2 text-xs rounded-lg focus:outline-none border border-gray-300 focus:border-[var(--main-blue)]"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium mb-1">Company Commission (RWF)</label>
-                    <input
-                      type="number"
-                      name="companyCommission"
-                      value={getFormValue(editFormData.companyCommission)}
-                      onChange={handleEditInputChange}
-                      className="w-full py-1.5 px-2 text-xs rounded-lg focus:outline-none border border-gray-300 focus:border-[var(--main-blue)]"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium mb-1">Administration Fees (RWF)</label>
-                    <input
-                      type="text"
-                      name="administrationFees"
-                      value={getFormValue(editFormData.administrationFees)}
-                      onChange={handleEditInputChange}
-                      className="w-full py-1.5 px-2 text-xs rounded-lg focus:outline-none border border-gray-300 focus:border-[var(--main-blue)]"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium mb-1">Transaction ID</label>
-                    <input
-                      type="text"
-                      name="transactionId"
-                      value={getFormValue(editFormData.transactionId)}
-                      onChange={handleEditInputChange}
-                      className="w-full py-1.5 px-2 text-xs rounded-lg focus:outline-none border border-gray-300 focus:border-[var(--main-blue)]"
-                    />
-                  </div>
-                  <div className="md:col-span-2">
-                    <label className="block text-xs font-medium mb-1">Payment Instructions</label>
-                    <textarea
-                      name="paymentInstructions"
-                      value={getFormValue(editFormData.paymentInstructions)}
-                      onChange={handleEditInputChange}
-                      rows={3}
-                      className="w-full py-1.5 px-2 text-xs rounded-lg focus:outline-none border border-gray-300 focus:border-[var(--main-blue)]"
-                    />
-                  </div>
-                </div>
-              </fieldset>
+                </fieldset>
+              )}
 
               {/* Status & Dates - EDITABLE */}
-              <fieldset className="mb-4 border-2 border-[var(--main-blue)] rounded-lg p-3 bg-gray-50">
-                <legend className="text-xs font-semibold text-[var(--main-blue)] px-2 bg-white border border-[var(--main-blue)] rounded-md">
-                  Status & Dates
-                </legend>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-medium mb-1">Status</label>
-                    <select
-                      name="status"
-                      value={getFormValue(editFormData.status)}
-                      onChange={handleEditInputChange}
-                      className="w-full py-1.5 px-2 text-xs rounded-lg focus:outline-none border border-gray-300 focus:border-[var(--main-blue)]"
-                    >
-                      <option value="PENDING">Pending</option>
-                      <option value="APPLICATION_APPROVED">Application Approved</option>
-                      <option value="WAITING_FOR_USER_ACTION">Waiting for User Action</option>
-                      <option value="INVOICE_SENT">Invoice Sent</option>
-                      <option value="REVIEW_PAYMENT">Review Payment</option>
-                      <option value="PAYMENT_VERIFIED">Payment Verified</option>
-                      <option value="INSURANCE_ISSUED">Insurance Issued</option>
-                    </select>
+              {showStatusSection && (
+                <fieldset className="mb-4 border-2 border-[var(--main-blue)] rounded-lg p-3 bg-gray-50">
+                  <legend className="text-xs font-semibold text-[var(--main-blue)] px-2 bg-white border border-[var(--main-blue)] rounded-md">
+                    Status & Dates
+                  </legend>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {showStatusField && (
+                      <div>
+                        <label className="block text-xs font-medium mb-1">Status</label>
+                        <select
+                          name="status"
+                          value={statusValue}
+                          onChange={handleEditInputChange}
+                          className="w-full py-1.5 px-2 text-xs rounded-lg focus:outline-none border border-gray-300 focus:border-[var(--main-blue)]"
+                        >
+                          <option value="PENDING">Pending</option>
+                          <option value="APPLICATION_APPROVED">Application Approved</option>
+                          <option value="WAITING_FOR_USER_ACTION">Waiting for User Action</option>
+                          <option value="INVOICE_SENT">Invoice Sent</option>
+                          <option value="REVIEW_PAYMENT">Review Payment</option>
+                          <option value="PAYMENT_VERIFIED">Payment Verified</option>
+                          <option value="INSURANCE_ISSUED">Insurance Issued</option>
+                        </select>
+                      </div>
+                    )}
+                    {showInsuranceEndDateField && (
+                      <div>
+                        <label className="block text-xs font-medium mb-1">Insurance End Date</label>
+                        <input
+                          type="text"
+                          value={insuranceEndDateValue}
+                          disabled
+                          className="w-full py-1.5 px-2 text-xs rounded-lg bg-gray-100 border border-gray-300 text-gray-600"
+                        />
+                      </div>
+                    )}
                   </div>
-                  <div>
-                    <label className="block text-xs font-medium mb-1">Insurance End Date</label>
-                    <input
-                      type="text"
-                      value={editFormData.insuranceEndAt && typeof editFormData.insuranceEndAt === 'string' ? new Date(editFormData.insuranceEndAt).toISOString().split('T')[0] : ''}
-                      disabled
-                      className="w-full py-1.5 px-2 text-xs rounded-lg bg-gray-100 border border-gray-300 text-gray-600"
-                    />
-                  </div>
-                </div>
-              </fieldset>
+                </fieldset>
+              )}
 
               {/* Insurance Documents - EDITABLE */}
-              <fieldset className="mb-4 border-2 border-[var(--main-blue)] rounded-lg p-3 bg-gray-50">
-                <legend className="text-xs font-semibold text-[var(--main-blue)] px-2 bg-white border border-[var(--main-blue)] rounded-md">
-                  Insurance Documents
-                </legend>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <FileInput
-                    label="Invoice File"
-                    name="invoice"
-                    onChange={handleEditFileChange('invoice')}
-                    accept="image/*,.pdf"
-                  />
-                  <FileInput
-                    label="Insurance Certificate"
-                    name="insuranceCertificate"
-                    onChange={handleEditFileChange('insuranceCertificate')}
-                    accept="image/*,.pdf"
-                  />
-                  <FileInput
-                    label="Contract"
-                    name="contract"
-                    onChange={handleEditFileChange('contract')}
-                    accept="image/*,.pdf"
-                  />
-                  <FileInput
-                    label="Receipt"
-                    name="receipt"
-                    onChange={handleEditFileChange('receipt')}
-                    accept="image/*,.pdf"
-                  />
-                  <FileInput
-                    label="EBM"
-                    name="ebm"
-                    onChange={handleEditFileChange('ebm')}
-                    accept="image/*,.pdf"
-                  />
-                </div>
-              </fieldset>
+              {showInsuranceDocumentsSection && (
+                <fieldset className="mb-4 border-2 border-[var(--main-blue)] rounded-lg p-3 bg-gray-50">
+                  <legend className="text-xs font-semibold text-[var(--main-blue)] px-2 bg-white border border-[var(--main-blue)] rounded-md">
+                    Insurance Documents
+                  </legend>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {showInvoiceUpload && (
+                      <FileInput
+                        label="Invoice File"
+                        name="invoice"
+                        onChange={handleEditFileChange('invoice')}
+                        accept="image/*,.pdf"
+                      />
+                    )}
+                    {showInsuranceCertificateUpload && (
+                      <FileInput
+                        label="Insurance Certificate"
+                        name="insuranceCertificate"
+                        onChange={handleEditFileChange('insuranceCertificate')}
+                        accept="image/*,.pdf"
+                      />
+                    )}
+                    {showContractUpload && (
+                      <FileInput
+                        label="Contract"
+                        name="contract"
+                        onChange={handleEditFileChange('contract')}
+                        accept="image/*,.pdf"
+                      />
+                    )}
+                    {showReceiptUpload && (
+                      <FileInput
+                        label="Receipt"
+                        name="receipt"
+                        onChange={handleEditFileChange('receipt')}
+                        accept="image/*,.pdf"
+                      />
+                    )}
+                    {showEbmUpload && (
+                      <FileInput
+                        label="EBM"
+                        name="ebm"
+                        onChange={handleEditFileChange('ebm')}
+                        accept="image/*,.pdf"
+                      />
+                    )}
+                  </div>
+                </fieldset>
+              )}
 
               {/* Agent/Client Added Information - READONLY */}
-              <fieldset className="mb-4 border-2 border-gray-300 rounded-lg p-3 bg-gray-50">
-                <legend className="text-xs font-semibold text-gray-600 px-2 bg-white border border-gray-300 rounded-md">
-                  Agent/Client Added Information (Read Only)
-                </legend>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {editingApp.proofOfPayment && (
-                    <div className="bg-white p-2 rounded border">
-                      <p className="text-xs font-medium">Proof of Payment</p>
-                      <p className="text-[10px] text-gray-500">Document uploaded by agent/client</p>
-                    </div>
-                  )}
-                  {editingApp.transactionId && (
-                    <div className="bg-white p-2 rounded border">
-                      <p className="text-xs font-medium">Transaction ID</p>
-                      <p className="text-[10px] text-gray-500">{editingApp.transactionId}</p>
-                    </div>
-                  )}
-                  {editingApp.yellowCard && (
-                    <div className="bg-white p-2 rounded border">
-                      <p className="text-xs font-medium">Yellow Card</p>
-                      <p className="text-[10px] text-gray-500">Document uploaded by agent/client</p>
-                    </div>
-                  )}
-                  {editingApp.pastInsuranceCertificate && (
-                    <div className="bg-white p-2 rounded border">
-                      <p className="text-xs font-medium">Past Insurance Certificate</p>
-                      <p className="text-[10px] text-gray-500">Document uploaded by agent/client</p>
-                    </div>
-                  )}
-                </div>
-              </fieldset>
+              {showAgentInfoSection && (
+                <fieldset className="mb-4 border-2 border-gray-300 rounded-lg p-3 bg-gray-50">
+                  <legend className="text-xs font-semibold text-gray-600 px-2 bg-white border border-gray-300 rounded-md">
+                    Agent/Client Added Information (Read Only)
+                  </legend>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {showProofOfPaymentInfo && (
+                      <div className="bg-white p-2 rounded border">
+                        <p className="text-xs font-medium">Proof of Payment</p>
+                        <p className="text-[10px] text-gray-500">Document uploaded by agent/client</p>
+                      </div>
+                    )}
+                    {showTransactionIdInfo && (
+                      <div className="bg-white p-2 rounded border">
+                        <p className="text-xs font-medium">Transaction ID</p>
+                        <p className="text-[10px] text-gray-500">{editingApp.transactionId}</p>
+                      </div>
+                    )}
+                    {showYellowCardInfo && (
+                      <div className="bg-white p-2 rounded border">
+                        <p className="text-xs font-medium">Yellow Card</p>
+                        <p className="text-[10px] text-gray-500">Document uploaded by agent/client</p>
+                      </div>
+                    )}
+                    {showPastInsuranceCertificateInfo && (
+                      <div className="bg-white p-2 rounded border">
+                        <p className="text-xs font-medium">Past Insurance Certificate</p>
+                        <p className="text-[10px] text-gray-500">Document uploaded by agent/client</p>
+                      </div>
+                    )}
+                  </div>
+                </fieldset>
+              )}
 
               {/* Form Actions */}
               <div className="flex justify-end space-x-3 mt-4">
