@@ -63,6 +63,7 @@ export const Navigation = () => {
         );
       } else if (user.role === 'FINANCE') {
         newLinks.push(
+          { href: `${rolePrefix}/payment-initiated`, label: 'Initiated Payments' },
           { href: `${rolePrefix}/history`, label: 'Payment History' }
         );
       }

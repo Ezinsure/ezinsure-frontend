@@ -2,10 +2,10 @@
 "use client"
 
 import React, { useState, useEffect, useCallback } from 'react';
+import Link from 'next/link';
 import { MainLayout } from '@/components/ui/main-layout';
-import { Search, Download, RefreshCw, Calendar } from 'lucide-react';
+import { Search, RefreshCw, Calendar } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
-import { useToast } from '@/components/ui/toast';
 
 interface PaginationProps {
   currentPage: number;
@@ -75,30 +75,7 @@ const PaymentHistory = () => {
   const [paymentHistory, setPaymentHistory] = useState<PaymentHistory[]>([]);
   const itemsPerPage = 10;
   const { token } = useAuth();
-  const { showToast, ToastContainer } = useToast();
   const [showPaymentDetails, setShowPaymentDetails] = useState<PaymentDetailsModal | null>(null);
-  const [markingAsPaid, setMarkingAsPaid] = useState<{month: string | number, year: number} | null>(null);
-  const [hasPaymentInitiated, setHasPaymentInitiated] = useState(false);
-
-  // Check if payment was initiated for current month (for validation)
-  const checkPaymentInitiated = useCallback(async () => {
-    try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/getAllAgentsMonthlyCommissions`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        setHasPaymentInitiated(data.hasInitiatedPayment || false);
-      }
-    } catch (error) {
-      console.error('Error checking payment initiated status:', error);
-    }
-  }, [token]);
 
   const fetchPaymentHistory = useCallback(async () => {
     try {
@@ -129,8 +106,7 @@ const PaymentHistory = () => {
 
   useEffect(() => {
     fetchPaymentHistory();
-    checkPaymentInitiated();
-  }, [fetchPaymentHistory, checkPaymentInitiated]);
+  }, [fetchPaymentHistory]);
 
   const filteredHistory = paymentHistory.filter(item =>
     `${item.month} ${item.year}`.toLowerCase().includes(searchTerm.toLowerCase())
@@ -140,149 +116,6 @@ const PaymentHistory = () => {
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
   );
-
-  const handleExport = async (monthYear: string) => {
-    try {
-      const [month, year] = monthYear.split(' ');
-      const monthNumber = new Date(`${month} 1, ${year}`).getMonth() + 1;
-      
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_BASE_URL}/getMonthlyCommissionHistoryDetails?month=${monthNumber}&year=${year}`,
-        {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          }
-        }
-      );
-
-      if (!response.ok) throw new Error('Failed to fetch payment details');
-      
-      const data = await response.json();
-      
-      const headers = ['Agent ID', 'Agent Name', 'Phone', 'Email', 'Bank Name', 'Account Number', 'Commission'];
-      const csvContent = [
-        headers.join(','),
-        ...data.data.map((agent: PaymentHistoryDetails['data'][0]) => [
-          agent.agentId,
-          `"${agent.agentFullName || agent.name}"`,
-          agent.phoneNumber || '',
-          agent.email || '',
-          agent.bankName || '',
-          agent.bankAccountNumber || '',
-          agent.totalCommission
-        ].join(','))
-      ].join('\n');
-
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.setAttribute('href', url);
-      link.setAttribute('download', `${monthYear.replace(' ', '_')}_ezinsure_payment_details.csv`);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    } catch (error) {
-      console.error('Error exporting payment details:', error);
-    }
-  };
-
-  const markAsPaid = async (month: string | number, year: number) => {
-    let monthNumber;
-    
-    // Check if trying to mark current month as paid
-    const now = new Date();
-    const currentMonth = now.getMonth() + 1;
-    const currentYear = now.getFullYear();
-    
-    // Improved month conversion logic
-    if (typeof month === 'string') {
-      // Handle month names like "January", "February", etc.
-      const monthNames = [
-        'January', 'February', 'March', 'April', 'May', 'June',
-        'July', 'August', 'September', 'October', 'November', 'December'
-      ];
-      const monthIndex = monthNames.findIndex(m => m.toLowerCase() === month.toLowerCase());
-      if (monthIndex !== -1) {
-        monthNumber = monthIndex + 1;
-      } else {
-        // Try to parse as number
-        monthNumber = parseInt(month);
-        if (isNaN(monthNumber)) {
-          console.error('Invalid month format:', month);
-          setMarkingAsPaid(null);
-          return;
-        }
-      }
-    } else {
-      monthNumber = Number(month);
-      if (isNaN(monthNumber)) {
-        console.error('Invalid month number:', month);
-        setMarkingAsPaid(null);
-        return;
-      }
-    }
-    
-    // Check if trying to mark current month as paid
-    if (monthNumber === currentMonth && year === currentYear) {
-      showToast('Cannot mark current month as paid. You can only mark past months as paid.', 'info');
-      return;
-    }
-    
-    // Validate that payment was initiated for this month/year
-    // The API should validate this, but we show a message if it fails
-    // Past months should have been initiated when they were current month
-    
-    // Set loading state after validation
-    setMarkingAsPaid({ month, year });
-    
-    try {
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_BASE_URL}/markAsPaid?month=${monthNumber}&year=${year}`,
-        {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          }
-        }
-      );
-      
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ message: 'Failed to mark payment as paid' }));
-        const errorMessage = errorData.message || `HTTP ${response.status}: ${response.statusText}`;
-        
-        // Check if error is related to payment not being initiated
-        if (errorMessage.toLowerCase().includes('payment initiated') || errorMessage.toLowerCase().includes('initiate')) {
-          showToast(`Error: Payment must be initiated before marking as paid. Please ensure payment was initiated for ${month} ${year}.`, 'error');
-        } else {
-          throw new Error(errorMessage);
-        }
-        return;
-      }
-      
-      // Refresh the data
-      await fetchPaymentHistory();
-      // Refresh payment initiated status
-      await checkPaymentInitiated();
-      
-      // Show success message
-      showToast(`Successfully marked ${month} ${year} as paid!`, 'success');
-      
-    } catch (error) {
-      console.error('Error marking payment as paid:', error);
-      // Show error message to user
-      const errorMessage = error instanceof Error ? error.message : 'Failed to mark payment as paid';
-      if (errorMessage.toLowerCase().includes('payment initiated') || errorMessage.toLowerCase().includes('initiate')) {
-        showToast(`Error: Payment must be initiated before marking as paid. Please ensure payment was initiated for ${month} ${year}.`, 'error');
-      } else {
-        showToast(`Error: ${errorMessage}`, 'error');
-      }
-    } finally {
-      setMarkingAsPaid(null);
-    }
-  };
 
   const viewPaymentDetails = async (month: string, year: number) => {
     try {
@@ -561,24 +394,6 @@ const PaymentHistory = () => {
                             >
                               View
                             </button>
-                            {!payment.isPaid && (
-                              markingAsPaid && markingAsPaid.month === payment.month && markingAsPaid.year === payment.year ? (
-                                <span className="inline-block w-5 h-5 align-middle ml-2">
-                                  <span className="inline-block animate-spin rounded-full h-5 w-5 border-2 border-green-200 border-t-green-600"></span>
-                                </span>
-                              ) : (
-                                <button
-                                  onClick={async () => {
-                                    // Validate that payment was initiated before marking as paid
-                                    // The markAsPaid function will handle the validation
-                                    await markAsPaid(payment.month, payment.year);
-                                  }}
-                                  className="ml-2 text-xs text-green-600 hover:text-green-900 cursor-pointer font-medium"
-                                >
-                                  Mark as Paid
-                                </button>
-                              )
-                            )}
                           </td>
                         </tr>
                       ))}
@@ -623,13 +438,15 @@ const PaymentHistory = () => {
                     Total Paid: {showPaymentDetails.data.reduce((sum, agent) => sum + agent.totalCommission, 0).toLocaleString()} RWF
                   </p>
                 </div>
-                <button 
-                  onClick={() => handleExport(`${showPaymentDetails.month} ${showPaymentDetails.year}`)}
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors cursor-pointer font-medium"
-                >
-                  <Download className="w-3.5 h-3.5" />
-                  Export This Data
-                </button>
+                <div className="text-right">
+                  <p className="text-xs text-gray-500">Exports are available in the Payment Initiated workspace.</p>
+                  <Link 
+                    href="/finance/payment-initiated"
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-sm bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors cursor-pointer font-medium mt-2"
+                  >
+                    Go to Payment Initiated
+                  </Link>
+                </div>
               </div>
               
               <div className="overflow-x-auto">
@@ -682,7 +499,6 @@ const PaymentHistory = () => {
           </div>
         </div>
       )}
-      <ToastContainer />
     </MainLayout>
   );
 };

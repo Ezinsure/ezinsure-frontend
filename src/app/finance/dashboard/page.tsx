@@ -2,7 +2,7 @@
 "use client"
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { DollarSign, Users, Search, Download, RefreshCw, Calendar, ArrowDownRight, ArrowUpRight, PlayCircle } from 'lucide-react';
+import { DollarSign, Users, Search, RefreshCw, Calendar, ArrowDownRight, ArrowUpRight, PlayCircle } from 'lucide-react';
 import { MainLayout } from '@/components/ui/main-layout';
 import { useAuth } from '@/context/AuthContext';
 import { Toast } from '@/components/ui/toast';
@@ -86,7 +86,6 @@ const FinanceDashboard = () => {
   });
   const [paymentHistory, setPaymentHistory] = useState<PaymentHistory[]>([]);
   const [toast, setToast] = useState<{ show: boolean; message: string; type: 'success' | 'error' | 'info'; isError?: boolean }>({ show: false, message: '', type: 'success' });
-  const [markingAsPaid, setMarkingAsPaid] = useState<{month: string | number, year: number} | null>(null);
   const [isInitiatingPayment, setIsInitiatingPayment] = useState(false);
   const [hasPaymentInitiated, setHasPaymentInitiated] = useState(false);
  
@@ -336,64 +335,6 @@ const FinanceDashboard = () => {
     );
   };
 
-  const handleExportPayments = () => {
-    // Export current month's data as CSV
-    const headers = ['Agent ID', 'Agent Name', 'Phone', 'Email', 'Bank Name', 'Account Number', 'Commission'];
-    const csvContent = [
-      headers.join(','),
-      ...currentMonthData.data.map(agent => [
-        agent.agentId,
-        `"${agent.agentFullName || agent.name}"`,
-        agent.phoneNumber,
-        agent.email,
-        agent.bankName,
-        agent.bankAccountNumber,
-        agent.totalCommission
-      ].join(','))
-    ].join('\n');
-
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.setAttribute('href', url);
-    link.setAttribute('download', `${new Date().getFullYear()}_${new Date().toLocaleString('default', { month: 'long' })}_ezinsure_monthly_commissions.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
-  const exportHistoryPayments = async (month: string, year: number) => {
-    try {
-      if (showPaymentDetails) {
-        // Export the formatted data that's already displayed
-        const headers = ['Agent ID', 'Agent Name', 'Phone', 'Email', 'Bank Name', 'Account Number', 'Commission'];
-        const csvContent = [
-          headers.join(','),
-          ...showPaymentDetails.data.map(agent => [
-            agent.agentId,
-            `"${agent.agentFullName || agent.name}"`,
-            agent.phoneNumber,
-            agent.email,
-            agent.bankName,
-            agent.bankAccountNumber,
-            agent.totalCommission
-          ].join(','))
-        ].join('\n');
-
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.setAttribute('href', url);
-        link.setAttribute('download', `${year}_${month}_ezinsure_monthly_commissions.csv`);
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-      }
-    } catch (error) {
-      console.error('Error exporting payment history:', error);
-    }
-  };
-
   const initiatePayment = async () => {
     setIsInitiatingPayment(true);
     try {
@@ -420,101 +361,6 @@ const FinanceDashboard = () => {
       setToast({ show: true, message: error instanceof Error ? error.message : 'An unknown error occurred while initiating payment', type: 'error', isError: true });
     } finally {
       setIsInitiatingPayment(false);
-    }
-  };
-
-  const markAsPaid = async (month?: string | number, year?: number) => {
-    let monthNumber;
-    let targetYear;
-    
-    // Check if trying to mark current month as paid
-    const now = new Date();
-    const currentMonth = now.getMonth() + 1;
-    const currentYear = now.getFullYear();
-    
-    if (month && year) {
-      // Improved month conversion logic
-      if (typeof month === 'string') {
-        // Handle month names like "January", "February", etc.
-        const monthNames = [
-          'January', 'February', 'March', 'April', 'May', 'June',
-          'July', 'August', 'September', 'October', 'November', 'December'
-        ];
-        const monthIndex = monthNames.findIndex(m => m.toLowerCase() === month.toLowerCase());
-        if (monthIndex !== -1) {
-          monthNumber = monthIndex + 1;
-        } else {
-          // Try to parse as number
-          monthNumber = parseInt(month);
-          if (isNaN(monthNumber)) {
-            console.error('Invalid month format:', month);
-            setMarkingAsPaid(null);
-            return;
-          }
-        }
-      } else {
-        monthNumber = Number(month);
-        if (isNaN(monthNumber)) {
-          console.error('Invalid month number:', month);
-          setMarkingAsPaid(null);
-          return;
-        }
-      }
-      targetYear = year;
-      
-      // Check if trying to mark current month as paid
-      if (monthNumber === currentMonth && targetYear === currentYear) {
-        setToast({ show: true, message: 'Cannot mark current month as paid. You can only mark past months as paid.', type: 'info', isError: false });
-        return;
-      }
-      
-      // For past months, validate that payment was initiated
-      // The API should handle this validation, but we'll add a check here too
-      // Past months should have been initiated when they were current month
-    } else {
-      // Mark current month as paid - check if there are applications in PAYMENT_INITIATED status
-      if (!hasPaymentInitiated) {
-        setToast({ show: true, message: 'No applications in payment initiated status. Please initiate payment first before marking as paid.', type: 'error', isError: true });
-        return;
-      }
-      // Set current month and year for marking as paid
-      monthNumber = currentMonth;
-      targetYear = currentYear;
-    }
-
-    // Set loading state after validation
-    setMarkingAsPaid({ month: monthNumber, year: targetYear });
-
-    try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/markAsPaid?month=${monthNumber}&year=${targetYear}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ message: 'Failed to mark as paid' }));
-        console.error('Mark as paid error response:', errorData);
-        throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
-      }
-
-      const result = await response.json();
-      setToast({ show: true, message: result.message, type: 'success', isError: false });
-
-      // After successful API call, update the UI.
-      if (month && year) {
-        await fetchPaymentHistory();
-      } else {
-        // For current month, refresh data (hasInitiatedPayment will be updated from API response)
-        await Promise.all([fetchCurrentMonthData(), fetchPaymentHistory()]);
-      }
-    } catch (error: unknown) {
-      console.error('Error marking as paid:', error);
-      setToast({ show: true, message: error instanceof Error ? error.message : 'An unknown error occurred', type: 'error', isError: true });
-    } finally {
-      setMarkingAsPaid(null);
     }
   };
 
@@ -652,13 +498,6 @@ const FinanceDashboard = () => {
                       </>
                     )}
                   </button>
-                  <button 
-                    onClick={handleExportPayments}
-                    className="flex items-center gap-1.5 px-2.5 py-1.5 text-sm bg-white text-blue-600 rounded-md hover:bg-blue-50 transition-colors font-medium cursor-pointer"
-                  >
-                    <Download className="w-3.5 h-3.5" />
-                    Export
-                  </button>
                 </div>
               </div>
             </div>
@@ -718,33 +557,17 @@ const FinanceDashboard = () => {
                     className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                   />
                 </div>
-                 {hasPaymentInitiated ? (
-                   <button 
-                     onClick={() => markAsPaid()}
-                     disabled={markingAsPaid !== null}
-                     className="flex text-nowrap items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium bg-green-600 text-white hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                     title="Mark applications in payment initiated status as paid"
-                   >
-                     {markingAsPaid ? (
-                       <>
-                         <span className="inline-block animate-spin rounded-full h-3.5 w-3.5 border-2 border-white border-t-transparent"></span>
-                         Marking...
-                       </>
-                     ) : (
-                       'Mark as Paid'
-                     )}
-                   </button>
-                 ) : (
-                   <button 
-                     onClick={() => {
-                       setToast({ show: true, message: 'No applications in payment initiated status. Please initiate payment first before marking as paid.', type: 'error', isError: true });
-                     }}
-                     className="flex text-nowrap items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium bg-gray-200 text-gray-500 cursor-not-allowed"
-                     title="No applications in payment initiated status. Initiate payment first."
-                   >
-                     Mark as Paid
-                   </button>
-                 )}
+                <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+                  <div className={`flex flex-col gap-1 px-4 py-3 rounded-2xl border ${hasPaymentInitiated ? 'border-emerald-200 bg-emerald-50' : 'border-gray-200 bg-gray-50'}`}>
+                    <div className="flex items-center gap-2 text-[10px] font-semibold text-gray-600">
+                      <span className={`h-2 w-2 rounded-full text-nowrap ${hasPaymentInitiated ? 'bg-emerald-500' : 'bg-gray-400'}`} />
+                      Payment initiated queue
+                    </div>
+                    <p className="text-xs font-semibold text-gray-900">
+                      {hasPaymentInitiated ? 'Batches awaiting settlement' : 'No pending batches'}
+                    </p>
+                  </div>
+                </div>
               </div>
             </div>
             
@@ -855,30 +678,6 @@ const FinanceDashboard = () => {
                           >
                             View
                           </button>
-                          {!payment.isPaid && (
-                            markingAsPaid && markingAsPaid.month === payment.month && markingAsPaid.year === payment.year ? (
-                              <span className="inline-block w-5 h-5 align-middle ml-2">
-                                <span className="inline-block animate-spin rounded-full h-5 w-5 border-2 border-green-200 border-t-green-600"></span>
-                              </span>
-                            ) : (
-                              <button
-                                onClick={async () => {
-                                  // Check if payment was initiated for this month/year
-                                  // For past months, we need to verify they were in payment initiated status
-                                  try {
-                                    // We'll check by attempting to mark as paid - the API should validate
-                                    // But first show a confirmation or check
-                                    await markAsPaid(payment.month, payment.year);
-                                  } catch (error) {
-                                    // Error handling is done in markAsPaid
-                                  }
-                                }}
-                                className="ml-2 text-xs text-green-600 hover:text-green-900 cursor-pointer font-medium"
-                              >
-                                Mark as Paid
-                              </button>
-                            )
-                          )}
                         </td>
                       </tr>
                     ))}
@@ -926,13 +725,6 @@ const FinanceDashboard = () => {
                           Total Paid: {showPaymentDetails.data.reduce((sum, agent) => sum + agent.totalCommission, 0).toLocaleString()} RWF
                         </p>
                       </div>
-                      <button 
-                        onClick={() => exportHistoryPayments(showPaymentDetails.month, parseInt(showPaymentDetails.year))}
-                        className="flex items-center gap-1.5 px-2.5 py-1.5 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors cursor-pointer font-medium"
-                      >
-                        <Download className="w-3.5 h-3.5" />
-                        Export This Data
-                      </button>
                     </div>
                   </div>
                   
