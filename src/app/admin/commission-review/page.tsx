@@ -111,6 +111,7 @@ const AdminCommissionReviewPage = () => {
   const [editingApp, setEditingApp] = useState<Application | null>(null);
   const [editFormData, setEditFormData] = useState<Record<string, string | number | boolean | File | null> | null>(null);
   const [originalEditFormData, setOriginalEditFormData] = useState<Record<string, string | number | boolean | File | null> | null>(null);
+  const [visibleEditFields, setVisibleEditFields] = useState<Record<string, boolean>>({});
   const [isSubmittingEdit, setIsSubmittingEdit] = useState(false);
   const itemsPerPage = 10;
 
@@ -287,7 +288,63 @@ const AdminCommissionReviewPage = () => {
   };
 
 
-  const getActionButtons = (app: Application) => {
+const getFormValue = (value: string | number | boolean | File | null | undefined): string => {
+  if (value === null || value === undefined) return '';
+  if (typeof value === 'boolean') return value.toString();
+  if (value instanceof File) return '';
+  return String(value);
+};
+
+const hasExistingValue = (value: unknown): boolean => {
+  if (value === null || value === undefined) return false;
+  if (typeof value === 'string') return value.trim().length > 0;
+  if (typeof value === 'number') return !Number.isNaN(value);
+  if (typeof value === 'boolean') return value === true;
+  if (Array.isArray(value)) return value.length > 0;
+  if (value instanceof File) return true;
+  return true;
+};
+
+const buildInitialVisibility = (app: Application, formData: Record<string, string | number | boolean | File | null>) => ({
+  clientFullName: hasExistingValue(app.client?.fullName || app.fullName || ''),
+  clientEmail: hasExistingValue(app.client?.email || app.email || ''),
+  clientPhone: hasExistingValue(app.client?.phoneNumber || app.phoneNumber || ''),
+  clientDob: hasExistingValue(app.client?.dateOfBirth || ''),
+  clientAddress: hasExistingValue(app.client?.address || app.address || ''),
+  clientProvince: hasExistingValue(app.client?.province || ''),
+  clientDistrict: hasExistingValue(app.client?.district || ''),
+  clientSector: hasExistingValue(app.client?.sector || ''),
+  clientIdentification: hasExistingValue(app.client?.identificationNumber || app.client?.nationalID || ''),
+  insuranceCategory: hasExistingValue(formData.insuranceCategory),
+  plateNumber: hasExistingValue(formData.plateNumber),
+  vehicleType: hasExistingValue(formData.vehicleType),
+  vehicleAge: hasExistingValue(formData.vehicleAge),
+  vehicleUse: hasExistingValue(formData.vehicleUse),
+  otherVehicleUse: hasExistingValue(formData.otherVehicleUse),
+  comesa: hasExistingValue(formData.isCOMESA),
+  insuranceProvider: hasExistingValue(formData.insuranceProvider),
+  insuranceType: hasExistingValue(formData.insuranceType),
+  insuranceDuration: hasExistingValue(formData.insuranceDuration),
+  amountField: hasExistingValue(formData.amount),
+  agentCommissionField: hasExistingValue(formData.agentCommission),
+  companyCommissionField: hasExistingValue(formData.companyCommission),
+  administrationFeesField: hasExistingValue(formData.administrationFees),
+  transactionIdField: hasExistingValue(formData.transactionId),
+  paymentInstructionsField: hasExistingValue(formData.paymentInstructions),
+  statusField: hasExistingValue(formData.status),
+  insuranceEndDateField: hasExistingValue(app.insuranceEndAt),
+  invoiceUpload: hasExistingValue(app.invoice),
+  insuranceCertificateUpload: hasExistingValue(app.insuranceCertificate),
+  contractUpload: hasExistingValue(app.contract),
+  receiptUpload: hasExistingValue(app.receipt),
+  ebmUpload: hasExistingValue(app.ebm),
+  proofOfPaymentInfo: hasExistingValue(app.proofOfPayment),
+  transactionIdInfo: hasExistingValue(app.transactionId),
+  yellowCardInfo: hasExistingValue(app.yellowCard),
+  pastInsuranceCertificateInfo: hasExistingValue(app.pastInsuranceCertificate),
+});
+
+const getActionButtons = (app: Application) => {
     return (
       <div className="flex space-x-2">
         <Button 
@@ -329,6 +386,7 @@ const AdminCommissionReviewPage = () => {
             setEditFormData(formData);
             setOriginalEditFormData(JSON.parse(JSON.stringify(formData))); // Deep copy
             setEditingApp(app);
+            setVisibleEditFields(buildInitialVisibility(app, formData));
           }}
         >
           Edit
@@ -514,6 +572,7 @@ const AdminCommissionReviewPage = () => {
       
       showToast('Application updated successfully', 'success');
       setEditingApp(null);
+      setVisibleEditFields({});
       setEditFormData(null);
       setOriginalEditFormData(null);
       // Refetch applications
@@ -524,24 +583,6 @@ const AdminCommissionReviewPage = () => {
     } finally {
       setIsSubmittingEdit(false);
     }
-  };
-
-  // Helper to safely convert form data value to string for inputs
-  const getFormValue = (value: string | number | boolean | File | null | undefined): string => {
-    if (value === null || value === undefined) return '';
-    if (typeof value === 'boolean') return value.toString();
-    if (value instanceof File) return '';
-    return String(value);
-  };
-
-  const hasExistingValue = (value: unknown): boolean => {
-    if (value === null || value === undefined) return false;
-    if (typeof value === 'string') return value.trim().length > 0;
-    if (typeof value === 'number') return !Number.isNaN(value);
-    if (typeof value === 'boolean') return value === true;
-    if (Array.isArray(value)) return value.length > 0;
-    if (value instanceof File) return true;
-    return true;
   };
 
   // Handle edit form input changes
@@ -752,6 +793,7 @@ const AdminCommissionReviewPage = () => {
   };
 
   // Visibility helpers for edit form sections
+  const isPersistentlyVisible = (field: string) => visibleEditFields[field] ?? false;
   const clientFullNameValue = editingApp?.client?.fullName || editingApp?.fullName || '';
   const clientEmailValue = editingApp?.client?.email || editingApp?.email || '';
   const clientPhoneValue = editingApp?.client?.phoneNumber || editingApp?.phoneNumber || '';
@@ -765,15 +807,15 @@ const AdminCommissionReviewPage = () => {
   const clientIdentificationValue =
     editingApp?.client?.identificationNumber || editingApp?.client?.nationalID || '';
 
-  const showClientFullName = hasExistingValue(clientFullNameValue);
-  const showClientEmail = hasExistingValue(clientEmailValue);
-  const showClientPhone = hasExistingValue(clientPhoneValue);
-  const showClientDob = hasExistingValue(clientDobValue);
-  const showClientAddress = hasExistingValue(clientAddressValue);
-  const showClientProvince = hasExistingValue(clientProvinceValue);
-  const showClientDistrict = hasExistingValue(clientDistrictValue);
-  const showClientSector = hasExistingValue(clientSectorValue);
-  const showClientIdentification = hasExistingValue(clientIdentificationValue);
+  const showClientFullName = isPersistentlyVisible('clientFullName') || hasExistingValue(clientFullNameValue);
+  const showClientEmail = isPersistentlyVisible('clientEmail') || hasExistingValue(clientEmailValue);
+  const showClientPhone = isPersistentlyVisible('clientPhone') || hasExistingValue(clientPhoneValue);
+  const showClientDob = isPersistentlyVisible('clientDob') || hasExistingValue(clientDobValue);
+  const showClientAddress = isPersistentlyVisible('clientAddress') || hasExistingValue(clientAddressValue);
+  const showClientProvince = isPersistentlyVisible('clientProvince') || hasExistingValue(clientProvinceValue);
+  const showClientDistrict = isPersistentlyVisible('clientDistrict') || hasExistingValue(clientDistrictValue);
+  const showClientSector = isPersistentlyVisible('clientSector') || hasExistingValue(clientSectorValue);
+  const showClientIdentification = isPersistentlyVisible('clientIdentification') || hasExistingValue(clientIdentificationValue);
 
   const showClientInfoSection =
     showClientFullName ||
@@ -800,17 +842,18 @@ const AdminCommissionReviewPage = () => {
     editFormData?.insuranceCategory === 'Car Insurance' ||
     editFormData?.insuranceCategory === 'MotorBike Insurance';
 
-  const showInsuranceCategory = hasExistingValue(insuranceCategoryValue);
-  const showPlateNumber = isVehicleInsurance && hasExistingValue(plateNumberValue);
-  const showVehicleType = isVehicleInsurance && hasExistingValue(vehicleTypeValue);
-  const showVehicleAge = isVehicleInsurance && hasExistingValue(vehicleAgeValue);
-  const showVehicleUse = isVehicleInsurance && hasExistingValue(vehicleUseValue);
-  const showOtherVehicleUse = isVehicleInsurance && hasExistingValue(otherVehicleUseValue);
+  const showInsuranceCategory = isPersistentlyVisible('insuranceCategory') || hasExistingValue(insuranceCategoryValue);
+  const showPlateNumber = isPersistentlyVisible('plateNumber') || (isVehicleInsurance && hasExistingValue(plateNumberValue));
+  const showVehicleType = isPersistentlyVisible('vehicleType') || (isVehicleInsurance && hasExistingValue(vehicleTypeValue));
+  const showVehicleAge = isPersistentlyVisible('vehicleAge') || (isVehicleInsurance && hasExistingValue(vehicleAgeValue));
+  const showVehicleUse = isPersistentlyVisible('vehicleUse') || (isVehicleInsurance && hasExistingValue(vehicleUseValue));
+  const showOtherVehicleUse = isPersistentlyVisible('otherVehicleUse') || (isVehicleInsurance && hasExistingValue(otherVehicleUseValue));
   const showComesaField =
-    isVehicleInsurance && typeof editFormData?.isCOMESA === 'boolean' && editFormData.isCOMESA;
-  const showInsuranceProvider = hasExistingValue(insuranceProviderValue);
-  const showInsuranceType = hasExistingValue(insuranceTypeValue);
-  const showInsuranceDuration = hasExistingValue(insuranceDurationValue);
+    isPersistentlyVisible('comesa') ||
+    (isVehicleInsurance && typeof editFormData?.isCOMESA === 'boolean' && editFormData.isCOMESA);
+  const showInsuranceProvider = isPersistentlyVisible('insuranceProvider') || hasExistingValue(insuranceProviderValue);
+  const showInsuranceType = isPersistentlyVisible('insuranceType') || hasExistingValue(insuranceTypeValue);
+  const showInsuranceDuration = isPersistentlyVisible('insuranceDuration') || hasExistingValue(insuranceDurationValue);
 
   const showInsuranceDetailsSection =
     showInsuranceCategory ||
@@ -831,12 +874,12 @@ const AdminCommissionReviewPage = () => {
   const transactionIdValue = editFormData ? getFormValue(editFormData.transactionId) : '';
   const paymentInstructionsValue = editFormData ? getFormValue(editFormData.paymentInstructions) : '';
 
-  const showAmountField = hasExistingValue(amountValue);
-  const showAgentCommissionField = hasExistingValue(agentCommissionValue);
-  const showCompanyCommissionField = hasExistingValue(companyCommissionValue);
-  const showAdministrationFeesField = hasExistingValue(administrationFeesValue);
-  const showTransactionIdField = hasExistingValue(transactionIdValue);
-  const showPaymentInstructionsField = hasExistingValue(paymentInstructionsValue);
+  const showAmountField = isPersistentlyVisible('amountField') || hasExistingValue(amountValue);
+  const showAgentCommissionField = isPersistentlyVisible('agentCommissionField') || hasExistingValue(agentCommissionValue);
+  const showCompanyCommissionField = isPersistentlyVisible('companyCommissionField') || hasExistingValue(companyCommissionValue);
+  const showAdministrationFeesField = isPersistentlyVisible('administrationFeesField') || hasExistingValue(administrationFeesValue);
+  const showTransactionIdField = isPersistentlyVisible('transactionIdField') || hasExistingValue(transactionIdValue);
+  const showPaymentInstructionsField = isPersistentlyVisible('paymentInstructionsField') || hasExistingValue(paymentInstructionsValue);
 
   const showPaymentSection =
     showAmountField ||
@@ -847,18 +890,19 @@ const AdminCommissionReviewPage = () => {
     showPaymentInstructionsField;
 
   const statusValue = editFormData ? getFormValue(editFormData.status) : '';
-  const showStatusField = hasExistingValue(statusValue);
+  const showStatusField = isPersistentlyVisible('statusField') || hasExistingValue(statusValue);
   const insuranceEndDateValue = editingApp?.insuranceEndAt
     ? new Date(editingApp.insuranceEndAt).toISOString().split('T')[0]
     : '';
-  const showInsuranceEndDateField = hasExistingValue(insuranceEndDateValue);
+  const showInsuranceEndDateField = isPersistentlyVisible('insuranceEndDateField') || hasExistingValue(insuranceEndDateValue);
   const showStatusSection = showStatusField || showInsuranceEndDateField;
 
-  const showInvoiceUpload = hasExistingValue(editingApp?.invoice);
-  const showInsuranceCertificateUpload = hasExistingValue(editingApp?.insuranceCertificate);
-  const showContractUpload = hasExistingValue(editingApp?.contract);
-  const showReceiptUpload = hasExistingValue(editingApp?.receipt);
-  const showEbmUpload = hasExistingValue(editingApp?.ebm);
+  const showInvoiceUpload = isPersistentlyVisible('invoiceUpload') || hasExistingValue(editingApp?.invoice);
+  const showInsuranceCertificateUpload =
+    isPersistentlyVisible('insuranceCertificateUpload') || hasExistingValue(editingApp?.insuranceCertificate);
+  const showContractUpload = isPersistentlyVisible('contractUpload') || hasExistingValue(editingApp?.contract);
+  const showReceiptUpload = isPersistentlyVisible('receiptUpload') || hasExistingValue(editingApp?.receipt);
+  const showEbmUpload = isPersistentlyVisible('ebmUpload') || hasExistingValue(editingApp?.ebm);
   const showInsuranceDocumentsSection =
     showInvoiceUpload ||
     showInsuranceCertificateUpload ||
@@ -866,10 +910,11 @@ const AdminCommissionReviewPage = () => {
     showReceiptUpload ||
     showEbmUpload;
 
-  const showProofOfPaymentInfo = hasExistingValue(editingApp?.proofOfPayment);
-  const showTransactionIdInfo = hasExistingValue(editingApp?.transactionId);
-  const showYellowCardInfo = hasExistingValue(editingApp?.yellowCard);
-  const showPastInsuranceCertificateInfo = hasExistingValue(editingApp?.pastInsuranceCertificate);
+  const showProofOfPaymentInfo = isPersistentlyVisible('proofOfPaymentInfo') || hasExistingValue(editingApp?.proofOfPayment);
+  const showTransactionIdInfo = isPersistentlyVisible('transactionIdInfo') || hasExistingValue(editingApp?.transactionId);
+  const showYellowCardInfo = isPersistentlyVisible('yellowCardInfo') || hasExistingValue(editingApp?.yellowCard);
+  const showPastInsuranceCertificateInfo =
+    isPersistentlyVisible('pastInsuranceCertificateInfo') || hasExistingValue(editingApp?.pastInsuranceCertificate);
   const showAgentInfoSection =
     showProofOfPaymentInfo || showTransactionIdInfo || showYellowCardInfo || showPastInsuranceCertificateInfo;
 
@@ -1537,6 +1582,7 @@ const AdminCommissionReviewPage = () => {
                   setEditingApp(null);
                   setEditFormData(null);
                   setOriginalEditFormData(null);
+                  setVisibleEditFields({});
                 }}
                 className="text-gray-500 hover:text-gray-700"
               >
@@ -1999,6 +2045,7 @@ const AdminCommissionReviewPage = () => {
                     setEditingApp(null);
                     setEditFormData(null);
                     setOriginalEditFormData(null);
+                    setVisibleEditFields({});
                   }}
                   disabled={isSubmittingEdit}
                 >

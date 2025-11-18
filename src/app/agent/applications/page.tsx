@@ -1424,7 +1424,7 @@ const handleEditSuccess = async () => {
     switch (status.toUpperCase()) {
       case 'PAID':
         return (
-          <span className="px-3 py-1 rounded-full bg-green-100 text-green-700 text-[10px] font-medium flex items-center gap-1 w-fit">
+          <span className="px-3 py-1 rounded-full bg-green-100 text-green-700 text-[12px] font-medium flex items-center gap-1 w-fit">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
               <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
             </svg>
@@ -1433,7 +1433,7 @@ const handleEditSuccess = async () => {
         );
       case 'READY_TO_BE_PAID':
         return (
-          <span className="px-3 py-1 rounded-full bg-blue-100 text-blue-700 text-[10px] font-medium flex items-center gap-1 w-fit">
+          <span className="px-3 py-1 rounded-full bg-blue-100 text-blue-700 text-[12px] font-medium flex items-center gap-1 w-fit">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
               <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V7z" clipRule="evenodd" />
             </svg>
@@ -1442,7 +1442,7 @@ const handleEditSuccess = async () => {
         );
       case 'PAYMENT_INITIATED':
         return (
-          <span className="px-3 py-1 rounded-full bg-cyan-100 text-cyan-700 text-[10px] font-medium flex items-center gap-1 w-fit">
+          <span className="px-3 py-1 rounded-full bg-cyan-100 text-cyan-700 text-[12px] font-medium flex items-center gap-1 w-fit">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
               <path fillRule="evenodd" d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V6h10a2 2 0 00-2-2H4zm2 6a2 2 0 012-2h8a2 2 0 012 2v4a2 2 0 01-2 2H8a2 2 0 01-2-2v-4zm6 4a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
             </svg>
@@ -1451,7 +1451,7 @@ const handleEditSuccess = async () => {
         );
       case 'PENDING':
         return (
-          <span className="px-3 py-1 rounded-full bg-yellow-100 text-yellow-700 text-[10px] font-medium flex items-center gap-1 w-fit">
+          <span className="px-3 py-1 rounded-full bg-yellow-100 text-yellow-700 text-[12px] font-medium flex items-center gap-1 w-fit">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
               <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
             </svg>
@@ -1460,7 +1460,7 @@ const handleEditSuccess = async () => {
         );
       case 'PENDING_ADMIN_REVIEW':
         return (
-          <span className="px-3 py-1 rounded-full bg-purple-100 text-purple-700 text-[10px] font-medium flex items-center gap-1 w-fit">
+          <span className="px-3 py-1 rounded-full bg-purple-100 text-purple-700 text-[12px] font-medium flex items-center gap-1 w-fit">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
               <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
             </svg>
@@ -1469,7 +1469,7 @@ const handleEditSuccess = async () => {
         );
       case 'ON_HOLD':
         return (
-          <span className="px-3 py-1 rounded-full bg-orange-100 text-orange-700 text-[10px] font-medium flex items-center gap-1 w-fit">
+          <span className="px-3 py-1 rounded-full bg-orange-100 text-orange-700 text-[12px] font-medium flex items-center gap-1 w-fit">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
               <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
             </svg>
@@ -1478,7 +1478,7 @@ const handleEditSuccess = async () => {
         );
       default:
         return (
-          <span className="px-3 py-1 rounded-full bg-gray-100 text-gray-700 text-[10px] font-medium flex items-center gap-1 w-fit">
+          <span className="px-3 py-1 rounded-full bg-gray-100 text-gray-700 text-[12px] font-medium flex items-center gap-1 w-fit">
             {status}
           </span>
         );
@@ -1488,26 +1488,26 @@ const handleEditSuccess = async () => {
   // Get status badge based on application status
   const getStatusBadge = (status: string) => {
     if (!status) {
-      return <span className="px-2 py-1 rounded-full bg-gray-100 text-gray-700 text-[10px] font-medium">Unknown</span>;
+      return <span className="px-2 py-1 rounded-full bg-gray-100 text-gray-700 text-[11px] font-medium">Unknown</span>;
     }
     
     switch (status.toLowerCase()) {
       case 'pending':
-        return <span className="px-2 py-1 rounded-full bg-blue-100 text-blue-700 text-[10px] font-medium">Pending</span>;
+        return <span className="px-2 py-1 rounded-full bg-blue-100 text-blue-700 text-[11px] font-medium">Pending</span>;
       case 'application_approved':
-        return <span className="px-2 py-1 rounded-full bg-green-100 text-green-700 text-[10px] font-medium">Approved</span>;
+        return <span className="px-2 py-1 rounded-full bg-green-100 text-green-700 text-[11px] font-medium">Approved</span>;
       case 'waiting_for_user_action':
-        return <span className="px-2 py-1 rounded-full bg-orange-100 text-orange-700 text-[10px] font-medium">Action Required</span>;
+        return <span className="px-2 py-1 rounded-full bg-orange-100 text-orange-700 text-[11px] font-medium">Action Required</span>;
       case 'invoice_sent':
-        return <span className="px-2 py-1 rounded-full bg-indigo-100 text-indigo-700 text-[10px] font-medium">Invoice Sent</span>;
+        return <span className="px-2 py-1 rounded-full bg-indigo-100 text-indigo-700 text-[11px] font-medium">Invoice Sent</span>;
       case 'review_payment':
-        return <span className="px-2 py-1 rounded-full bg-purple-100 text-purple-700 text-[10px] font-medium">Payment Review</span>;
+        return <span className="px-2 py-1 rounded-full bg-purple-100 text-purple-700 text-[11px] font-medium">Payment Review</span>;
       case 'payment_verified':
-        return <span className="px-2 py-1 rounded-full bg-green-100 text-green-700 text-[10px] font-medium">Payment Verified</span>;
+        return <span className="px-2 py-1 rounded-full bg-green-100 text-green-700 text-[11px] font-medium">Payment Verified</span>;
       case 'insurance_issued':
-        return <span className="px-2 py-1 rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-medium">Insurance Issued</span>;
+        return <span className="px-2 py-1 rounded-full bg-emerald-100 text-emerald-700 text-[11px] font-medium">Insurance Issued</span>;
       default:
-        return <span className="px-2 py-1 rounded-full bg-gray-100 text-gray-700 text-[10px] font-medium">Unknown</span>;
+        return <span className="px-2 py-1 rounded-full bg-gray-100 text-gray-700 text-[11px] font-medium">Unknown</span>;
     }
   };
 
