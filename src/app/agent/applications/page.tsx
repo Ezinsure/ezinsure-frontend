@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { MainLayout } from '@/components/ui/main-layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -196,6 +196,7 @@ const [formState, setFormState] = useState<Partial<Application>>(() => {
     pastInsuranceCertificate: null,
     proofOfPayment: null, // Added for payment rejection case
   });
+  const [fileResetTrigger, setFileResetTrigger] = useState(0);
 
   // Update files state when application changes (for prefilling existing documents)
   useEffect(() => {
@@ -218,6 +219,11 @@ const [formState, setFormState] = useState<Partial<Application>>(() => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { showToast } = useToast();
   const [transactionId, setTransactionId] = useState(''); // Added for payment rejection case
+  const allowedFileTypes = useMemo(
+    () => ['image/jpeg', 'image/png', 'image/jpg', 'application/pdf'],
+    []
+  );
+  const fileExtensionPattern = useMemo(() => /\.(jpe?g|png|pdf)$/i, []);
 
   // Update form state when application changes (for prefilling)
   useEffect(() => {
@@ -336,6 +342,22 @@ const [formState, setFormState] = useState<Partial<Application>>(() => {
   };
 
   const handleFileChange = (name: string) => (file: File | null) => {
+    if (file) {
+      const mimeType = file.type?.toLowerCase();
+      const fileName = file.name?.toLowerCase();
+      const isAllowed =
+        (mimeType && allowedFileTypes.includes(mimeType)) ||
+        (!mimeType && fileExtensionPattern.test(fileName || ''));
+
+      if (!isAllowed) {
+        const message = 'Unsupported file type. Please upload JPG, JPEG, PNG or PDF.';
+        setErrors(prev => ({ ...prev, [name]: message }));
+        showToast(message, 'error');
+        setFileResetTrigger(prev => prev + 1);
+        return;
+      }
+    }
+
     setFiles(prev => ({ ...prev, [name]: file }));
 
     if (errors[name]) {
@@ -526,9 +548,10 @@ const [formState, setFormState] = useState<Partial<Application>>(() => {
                   name="proofOfPayment"
                   onChange={handleFileChange('proofOfPayment')}
                   error={errors.proofOfPayment}
-                  accept="image/*,.pdf"
+                  accept=".jpg,.jpeg,.png,.pdf"
                   currentFile={application.proofOfPayment?.split('/').pop()}
                   required
+                  resetTrigger={fileResetTrigger}
                 />
               </div>
             ) : (
@@ -907,8 +930,9 @@ const [formState, setFormState] = useState<Partial<Application>>(() => {
                       name="nationalID"
                       onChange={handleFileChange('nationalID')}
                       error={errors.nationalID}
-                      accept="image/*,.pdf"
+                      accept=".jpg,.jpeg,.png,.pdf"
                       currentFile={application.nationalID?.split('/').pop()}
+                      resetTrigger={fileResetTrigger}
                     />
 
                     <FileInput
@@ -916,16 +940,18 @@ const [formState, setFormState] = useState<Partial<Application>>(() => {
                       name="yellowCard"
                       onChange={handleFileChange('yellowCard')}
                       error={errors.yellowCard}
-                      accept="image/*,.pdf"
+                      accept=".jpg,.jpeg,.png,.pdf"
                       currentFile={application.yellowCard?.split('/').pop()}
+                      resetTrigger={fileResetTrigger}
                     />
 
                     <FileInput
                       label="Past Insurance Certificate (Optional)"
                       name="pastInsuranceCertificate"
                       onChange={handleFileChange('pastInsuranceCertificate')}
-                      accept="image/*,.pdf"
+                      accept=".jpg,.jpeg,.png,.pdf"
                       currentFile={application.pastInsuranceCertificate?.split('/').pop()}
+                      resetTrigger={fileResetTrigger}
                     />
                   </div>
                 </div>
@@ -961,6 +987,8 @@ export default function AgentApplicationsPage() {
   const [applications, setApplications] = useState<Application[]>([]);
   const [selectedApp, setSelectedApp] = useState<Application | null>(null);
   const [paymentProof, setPaymentProof] = useState<File | null>(null);
+  const [paymentProofError, setPaymentProofError] = useState<string | null>(null);
+  const [paymentProofResetTrigger, setPaymentProofResetTrigger] = useState(0);
   const [transactionId, setTransactionId] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmittingPayment, setIsSubmittingPayment] = useState(false);
@@ -980,7 +1008,34 @@ export default function AgentApplicationsPage() {
   const itemsPerPage = 10;
   const [activeModal, setActiveModal] = useState<ModalType>('none');
 
+  const allowedPaymentTypes = useMemo(
+    () => ['image/jpeg', 'image/png', 'image/jpg', 'application/pdf'],
+    []
+  );
+  const paymentExtensionPattern = useMemo(() => /\.(jpe?g|png|pdf)$/i, []);
+
   // Helper functions for date filtering
+  const handlePaymentProofChange = (file: File | null) => {
+    if (file) {
+      const mimeType = file.type?.toLowerCase();
+      const fileName = file.name?.toLowerCase();
+      const isAllowed =
+        (mimeType && allowedPaymentTypes.includes(mimeType)) ||
+        (!mimeType && paymentExtensionPattern.test(fileName || ''));
+
+      if (!isAllowed) {
+        const message = 'Unsupported file type. Please upload JPG, JPEG, PNG or PDF.';
+        setPaymentProofError(message);
+        showToast(message, 'error');
+        setPaymentProof(null);
+        setPaymentProofResetTrigger(prev => prev + 1);
+        return;
+      }
+    }
+
+    setPaymentProof(file);
+    setPaymentProofError(null);
+  };
   const getFirstDayOfMonth = () => {
     const now = new Date();
     const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -1992,9 +2047,11 @@ const getActionButtons = (app: Application) => {
                 <FileInput
                   label="Payment Proof *"
                   name="proofOfPayment"
-                  onChange={setPaymentProof}
-                  accept="image/*,.pdf"
+                  onChange={handlePaymentProofChange}
+                  accept=".jpg,.jpeg,.png,.pdf"
                   currentFile={selectedApp.proofOfPayment?.split('/').pop()}
+                  error={paymentProofError || undefined}
+                  resetTrigger={paymentProofResetTrigger}
                 />
               </div>
 

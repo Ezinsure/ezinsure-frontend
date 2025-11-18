@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { MainLayout } from '@/components/ui/main-layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -144,6 +144,45 @@ export default function ManageApplicationsPage() {
   const [showRightFade, setShowRightFade] = useState(true);
   const [showScrollHint, setShowScrollHint] = useState(true);
   const itemsPerPage = 10;
+  const [fileErrors, setFileErrors] = useState<{ [key: string]: string }>({});
+
+  const allowedUploadTypes = useMemo(
+    () => ['image/jpeg', 'image/png', 'image/jpg', 'application/pdf'],
+    []
+  );
+
+  const fileExtensionPattern = useMemo(() => /\.(jpe?g|png|pdf)$/i, []);
+
+  const validateUpload = (file: File | null, field: string) => {
+    if (!file) {
+      setFileErrors(prev => {
+        const next = { ...prev };
+        delete next[field];
+        return next;
+      });
+      return true;
+    }
+
+    const mimeType = file.type?.toLowerCase();
+    const fileName = file.name?.toLowerCase();
+    const isAllowed =
+      (mimeType && allowedUploadTypes.includes(mimeType)) ||
+      (!mimeType && fileExtensionPattern.test(fileName || ''));
+
+    if (!isAllowed) {
+      const message = 'Unsupported file type. Please upload JPG, JPEG, PNG or PDF.';
+      setFileErrors(prev => ({ ...prev, [field]: message }));
+      showToast(message, 'error');
+      return false;
+    }
+
+    setFileErrors(prev => {
+      const next = { ...prev };
+      delete next[field];
+      return next;
+    });
+    return true;
+  };
 
   // Helper functions for date filtering
   const getFirstDayOfMonth = () => {
@@ -1682,7 +1721,16 @@ const getActionButtons = (app: Application) => {
         <label className="block text-sm font-medium text-gray-700 mb-1">Invoice Attachment (Optional)</label>
         <input
           type="file"
-          onChange={(e) => setInvoiceFile(e.target.files?.[0] || null)}
+          accept=".jpg,.jpeg,.png,.pdf"
+          onChange={(e) => {
+            const file = e.target.files?.[0] || null;
+            if (validateUpload(file, 'invoice')) {
+              setInvoiceFile(file);
+            } else {
+              setInvoiceFile(null);
+              e.target.value = '';
+            }
+          }}
           className="block w-full text-sm text-gray-500
             file:mr-4 file:py-2 file:px-4
             file:rounded-md file:border-0
@@ -1691,6 +1739,9 @@ const getActionButtons = (app: Application) => {
             hover:file:bg-[var(--secondary-blue)]
           "
         />
+        {fileErrors.invoice && (
+          <p className="mt-1 text-sm text-[var(--error-red)]">{fileErrors.invoice}</p>
+        )}
         {invoiceFile && (
           <button 
             className="mt-2 text-sm text-[var(--main-blue)] hover:underline"
@@ -1857,7 +1908,16 @@ const getActionButtons = (app: Application) => {
               <label className="block text-sm font-medium text-gray-700 mb-1">Insurance Certificate *</label>
               <input
                 type="file"
-                onChange={(e) => setInsuranceFile(e.target.files?.[0] || null)}
+                accept=".jpg,.jpeg,.png,.pdf"
+                onChange={(e) => {
+                  const file = e.target.files?.[0] || null;
+                  if (validateUpload(file, 'insuranceCertificate')) {
+                    setInsuranceFile(file);
+                  } else {
+                    setInsuranceFile(null);
+                    e.target.value = '';
+                  }
+                }}
                 className="block w-full text-sm text-gray-500
                   file:mr-4 file:py-2 file:px-4
                   file:rounded-md file:border-0
@@ -1867,6 +1927,9 @@ const getActionButtons = (app: Application) => {
                 "
                 required
               />
+              {fileErrors.insuranceCertificate && (
+                <p className="mt-1 text-sm text-[var(--error-red)]">{fileErrors.insuranceCertificate}</p>
+              )}
               {insuranceFile && (
                 <button 
                   className="mt-2 text-sm text-[var(--main-blue)] hover:underline"
@@ -1884,7 +1947,16 @@ const getActionButtons = (app: Application) => {
               <label className="block text-sm font-medium text-gray-700 mb-1">Contract (Optional)</label>
               <input
                 type="file"
-                onChange={(e) => setContractFile(e.target.files?.[0] || null)}
+                accept=".jpg,.jpeg,.png,.pdf"
+                onChange={(e) => {
+                  const file = e.target.files?.[0] || null;
+                  if (validateUpload(file, 'contract')) {
+                    setContractFile(file);
+                  } else {
+                    setContractFile(null);
+                    e.target.value = '';
+                  }
+                }}
                 className="block w-full text-sm text-gray-500
                   file:mr-4 file:py-2 file:px-4
                   file:rounded-md file:border-0
@@ -1893,6 +1965,9 @@ const getActionButtons = (app: Application) => {
                   hover:file:bg-[var(--secondary-blue)]
                 "
               />
+              {fileErrors.contract && (
+                <p className="mt-1 text-sm text-[var(--error-red)]">{fileErrors.contract}</p>
+              )}
               {contractFile && (
                 <button 
                   className="mt-2 text-sm text-[var(--main-blue)] hover:underline"
@@ -1910,7 +1985,16 @@ const getActionButtons = (app: Application) => {
               <label className="block text-sm font-medium text-gray-700 mb-1">Receipt (Optional)</label>
               <input
                 type="file"
-                onChange={(e) => setReceiptFile(e.target.files?.[0] || null)}
+                accept=".jpg,.jpeg,.png,.pdf"
+                onChange={(e) => {
+                  const file = e.target.files?.[0] || null;
+                  if (validateUpload(file, 'receipt')) {
+                    setReceiptFile(file);
+                  } else {
+                    setReceiptFile(null);
+                    e.target.value = '';
+                  }
+                }}
                 className="block w-full text-sm text-gray-500
                   file:mr-4 file:py-2 file:px-4
                   file:rounded-md file:border-0
@@ -1919,6 +2003,9 @@ const getActionButtons = (app: Application) => {
                   hover:file:bg-[var(--secondary-blue)]
                 "
               />
+              {fileErrors.receipt && (
+                <p className="mt-1 text-sm text-[var(--error-red)]">{fileErrors.receipt}</p>
+              )}
               {receiptFile && (
                 <button 
                   className="mt-2 text-sm text-[var(--main-blue)] hover:underline"
@@ -1936,7 +2023,16 @@ const getActionButtons = (app: Application) => {
               <label className="block text-sm font-medium text-gray-700 mb-1">EBM (Optional)</label>
               <input
                 type="file"
-                onChange={(e) => setEbmFile(e.target.files?.[0] || null)}
+                accept=".jpg,.jpeg,.png,.pdf"
+                onChange={(e) => {
+                  const file = e.target.files?.[0] || null;
+                  if (validateUpload(file, 'ebm')) {
+                    setEbmFile(file);
+                  } else {
+                    setEbmFile(null);
+                    e.target.value = '';
+                  }
+                }}
                 className="block w-full text-sm text-gray-500
                   file:mr-4 file:py-2 file:px-4
                   file:rounded-md file:border-0
@@ -1945,6 +2041,9 @@ const getActionButtons = (app: Application) => {
                   hover:file:bg-[var(--secondary-blue)]
                 "
               />
+              {fileErrors.ebm && (
+                <p className="mt-1 text-sm text-[var(--error-red)]">{fileErrors.ebm}</p>
+              )}
               {ebmFile && (
                 <button 
                   className="mt-2 text-sm text-[var(--main-blue)] hover:underline"
