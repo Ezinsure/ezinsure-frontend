@@ -517,7 +517,14 @@ export default function ApplyPage() {
         if (!response.ok) {
           const errorData = await response.json();
           console.error('Submission error:', errorData);
-          const errorMessage = errorData.error || errorData.message || 'Application submission failed';
+          let errorMessage = errorData.error || errorData.message || 'Application submission failed';
+
+          if (typeof errorMessage === 'string' && errorMessage.toLowerCase().includes('duplicate key')) {
+            if (errorMessage.toLowerCase().includes('email')) {
+              errorMessage = 'This email is already linked to another client. Please use a different email or search for the existing client via their identification number.';
+            }
+          }
+
           throw new Error(errorMessage);
         }
 

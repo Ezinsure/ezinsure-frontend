@@ -755,7 +755,14 @@ export default function AgentApplyPage() {
         if (!response.ok) {
           const errorData = await response.json();
           console.error('Submission error:', errorData);
-          const errorMessage = errorData.error || errorData.message || 'Application submission failed';
+          let errorMessage = errorData.error || errorData.message || 'Application submission failed';
+
+          if (typeof errorMessage === 'string' && errorMessage.toLowerCase().includes('duplicate key')) {
+            if (errorMessage.toLowerCase().includes('email')) {
+              errorMessage = 'This email is already linked to another client. Please use a different email or search using the identification number to retrieve the existing client.';
+            }
+          }
+
           throw new Error(errorMessage);
         }
 
@@ -813,7 +820,10 @@ export default function AgentApplyPage() {
 
       } catch (error: unknown) {
         console.error('Application error:', error);
-        const errorMessage = formatErrorMessage(error);
+        let errorMessage = formatErrorMessage(error);
+        if (typeof errorMessage === 'string' && errorMessage.toLowerCase().includes('duplicate key') && errorMessage.toLowerCase().includes('email')) {
+          errorMessage = 'This email is already linked to another client. Please use a different email or search using the identification number to retrieve the existing client.';
+        }
         showToast(errorMessage, 'error');
       } finally {
         setIsSubmitting(false);

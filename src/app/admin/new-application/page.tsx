@@ -1118,9 +1118,12 @@ export default function AdminNewApplicationPage() {
 
           const errorData = await response.json();
 
-          const errorMessage = formatErrorMessage(errorData.error || errorData.message || 'Failed to create application');
+          let errorMessage = errorData.error || errorData.message || 'Failed to create application';
+          if (typeof errorMessage === 'string' && errorMessage.toLowerCase().includes('duplicate key') && errorMessage.toLowerCase().includes('email')) {
+            errorMessage = 'This email is already linked to another client. Please use a different email or retrieve the existing client via identification number.';
+          }
 
-          showToast(errorMessage, 'error');
+          showToast(formatErrorMessage(errorMessage), 'error');
 
         }
 
@@ -1128,7 +1131,10 @@ export default function AdminNewApplicationPage() {
 
         console.error('Error creating application:', error);
 
-        const errorMessage = formatErrorMessage(error);
+        let errorMessage = formatErrorMessage(error);
+        if (typeof errorMessage === 'string' && errorMessage.toLowerCase().includes('duplicate key') && errorMessage.toLowerCase().includes('email')) {
+          errorMessage = 'This email is already linked to another client. Please use a different email or retrieve the existing client via identification number.';
+        }
 
         showToast(errorMessage, 'error');
 
