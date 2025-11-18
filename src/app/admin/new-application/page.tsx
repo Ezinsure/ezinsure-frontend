@@ -429,9 +429,9 @@ export default function AdminNewApplicationPage() {
     setFormData(prev => ({
       ...prev,
       // Client information from vehicle owner
-      fullName: (data.fullName as string) || prev.fullName,
-      email: (data.email as string) || prev.email,
-      phoneNumber: (data.phoneNumber as string) || prev.phoneNumber,
+      // fullName: (data.fullName as string) || prev.fullName,
+      // email: (data.email as string) || prev.email,
+      // phoneNumber: (data.phoneNumber as string) || prev.phoneNumber,
       // Vehicle-specific fields
       vehicleType: (data.vehicleType as string) || prev.vehicleType,
       vehicleAge: (data.vehicleAge as string) || prev.vehicleAge,

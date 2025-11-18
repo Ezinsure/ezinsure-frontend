@@ -525,9 +525,9 @@ export default function AgentApplyPage() {
     setFormState(prev => ({
       ...prev,
       // Client information from vehicle owner
-      fullName: (data.fullName as string) || prev.fullName,
-      email: (data.email as string) || prev.email,
-      phoneNumber: (data.phoneNumber as string) || prev.phoneNumber,
+      // fullName: (data.fullName as string) || prev.fullName,
+      // email: (data.email as string) || prev.email,
+      // phoneNumber: (data.phoneNumber as string) || prev.phoneNumber,
       // Vehicle-specific fields
       vehicleType: (data.vehicleType as string) || prev.vehicleType,
       vehicleAge: (data.vehicleAge as string) || prev.vehicleAge,
@@ -538,7 +538,7 @@ export default function AgentApplyPage() {
       clientId: (data.clientId as string) || prev.clientId,
     }));
     
-    showToast('Vehicle information loaded successfully', 'success');
+    showToast('Vehicle information loaded successfully.', 'success');
   };
 
   // Handle search results to track isNewClient and isNewVehicle
