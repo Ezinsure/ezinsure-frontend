@@ -74,10 +74,11 @@ export default function ApplyPage() {
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   
-  // Reset triggers for SearchInput components
+  // Reset triggers for SearchInput components & file inputs
   const [plateNumberResetTrigger, setPlateNumberResetTrigger] = useState(0);
   const [identificationNumberResetTrigger, setIdentificationNumberResetTrigger] = useState(0);
   const [phoneNumberResetTrigger, setPhoneNumberResetTrigger] = useState(0);
+  const [fileResetTrigger, setFileResetTrigger] = useState(0);
   
   // Track search results for isNewClient and isNewVehicle fields
   const [searchResults, setSearchResults] = useState({
@@ -278,6 +279,7 @@ export default function ApplyPage() {
         const message = 'Unsupported file type. Please upload an image or PDF document.';
         setErrors(prev => ({ ...prev, [name]: message }));
         showToast(message, 'error');
+        setFileResetTrigger(prev => prev + 1);
         return;
       }
     }
@@ -1254,6 +1256,7 @@ export default function ApplyPage() {
                     error={errors.nationalID}
                     required
                     accept="image/*,.pdf"
+                    resetTrigger={fileResetTrigger}
                   />
 
                   <FileInput
@@ -1264,6 +1267,7 @@ export default function ApplyPage() {
                     error={errors.yellowCard}
                     required
                     accept="image/*,.pdf"
+                    resetTrigger={fileResetTrigger}
                   />
 
                   <FileInput
@@ -1273,6 +1277,7 @@ export default function ApplyPage() {
                     onChange={handleFileChange('pastInsuranceCertificate')}
                     accept="image/*,.pdf"
                     className="md:col-span-2"
+                    resetTrigger={fileResetTrigger}
                   />
                 </div>
               </div>
