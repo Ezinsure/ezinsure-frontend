@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { MainLayout } from '@/components/ui/main-layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -284,11 +284,8 @@ export default function AdminNewApplicationPage() {
   // Track search results for isNewClient and isNewVehicle fields
 
   const [searchResults, setSearchResults] = useState({
-
     isNewClient: true,    // Default to true (new client)
-
     isNewVehicle: true,   // Default to true (new vehicle)
-
   });
 
   // Initialize tracking data on component mount
@@ -794,7 +791,35 @@ export default function AdminNewApplicationPage() {
 
   };
 
+  const allowedFileTypes = useMemo(
+    () => [
+      'image/jpeg',
+      'image/png',
+      'image/jpg',
+      'image/webp',
+      'image/gif',
+      'application/pdf'
+    ],
+    []
+  );
+
   const handleFileChange = useCallback((field: keyof ApplicationFormData) => (file: File | null) => {
+    if (file) {
+      const mimeType = file.type?.toLowerCase();
+      const fileName = file.name?.toLowerCase();
+      const isAllowed =
+        (mimeType && allowedFileTypes.includes(mimeType)) ||
+        (!mimeType && /\.(png|jpe?g|gif|webp|pdf)$/i.test(fileName || ''));
+
+      if (!isAllowed) {
+        const message = 'Unsupported file type. Please upload an image or PDF document.';
+        setErrors(prev => ({ ...prev, [field as string]: message }));
+        showToast(message, 'error');
+        setFileResetTrigger(prev => prev + 1);
+        return;
+      }
+    }
+
     setFormData(prev => ({ ...prev, [field]: file }));
 
     // Clear validation error for this field on change
@@ -805,7 +830,7 @@ export default function AdminNewApplicationPage() {
         return newErrors;
       });
     }
-  }, [errors]);
+  }, [allowedFileTypes, errors]);
 
   // Memoized handlers for SearchInput components to prevent infinite loops
   const handleIdentificationNumberChange = useCallback((value: string) => {

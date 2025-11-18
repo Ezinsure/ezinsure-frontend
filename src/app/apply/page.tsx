@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { MainLayout } from '@/components/ui/main-layout';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -254,7 +254,34 @@ export default function ApplyPage() {
     }
   };
 
+  const allowedFileTypes = useMemo(
+    () => [
+      'image/jpeg',
+      'image/png',
+      'image/jpg',
+      'image/webp',
+      'image/gif',
+      'application/pdf'
+    ],
+    []
+  );
+
   const handleFileChange = (name: string) => (file: File | null) => {
+    if (file) {
+      const mimeType = file.type?.toLowerCase();
+      const fileName = file.name?.toLowerCase();
+      const isAllowed =
+        (mimeType && allowedFileTypes.includes(mimeType)) ||
+        (!mimeType && /\.(png|jpe?g|gif|webp|pdf)$/i.test(fileName || ''));
+
+      if (!isAllowed) {
+        const message = 'Unsupported file type. Please upload an image or PDF document.';
+        setErrors(prev => ({ ...prev, [name]: message }));
+        showToast(message, 'error');
+        return;
+      }
+    }
+
     setFormState(prev => ({ ...prev, [name]: file }));
 
     // Clear error when selecting file
