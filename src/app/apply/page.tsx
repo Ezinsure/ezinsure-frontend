@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { MainLayout } from '@/components/ui/main-layout';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -74,10 +74,11 @@ export default function ApplyPage() {
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   
-  // Reset triggers for SearchInput components
+  // Reset triggers for SearchInput components & file inputs
   const [plateNumberResetTrigger, setPlateNumberResetTrigger] = useState(0);
   const [identificationNumberResetTrigger, setIdentificationNumberResetTrigger] = useState(0);
   const [phoneNumberResetTrigger, setPhoneNumberResetTrigger] = useState(0);
+  const [fileResetTrigger, setFileResetTrigger] = useState(0);
   
   // Track search results for isNewClient and isNewVehicle fields
   const [searchResults, setSearchResults] = useState({
@@ -254,7 +255,35 @@ export default function ApplyPage() {
     }
   };
 
+  const allowedFileTypes = useMemo(
+    () => [
+      'image/jpeg',
+      'image/png',
+      'image/jpg',
+      'image/webp',
+      'image/gif',
+      'application/pdf'
+    ],
+    []
+  );
+
   const handleFileChange = (name: string) => (file: File | null) => {
+    if (file) {
+      const mimeType = file.type?.toLowerCase();
+      const fileName = file.name?.toLowerCase();
+      const isAllowed =
+        (mimeType && allowedFileTypes.includes(mimeType)) ||
+        (!mimeType && /\.(png|jpe?g|gif|webp|pdf)$/i.test(fileName || ''));
+
+      if (!isAllowed) {
+        const message = 'Unsupported file type. Please upload an image or PDF document.';
+        setErrors(prev => ({ ...prev, [name]: message }));
+        showToast(message, 'error');
+        setFileResetTrigger(prev => prev + 1);
+        return;
+      }
+    }
+
     setFormState(prev => ({ ...prev, [name]: file }));
 
     // Clear error when selecting file
@@ -311,9 +340,9 @@ export default function ApplyPage() {
     setFormState(prev => ({
       ...prev,
       // Client information from vehicle owner
-      fullName: (data.fullName as string) || prev.fullName,
-      email: (data.email as string) || prev.email,
-      phoneNumber: (data.phoneNumber as string) || prev.phoneNumber,
+      // fullName: (data.fullName as string) || prev.fullName,
+      // email: (data.email as string) || prev.email,
+      // phoneNumber: (data.phoneNumber as string) || prev.phoneNumber,
       // Vehicle-specific fields
       vehicleType: (data.vehicleType as string) || prev.vehicleType,
       vehicleAge: (data.vehicleAge as string) || prev.vehicleAge,
@@ -324,7 +353,7 @@ export default function ApplyPage() {
       clientId: (data.clientId as string) || prev.clientId,
     }));
     
-    showToast('Vehicle information loaded successfully', 'success');
+    showToast('Vehicle information loaded successfully.', 'success');
   };
 
   const formatInsuranceDuration = (duration: string) => {
@@ -517,7 +546,14 @@ export default function ApplyPage() {
         if (!response.ok) {
           const errorData = await response.json();
           console.error('Submission error:', errorData);
-          const errorMessage = errorData.error || errorData.message || 'Application submission failed';
+          let errorMessage = errorData.error || errorData.message || 'Application submission failed';
+
+          if (typeof errorMessage === 'string' && errorMessage.toLowerCase().includes('duplicate key')) {
+            if (errorMessage.toLowerCase().includes('email')) {
+              errorMessage = 'This email is already linked to another client. Please use a different email or search for the existing client via their identification number.';
+            }
+          }
+
           throw new Error(errorMessage);
         }
 
@@ -1220,6 +1256,7 @@ export default function ApplyPage() {
                     error={errors.nationalID}
                     required
                     accept="image/*,.pdf"
+                    resetTrigger={fileResetTrigger}
                   />
 
                   <FileInput
@@ -1230,6 +1267,7 @@ export default function ApplyPage() {
                     error={errors.yellowCard}
                     required
                     accept="image/*,.pdf"
+                    resetTrigger={fileResetTrigger}
                   />
 
                   <FileInput
@@ -1239,6 +1277,7 @@ export default function ApplyPage() {
                     onChange={handleFileChange('pastInsuranceCertificate')}
                     accept="image/*,.pdf"
                     className="md:col-span-2"
+                    resetTrigger={fileResetTrigger}
                   />
                 </div>
               </div>
