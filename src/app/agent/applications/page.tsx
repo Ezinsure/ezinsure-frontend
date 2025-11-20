@@ -1351,6 +1351,107 @@ useEffect(() => {
     }
   };
 
+  const handleDownloadExcel = () => {
+    if (!filteredApplications.length) {
+      showToast('No applications to export', 'info');
+      return;
+    }
+
+    try {
+      const formatDateForExcel = (dateString?: string) => {
+        if (!dateString) return 'N/A';
+
+        try {
+          const date = new Date(dateString);
+          if (isNaN(date.getTime())) {
+            return 'Invalid Date';
+          }
+
+          const year = date.getFullYear();
+          const month = String(date.getMonth() + 1).padStart(2, '0');
+          const day = String(date.getDate()).padStart(2, '0');
+          return `${year}-${month}-${day}`;
+        } catch {
+          return 'Date Error';
+        }
+      };
+
+      const headers = [
+        'Application Number',
+        'Client Name',
+        'Client Email',
+        'Client Phone',
+        'Insurance Category',
+        'Insurance Type',
+        'Duration',
+        'Amount (RWF)',
+        'Agent Commission (RWF)',
+        'Company Commission (RWF)',
+        'Payment Status',
+        'Status',
+        'Submitted At',
+        'Insurance End Date',
+        'Created By',
+      ];
+
+      const csvData = filteredApplications.map((app) => {
+        const clientName = app.client?.fullName || app.fullName || '';
+        const clientEmail = app.client?.email || app.email || '';
+        const clientPhone = app.client?.phoneNumber || app.phoneNumber || '';
+        const createdBy = app.admin
+          ? `Admin: ${app.admin.fullName}`
+          : app.agent
+          ? `Agent: ${app.agent.fullName}`
+          : 'Client';
+
+        return [
+          app.applicationNumber || '',
+          clientName,
+          clientEmail,
+          clientPhone,
+          app.insuranceCategory || '',
+          app.insuranceType || '',
+          app.insuranceDuration || '',
+          app.amount ? app.amount.toString() : '0',
+          app.agentCommission ? app.agentCommission.toString() : '0',
+          app.companyCommission ? app.companyCommission.toString() : '0',
+          app.agentCommissionPaymentStatus || 'N/A',
+          (app.status || '').replace('_', ' '),
+          formatDateForExcel(app.submittedAt),
+          formatDateForExcel(app.insuranceEndAt),
+          createdBy,
+        ];
+      });
+
+      const csvContent = [
+        headers.join(','),
+        ...csvData.map((row) =>
+          row
+            .map((cell) => (typeof cell === 'string' && cell.includes(',') ? `"${cell}"` : cell))
+            .join(',')
+        ),
+      ].join('\n');
+
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+
+      const dateStr = new Date().toISOString().split('T')[0];
+      const timeStr = new Date().toLocaleTimeString().replace(/:/g, '-');
+      link.download = `agent_applications_${dateStr}_${timeStr}.csv`;
+
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      showToast('Excel file downloaded successfully', 'success');
+    } catch (error) {
+      console.error('Error generating Excel file:', error);
+      showToast('Failed to generate Excel file', 'error');
+    }
+  };
+
   // Handle payment proof submission
   const handleSubmitPayment = async () => {
     if (!selectedApp || !paymentProof || !transactionId) {
@@ -1822,13 +1923,48 @@ const getActionButtons = (app: Application) => {
             </div>
           </div>
           
-          {/* Filter Actions */}
-          <div className="mt-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-            <div className="text-sm text-gray-500">
-              {searchQuery && <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 mr-2">Search: {searchQuery}</span>}
-              {selectedStatus !== 'all' && <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 mr-2">Status: {selectedStatus.replace('_', ' ')}</span>}
-              {(startDate || endDate) && <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">Date Range: {startDate || 'beginning'} - {endDate || 'now'}</span>}
-            </div>
+        {/* Filter Actions */}
+        <div className="mt-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+          <div className="text-sm text-gray-500">
+            {searchQuery && <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 mr-2">Search: {searchQuery}</span>}
+            {selectedStatus !== 'all' && <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 mr-2">Status: {selectedStatus.replace('_', ' ')}</span>}
+            {(startDate || endDate) && <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">Date Range: {startDate || 'beginning'} - {endDate || 'now'}</span>}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {filteredApplications.length > 0 && (
+              <>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={handleDownloadPDF}
+                  className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 flex items-center gap-2"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                    <polyline points="14,2 14,8 20,8"></polyline>
+                    <line x1="16" y1="13" x2="8" y2="13"></line>
+                    <line x1="16" y1="17" x2="8" y2="17"></line>
+                    <polyline points="10,9 9,9 8,9"></polyline>
+                  </svg>
+                  Download PDF
+                </Button>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={handleDownloadExcel}
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 flex items-center gap-2"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                    <polyline points="14,2 14,8 20,8"></polyline>
+                    <line x1="16" y1="13" x2="8" y2="13"></line>
+                    <line x1="16" y1="17" x2="8" y2="17"></line>
+                    <polyline points="10,9 9,9 8,9"></polyline>
+                  </svg>
+                  Download Excel
+                </Button>
+              </>
+            )}
             <Button
               variant="text"
               size="sm"
@@ -1837,24 +1973,8 @@ const getActionButtons = (app: Application) => {
             >
               Clear All Filters
             </Button>
-            {filteredApplications.length > 0 && (
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={handleDownloadPDF}
-                className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 flex items-center gap-2"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                  <polyline points="14,2 14,8 20,8"></polyline>
-                  <line x1="16" y1="13" x2="8" y2="13"></line>
-                  <line x1="16" y1="17" x2="8" y2="17"></line>
-                  <polyline points="10,9 9,9 8,9"></polyline>
-                </svg>
-                Download PDF
-              </Button>
-            )}
           </div>
+        </div>
         </div>
 
         {/* Results Summary */}
