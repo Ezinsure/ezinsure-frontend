@@ -284,6 +284,296 @@ export default function AdminMyApplicationsPage() {
     setCurrentPage(1);
   };
 
+  const handleDownloadPDF = async () => {
+    if (!filteredApplications.length) {
+      showToast('No applications to export', 'info');
+      return;
+    }
+
+    try {
+      const { jsPDF } = await import('jspdf');
+      const autoTable = await import('jspdf-autotable');
+
+      const doc = new jsPDF('landscape', 'mm', 'a4');
+      const currentDate = new Date().toLocaleDateString();
+      const currentTime = new Date().toLocaleTimeString();
+
+      doc.setFontSize(20);
+      doc.setTextColor(10, 37, 64);
+      doc.text('Ezinsure - My Applications', 14, 20);
+
+      doc.setFontSize(12);
+      doc.setTextColor(100, 100, 100);
+      doc.text(`Generated on: ${currentDate} at ${currentTime}`, 14, 30);
+
+      doc.setFontSize(11);
+      doc.setTextColor(60, 60, 60);
+      let filterY = 40;
+
+      if (searchQuery) {
+        doc.text(`Search Query: ${searchQuery}`, 14, filterY);
+        filterY += 6;
+      }
+
+      if (selectedStatus !== 'all') {
+        doc.text(`Status Filter: ${(selectedStatus || '').replace('_', ' ')}`, 14, filterY);
+        filterY += 6;
+      }
+
+      if (startDate || endDate) {
+        doc.text(`Date Range: ${startDate || 'beginning'} to ${endDate || 'now'}`, 14, filterY);
+        filterY += 6;
+      }
+
+      filterY += 3;
+      doc.setFontSize(10);
+      doc.setTextColor(80, 80, 80);
+      doc.text(`Total Applications: ${filteredApplications.length}`, 14, filterY);
+      filterY += 5;
+
+      const totalAmount = filteredApplications.reduce((sum, app) => sum + (app.amount || 0), 0);
+      const totalCompanyCommission = filteredApplications.reduce(
+        (sum, app) => sum + (app.companyCommission || 0),
+        0
+      );
+      const totalAgentCommission = filteredApplications.reduce(
+        (sum, app) => sum + (app.agentCommission || 0),
+        0
+      );
+
+      doc.text(`Total Amount: ${totalAmount.toLocaleString()} RWF`, 14, filterY);
+      filterY += 5;
+      doc.text(`Total Company Commission: ${totalCompanyCommission.toLocaleString()} RWF`, 14, filterY);
+      filterY += 5;
+      doc.text(`Total Agent Commission: ${totalAgentCommission.toLocaleString()} RWF`, 14, filterY);
+
+      const formatDateForPDF = (dateString: string | undefined) => {
+        if (!dateString) return 'N/A';
+
+        try {
+          const date = new Date(dateString);
+          if (isNaN(date.getTime())) {
+            return 'Invalid Date';
+          }
+
+          const day = String(date.getDate()).padStart(2, '0');
+          const month = String(date.getMonth() + 1).padStart(2, '0');
+          const year = date.getFullYear();
+          return `${day}/${month}/${year}`;
+        } catch {
+          return 'Date Error';
+        }
+      };
+
+      const tableData = filteredApplications.map((app, index) => {
+        const clientName = app.client?.fullName || app.fullName || '';
+        const clientEmail = app.client?.email || app.email || '';
+        const createdBy = app.admin
+          ? `Admin: ${app.admin.fullName}`
+          : app.agent
+          ? `Agent: ${app.agent.fullName}`
+          : 'Client';
+
+        return [
+          (index + 1).toString(),
+          clientName.length > 28 ? `${clientName.substring(0, 28)}...` : clientName,
+          clientEmail.length > 32 ? `${clientEmail.substring(0, 32)}...` : clientEmail,
+          (app.insuranceCategory || '').length > 22
+            ? `${(app.insuranceCategory || '').substring(0, 22)}...`
+            : app.insuranceCategory || '',
+          formatDateForPDF(app.insuranceEndAt),
+          createdBy.length > 22 ? `${createdBy.substring(0, 22)}...` : createdBy,
+          app.amount ? `${app.amount.toLocaleString()} RWF` : '0 RWF',
+          app.companyCommission ? `${app.companyCommission.toLocaleString()} RWF` : '0 RWF',
+          app.agentCommission ? `${app.agentCommission.toLocaleString()} RWF` : '0 RWF',
+          formatDateForPDF(app.submittedAt),
+          (app.status || '').replace('_', ' ').toUpperCase(),
+        ];
+      });
+
+      autoTable.default(doc, {
+        head: [
+          [
+            '#',
+            'Client Name',
+            'Email',
+            'Category',
+            'End Date',
+            'Performed By',
+            'Amount',
+            'Company Comm.',
+            'Agent Comm.',
+            'Date',
+            'Status',
+          ],
+        ],
+        body: tableData,
+        startY: filterY + 10,
+        styles: {
+          fontSize: 7,
+          cellPadding: 1,
+          overflow: 'linebreak',
+          font: 'helvetica',
+          lineColor: [200, 200, 200],
+          lineWidth: 0.1,
+          fillColor: false,
+          halign: 'left',
+          valign: 'middle',
+        },
+        headStyles: {
+          fillColor: [51, 122, 183],
+          textColor: [255, 255, 255],
+          fontStyle: 'bold',
+          fontSize: 8,
+          halign: 'center',
+          valign: 'middle',
+        },
+        columnStyles: {
+          0: { cellWidth: 8, halign: 'center' },
+          1: { cellWidth: 30, halign: 'left' },
+          2: { cellWidth: 35, halign: 'left' },
+          3: { cellWidth: 25, halign: 'left' },
+          4: { cellWidth: 25, halign: 'left' },
+          5: { cellWidth: 25, halign: 'left' },
+          6: { cellWidth: 25, halign: 'right' },
+          7: { cellWidth: 25, halign: 'right' },
+          8: { cellWidth: 25, halign: 'right' },
+          9: { cellWidth: 25, halign: 'center' },
+          10: { cellWidth: 25, halign: 'center' },
+        },
+        alternateRowStyles: {
+          fillColor: [245, 245, 245],
+        },
+        margin: { top: 10, right: 8, bottom: 10, left: 8 },
+        pageBreak: 'auto',
+        showFoot: 'lastPage',
+        didDrawPage: function (data) {
+          doc.setFontSize(8);
+          doc.setTextColor(100, 100, 100);
+          doc.text(`Page ${data.pageNumber}`, doc.internal.pageSize.width - 20, doc.internal.pageSize.height - 10);
+        },
+      });
+
+      const dateStr = new Date().toISOString().split('T')[0];
+      const timeStr = new Date().toLocaleTimeString().replace(/:/g, '-');
+      doc.save(`my_applications_${dateStr}_${timeStr}.pdf`);
+
+      showToast('PDF downloaded successfully', 'success');
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      showToast('Failed to generate PDF', 'error');
+    }
+  };
+
+  const handleDownloadExcel = () => {
+    if (!filteredApplications.length) {
+      showToast('No applications to export', 'info');
+      return;
+    }
+
+    try {
+      const formatDateForExcel = (dateString: string | undefined) => {
+        if (!dateString) return 'N/A';
+
+        try {
+          const date = new Date(dateString);
+          if (isNaN(date.getTime())) {
+            return 'Invalid Date';
+          }
+
+          const year = date.getFullYear();
+          const month = String(date.getMonth() + 1).padStart(2, '0');
+          const day = String(date.getDate()).padStart(2, '0');
+          return `${year}-${month}-${day}`;
+        } catch {
+          return 'Date Error';
+        }
+      };
+
+      const headers = [
+        'Client Name',
+        'Email',
+        'Phone',
+        'Insurance Category',
+        'Insurance Type',
+        'Duration',
+        'Insurance End Date',
+        'Performed By',
+        'Amount (RWF)',
+        'Company Commission (RWF)',
+        'Agent Commission (RWF)',
+        'Date',
+        'Status',
+        'Address',
+        'Province',
+        'District',
+        'Sector',
+      ];
+
+      const csvData = filteredApplications.map((app) => {
+        const clientName = app.client?.fullName || app.fullName || '';
+        const clientEmail = app.client?.email || app.email || '';
+        const clientPhone = app.client?.phoneNumber || app.phoneNumber || '';
+        const clientAddress = app.client?.address || app.address || '';
+        const clientProvince = app.client?.province || app.province || '';
+        const clientDistrict = app.client?.district || app.district || '';
+        const clientSector = app.client?.sector || app.sector || '';
+        const createdBy = app.admin
+          ? `Admin: ${app.admin.fullName}`
+          : app.agent
+          ? `Agent: ${app.agent.fullName}`
+          : 'Client';
+
+        return [
+          clientName,
+          clientEmail,
+          clientPhone,
+          app.insuranceCategory || '',
+          app.insuranceType || '',
+          app.insuranceDuration || '',
+          formatDateForExcel(app.insuranceEndAt),
+          createdBy,
+          app.amount ? app.amount.toString() : '0',
+          app.companyCommission ? app.companyCommission.toString() : '0',
+          app.agentCommission ? app.agentCommission.toString() : '0',
+          formatDateForExcel(app.submittedAt),
+          (app.status || '').replace('_', ' '),
+          clientAddress,
+          clientProvince,
+          clientDistrict,
+          clientSector,
+        ];
+      });
+
+      const csvContent = [
+        headers.join(','),
+        ...csvData.map((row) =>
+          row
+            .map((cell) => (typeof cell === 'string' && cell.includes(',') ? `"${cell}"` : cell))
+            .join(',')
+        ),
+      ].join('\n');
+
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.setAttribute('href', url);
+
+      const dateStr = new Date().toISOString().split('T')[0];
+      const timeStr = new Date().toLocaleTimeString().replace(/:/g, '-');
+      link.setAttribute('download', `my_applications_${dateStr}_${timeStr}.csv`);
+
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      showToast('Excel file downloaded successfully', 'success');
+    } catch (error) {
+      console.error('Error generating Excel file:', error);
+      showToast('Failed to generate Excel file', 'error');
+    }
+  };
+
   // Get status badge based on application status
   const getStatusBadge = (status: string) => {
     if (!status) {
@@ -435,12 +725,15 @@ export default function AdminMyApplicationsPage() {
 
         {/* Search and filter section */}
         <div className="mb-6 bg-white p-4 rounded-lg shadow-sm slide-in-right">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
             {/* Search Input */}
             <div className="lg:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Search Applications</label>
+              <label className="block text-xs font-semibold text-gray-600 tracking-wide mb-1 uppercase">Search Applications</label>
               <Input
-                label=""
+                label="Search"
+                hideLabel
+                size="compact"
+                className="mb-0"
                 name="search"
                 placeholder="Search by name, email or ID..."
                 value={searchQuery}
@@ -456,11 +749,11 @@ export default function AdminMyApplicationsPage() {
             
             {/* Status Select */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Status Filter</label>
+              <label className="block text-xs font-semibold text-gray-600 tracking-wide mb-1 uppercase">Status Filter</label>
               <select
                 value={selectedStatus}
                 onChange={(e) => handleFilterChange('status', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[var(--main-blue)] focus:border-[var(--main-blue)] sm:text-sm bg-white"
+                className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[var(--main-blue)] focus:border-[var(--main-blue)] bg-white"
               >
                 <option value="all">All Statuses</option>
                 <option value={ApplicationStatus.PENDING}>Pending</option>
@@ -475,23 +768,23 @@ export default function AdminMyApplicationsPage() {
             
             {/* Start Date */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">From Date</label>
+              <label className="block text-xs font-semibold text-gray-600 tracking-wide mb-1 uppercase">From Date</label>
               <input
                 type="date"
                 value={startDate}
                 onChange={(e) => handleFilterChange('startDate', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[var(--main-blue)] focus:border-[var(--main-blue)] sm:text-sm bg-white"
+                className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[var(--main-blue)] focus:border-[var(--main-blue)] bg-white"
               />
             </div>
             
             {/* End Date */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">To Date</label>
+              <label className="block text-xs font-semibold text-gray-600 tracking-wide mb-1 uppercase">To Date</label>
               <input
                 type="date"
                 value={endDate}
                 onChange={(e) => handleFilterChange('endDate', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[var(--main-blue)] focus:border-[var(--main-blue)] sm:text-sm bg-white"
+                className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[var(--main-blue)] focus:border-[var(--main-blue)] bg-white"
               />
             </div>
           </div>
@@ -503,12 +796,66 @@ export default function AdminMyApplicationsPage() {
               {selectedStatus !== 'all' && <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 mr-2">Status: {(selectedStatus || '').replace('_', ' ')}</span>}
               {(startDate || endDate) && <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">Date Range: {startDate || 'beginning'} - {endDate || 'now'}</span>}
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
+              {filteredApplications.length > 0 && (
+                <>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={handleDownloadPDF}
+                    className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 flex items-center gap-2"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                      <polyline points="14,2 14,8 20,8"></polyline>
+                      <line x1="16" y1="13" x2="8" y2="13"></line>
+                      <line x1="16" y1="17" x2="8" y2="17"></line>
+                      <polyline points="10,9 9,9 8,9"></polyline>
+                    </svg>
+                    Download PDF
+                  </Button>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={handleDownloadExcel}
+                    className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 flex items-center gap-2"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                      <polyline points="14,2 14,8 20,8"></polyline>
+                      <line x1="16" y1="13" x2="8" y2="13"></line>
+                      <line x1="16" y1="17" x2="8" y2="17"></line>
+                      <polyline points="10,9 9,9 8,9"></polyline>
+                    </svg>
+                    Download Excel
+                  </Button>
+                </>
+              )}
               <Button
                 variant="text"
                 size="sm"
                 onClick={handleClearFilters}
-                className="text-gray-600 hover:text-gray-800 border border-gray-300 hover:border-gray-400 px-4"
+                className="text-gray-600 hover:text-gray-800 border border-gray-300 hover:border-gray-400 px-3 py-1.5"
               >
                 Clear All Filters
               </Button>

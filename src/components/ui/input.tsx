@@ -3,6 +3,8 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 
+type InputSize = 'default' | 'compact';
+
 interface InputProps {
   label: string;
   type?: string;
@@ -18,6 +20,8 @@ interface InputProps {
   min?: string;
   max?: string;
   maxLength?: number;
+  size?: InputSize;
+  hideLabel?: boolean;
 }
 
 export const Input = ({
@@ -35,16 +39,38 @@ export const Input = ({
   min,
   max,
   maxLength,
+  size = 'default',
+  hideLabel = false,
 }: InputProps) => {
   const [isFocused, setIsFocused] = useState(false);
+  const inputSize = size;
+
+  const sizeStyles: Record<InputSize, { wrapper: string; label: string; border: string; input: string }> = {
+    default: {
+      wrapper: 'mb-4',
+      label: 'block text-sm font-medium text-gray-700 mb-2',
+      border: 'rounded-lg border-2',
+      input: 'w-full py-3 px-3 rounded-lg text-base',
+    },
+    compact: {
+      wrapper: 'mb-2',
+      label: 'block text-xs font-semibold text-gray-600 tracking-wide mb-1',
+      border: 'rounded-md border',
+      input: 'w-full py-2 px-2.5 rounded-md text-sm',
+    },
+  };
+
+  const { wrapper, label: labelClass, border, input: inputClass } = sizeStyles[inputSize];
 
   return (
-    <div className={`mb-4 ${className}`}>
-      <label className="block text-sm font-medium text-gray-700 mb-2" htmlFor={name}>
-        {label}
-        {required && <span className="text-red-500 ml-1">*</span>}
-      </label>
-      <div className={`relative rounded-lg border-2 transition-all duration-200 ${
+    <div className={`${wrapper} ${className}`}>
+      {!hideLabel && (
+        <label className={labelClass} htmlFor={name}>
+          {label}
+          {required && <span className="text-red-500 ml-1">*</span>}
+        </label>
+      )}
+      <div className={`relative ${border} transition-all duration-200 ${
         error ? 'border-red-300 bg-red-50' : 
         isFocused ? 'border-blue-500 bg-blue-50/30' : 'border-gray-200 bg-white hover:border-gray-300'
       } ${disabled ? 'bg-gray-50 border-gray-200' : ''}`}>
@@ -57,7 +83,7 @@ export const Input = ({
           type={type}
           id={name}
           name={name}
-          className={`w-full py-3 px-3 rounded-lg focus:outline-none transition-colors duration-200 ${
+          className={`${inputClass} focus:outline-none transition-colors duration-200 ${
             icon ? 'pl-10' : ''
           } ${disabled ? 'bg-gray-50 text-gray-500 cursor-not-allowed' : 'text-gray-900 placeholder-gray-500'}`}
           placeholder={placeholder}
