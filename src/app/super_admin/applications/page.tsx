@@ -680,12 +680,15 @@ export default function SuperAdminApplicationsPage() {
 
         {/* Search and filter section */}
         <div className="mb-6 bg-white p-4 rounded-lg shadow-sm slide-in-right">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
             {/* Search Input */}
             <div className="lg:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Search Applications</label>
+              <label className="block text-xs font-semibold text-gray-600 tracking-wide mb-1 uppercase">Search Applications</label>
               <Input
-                label=""
+                label="Search"
+                hideLabel
+                size="compact"
+                className="mb-0"
                 name="search"
                 placeholder="Search by name, email or ID..."
                 value={searchQuery}
@@ -701,11 +704,11 @@ export default function SuperAdminApplicationsPage() {
             
             {/* Status Select */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Status Filter</label>
+              <label className="block text-xs font-semibold text-gray-600 tracking-wide mb-1 uppercase">Status Filter</label>
               <select
                 value={selectedStatus}
                 onChange={(e) => handleFilterChange('status', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[var(--main-blue)] focus:border-[var(--main-blue)] sm:text-sm bg-white"
+                className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[var(--main-blue)] focus:border-[var(--main-blue)] bg-white"
               >
                 <option value="all">All Statuses</option>
                 <option value={ApplicationStatus.PENDING}>Pending</option>
@@ -720,23 +723,23 @@ export default function SuperAdminApplicationsPage() {
             
             {/* Start Date */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">From Date</label>
+              <label className="block text-xs font-semibold text-gray-600 tracking-wide mb-1 uppercase">From Date</label>
               <input
                 type="date"
                 value={startDate}
                 onChange={(e) => handleFilterChange('startDate', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[var(--main-blue)] focus:border-[var(--main-blue)] sm:text-sm bg-white"
+                className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[var(--main-blue)] focus:border-[var(--main-blue)] bg-white"
               />
             </div>
             
             {/* End Date */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">To Date</label>
+              <label className="block text-xs font-semibold text-gray-600 tracking-wide mb-1 uppercase">To Date</label>
               <input
                 type="date"
                 value={endDate}
                 onChange={(e) => handleFilterChange('endDate', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[var(--main-blue)] focus:border-[var(--main-blue)] sm:text-sm bg-white"
+                className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[var(--main-blue)] focus:border-[var(--main-blue)] bg-white"
               />
             </div>
           </div>
@@ -748,7 +751,7 @@ export default function SuperAdminApplicationsPage() {
               {selectedStatus !== 'all' && <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 mr-2">Status: {selectedStatus.replace('_', ' ')}</span>}
               {(startDate || endDate) && <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">Date Range: {startDate || 'beginning'} - {endDate || 'now'}</span>}
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               {filteredApplications.length > 0 && (
                 <>
                   <Button
@@ -785,7 +788,7 @@ export default function SuperAdminApplicationsPage() {
                 variant="text"
                 size="sm"
                 onClick={handleClearFilters}
-                className="text-gray-600 hover:text-gray-800 border border-gray-300 hover:border-gray-400 px-4"
+                className="text-gray-600 hover:text-gray-800 border border-gray-300 hover:border-gray-400 px-3 py-1.5"
               >
                 Clear All Filters
               </Button>
