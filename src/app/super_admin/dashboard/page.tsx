@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { TrendingUp, Users, DollarSign, Download, Search, UserCheck, Award, Activity, Briefcase, Shield, Globe, ArrowUpRight, ArrowDownRight, Eye, EyeOff, RefreshCw, Receipt, Settings, Database, Server, Key } from 'lucide-react';
+import { TrendingUp, Users, DollarSign, Download, Search, UserCheck, Award, Activity, Briefcase, Globe, ArrowUpRight, ArrowDownRight, Eye, EyeOff, RefreshCw, Receipt, Settings, Database, Key } from 'lucide-react';
 import type { TooltipProps } from 'recharts';
 import { MainLayout } from '@/components/ui/main-layout';
 import { useAuth } from '@/context/AuthContext';
@@ -283,7 +283,6 @@ const getTodayDate = (): string => {
 
 const SuperAdminDashboard = () => {
   const { token } = useAuth();
-  const [selectedPeriod, setSelectedPeriod] = useState('this_month');
   const [selectedInsuranceType, setSelectedInsuranceType] = useState('all');
   const [showProfitChart, setShowProfitChart] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
