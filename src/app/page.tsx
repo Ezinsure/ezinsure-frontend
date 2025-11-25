@@ -83,14 +83,13 @@ export default function Home() {
                   <span className="text-xs font-medium text-white/90">Protection For All</span>
                 </div>
                 <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold mb-4 leading-tight tracking-tight">
-                  Be Inspired<br />
-                  But Stay{' '}
+                  Insurance Made{' '}
                   <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#FF9D2F] to-[#FFB963]">
-                    Insured
+                    Simple
                   </span>
                 </h1>
                 <p className="text-base md:text-lg mb-6 text-gray-100 leading-relaxed max-w-xl">
-                  Insurance company &quot;EZINSURE&quot; took care of your peace of mind. We offer you full insurance coverage for you, your loved ones, your business and property.
+                  Get insured in minutes, not days. Fast, reliable coverage for what matters most.
                 </p>
                 <div className="flex flex-wrap gap-3">
                   <Link href="/apply">
