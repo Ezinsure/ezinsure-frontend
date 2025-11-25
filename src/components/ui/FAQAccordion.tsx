@@ -60,13 +60,13 @@ const FAQAccordion = () => {
   ];
 
   // Function to convert YouTube watch URLs to embed URLs
-  const getEmbedUrl = (url: string) => {
-    const match = url.match(/(?:https?:\/\/)?(?:www\.)?youtube\.com\/watch\?v=([^&]+)/);
-    if (match && match[1]) {
-      return `https://www.youtube.com/embed/${match[1]}`;
-    }
-    return url; // fallback if not a YouTube watch URL
-  };
+  // const getEmbedUrl = (url: string) => {
+  //   const match = url.match(/(?:https?:\/\/)?(?:www\.)?youtube\.com\/watch\?v=([^&]+)/);
+  //   if (match && match[1]) {
+  //     return `https://www.youtube.com/embed/${match[1]}`;
+  //   }
+  //   return url; // fallback if not a YouTube watch URL
+  // };
 
   return (
     <div className="space-y-4">

@@ -90,7 +90,7 @@ export default function Home() {
                   </span>
                 </h1>
                 <p className="text-base md:text-lg mb-6 text-gray-100 leading-relaxed max-w-xl">
-                  Insurance company "EZINSURE" took care of your peace of mind. We offer you full insurance coverage for you, your loved ones, your business and property.
+                  Insurance company &quot;EZINSURE&quot; took care of your peace of mind. We offer you full insurance coverage for you, your loved ones, your business and property.
                 </p>
                 <div className="flex flex-wrap gap-3">
                   <Link href="/apply">
