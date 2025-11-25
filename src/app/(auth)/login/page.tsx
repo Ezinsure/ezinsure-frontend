@@ -205,13 +205,15 @@ export default function LoginPage() {
   return (
     <div className="h-screen bg-white flex overflow-x-hidden overflow-y-auto text-xs">
       {/* Left Panel - Visual/Content */}
-      <div className="hidden lg:flex lg:w-2/5 bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-800 relative overflow-hidden h-full text-[0.85rem]">
+      <div className="hidden lg:flex lg:w-2/5 bg-gradient-to-br from-[#0A2540] via-[#0d4474] to-[#126BB3] relative overflow-hidden h-full text-[0.85rem]">
         {/* Background Pattern */}
-        <div className="absolute inset-0 opacity-20">
-          <div className="absolute inset-0" style={{
-            backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='white' fill-opacity='0.1'%3E%3Ccircle cx='30' cy='30' r='1'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
-          }}></div>
+        <div className="absolute inset-0 opacity-10">
+          <div className="absolute inset-0 bg-grid-pattern"></div>
         </div>
+        
+        {/* Floating Orbs */}
+        <div className="absolute w-80 h-80 bg-[#FF9D2F] rounded-full opacity-10 blur-3xl -top-20 -left-20 animate-float-slow"></div>
+        <div className="absolute w-64 h-64 bg-[#126BB3] rounded-full opacity-15 blur-3xl bottom-10 right-10 animate-float-slow-reverse"></div>
         
         {/* Content */}
         <div className="relative z-10 flex flex-col justify-center px-8 py-8 text-white">
@@ -221,33 +223,49 @@ export default function LoginPage() {
             transition={{ duration: 0.8 }}
             className="mb-4"
           >
-            <div className="flex items-center mb-3">
-              <Link href="/" className="text-2xl font-bold text-white">
-                EZ<span className="text-orange-300">INSURE</span>
+            <div className="flex items-center mb-4">
+              <Link href="/" className="text-3xl font-bold text-white">
+                EZ<span className="text-[#FF9D2F]">INSURE</span>
               </Link>
             </div>
-            <h2 className="text-2xl font-bold mb-2 leading-snug">Insurance Made Simple</h2>
-            <p className="text-blue-100 text-sm leading-relaxed mb-3">
+            <h2 className="text-2xl font-bold mb-2 leading-tight">Insurance Made Simple</h2>
+            <p className="text-gray-100 text-sm leading-relaxed mb-5">
               Streamline your insurance management with our powerful platform designed for agents and administrators.
             </p>
             
-            {/* Feature highlights (sourced from homepage qualities) */}
+            {/* Feature highlights */}
             <div className="space-y-3">
-              <div className="flex items-center">
-                <div className="w-2 h-2 bg-white/60 rounded-full mr-3"></div>
-                <span className="text-blue-100">Instant Digital Processing</span>
+              <div className="flex items-start gap-3">
+                <div className="flex-shrink-0 w-5 h-5 bg-white/20 rounded-lg flex items-center justify-center mt-0.5">
+                  <svg className="w-3 h-3 text-[#FF9D2F]" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <span className="text-gray-100 text-xs">Instant Digital Processing</span>
               </div>
-              <div className="flex items-center">
-                <div className="w-2 h-2 bg-white/60 rounded-full mr-3"></div>
-                <span className="text-blue-100">Transparent Pricing</span>
+              <div className="flex items-start gap-3">
+                <div className="flex-shrink-0 w-5 h-5 bg-white/20 rounded-lg flex items-center justify-center mt-0.5">
+                  <svg className="w-3 h-3 text-[#FF9D2F]" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <span className="text-gray-100 text-xs">Transparent Pricing</span>
               </div>
-              <div className="flex items-center">
-                <div className="w-2 h-2 bg-white/60 rounded-full mr-3"></div>
-                <span className="text-blue-100">Quick Claims Settlement</span>
+              <div className="flex items-start gap-3">
+                <div className="flex-shrink-0 w-5 h-5 bg-white/20 rounded-lg flex items-center justify-center mt-0.5">
+                  <svg className="w-3 h-3 text-[#FF9D2F]" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <span className="text-gray-100 text-xs">Quick Claims Settlement</span>
               </div>
-              <div className="flex items-center">
-                <div className="w-2 h-2 bg-white/60 rounded-full mr-3"></div>
-                <span className="text-blue-100">24/7 Customer Support</span>
+              <div className="flex items-start gap-3">
+                <div className="flex-shrink-0 w-5 h-5 bg-white/20 rounded-lg flex items-center justify-center mt-0.5">
+                  <svg className="w-3 h-3 text-[#FF9D2F]" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <span className="text-gray-100 text-xs">24/7 Customer Support</span>
               </div>
             </div>
           </motion.div>
@@ -258,24 +276,24 @@ export default function LoginPage() {
             transition={{ duration: 0.8, delay: 0.3 }}
             className="mt-4"
           >
-            <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-4 border border-white/20 shadow-xl">
-              <div className="flex items-center mb-3">
-                <div className="w-10 h-10 rounded-full overflow-hidden mr-3 shadow-lg ring-2 ring-white/30">
-                  <Image src="/support.jpg" alt="Client" width={40} height={40} className="w-10 h-10 object-cover" />
+            <div className="bg-white/10 backdrop-blur-md rounded-xl p-4 border border-white/20 shadow-2xl">
+              <div className="flex gap-1 text-[#FF9D2F] mb-2">
+                {Array(5).fill(0).map((_, i) => (
+                  <svg key={i} className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                  </svg>
+                ))}
+              </div>
+              <p className="text-white text-xs leading-relaxed mb-3 italic">
+                &ldquo;The process was incredibly simple. I had my business insured within minutes, and their customer service team was very helpful when I had questions.&rdquo;
+              </p>
+              <div className="flex items-center pt-2 border-t border-white/20">
+                <div className="w-9 h-9 rounded-full overflow-hidden mr-2.5 shadow-lg ring-2 ring-white/30">
+                  <Image src="/support.jpg" alt="Client" width={36} height={36} className="w-9 h-9 object-cover" />
                 </div>
                 <div>
-                  <p className="text-white font-semibold">Josiane Uwimana</p>
-                  <p className="text-blue-200 text-[0.7rem]">Business Owner</p>
-                </div>
-              </div>
-              <div>
-                <p className="text-blue-100 italic text-sm leading-relaxed pl-3">
-                  &ldquo;The process was incredibly simple. I had my business insured within minutes, and their customer service team was very helpful when I had questions.&rdquo;
-                </p>
-                <div className="mt-2 text-orange-300">
-                  {Array(5).fill(0).map((_, i) => (
-                    <span key={i} className="inline-block">★</span>
-                  ))}
+                  <p className="text-white font-bold text-xs">Josiane Uwimana</p>
+                  <p className="text-gray-200 text-[0.65rem]">Business Owner</p>
                 </div>
               </div>
             </div>
@@ -287,8 +305,8 @@ export default function LoginPage() {
       <div className="flex-1 lg:w-3/5 flex flex-col justify-center px-4 py-4 lg:px-10 relative min-h-screen overflow-x-hidden overflow-y-auto text-[0.9rem]">
         {/* Decorative animated background */}
         <div className="pointer-events-none absolute inset-0 -z-0 overflow-hidden">
-          <div className="login-orb login-orb--blue animate-float" style={{ width: 220, height: 220, top: -40, right: -60 }} />
-          <div className="login-orb login-orb--indigo animate-float" style={{ width: 180, height: 180, bottom: 20, left: -50, animationDelay: '1.5s' }} />
+          <div className="absolute w-64 h-64 bg-[#126BB3] rounded-full opacity-5 blur-3xl -top-20 -right-20 animate-float-slow"></div>
+          <div className="absolute w-48 h-48 bg-[#FF9D2F] rounded-full opacity-5 blur-3xl bottom-10 -left-10 animate-float-slow-reverse"></div>
         </div>
         {/* Back to Home link - visible on all breakpoints */}
         <motion.div 
@@ -297,8 +315,8 @@ export default function LoginPage() {
           transition={{ duration: 0.6 }}
           className="mb-3"
         >
-          <Link href="/" className="inline-flex items-center text-gray-600 hover:text-gray-800 font-medium">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+          <Link href="/" className="inline-flex items-center text-gray-600 hover:text-[#126BB3] font-medium transition-colors">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
             Back to Home
           </Link>
         </motion.div>
@@ -327,13 +345,13 @@ export default function LoginPage() {
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
             </button>
               <div className="text-center mb-6">
-                <div className="mx-auto w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mb-4">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <div className="mx-auto w-14 h-14 bg-gradient-to-br from-[#126BB3] to-[#0A2540] rounded-2xl flex items-center justify-center mb-4 shadow-lg">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
                   </svg>
                 </div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">Reset Password</h3>
-                <p className="text-gray-600 text-sm">Enter your email address and we&apos;ll send you a link to reset your password.</p>
+                <h3 className="text-2xl font-bold text-gray-900 mb-2">Reset Password</h3>
+                <p className="text-gray-600 text-sm leading-relaxed">Enter your email address and we&apos;ll send you a link to reset your password.</p>
               </div>
             <form onSubmit={handleForgotPassword} className="space-y-4">
               <Input
@@ -394,13 +412,13 @@ export default function LoginPage() {
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
             </button>
               <div className="text-center mb-6">
-                <div className="mx-auto w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center mb-4">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <div className="mx-auto w-14 h-14 bg-gradient-to-br from-[#FF9D2F] to-[#e88a1f] rounded-2xl flex items-center justify-center mb-4 shadow-lg">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
                   </svg>
                 </div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">Device Conflict</h3>
-                <p className="text-gray-600 text-sm">You&apos;re already logged in on another device. Do you want to continue here?</p>
+                <h3 className="text-2xl font-bold text-gray-900 mb-2">Device Conflict</h3>
+                <p className="text-gray-600 text-sm leading-relaxed">You&apos;re already logged in on another device. Do you want to continue here?</p>
               </div>
               <div className="bg-gray-50 rounded-lg p-4 mb-6">
                 <div className="text-sm text-gray-700 space-y-2">
@@ -411,16 +429,16 @@ export default function LoginPage() {
                   <div className="flex justify-between"><span className="font-medium">Last Used:</span> <span>{deviceInfo?.lastUsedAt ? new Date(deviceInfo.lastUsedAt).toLocaleString() : 'unknown'}</span></div>
                 </div>
             </div>
-              <div className="flex items-center mb-6 p-3 bg-blue-50 rounded-lg">
-              <input
-                id="forceLogout"
-                type="checkbox"
-                checked={forceLogout}
-                onChange={e => setForceLogout(e.target.checked)}
-                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-              />
-                <label htmlFor="forceLogout" className="ml-3 text-sm text-gray-700">Log out from all other devices and continue here</label>
-            </div>
+              <div className="flex items-center mb-6 p-4 bg-gradient-to-r from-[#126BB3]/5 to-[#FF9D2F]/5 rounded-lg border border-gray-200">
+                <input
+                  id="forceLogout"
+                  type="checkbox"
+                  checked={forceLogout}
+                  onChange={e => setForceLogout(e.target.checked)}
+                  className="h-4 w-4 text-[#126BB3] focus:ring-[#126BB3] border-gray-300 rounded"
+                />
+                <label htmlFor="forceLogout" className="ml-3 text-sm text-gray-700 font-medium">Log out from all other devices and continue here</label>
+              </div>
             <Button type="button" variant="primary" fullWidth onClick={handleDeviceModalConfirm}>
               Continue
             </Button>
@@ -445,16 +463,16 @@ export default function LoginPage() {
           className="max-w-sm w-full mx-auto"
         >
           {/* Header */}
-          <div className="text-center mb-4">
+          <div className="text-center mb-6">
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.4 }}
             >
-              <h1 className="text-2xl font-bold text-gray-900 mb-1">Welcome back</h1>
-            <p className="text-gray-600 text-[0.85rem]">
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">Welcome Back</h1>
+              <p className="text-gray-600 text-base">
                 Sign in to your insurance management account
-            </p>
+              </p>
             </motion.div>
           </div>
 
@@ -522,28 +540,28 @@ export default function LoginPage() {
             />
             </div>
 
-            <div className="flex items-center justify-between mt-1">
+            <div className="flex items-center justify-between mt-2">
               <div className="flex items-center">
                 <input
                   id="show-password"
                   name="show-password"
                   type="checkbox"
-                  className="h-3.5 w-3.5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  className="h-4 w-4 text-[#126BB3] focus:ring-[#126BB3] border-gray-300 rounded"
                   checked={showPassword}
                   onChange={e => setShowPassword(e.target.checked)}
                 />
-                <label htmlFor="show-password" className="ml-1.5 block text-[0.8rem] text-gray-600">
+                <label htmlFor="show-password" className="ml-2 block text-sm text-gray-600">
                   Show password
                 </label>
               </div>
 
-                <button
-                  type="button"
-                className="text-[0.8rem] font-medium text-blue-600 hover:text-blue-500 transition-colors"
-                  onClick={() => setShowForgotPasswordModal(true)}
-                >
+              <button
+                type="button"
+                className="text-sm font-medium text-[#126BB3] hover:text-[#0A2540] transition-colors"
+                onClick={() => setShowForgotPasswordModal(true)}
+              >
                 Forgot password?
-                </button>
+              </button>
             </div>
 
             <motion.div
@@ -553,11 +571,11 @@ export default function LoginPage() {
             <Button
               type="submit"
               variant="primary"
-              size="sm"
+              size="md"
               fullWidth
               disabled={isSubmitting}
-                className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow"
-              >
+              className="bg-gradient-to-r from-[#324558] to-[#1c2a3a] hover:from-[#283648] hover:to-[#151f2c] shadow-md hover:shadow-lg transition-all duration-300"
+            >
                 {isSubmitting ? (
                   <div className="flex items-center">
                     <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -578,27 +596,27 @@ export default function LoginPage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.5, delay: 0.8 }}
-            className="mt-4 pt-3 border-t border-gray-200"
+            className="mt-6 pt-4 border-t border-gray-200"
           >
             <div className="text-center space-y-3">
-            <p className="text-[0.85rem] text-gray-600">
-              Want to become an agent?{' '}
-                <Link href="/register" className="font-medium text-blue-600 hover:text-blue-500 transition-colors">
-                Apply here
-              </Link>
-            </p>
-              <p className="text-[0.85rem] text-gray-600">
-              Are you a client looking to apply for insurance?{' '}
-                <Link href="/apply" className="font-medium text-blue-600 hover:text-blue-500 transition-colors">
-                Apply online
-              </Link>
-              {' '}or{' '}
-                <Link href="/" className="font-medium text-blue-600 hover:text-blue-500 transition-colors">
-                find an agent
-              </Link>
-              {' '}near you.
-            </p>
-          </div>
+              <p className="text-sm text-gray-600">
+                Want to become an agent?{' '}
+                <Link href="/register" className="font-semibold text-[#126BB3] hover:text-[#0A2540] transition-colors">
+                  Apply here
+                </Link>
+              </p>
+              <p className="text-sm text-gray-600">
+                Are you a client looking to apply for insurance?{' '}
+                <Link href="/apply" className="font-semibold text-[#126BB3] hover:text-[#0A2540] transition-colors">
+                  Apply online
+                </Link>
+                {' '}or{' '}
+                <Link href="/" className="font-semibold text-[#126BB3] hover:text-[#0A2540] transition-colors">
+                  find an agent
+                </Link>
+                {' '}near you.
+              </p>
+            </div>
           </motion.div>
         </motion.div>
       </div>
