@@ -60,13 +60,13 @@ const FAQAccordion = () => {
   ];
 
   // Function to convert YouTube watch URLs to embed URLs
-  const getEmbedUrl = (url: string) => {
-    const match = url.match(/(?:https?:\/\/)?(?:www\.)?youtube\.com\/watch\?v=([^&]+)/);
-    if (match && match[1]) {
-      return `https://www.youtube.com/embed/${match[1]}`;
-    }
-    return url; // fallback if not a YouTube watch URL
-  };
+  // const getEmbedUrl = (url: string) => {
+  //   const match = url.match(/(?:https?:\/\/)?(?:www\.)?youtube\.com\/watch\?v=([^&]+)/);
+  //   if (match && match[1]) {
+  //     return `https://www.youtube.com/embed/${match[1]}`;
+  //   }
+  //   return url; // fallback if not a YouTube watch URL
+  // };
 
   return (
     <div className="space-y-4">
@@ -100,7 +100,7 @@ const FAQAccordion = () => {
                 ))}
               </ol>
             </div>
-            <div className="aspect-w-16 aspect-h-9 mb-4">
+            {/* <div className="aspect-w-16 aspect-h-9 mb-4">
               <iframe
                 width="100%"
                 height="315"
@@ -119,7 +119,7 @@ const FAQAccordion = () => {
               className="text-[var(--secondary-blue)] hover:text-[var(--secondary-blue)] font-medium"
             >
               Watch on YouTube ↗
-            </a>
+            </a> */}
           </div>
         </div>
       ))}
