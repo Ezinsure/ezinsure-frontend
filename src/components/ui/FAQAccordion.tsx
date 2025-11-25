@@ -100,7 +100,7 @@ const FAQAccordion = () => {
                 ))}
               </ol>
             </div>
-            <div className="aspect-w-16 aspect-h-9 mb-4">
+            {/* <div className="aspect-w-16 aspect-h-9 mb-4">
               <iframe
                 width="100%"
                 height="315"
@@ -119,7 +119,7 @@ const FAQAccordion = () => {
               className="text-[var(--secondary-blue)] hover:text-[var(--secondary-blue)] font-medium"
             >
               Watch on YouTube ↗
-            </a>
+            </a> */}
           </div>
         </div>
       ))}
