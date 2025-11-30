@@ -369,7 +369,8 @@ export default function ManageApplicationsPage() {
   const calculateAdministrationFees = (insuranceCategory: string) => {
     const cat = insuranceCategory.toLowerCase();
     const isCarOrMoto = cat.includes('car') || cat.includes('motor') || cat.includes('moto');
-    return Math.round((isCarOrMoto ? 2500 : 5000) * 0.25);
+    const baseAmount = isCarOrMoto ? 2500 : 1500;
+    return Math.round(baseAmount * 0.25);
   };
 
   // Set default date range to current month
@@ -2070,7 +2071,7 @@ const getActionButtons = (app: Application) => {
             const isCarOrMoto = cat.includes('car') || cat.includes('motor') || cat.includes('moto');
             return isCarOrMoto
               ? 'Calculated as 25% of 2500 RWF for both motorbike and car insurance'
-              : 'Calculated as 25% of 5000 RWF for other insurance types (including fire and building)';
+              : 'Calculated as 25% of 2500 RWF for other insurance types (including fire and building)';
           })()}
         </p>
       </div>
