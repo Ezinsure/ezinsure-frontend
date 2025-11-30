@@ -584,11 +584,14 @@ export default function AdminNewApplicationPage() {
   };
 
   // Calculate administration fees based on insurance category
-
   const calculateAdministrationFees = (insuranceCategory: string) => {
-    const cat = insuranceCategory.toLowerCase();
-    const isCarOrMoto = cat.includes('car') || cat.includes('motor') || cat.includes('moto');
-    return Math.round((isCarOrMoto ? 2500 : 5000) * 0.25);
+    const normalizedCategory = insuranceCategory.toLowerCase();
+    const isVehicleCategory =
+      normalizedCategory.includes('car') ||
+      normalizedCategory.includes('motor') ||
+      normalizedCategory.includes('moto');
+    const baseAmount = isVehicleCategory ? 2500 : 1500;
+    return Math.round(baseAmount * 0.25);
   };
 
   // Auto-calculate administration fees when insurance category changes
@@ -2202,7 +2205,7 @@ export default function AdminNewApplicationPage() {
 
                           ? 'Calculated as 25% of 2500 RWF for MOTO insurance'
 
-                          : 'Calculated as 25% of 5000 RWF for other insurance types'}
+                          : 'Calculated as 25% of 2500 RWF'}
 
                       </p>
 
