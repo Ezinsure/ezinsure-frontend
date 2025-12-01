@@ -79,7 +79,7 @@ const Dashboard = () => {
       phoneNumber: string;
       province: string;
       district: string;
-    };
+    } | null;
     vehicle?: {
       id: string;
       plateNumber: string;
@@ -325,6 +325,9 @@ const Dashboard = () => {
 
   // Filter for recent applications based on search and type
   const filteredApplications = recentApplications.filter((app: Application) => {
+    // Filter out applications with null client
+    if (!app.client || !app.client.fullName) return false;
+    
     const matchesSearch =
       app.client.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       app.applicationNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -695,13 +698,12 @@ const CustomTooltip = ({ active, payload, label }: TooltipProps<number, string>)
                         <div className="flex items-start justify-between gap-3">
                           <div className="flex items-center gap-3">
                             <div className="flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 text-sm font-semibold text-white">
-                              {app.client.fullName
-                                .split(' ')
-                                .map((n: string) => n[0])
-                                .join('')}
+                              {app.client?.fullName
+                                ? app.client.fullName.split(' ').map((n: string) => n[0]).join('')
+                                : 'N/A'}
                             </div>
                             <div>
-                              <p className="font-medium text-slate-900">{app.client.fullName}</p>
+                              <p className="font-medium text-slate-900">{app.client?.fullName || 'Unknown Client'}</p>
                               <p className="text-xs text-slate-500">{app.applicationNumber}</p>
                             </div>
                           </div>
@@ -720,10 +722,10 @@ const CustomTooltip = ({ active, payload, label }: TooltipProps<number, string>)
                             <span className="text-slate-500">Type:</span> {app.insuranceType}
                           </p>
                           <p>
-                            <span className="text-slate-500">Location:</span> {app.client.province}, {app.client.district}
+                            <span className="text-slate-500">Location:</span> {app.client?.province || 'N/A'}, {app.client?.district || 'N/A'}
                           </p>
                           <p>
-                            <span className="text-slate-500">Phone:</span> {app.client.phoneNumber}
+                            <span className="text-slate-500">Phone:</span> {app.client?.phoneNumber || 'N/A'}
                           </p>
                           <p className="sm:col-span-2">
                             <span className="text-slate-500">Submitted:</span>{' '}
@@ -737,7 +739,7 @@ const CustomTooltip = ({ active, payload, label }: TooltipProps<number, string>)
                         </div>
                         {app.admin && (
                           <div className="mt-3 border-t border-slate-100 pt-3 text-xs text-slate-500">
-                            Assigned admin: <span className="font-medium text-slate-900">{app.admin.fullName}</span>
+                            Assigned admin: <span className="font-medium text-slate-900">{app.admin?.fullName || 'Unknown'}</span>
                           </div>
                         )}
                       </div>
