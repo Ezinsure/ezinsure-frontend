@@ -279,9 +279,7 @@ export default function AgentApplyPage() {
   useEffect(() => {
     const initializeTracking = async () => {
       try {
-        console.log('[Agent Apply] Starting tracking data capture...');
         const data = await getTrackingData();
-        console.log('[Agent Apply] Tracking data captured successfully:', data);
         setTrackingData(data);
       } catch (error) {
         console.error('[Agent Apply] Tracking initialization failed:', error);
@@ -319,7 +317,6 @@ export default function AgentApplyPage() {
       pastInsuranceCertificate: formState.pastInsuranceCertificate ? 'File selected' : null,
     };
     
-    console.log('Agent Form Data to be sent to API:', formDataToSend);
   }, [formState]);
 
   const validationRules: ValidationRules = {
@@ -666,7 +663,6 @@ export default function AgentApplyPage() {
       isNewVehicle: searchResults.isNewVehicle,
     };
     
-    console.log('Form Data on Submit:', formDataToLog);
 
     // Validate form
     const formErrors = validateForm(
@@ -735,11 +731,8 @@ export default function AgentApplyPage() {
         }
 
         // Append tracking data
-        console.log('[Agent Apply] Checking tracking data before submission...');
-        console.log('[Agent Apply] Tracking data state:', trackingData);
         if (trackingData) {
           formData.append('trackingData', JSON.stringify(trackingData));
-          console.log('[Agent Apply] Tracking data appended to FormData');
         } else {
           console.warn('[Agent Apply] No tracking data available - it was not captured!');
         }
@@ -751,8 +744,6 @@ export default function AgentApplyPage() {
           return;
         }
 
-        // Log FormData contents before sending
-        console.log('[Agent Apply] ========== FormData being sent to API ==========');
         const formDataEntries = Array.from(formData.entries()).map(([key, value]) => {
           if (value instanceof File) {
             return [key, `File: ${value.name} (${value.type}, ${value.size} bytes)`];
@@ -769,9 +760,6 @@ export default function AgentApplyPage() {
           return [key, value];
         });
         const formDataObject = Object.fromEntries(formDataEntries);
-        console.log('[Agent Apply] FormData entries:', formDataObject);
-        console.log('[Agent Apply] FormData as JSON (readable):', JSON.stringify(formDataObject, null, 2));
-        console.log('[Agent Apply] =================================================');
 
         const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/newApply`, {
           method: 'POST',

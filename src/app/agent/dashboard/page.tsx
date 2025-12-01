@@ -207,7 +207,6 @@ const Dashboard = () => {
           },
         });
         const data = await res.json();
-        console.log("Recent: ", data)
         // Map API data to the expected structure for the dashboard
         const mapped = (data.data || []).map((item: RecentApplicationAPI) => ({
           _id: item._id || '',
@@ -283,7 +282,6 @@ const Dashboard = () => {
           },
         });
         const data = await res.json();
-        console.log("Data for week: ", data)
         setWeeklyStats(data.data || []);
       } catch (error) {
         console.error('Error fetching weekly stats:', error);

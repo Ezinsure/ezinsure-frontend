@@ -394,7 +394,6 @@ const confirmDeactivation = async (reason: string, deactivationFile: File | null
       }
     );
 
-    console.log('Response from deactivation:', response);
     if (!response.ok) {
       throw new Error('Failed to deactivate user');
     }
@@ -787,7 +786,6 @@ const handleEditUser = async (updatedUser: User) => {
                             onClick={() => {
                               setSelectedUser(user);
                               setRejectionReason(user.rejectionReason || '');
-                              console.log(rejectionReason)
                             }}
                           >
                             View

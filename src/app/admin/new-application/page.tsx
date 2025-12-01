@@ -942,7 +942,6 @@ export default function AdminNewApplicationPage() {
 
     };
 
-    console.log('Form Data on Submit:', formDataToLog);
 
     // Validate form
 
