@@ -316,7 +316,7 @@ const Dashboard = () => {
     fetchInsuranceDistribution();
     fetchWeeklyStats();
     fetchMonthlyStats();
-  }, [user?._id, token]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [user?._id, token]);
 
   // Add a combined loading state
   const isAnyLoading = isWeeklyStatsLoading || isMonthlyStatsLoading || isRecentApplicationsLoading || isInsuranceDistributionLoading;

@@ -560,7 +560,7 @@ const getActionButtons = (app: Application) => {
         throw new Error(errorMessage);
       }
 
-      const responseData = await response.json();
+      await response.json();
       
       showToast('Application updated successfully', 'success');
       setEditingApp(null);

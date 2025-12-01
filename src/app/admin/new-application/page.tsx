@@ -884,64 +884,6 @@ export default function AdminNewApplicationPage() {
 
     e.preventDefault();
 
-    // Log form data when submit button is clicked (regardless of validation)
-
-    const formDataToLog = {
-
-      fullName: formData.fullName,
-
-      email: formData.email,
-
-      phoneNumber: formData.phoneNumber,
-
-      address: formData.address,
-
-      dateOfBirth: formData.dateOfBirth,
-
-      province: formData.province,
-
-      district: formData.district,
-
-      sector: formData.sector,
-
-      insuranceCategory: formData.insuranceCategory,
-
-      insuranceType: formData.insuranceType,
-
-      insuranceDuration: formData.insuranceDuration,
-
-      insuranceProvider: formData.insuranceProvider,
-
-      plateNumber: formData.plateNumber,
-
-      identificationDocumentType: formData.identificationDocumentType,
-
-      identificationNumber: formData.identificationNumber,
-
-      vehicleType: formData.vehicleType,
-
-      vehicleAge: formData.vehicleAge,
-
-      vehicleUse: formData.vehicleUse,
-
-      otherVehicleUse: formData.otherVehicleUse,
-
-      isCOMESA: formData.isCOMESA,
-
-      nationalID: formData.nationalID ? 'File selected' : null,
-
-      yellowCard: formData.yellowCard ? 'File selected' : null,
-
-      pastInsuranceCertificate: formData.pastInsuranceCertificate ? 'File selected' : null,
-
-      // Add the missing fields for /newApply endpoint
-
-      isNewClient: searchResults.isNewClient,
-
-      isNewVehicle: searchResults.isNewVehicle,
-
-    };
-
 
     // Validate form
 
