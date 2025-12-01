@@ -34,7 +34,7 @@ interface Application {
     phoneNumber: string;
     province: string;
     district: string;
-  };
+  } | null;
   vehicle: {
     id: string;
     plateNumber: string;
@@ -696,6 +696,9 @@ const CustomTooltip: React.FC<TooltipProps<number, string>> = ({ active, payload
 
   // Filter for recent applications based on search and type
   const filteredApplications = recentApplications.filter((app: Application) => {
+    // Filter out applications with null client
+    if (!app.client || !app.client.fullName) return false;
+    
     const matchesSearch =
       app.client.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       app.applicationNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -1202,15 +1205,15 @@ const CustomTooltip: React.FC<TooltipProps<number, string>> = ({ active, payload
                     className="rounded-xl border border-slate-200 p-4 bg-white hover:border-blue-200 transition-colors"
                   >
                     <div className="flex items-center justify-between gap-4">
-                      <div className="flex items-center gap-3">
-                        <div className="h-12 w-12 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 text-white text-sm font-semibold flex items-center justify-center">
-                          {agent.fullName.split(' ').map((n: string) => n[0]).join('')}
+                        <div className="flex items-center gap-3">
+                          <div className="h-12 w-12 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 text-white text-sm font-semibold flex items-center justify-center">
+                            {agent?.fullName ? agent.fullName.split(' ').map((n: string) => n[0]).join('') : 'N/A'}
+                          </div>
+                          <div>
+                            <p className="font-semibold text-slate-900">{agent?.fullName || 'Unknown Agent'}</p>
+                            <p className="text-xs text-slate-500">{agent?.province || 'N/A'}</p>
+                          </div>
                         </div>
-                        <div>
-                          <p className="font-semibold text-slate-900">{agent.fullName}</p>
-                          <p className="text-xs text-slate-500">{agent.province}</p>
-                        </div>
-                      </div>
                       <span className="text-[11px] uppercase tracking-wide text-slate-500 bg-slate-100 rounded-full px-3 py-1">
                         Rank #{index + 1}
                       </span>
@@ -1292,10 +1295,10 @@ const CustomTooltip: React.FC<TooltipProps<number, string>> = ({ active, payload
                       >
                         <div className="flex items-center gap-3">
                           <div className="h-10 w-10 rounded-full bg-slate-900/80 text-white text-sm font-semibold flex items-center justify-center">
-                            {app.client.fullName.split(' ').map((n: string) => n[0]).join('')}
+                            {app.client?.fullName ? app.client.fullName.split(' ').map((n: string) => n[0]).join('') : 'N/A'}
                           </div>
                           <div>
-                            <p className="font-semibold text-slate-900">{app.client.fullName}</p>
+                            <p className="font-semibold text-slate-900">{app.client?.fullName || 'Unknown Client'}</p>
                             <p className="text-xs text-slate-500">{app.applicationNumber}</p>
                           </div>
                         </div>
