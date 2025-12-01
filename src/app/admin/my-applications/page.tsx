@@ -185,7 +185,6 @@ export default function AdminMyApplicationsPage() {
         return dateB - dateA;
       });
 
-      console.log("Sorted Applications: ", sortedApplications);
       
       setApplications(sortedApplications);
     } catch {

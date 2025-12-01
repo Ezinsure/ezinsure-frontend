@@ -388,22 +388,6 @@ export default function ManageApplicationsPage() {
   }, [selectedApp]);
 
 
-  // Console log form state changes
-  useEffect(() => {
-    const formState = {
-      invoiceAmount,
-      agentCommission,
-      companyCommission,
-      administrationFees,
-      invoiceMessage,
-      selectedApp: selectedApp ? {
-        id: selectedApp._id,
-        name: selectedApp.fullName,
-        category: selectedApp.insuranceCategory
-      } : null
-    };
-    console.log('Invoice Form State Changed:', formState);
-  }, [invoiceAmount, agentCommission, companyCommission, administrationFees, invoiceMessage, selectedApp]);
 
   // Handle table scroll to show/hide fade indicators
   const handleTableScroll = (e: React.UIEvent<HTMLDivElement>) => {
@@ -433,7 +417,6 @@ export default function ManageApplicationsPage() {
       }
       
       const data = await response.json();
-      console.log("Applications: ", data);
       
       // Sort applications by submittedAt in descending order (newest first)
       const sortedApplications = data.data.sort((a: Application, b: Application) => {

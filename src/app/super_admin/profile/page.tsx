@@ -493,8 +493,6 @@ export default function SuperAdminProfilePage() {
       formData.append('message', clientMessage.message);
       
       // Debug: Log the message being sent
-      console.log('Sending message:', clientMessage.message);
-      console.log('Form data:', formData.toString());
 
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/sendSMSToAllclients`, {
         method: 'POST',
@@ -510,16 +508,13 @@ export default function SuperAdminProfilePage() {
         let errorMessage = 'Failed to send SMS message';
         try {
           const errorData = await response.json();
-          console.log('Backend error response:', errorData);
           errorMessage = errorData.message || errorMessage;
         } catch {
-          console.log('Could not parse error response');
         }
         throw new Error(errorMessage);
       }
 
       const result = await response.json();
-      console.log('Success response:', result);
       showToast(`SMS sent successfully to ${result.recipientCount || 'all'} clients!`, 'success');
       setClientMessage({ message: '' });
       setMessageErrors({});
