@@ -1098,7 +1098,6 @@ export default function AgentApplicationsPage() {
     
     const data = await response.json();
 
-    console.log('agent applications',data); 
     // Sort applications by submittedAt in descending order (newest first)
     const sortedApplications = data.data.sort((a: Application, b: Application) => {
       return new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime();

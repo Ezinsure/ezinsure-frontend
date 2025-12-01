@@ -158,7 +158,6 @@ const AdminCommissionReviewPage = () => {
         return new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime();
       });
 
-      console.log('Fetched applications for commission review:', sorted);
       setApplications(sorted);
       // Use values returned by API instead of calculating on the frontend
       setTotalCommission(data.totalAgentCommission || 0);
@@ -423,8 +422,6 @@ const getActionButtons = (app: Application) => {
         body: formData,
       });
 
-      console.log('Put on hold response status:', response.status);
-      console.log('Put on hold response headers:', response.headers);
 
       if (!response.ok) {
         let errorMessage = 'Failed to put application on hold';
@@ -448,7 +445,6 @@ const getActionButtons = (app: Application) => {
       }
 
       const responseData = await response.json();
-      console.log('Put on hold response: ', responseData);
       
       // Use the message from API response or fallback to default
       const successMessage = responseData.message || 'Application has been put on hold successfully';
@@ -487,7 +483,6 @@ const getActionButtons = (app: Application) => {
       }
 
       const responseData = await response.json();
-      console.log('Mark as ready response: ', responseData);
       
       // Use the message from API response or fallback to default
       const successMessage = responseData.message || 'Application has been marked as ready to be paid successfully';
@@ -526,8 +521,6 @@ const getActionButtons = (app: Application) => {
     });
 
     // Log changed fields
-    console.log('Changed fields:', changedFields);
-    console.log('All editable fields:', editFormData);
 
     if (Object.keys(changedFields).length === 0) {
       showToast('No changes detected', 'info');
@@ -567,8 +560,7 @@ const getActionButtons = (app: Application) => {
         throw new Error(errorMessage);
       }
 
-      const responseData = await response.json();
-      console.log('Edit application response: ', responseData);
+      await response.json();
       
       showToast('Application updated successfully', 'success');
       setEditingApp(null);

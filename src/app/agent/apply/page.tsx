@@ -279,9 +279,7 @@ export default function AgentApplyPage() {
   useEffect(() => {
     const initializeTracking = async () => {
       try {
-        console.log('[Agent Apply] Starting tracking data capture...');
         const data = await getTrackingData();
-        console.log('[Agent Apply] Tracking data captured successfully:', data);
         setTrackingData(data);
       } catch (error) {
         console.error('[Agent Apply] Tracking initialization failed:', error);
@@ -291,36 +289,6 @@ export default function AgentApplyPage() {
     initializeTracking();
   }, []);
 
-  // Console log form data whenever it changes
-  useEffect(() => {
-    const formDataToSend = {
-      fullName: formState.fullName,
-      email: formState.email,
-      phoneNumber: formState.phoneNumber,
-      address: formState.address,
-      dateOfBirth: formState.dateOfBirth,
-      province: formState.province,
-      district: formState.district,
-      sector: formState.sector,
-      insuranceCategory: formatInsuranceCategory(formState.insuranceCategory),
-      insuranceType: formatInsuranceType(formState.insuranceType),
-      insuranceDuration: formatInsuranceDuration(formState.insuranceDuration),
-      insuranceProvider: formState.insuranceProvider,
-      plateNumber: formState.plateNumber,
-      identificationDocumentType: formState.identificationDocumentType,
-      identificationNumber: formState.identificationNumber,
-      vehicleType: formState.vehicleType,
-      vehicleAge: formState.vehicleAge,
-      vehicleUse: formState.vehicleUse,
-      otherVehicleUse: formState.otherVehicleUse,
-      isCOMESA: formState.isCOMESA,
-      nationalID: formState.nationalID ? 'File selected' : null,
-      yellowCard: formState.yellowCard ? 'File selected' : null,
-      pastInsuranceCertificate: formState.pastInsuranceCertificate ? 'File selected' : null,
-    };
-    
-    console.log('Agent Form Data to be sent to API:', formDataToSend);
-  }, [formState]);
 
   const validationRules: ValidationRules = {
     fullName: { required: true, minLength: 3, maxLength: 50 },
@@ -635,38 +603,7 @@ export default function AgentApplyPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    // Log form data when submit button is clicked (regardless of validation)
-    const formDataToLog = {
-      fullName: formState.fullName,
-      email: formState.email,
-      phoneNumber: formState.phoneNumber,
-      address: formState.address,
-      dateOfBirth: formState.dateOfBirth,
-      province: formState.province,
-      district: formState.district,
-      sector: formState.sector,
-      insuranceCategory: formatInsuranceCategory(formState.insuranceCategory),
-      insuranceType: formatInsuranceType(formState.insuranceType),
-      insuranceDuration: formatInsuranceDuration(formState.insuranceDuration),
-      insuranceProvider: formState.insuranceProvider,
-      plateNumber: formState.plateNumber,
-      identificationDocumentType: formState.identificationDocumentType,
-      identificationNumber: formState.identificationNumber,
-      vehicleType: formState.vehicleType,
-      vehicleAge: formState.vehicleAge,
-      vehicleUse: formState.vehicleUse,
-      otherVehicleUse: formState.otherVehicleUse,
-      isCOMESA: formState.isCOMESA,
-      nationalID: formState.nationalID ? 'File selected' : null,
-      yellowCard: formState.yellowCard ? 'File selected' : null,
-      pastInsuranceCertificate: formState.pastInsuranceCertificate ? 'File selected' : null,
-      // Add the missing fields for /newApply endpoint
-      isNewClient: searchResults.isNewClient,
-      isNewVehicle: searchResults.isNewVehicle,
-    };
     
-    console.log('Form Data on Submit:', formDataToLog);
 
     // Validate form
     const formErrors = validateForm(
@@ -735,11 +672,8 @@ export default function AgentApplyPage() {
         }
 
         // Append tracking data
-        console.log('[Agent Apply] Checking tracking data before submission...');
-        console.log('[Agent Apply] Tracking data state:', trackingData);
         if (trackingData) {
           formData.append('trackingData', JSON.stringify(trackingData));
-          console.log('[Agent Apply] Tracking data appended to FormData');
         } else {
           console.warn('[Agent Apply] No tracking data available - it was not captured!');
         }
@@ -750,28 +684,6 @@ export default function AgentApplyPage() {
           showToast('Authentication required. Please login again.', 'error');
           return;
         }
-
-        // Log FormData contents before sending
-        console.log('[Agent Apply] ========== FormData being sent to API ==========');
-        const formDataEntries = Array.from(formData.entries()).map(([key, value]) => {
-          if (value instanceof File) {
-            return [key, `File: ${value.name} (${value.type}, ${value.size} bytes)`];
-          }
-          // Check if this is the trackingData field
-          if (key === 'trackingData' && typeof value === 'string') {
-            try {
-              const parsed = JSON.parse(value);
-              return [key, parsed];
-            } catch {
-              return [key, value];
-            }
-          }
-          return [key, value];
-        });
-        const formDataObject = Object.fromEntries(formDataEntries);
-        console.log('[Agent Apply] FormData entries:', formDataObject);
-        console.log('[Agent Apply] FormData as JSON (readable):', JSON.stringify(formDataObject, null, 2));
-        console.log('[Agent Apply] =================================================');
 
         const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/newApply`, {
           method: 'POST',

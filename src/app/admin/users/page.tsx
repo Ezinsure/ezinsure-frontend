@@ -131,7 +131,6 @@ export default function AdminUsersPage() {
     name: string;
     path: string;
   } | null>(null);
-  const [rejectionReason, setRejectionReason] = useState('');
   const [roleFilter, setRoleFilter] = useState<'all' | 'ADMIN' | 'AGENT'>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | User['status']>('all');
   const { token } = useAuth();
@@ -394,7 +393,6 @@ const confirmDeactivation = async (reason: string, deactivationFile: File | null
       }
     );
 
-    console.log('Response from deactivation:', response);
     if (!response.ok) {
       throw new Error('Failed to deactivate user');
     }
@@ -786,8 +784,6 @@ const handleEditUser = async (updatedUser: User) => {
                             variant="outline"
                             onClick={() => {
                               setSelectedUser(user);
-                              setRejectionReason(user.rejectionReason || '');
-                              console.log(rejectionReason)
                             }}
                           >
                             View
@@ -819,7 +815,6 @@ const handleEditUser = async (updatedUser: User) => {
                               variant="primary"
                               onClick={() => {
                                 setSelectedUser(user);
-                                setRejectionReason('');
                               }}
                             >
                               Review

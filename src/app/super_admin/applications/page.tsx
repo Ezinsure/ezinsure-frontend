@@ -203,7 +203,6 @@ export default function SuperAdminApplicationsPage() {
         return dateB - dateA;
       });
       setApplications(sortedApplications);
-      console.log(sortedApplications);
     } catch (error) {
       console.error('Error fetching applications:', error);
       showToast('Failed to load applications', 'error');

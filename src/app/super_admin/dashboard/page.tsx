@@ -195,7 +195,6 @@ const fetchAdministrationFees = async (token: string, startDate: string, endDate
       throw new Error(`HTTP error! status: ${response.status}`);
     }
     const data = await response.json();
-    console.log('[Super Admin Dashboard] Administration fees response:', data);
     return data.totalAdministrationFees || 0;
   } catch (error) {
     console.error('Error fetching administration fees:', error);
@@ -216,7 +215,6 @@ const fetchRecentApplications = async (token: string) => {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
     const data = await response.json();
-    console.log("Recent applications: ", data);
     return data.data || [];
   } catch (error) {
     console.error('Error fetching recent applications:', error);
@@ -538,7 +536,6 @@ const SuperAdminDashboard = () => {
     })
       .then(res => res.json())
       .then(data => {
-        console.log('[Super Admin Dashboard] Top agents response:', data);
         setTopAgents(data.data || []);
       })
       .catch(() => setTopAgents([]))
@@ -560,7 +557,6 @@ const SuperAdminDashboard = () => {
     })
       .then(res => res.json())
       .then(data => {
-        console.log('[Super Admin Dashboard] Regional performance response:', data);
         setRegionalPerformance(data.data || []);
       })
       .catch(() => setRegionalPerformance([]))
@@ -580,7 +576,6 @@ const SuperAdminDashboard = () => {
     })
       .then(res => res.json())
       .then(data => {
-        console.log('[Super Admin Dashboard] Monthly average agent commission response:', data);
         setAverageCommission(data.data?.averageCommission ?? 0);
         setTotalAgents(data.data?.totalAgents ?? 0);
       })
@@ -606,7 +601,6 @@ const SuperAdminDashboard = () => {
     })
       .then(res => res.json())
       .then(data => {
-        console.log('[Super Admin Dashboard] Total clients response:', data);
         setTotalClients(data.data ?? 0);
       })
       .catch(() => setTotalClients(0))
@@ -638,7 +632,6 @@ const SuperAdminDashboard = () => {
     })
       .then(res => res.json())
       .then(data => {
-        console.log('[Super Admin Dashboard] Revenue analytics raw response:', data);
         // Transform the data to match the chart's expected structure
         const transformedData = (data.data || []).map((item: RevenueAnalyticsAPIResponse) => ({
           month: item.month,
@@ -647,7 +640,6 @@ const SuperAdminDashboard = () => {
           agents: item.totalAgents || 0,
           conversion: item.conversionRate || 0
         }));
-        console.log('Revenue Analytics Data:', transformedData);
         setRevenueData(transformedData);
       })
       .catch((error) => {
