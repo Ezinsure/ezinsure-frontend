@@ -727,6 +727,8 @@ export default function ApplyPage() {
                       // Reset dependent selects
                       setAvailableDistricts([]);
                       setAvailableSectors([]);
+                      // Reset phone number input whenever identification number changes
+                      setPhoneNumberResetTrigger(prev => prev + 1);
                       if (errors.identificationNumber) {
                         setErrors(prev => {
                           const newErrors = { ...prev };
