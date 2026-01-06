@@ -10,6 +10,7 @@ import { validateForm, ValidationRules, validationPatterns } from '@/components/
 import { useAuth } from '@/context/AuthContext';
 import { Trash2, FileText, Eye, EyeClosed, Settings, Users, Mail } from 'lucide-react';
 import { rwandaProvinces } from '@/utils/rwanda-administrative';
+import { MassClientCreation } from '@/components/admin/mass-client-creation';
 
 interface User {
   _id: string;
@@ -1029,6 +1030,11 @@ export default function SuperAdminProfilePage() {
                         </Button>
                       </div>
                     </div>
+                  </div>
+                  
+                  {/* Mass Client Creation */}
+                  <div className="md:col-span-2">
+                    <MassClientCreation />
                   </div>
                 </div>
                 

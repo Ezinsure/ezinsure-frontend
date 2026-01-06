@@ -852,6 +852,8 @@ export default function AgentApplyPage() {
                         // Reset dependent selects
                         setAvailableDistricts([]);
                         setAvailableSectors([]);
+                        // Reset phone number input whenever identification number changes
+                        setPhoneNumberResetTrigger(prev => prev + 1);
                         // Reset isNewClient to true when identification number changes
                         // (will be updated when user performs search)
                         setSearchResults(prev => ({

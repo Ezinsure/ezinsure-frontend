@@ -856,6 +856,9 @@ export default function AdminNewApplicationPage() {
     // Reset dependent selects
     setAvailableDistricts([]);
     setAvailableSectors([]);
+    
+    // Reset phone number input whenever identification number changes
+    setPhoneNumberResetTrigger(prev => prev + 1);
   }, []);
 
   const handlePlateNumberChange = useCallback((value: string) => {
