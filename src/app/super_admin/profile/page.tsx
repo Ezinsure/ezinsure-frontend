@@ -11,6 +11,7 @@ import { useAuth } from '@/context/AuthContext';
 import { Trash2, FileText, Eye, EyeClosed, Settings, Users, Mail } from 'lucide-react';
 import { rwandaProvinces } from '@/utils/rwanda-administrative';
 import { MassClientCreation } from '@/components/admin/mass-client-creation';
+import { SendDueNotifications } from '@/components/admin/send-due-notifications';
 
 interface User {
   _id: string;
@@ -1035,6 +1036,11 @@ export default function SuperAdminProfilePage() {
                   {/* Mass Client Creation */}
                   <div className="md:col-span-2">
                     <MassClientCreation />
+                  </div>
+                  
+                  {/* Send Due Notifications */}
+                  <div className="md:col-span-2">
+                    <SendDueNotifications />
                   </div>
                 </div>
                 
