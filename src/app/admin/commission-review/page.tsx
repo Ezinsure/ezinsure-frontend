@@ -8,7 +8,6 @@ import { FileInput } from '@/components/ui/file-input';
 import { useToast } from '@/components/ui/toast';
 import { useAuth } from '@/context/AuthContext';
 import { DocumentViewer } from '@/components/ui/document-viewer';
-import { formatDateUTC } from '@/utils/date-formatter';
 
 interface Application {
   _id: string;
@@ -117,17 +116,18 @@ const AdminCommissionReviewPage = () => {
   const itemsPerPage = 10;
 
   // Helper to format dates
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateString: string | undefined) => {
     if (!dateString) return 'N/A';
     try {
       const date = new Date(dateString);
-      return date.toLocaleString('en-US', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-      });
+      if (isNaN(date.getTime())) return 'Invalid Date';
+      
+      // Use UTC methods to avoid timezone conversion
+      const year = date.getUTCFullYear();
+      const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+      const day = String(date.getUTCDate()).padStart(2, '0');
+      
+      return `${month}/${day}/${year}`;
     } catch {
       return 'Date Error';
     }

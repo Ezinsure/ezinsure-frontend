@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/components/ui/toast';
 import { DocumentViewer } from '@/components/ui/document-viewer';
 import { useAuth } from '@/context/AuthContext';
-import { formatDateUTC, formatDateForExcel, formatTime } from '@/utils/date-formatter';
+import { formatDateUTC, formatTime } from '@/utils/date-formatter';
 
 enum ApplicationStatus {
   PENDING = 'pending',

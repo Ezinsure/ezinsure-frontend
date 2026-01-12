@@ -9,7 +9,7 @@ import { useToast } from '@/components/ui/toast';
 import { DocumentViewer } from '@/components/ui/document-viewer';
 import { PencilLine, Eye } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
-import { formatDateUTC, formatTime } from '@/utils/date-formatter';
+import { formatDateUTC } from '@/utils/date-formatter';
 
 // Application statuses
 enum ApplicationStatus {
