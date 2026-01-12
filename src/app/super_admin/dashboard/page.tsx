@@ -1,12 +1,13 @@
 "use client"
 
 import React, { useState, useEffect } from 'react';
-import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { TrendingUp, Users, DollarSign, Download, Search, UserCheck, Award, Activity, Briefcase, Globe, ArrowUpRight, ArrowDownRight, Eye, EyeOff, RefreshCw, Receipt, Settings, Database, Key } from 'lucide-react';
 import type { TooltipProps } from 'recharts';
 import { MainLayout } from '@/components/ui/main-layout';
 import { useAuth } from '@/context/AuthContext';
 import Link from 'next/link';
+import { formatDateUTC, formatDateRange as formatDateRangeUtil, formatTime } from '@/utils/date-formatter';
 
 // Define types for the data
 interface Application {
@@ -331,19 +332,19 @@ const SuperAdminDashboard = () => {
   const [isDailyMetricsLoading, setIsDailyMetricsLoading] = useState(true);
   const [revenueData, setRevenueData] = useState<RevenueDataPoint[]>([]);
   const [dailyMetrics, setDailyMetrics] = useState<DailyMetric[]>([]);
+  
+  // Daily metrics date range state
+  const [dailyMetricsStartDate, setDailyMetricsStartDate] = useState<string>(
+    new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+  );
+  const [dailyMetricsEndDate, setDailyMetricsEndDate] = useState<string>(getTodayDate());
 
   // Calculate total revenue (commission + admin fees)
   const totalRevenue = (statsData.totalCommission || 0) + (totalAdministrationFees || 0);
   const isTotalRevenueLoading = statsData.loading.totalCommission || isAdminFeesLoading;
 
-  // Format date range for display
-  const formatDateRange = (startDate: string, endDate: string): string => {
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-    const startFormatted = start.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-    const endFormatted = end.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-    return `${startFormatted} - ${endFormatted}`;
-  };
+  // Format date range for display (using UTC to avoid timezone issues)
+  const formatDateRange = formatDateRangeUtil;
 
   const formatProvinceLabel = (value: string): string => {
     if (!value) return '';
@@ -649,13 +650,40 @@ const SuperAdminDashboard = () => {
       .finally(() => setIsRevenueLoading(false));
   }, [token]);
 
+  // Fetch Daily Metrics
   useEffect(() => {
-    setIsDailyMetricsLoading(true);
-    setTimeout(() => {
-      setDailyMetrics([]); // Set to [] or real data
-      setIsDailyMetricsLoading(false);
-    }, 1000);
-  }, []);
+    if (!token) return;
+    
+    const fetchDailyMetrics = async () => {
+      setIsDailyMetricsLoading(true);
+      try {
+        const response = await fetch(
+          `${process.env.NEXT_PUBLIC_API_BASE_URL}/getDailyPerformanceMetrics?startDate=${dailyMetricsStartDate}&endDate=${dailyMetricsEndDate}`,
+          {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            }
+          }
+        );
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const result = await response.json();
+        setDailyMetrics(result.data || []);
+      } catch (error) {
+        console.error('Error fetching daily metrics:', error);
+        setDailyMetrics([]);
+      } finally {
+        setIsDailyMetricsLoading(false);
+      }
+    };
+    
+    fetchDailyMetrics();
+  }, [token, dailyMetricsStartDate, dailyMetricsEndDate]);
 
 
 
@@ -1115,8 +1143,37 @@ const SuperAdminDashboard = () => {
 
             {/* Daily Metrics */}
             <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
-              <h3 className="text-lg font-semibold text-gray-900 mb-1">Daily Performance</h3>
-              <p className="text-gray-500 text-xs mb-4">This week&apos;s daily breakdown</p>
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-1">Daily Performance</h3>
+                  <p className="text-gray-500 text-xs">Track daily metrics and trends</p>
+                </div>
+                
+                {/* Date Range Filters */}
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2">
+                    <label className="text-xs font-medium text-gray-600">From:</label>
+                    <input
+                      type="date"
+                      value={dailyMetricsStartDate}
+                      onChange={(e) => setDailyMetricsStartDate(e.target.value)}
+                      max={dailyMetricsEndDate}
+                      className="px-2 py-1.5 text-xs border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <label className="text-xs font-medium text-gray-600">To:</label>
+                    <input
+                      type="date"
+                      value={dailyMetricsEndDate}
+                      onChange={(e) => setDailyMetricsEndDate(e.target.value)}
+                      min={dailyMetricsStartDate}
+                      max={getTodayDate()}
+                      className="px-2 py-1.5 text-xs border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  </div>
+                </div>
+              </div>
               
               <div className="h-[400px]">
                 {isDailyMetricsLoading ? (
@@ -1125,37 +1182,138 @@ const SuperAdminDashboard = () => {
                       <span className="text-gray-400 text-sm font-medium">Loading daily metrics...</span>
                     </div>
                   </div>
-                ) : (!dailyMetrics || dailyMetrics.length === 0 || dailyMetrics.every(d => !d.revenue && !d.applications)) ? (
+                ) : (!dailyMetrics || dailyMetrics.length === 0) ? (
                   <div className="h-full flex items-center justify-center">
-                    <p className="text-sm text-gray-400">No daily performance data to display</p>
+                    <div className="text-center">
+                      <p className="text-sm text-gray-400 mb-2">No daily performance data available</p>
+                      <p className="text-xs text-gray-300">Try selecting a different date range</p>
+                    </div>
                   </div>
                 ) : (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={dailyMetrics} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}> 
-                      <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" vertical={false} />
-                      <XAxis 
-                        dataKey="day" 
-                        stroke={CHART_COLORS.secondary}
-                        fontSize={11}
-                        tickLine={false}
-                        axisLine={false}
-                        tick={{ fill: CHART_COLORS.secondary }}
-                      />
-                      <YAxis 
-                        stroke={CHART_COLORS.secondary}
-                        fontSize={11}
-                        tickLine={false}
-                        axisLine={false}
-                        tick={{ fill: CHART_COLORS.secondary }}
-                      />
-                      <Tooltip content={<CustomTooltip />} />
-                      <Bar 
-                        dataKey="applications" 
-                        fill={CHART_COLORS.primary}
-                        radius={[4, 4, 0, 0]}
-                      />
-                    </BarChart>
-                  </ResponsiveContainer>
+                  <>
+                    {/* Summary Cards */}
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+                      <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-3 border border-blue-200">
+                        <div className="flex items-center gap-2 mb-1">
+                          <div className="w-2 h-2 rounded-full bg-blue-600"></div>
+                          <p className="text-xs font-medium text-blue-900">Total Applications</p>
+                        </div>
+                        <p className="text-xl font-bold text-blue-900">
+                          {dailyMetrics.reduce((sum, d) => sum + (d.applications || 0), 0).toLocaleString()}
+                        </p>
+                      </div>
+                      
+                      <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg p-3 border border-green-200">
+                        <div className="flex items-center gap-2 mb-1">
+                          <div className="w-2 h-2 rounded-full bg-green-600"></div>
+                          <p className="text-xs font-medium text-green-900">Total Revenue</p>
+                        </div>
+                        <p className="text-xl font-bold text-green-900">
+                          {(dailyMetrics.reduce((sum, d) => sum + (d.revenue || 0), 0) / 1000).toFixed(0)}K
+                        </p>
+                      </div>
+                      
+                      <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg p-3 border border-purple-200">
+                        <div className="flex items-center gap-2 mb-1">
+                          <div className="w-2 h-2 rounded-full bg-purple-600"></div>
+                          <p className="text-xs font-medium text-purple-900">Active Agents</p>
+                        </div>
+                        <p className="text-xl font-bold text-purple-900">
+                          {dailyMetrics.reduce((sum, d) => sum + (d.agents || 0), 0).toLocaleString()}
+                        </p>
+                      </div>
+                      
+                      <div className="bg-gradient-to-br from-orange-50 to-orange-100 rounded-lg p-3 border border-orange-200">
+                        <div className="flex items-center gap-2 mb-1">
+                          <div className="w-2 h-2 rounded-full bg-orange-600"></div>
+                          <p className="text-xs font-medium text-orange-900">New Clients</p>
+                        </div>
+                        <p className="text-xl font-bold text-orange-900">
+                          {dailyMetrics.reduce((sum, d) => sum + (d.clients || 0), 0).toLocaleString()}
+                        </p>
+                      </div>
+                    </div>
+                    
+                    {/* Chart */}
+                    <ResponsiveContainer width="100%" height={280}>
+                      <LineChart data={dailyMetrics} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}> 
+                        <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" vertical={false} />
+                        <XAxis 
+                          dataKey="day" 
+                          stroke={CHART_COLORS.secondary}
+                          fontSize={11}
+                          tickLine={false}
+                          axisLine={false}
+                          tick={{ fill: CHART_COLORS.secondary }}
+                        />
+                        <YAxis 
+                          stroke={CHART_COLORS.secondary}
+                          fontSize={11}
+                          tickLine={false}
+                          axisLine={false}
+                          tick={{ fill: CHART_COLORS.secondary }}
+                        />
+                        <Tooltip 
+                          contentStyle={{
+                            backgroundColor: 'rgba(255, 255, 255, 0.98)',
+                            border: '1px solid #E2E8F0',
+                            borderRadius: '8px',
+                            padding: '12px',
+                            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                          }}
+                          formatter={(value: number, name: string) => {
+                            if (name === 'revenue') return [`${(value / 1000).toFixed(1)}K RWF`, 'Revenue'];
+                            if (name === 'applications') return [value, 'Applications'];
+                            if (name === 'agents') return [value, 'Active Agents'];
+                            if (name === 'clients') return [value, 'New Clients'];
+                            return [value, name];
+                          }}
+                        />
+                        <Legend 
+                          wrapperStyle={{ fontSize: '11px', paddingTop: '10px' }}
+                          formatter={(value) => {
+                            if (value === 'applications') return 'Applications';
+                            if (value === 'revenue') return 'Revenue (K)';
+                            if (value === 'agents') return 'Active Agents';
+                            if (value === 'clients') return 'New Clients';
+                            return value;
+                          }}
+                        />
+                        <Line 
+                          type="monotone"
+                          dataKey="applications" 
+                          stroke="#3B82F6"
+                          strokeWidth={2}
+                          dot={{ fill: '#3B82F6', r: 3 }}
+                          activeDot={{ r: 5 }}
+                        />
+                        <Line 
+                          type="monotone"
+                          dataKey="revenue" 
+                          stroke="#10B981"
+                          strokeWidth={2}
+                          dot={{ fill: '#10B981', r: 3 }}
+                          activeDot={{ r: 5 }}
+                        />
+                        <Line 
+                          type="monotone"
+                          dataKey="agents" 
+                          stroke="#8B5CF6"
+                          strokeWidth={2}
+                          dot={{ fill: '#8B5CF6', r: 3 }}
+                          activeDot={{ r: 5 }}
+                        />
+                        <Line 
+                          type="monotone"
+                          dataKey="clients" 
+                          stroke="#F59E0B"
+                          strokeWidth={2}
+                          dot={{ fill: '#F59E0B', r: 3 }}
+                          activeDot={{ r: 5 }}
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </>
                 )}
               </div>
             </div>
@@ -1303,8 +1461,8 @@ const SuperAdminDashboard = () => {
                           </div>
                           <div className="whitespace-nowrap">{getStatusBadge(app.status)}</div>
                           <div className="text-xs text-slate-500">
-                            {new Date(app.submittedAt).toLocaleDateString()}<br />
-                            <span className="text-[11px]">{new Date(app.submittedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                            {formatDateUTC(app.submittedAt)}<br />
+                            <span className="text-[11px]">{formatTime(app.submittedAt)}</span>
                           </div>
                         </div>
                       ))}

@@ -116,17 +116,18 @@ const AdminCommissionReviewPage = () => {
   const itemsPerPage = 10;
 
   // Helper to format dates
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateString: string | undefined) => {
     if (!dateString) return 'N/A';
     try {
       const date = new Date(dateString);
-      return date.toLocaleString('en-US', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-      });
+      if (isNaN(date.getTime())) return 'Invalid Date';
+      
+      // Use UTC methods to avoid timezone conversion
+      const year = date.getUTCFullYear();
+      const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+      const day = String(date.getUTCDate()).padStart(2, '0');
+      
+      return `${month}/${day}/${year}`;
     } catch {
       return 'Date Error';
     }
@@ -1118,9 +1119,7 @@ const getActionButtons = (app: Application) => {
                         </td>
                         <td className="px-4 py-4 whitespace-nowrap">
                           <div className="text-sm text-gray-900">
-                            {app.insuranceEndAt
-                              ? new Date(app.insuranceEndAt).toLocaleDateString()
-                              : 'N/A'}
+                            {formatDate(app.insuranceEndAt)}
                           </div>
                         </td>
                         <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -1219,9 +1218,7 @@ const getActionButtons = (app: Application) => {
                 <div>
                   <p className="text-sm text-gray-500">Date of Birth</p>
                   <p className="font-semibold">
-                    {selectedApp.client?.dateOfBirth
-                      ? new Date(selectedApp.client.dateOfBirth).toLocaleDateString()
-                      : 'N/A'}
+                    {formatDate(selectedApp.client?.dateOfBirth)}
                   </p>
                 </div>
               </div>
@@ -1266,7 +1263,7 @@ const getActionButtons = (app: Application) => {
                   <div>
                     <p className="text-sm text-gray-500">Insurance End Date</p>
                     <p className="font-semibold">
-                      {new Date(selectedApp.insuranceEndAt).toLocaleDateString()}
+                      {formatDate(selectedApp.insuranceEndAt)}
                     </p>
                   </div>
                 )}

@@ -9,6 +9,7 @@ import { useToast } from '@/components/ui/toast';
 import { DocumentViewer } from '@/components/ui/document-viewer';
 import { PencilLine, Eye } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
+import { formatDateUTC } from '@/utils/date-formatter';
 
 // Application statuses
 enum ApplicationStatus {
@@ -1697,7 +1698,7 @@ const getActionButtons = (app: Application) => {
     </td>
     <td className="px-4 py-4 text-sm whitespace-nowrap">
       <div className="text-sm text-gray-900">
-        {app.insuranceEndAt ? new Date(app.insuranceEndAt).toLocaleDateString() : 'N/A'}
+        {formatDateUTC(app.insuranceEndAt)}
       </div>
     </td>
     <td className="px-4 py-4 text-sm whitespace-nowrap">

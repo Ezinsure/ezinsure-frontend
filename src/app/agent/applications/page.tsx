@@ -9,6 +9,7 @@ import { DocumentViewer } from '@/components/ui/document-viewer';
 import { useAuth } from '@/context/AuthContext';
 import { FileInput } from '@/components/ui/file-input';
 import { rwandaProvinces } from '@/utils/rwanda-administrative';
+import { formatDateUTC, formatDateForExcel as formatDateForExcelUtil, formatTime } from '@/utils/date-formatter';
 
 interface Application {
   _id: string;
@@ -1209,8 +1210,8 @@ useEffect(() => {
       const autoTable = await import('jspdf-autotable');
       
       const doc = new jsPDF('landscape', 'mm', 'a4');
-      const currentDate = new Date().toLocaleDateString();
-      const currentTime = new Date().toLocaleTimeString();
+      const currentDate = formatDateUTC(new Date().toISOString());
+      const currentTime = formatTime(new Date().toISOString());
       
                 // Add title
           doc.setFontSize(20);
@@ -1277,7 +1278,7 @@ useEffect(() => {
           app.amount ? `${app.amount.toLocaleString()} RWF` : '0 RWF',
           app.companyCommission ? `${app.companyCommission.toLocaleString()} RWF` : '0 RWF',
           app.agentCommission ? `${app.agentCommission.toLocaleString()} RWF` : '0 RWF',
-          app.submittedAt ? new Date(app.submittedAt).toLocaleDateString() : 'N/A',
+          formatDate(app.submittedAt),
           (app.status || '').replace('_', ' ').toUpperCase()
         ];
       });
@@ -1357,23 +1358,8 @@ useEffect(() => {
     }
 
     try {
-      const formatDateForExcel = (dateString?: string) => {
-        if (!dateString) return 'N/A';
-
-        try {
-          const date = new Date(dateString);
-          if (isNaN(date.getTime())) {
-            return 'Invalid Date';
-          }
-
-          const year = date.getFullYear();
-          const month = String(date.getMonth() + 1).padStart(2, '0');
-          const day = String(date.getDate()).padStart(2, '0');
-          return `${year}-${month}-${day}`;
-        } catch {
-          return 'Date Error';
-        }
-      };
+      // Use utility function for Excel date formatting (handles UTC properly)
+      const formatDateForExcel = formatDateForExcelUtil;
 
       const headers = [
         'Application Number',
@@ -1611,23 +1597,8 @@ const handleEditSuccess = async () => {
     }
   };
 
-  // Format date for display
-  const formatDate = (dateString: string | undefined) => {
-    if (!dateString) return 'N/A';
-    
-    try {
-      const date = new Date(dateString);
-      if (isNaN(date.getTime())) return 'Invalid Date';
-      
-      return date.toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
-      });
-    } catch {
-      return 'Date Error';
-    }
-  };
+  // Format date for display (using UTC to avoid timezone issues)
+  const formatDate = formatDateUTC;
 
   // Get action buttons based on application status
 const getActionButtons = (app: Application) => {
@@ -2074,7 +2045,7 @@ const getActionButtons = (app: Application) => {
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-900">
-                          {app.insuranceEndAt ? new Date(app.insuranceEndAt).toLocaleDateString() : 'N/A'}
+                          {formatDate(app.insuranceEndAt)}
                         </div>
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
