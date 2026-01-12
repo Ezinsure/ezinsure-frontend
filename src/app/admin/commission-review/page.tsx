@@ -8,6 +8,7 @@ import { FileInput } from '@/components/ui/file-input';
 import { useToast } from '@/components/ui/toast';
 import { useAuth } from '@/context/AuthContext';
 import { DocumentViewer } from '@/components/ui/document-viewer';
+import { formatDateUTC } from '@/utils/date-formatter';
 
 interface Application {
   _id: string;
@@ -1118,9 +1119,7 @@ const getActionButtons = (app: Application) => {
                         </td>
                         <td className="px-4 py-4 whitespace-nowrap">
                           <div className="text-sm text-gray-900">
-                            {app.insuranceEndAt
-                              ? new Date(app.insuranceEndAt).toLocaleDateString()
-                              : 'N/A'}
+                            {formatDate(app.insuranceEndAt)}
                           </div>
                         </td>
                         <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -1219,9 +1218,7 @@ const getActionButtons = (app: Application) => {
                 <div>
                   <p className="text-sm text-gray-500">Date of Birth</p>
                   <p className="font-semibold">
-                    {selectedApp.client?.dateOfBirth
-                      ? new Date(selectedApp.client.dateOfBirth).toLocaleDateString()
-                      : 'N/A'}
+                    {formatDate(selectedApp.client?.dateOfBirth)}
                   </p>
                 </div>
               </div>
@@ -1266,7 +1263,7 @@ const getActionButtons = (app: Application) => {
                   <div>
                     <p className="text-sm text-gray-500">Insurance End Date</p>
                     <p className="font-semibold">
-                      {new Date(selectedApp.insuranceEndAt).toLocaleDateString()}
+                      {formatDate(selectedApp.insuranceEndAt)}
                     </p>
                   </div>
                 )}

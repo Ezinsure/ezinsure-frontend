@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/components/ui/toast';
 import { DocumentViewer } from '@/components/ui/document-viewer';
 import { useAuth } from '@/context/AuthContext';
+import { formatDateUTC, formatDateForExcel, formatTime } from '@/utils/date-formatter';
 
 enum ApplicationStatus {
   PENDING = 'pending',
@@ -308,8 +309,8 @@ export default function SuperAdminApplicationsPage() {
       const autoTable = await import('jspdf-autotable');
       
       const doc = new jsPDF('landscape', 'mm', 'a4');
-      const currentDate = new Date().toLocaleDateString();
-      const currentTime = new Date().toLocaleTimeString();
+      const currentDate = formatDateUTC(new Date().toISOString());
+      const currentTime = formatTime(new Date().toISOString());
       
                 // Add title
           doc.setFontSize(20);
@@ -371,12 +372,12 @@ export default function SuperAdminApplicationsPage() {
           clientName.length > 28 ? clientName.substring(0, 28) + '...' : clientName,
           clientEmail.length > 32 ? clientEmail.substring(0, 32) + '...' : clientEmail,
           (app.insuranceCategory || '').length > 22 ? (app.insuranceCategory || '').substring(0, 22) + '...' : (app.insuranceCategory || ''),
-          app.insuranceEndAt ? new Date(app.insuranceEndAt).toLocaleDateString() : 'N/A',
+          formatDateUTC(app.insuranceEndAt),
           createdBy.length > 22 ? createdBy.substring(0, 22) + '...' : createdBy,
           app.amount ? `${app.amount.toLocaleString()} RWF` : '0 RWF',
           app.companyCommission ? `${app.companyCommission.toLocaleString()} RWF` : '0 RWF',
           app.agentCommission ? `${app.agentCommission.toLocaleString()} RWF` : '0 RWF',
-          app.submittedAt ? new Date(app.submittedAt).toLocaleDateString() : 'N/A',
+          formatDateUTC(app.submittedAt),
           (app.status || '').replace('_', ' ').toUpperCase()
         ];
       });
@@ -479,12 +480,12 @@ export default function SuperAdminApplicationsPage() {
           app.insuranceCategory,
           app.insuranceType,
           app.insuranceDuration,
-          app.insuranceEndAt ? new Date(app.insuranceEndAt).toLocaleDateString() : 'N/A',
+          formatDateUTC(app.insuranceEndAt),
           createdBy,
           app.amount ? app.amount.toString() : '0',
           app.companyCommission ? app.companyCommission.toString() : '0',
           app.agentCommission ? app.agentCommission.toString() : '0',
-          app.submittedAt ? new Date(app.submittedAt).toLocaleDateString() : 'N/A',
+          formatDateUTC(app.submittedAt),
           app.status.replace('_', ' '),
           clientAddress,
           clientProvince,
@@ -887,7 +888,7 @@ export default function SuperAdminApplicationsPage() {
     </td>
     <td className="px-4 py-4 text-sm whitespace-nowrap">
       <div className="text-sm text-gray-900">
-        {app.insuranceEndAt ? new Date(app.insuranceEndAt).toLocaleDateString() : 'N/A'}
+        {formatDateUTC(app.insuranceEndAt)}
       </div>
     </td>
     <td className="px-4 py-4 text-sm whitespace-nowrap">
@@ -922,7 +923,7 @@ export default function SuperAdminApplicationsPage() {
         {app.agentCommission ? `${app.agentCommission.toLocaleString()} RWF` : '0 RWF'}
       </div>
     </td>
-    <td className="px-4 py-4 text-sm whitespace-nowrap text-gray-500">{app.submittedAt ? new Date(app.submittedAt).toLocaleDateString() : 'N/A'}</td>
+    <td className="px-4 py-4 text-sm whitespace-nowrap text-gray-500">{formatDateUTC(app.submittedAt)}</td>
     <td className="px-4 py-4 text-sm whitespace-nowrap">
       {getStatusBadge(app.status)}
     </td>
@@ -999,7 +1000,7 @@ export default function SuperAdminApplicationsPage() {
                   </div>
                   <div>
                     <p className="text-sm text-gray-500 mb-1">Date of Birth</p>
-                    <p className="font-medium text-gray-900">{new Date(selectedApp.client?.dateOfBirth || selectedApp.dateOfBirth || '').toLocaleDateString()}</p>
+                    <p className="font-medium text-gray-900">{formatDateUTC(selectedApp.client?.dateOfBirth || selectedApp.dateOfBirth)}</p>
                   </div>
                 </div>
               </div>
@@ -1052,7 +1053,7 @@ export default function SuperAdminApplicationsPage() {
                   {selectedApp.insuranceEndAt && (
                     <div>
                       <p className="text-sm text-gray-500 mb-1">Insurance End Date</p>
-                      <p className="font-medium text-gray-900">{new Date(selectedApp.insuranceEndAt).toLocaleDateString()}</p>
+                      <p className="font-medium text-gray-900">{formatDateUTC(selectedApp.insuranceEndAt)}</p>
                     </div>
                   )}
                   <div>
