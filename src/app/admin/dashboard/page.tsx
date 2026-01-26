@@ -1183,9 +1183,9 @@ const CustomTooltip: React.FC<TooltipProps<number, string>> = ({ active, payload
                     <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-3 border border-blue-200">
                       <div className="flex items-center gap-2 mb-1">
                         <div className="w-2 h-2 rounded-full bg-blue-600"></div>
-                        <p className="text-xs font-medium text-blue-900">Total Applications</p>
+                        <p className="text-[10px] font-medium text-blue-900">Total Applications</p>
                       </div>
-                      <p className="text-xl font-bold text-blue-900">
+                      <p className="text-lg font-bold text-blue-900">
                         {dailyMetrics.reduce((sum, d) => sum + (d.applications || 0), 0).toLocaleString()}
                       </p>
                     </div>
@@ -1193,19 +1193,19 @@ const CustomTooltip: React.FC<TooltipProps<number, string>> = ({ active, payload
                     <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg p-3 border border-green-200">
                       <div className="flex items-center gap-2 mb-1">
                         <div className="w-2 h-2 rounded-full bg-green-600"></div>
-                        <p className="text-xs font-medium text-green-900">Company Commission</p>
+                        <p className="text-[10px] font-medium text-green-900">Company Commission</p>
                       </div>
-                      <p className="text-xl font-bold text-green-900">
-                        {(dailyMetrics.reduce((sum, d) => sum + (d.companyCommission || 0), 0) / 1000).toFixed(0)}K
+                      <p className="text-lg font-bold text-green-900">
+                        {(dailyMetrics.reduce((sum, d) => sum + (d.companyCommission || 0), 0) / 1000).toFixed(1)}K
                       </p>
                     </div>
                     
                     <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg p-3 border border-purple-200">
                       <div className="flex items-center gap-2 mb-1">
                         <div className="w-2 h-2 rounded-full bg-purple-600"></div>
-                        <p className="text-xs font-medium text-purple-900">Active Agents</p>
+                        <p className="text-[10px] font-medium text-purple-900">Active Agents</p>
                       </div>
-                      <p className="text-xl font-bold text-purple-900">
+                      <p className="text-lg font-bold text-purple-900">
                         {dailyMetrics.reduce((sum, d) => sum + (d.agents || 0), 0).toLocaleString()}
                       </p>
                     </div>
@@ -1213,9 +1213,9 @@ const CustomTooltip: React.FC<TooltipProps<number, string>> = ({ active, payload
                     <div className="bg-gradient-to-br from-orange-50 to-orange-100 rounded-lg p-3 border border-orange-200">
                       <div className="flex items-center gap-2 mb-1">
                         <div className="w-2 h-2 rounded-full bg-orange-600"></div>
-                        <p className="text-xs font-medium text-orange-900">New Clients</p>
+                        <p className="text-[10px] font-medium text-orange-900">New Clients</p>
                       </div>
-                      <p className="text-xl font-bold text-orange-900">
+                      <p className="text-lg font-bold text-orange-900">
                         {dailyMetrics.reduce((sum, d) => sum + (d.clients || 0), 0).toLocaleString()}
                       </p>
                     </div>
@@ -1223,7 +1223,7 @@ const CustomTooltip: React.FC<TooltipProps<number, string>> = ({ active, payload
                   
                   {/* Chart */}
                   <ResponsiveContainer width="100%" height={280}>
-                    <LineChart data={dailyMetrics} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}> 
+                    <BarChart data={dailyMetrics} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}> 
                     <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" vertical={false} />
                     <XAxis 
                       dataKey="day" 
@@ -1235,7 +1235,7 @@ const CustomTooltip: React.FC<TooltipProps<number, string>> = ({ active, payload
                     />
                     <YAxis 
                       stroke={CHART_COLORS.secondary}
-                      fontSize={11}
+                      fontSize={10}
                       tickLine={false}
                       axisLine={false}
                       tick={{ fill: CHART_COLORS.secondary }}
@@ -1245,9 +1245,11 @@ const CustomTooltip: React.FC<TooltipProps<number, string>> = ({ active, payload
                           backgroundColor: 'rgba(255, 255, 255, 0.98)',
                           border: '1px solid #E2E8F0',
                           borderRadius: '8px',
-                          padding: '12px',
-                          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                          padding: '8px 10px',
+                          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                          fontSize: '11px'
                         }}
+                        labelStyle={{ fontSize: '11px', fontWeight: '600', marginBottom: '4px' }}
                         formatter={(value: number, name: string) => {
                           if (name === 'companyCommission') return [`${(value / 1000).toFixed(1)}K RWF`, 'Company Commission'];
                           if (name === 'applications') return [value, 'Applications'];
@@ -1257,7 +1259,7 @@ const CustomTooltip: React.FC<TooltipProps<number, string>> = ({ active, payload
                         }}
                       />
                       <Legend 
-                        wrapperStyle={{ fontSize: '11px', paddingTop: '10px' }}
+                        wrapperStyle={{ fontSize: '10px', paddingTop: '10px' }}
                         formatter={(value) => {
                           if (value === 'applications') return 'Applications';
                           if (value === 'companyCommission') return 'Company Commission (K)';
@@ -1266,39 +1268,27 @@ const CustomTooltip: React.FC<TooltipProps<number, string>> = ({ active, payload
                           return value;
                         }}
                       />
-                      <Line 
-                        type="monotone"
-                      dataKey="applications" 
-                        stroke="#3B82F6"
-                        strokeWidth={2}
-                        dot={{ fill: '#3B82F6', r: 3 }}
-                        activeDot={{ r: 5 }}
+                      <Bar 
+                        dataKey="applications" 
+                        fill="#3B82F6"
+                        radius={[6, 6, 0, 0]}
                       />
-                      <Line 
-                        type="monotone"
+                      <Bar 
                         dataKey="companyCommission" 
-                        stroke="#10B981"
-                        strokeWidth={2}
-                        dot={{ fill: '#10B981', r: 3 }}
-                        activeDot={{ r: 5 }}
+                        fill="#10B981"
+                        radius={[6, 6, 0, 0]}
                       />
-                      <Line 
-                        type="monotone"
+                      <Bar 
                         dataKey="agents" 
-                        stroke="#8B5CF6"
-                        strokeWidth={2}
-                        dot={{ fill: '#8B5CF6', r: 3 }}
-                        activeDot={{ r: 5 }}
+                        fill="#8B5CF6"
+                        radius={[6, 6, 0, 0]}
                       />
-                      <Line 
-                        type="monotone"
+                      <Bar 
                         dataKey="clients" 
-                        stroke="#F59E0B"
-                        strokeWidth={2}
-                        dot={{ fill: '#F59E0B', r: 3 }}
-                        activeDot={{ r: 5 }}
-                    />
-                    </LineChart>
+                        fill="#F59E0B"
+                        radius={[6, 6, 0, 0]}
+                      />
+                    </BarChart>
                 </ResponsiveContainer>
                 </>
               )}
