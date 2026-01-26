@@ -74,7 +74,7 @@ interface RevenueDataPoint {
 
 interface DailyMetric {
   day: string;
-  revenue?: number;
+  companyCommission?: number;
   applications?: number;
   agents?: number;
   clients?: number;
@@ -330,11 +330,8 @@ const AdminDashboard = () => {
   const [revenueData, setRevenueData] = useState<RevenueDataPoint[]>([]); // Placeholder, replace with real API data if available
   const [dailyMetrics, setDailyMetrics] = useState<DailyMetric[]>([]); // Placeholder, replace with real API data if available
   
-  // Daily metrics date range state
-  const [dailyMetricsStartDate, setDailyMetricsStartDate] = useState<string>(
-    new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
-  );
-  const [dailyMetricsEndDate, setDailyMetricsEndDate] = useState<string>(getTodayDate());
+  // Daily metrics date state (single date)
+  const [dailyMetricsDate, setDailyMetricsDate] = useState<string>(getTodayDate());
 
   // Fetch stats data on component mount
   useEffect(() => {
@@ -538,7 +535,7 @@ const AdminDashboard = () => {
       setIsDailyMetricsLoading(true);
       try {
         const response = await fetch(
-          `${process.env.NEXT_PUBLIC_API_BASE_URL}/getDailyPerformanceMetrics?startDate=${dailyMetricsStartDate}&endDate=${dailyMetricsEndDate}`,
+          `${process.env.NEXT_PUBLIC_API_BASE_URL}/getDailyPerformanceMetrics?date=${dailyMetricsDate}`,
           {
             method: 'GET',
             headers: {
@@ -558,12 +555,12 @@ const AdminDashboard = () => {
         console.error('Error fetching daily metrics:', error);
         setDailyMetrics([]);
       } finally {
-        setIsDailyMetricsLoading(false);
+      setIsDailyMetricsLoading(false);
       }
     };
     
     fetchDailyMetrics();
-  }, [token, dailyMetricsStartDate, dailyMetricsEndDate]);
+  }, [token, dailyMetricsDate]);
 
   // Calculate total revenue (commission + admin fees)
   const totalRevenue = (statsData.totalCommission || 0) + (totalAdministrationFees || 0);
@@ -1140,33 +1137,28 @@ const CustomTooltip: React.FC<TooltipProps<number, string>> = ({ active, payload
           <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
               <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-1">Daily Performance</h3>
+            <h3 className="text-lg font-semibold text-gray-900 mb-1">Daily Performance</h3>
                 <p className="text-gray-500 text-xs">Track daily metrics and trends</p>
               </div>
               
-              {/* Date Range Filters */}
+              {/* Date Selector */}
               <div className="flex items-center gap-2">
-                <div className="flex items-center gap-2">
-                  <label className="text-xs font-medium text-gray-600">From:</label>
-                  <input
-                    type="date"
-                    value={dailyMetricsStartDate}
-                    onChange={(e) => setDailyMetricsStartDate(e.target.value)}
-                    max={dailyMetricsEndDate}
-                    className="px-2 py-1.5 text-xs border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-                <div className="flex items-center gap-2">
-                  <label className="text-xs font-medium text-gray-600">To:</label>
-                  <input
-                    type="date"
-                    value={dailyMetricsEndDate}
-                    onChange={(e) => setDailyMetricsEndDate(e.target.value)}
-                    min={dailyMetricsStartDate}
-                    max={getTodayDate()}
-                    className="px-2 py-1.5 text-xs border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
+                <label className="text-xs font-medium text-gray-600">Date:</label>
+                <input
+                  type="date"
+                  value={dailyMetricsDate}
+                  onChange={(e) => setDailyMetricsDate(e.target.value)}
+                  max={getTodayDate()}
+                  className="px-3 py-1.5 text-xs border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+                {dailyMetricsDate !== getTodayDate() && (
+                  <button
+                    onClick={() => setDailyMetricsDate(getTodayDate())}
+                    className="text-xs text-blue-600 hover:text-blue-700 font-medium whitespace-nowrap"
+                  >
+                    Today
+                  </button>
+                )}
               </div>
             </div>
             
@@ -1181,7 +1173,7 @@ const CustomTooltip: React.FC<TooltipProps<number, string>> = ({ active, payload
                 <div className="h-full flex items-center justify-center">
                   <div className="text-center">
                     <p className="text-sm text-gray-400 mb-2">No daily performance data available</p>
-                    <p className="text-xs text-gray-300">Try selecting a different date range</p>
+                    <p className="text-xs text-gray-300">Try selecting a different date</p>
                   </div>
                 </div>
               ) : (
@@ -1201,10 +1193,10 @@ const CustomTooltip: React.FC<TooltipProps<number, string>> = ({ active, payload
                     <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg p-3 border border-green-200">
                       <div className="flex items-center gap-2 mb-1">
                         <div className="w-2 h-2 rounded-full bg-green-600"></div>
-                        <p className="text-xs font-medium text-green-900">Total Revenue</p>
+                        <p className="text-xs font-medium text-green-900">Company Commission</p>
                       </div>
                       <p className="text-xl font-bold text-green-900">
-                        {(dailyMetrics.reduce((sum, d) => sum + (d.revenue || 0), 0) / 1000).toFixed(0)}K
+                        {(dailyMetrics.reduce((sum, d) => sum + (d.companyCommission || 0), 0) / 1000).toFixed(0)}K
                       </p>
                     </div>
                     
@@ -1232,22 +1224,22 @@ const CustomTooltip: React.FC<TooltipProps<number, string>> = ({ active, payload
                   {/* Chart */}
                   <ResponsiveContainer width="100%" height={280}>
                     <LineChart data={dailyMetrics} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}> 
-                      <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" vertical={false} />
-                      <XAxis 
-                        dataKey="day" 
-                        stroke={CHART_COLORS.secondary}
-                        fontSize={11}
-                        tickLine={false}
-                        axisLine={false}
-                        tick={{ fill: CHART_COLORS.secondary }}
-                      />
-                      <YAxis 
-                        stroke={CHART_COLORS.secondary}
-                        fontSize={11}
-                        tickLine={false}
-                        axisLine={false}
-                        tick={{ fill: CHART_COLORS.secondary }}
-                      />
+                    <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" vertical={false} />
+                    <XAxis 
+                      dataKey="day" 
+                      stroke={CHART_COLORS.secondary}
+                      fontSize={11}
+                      tickLine={false}
+                      axisLine={false}
+                      tick={{ fill: CHART_COLORS.secondary }}
+                    />
+                    <YAxis 
+                      stroke={CHART_COLORS.secondary}
+                      fontSize={11}
+                      tickLine={false}
+                      axisLine={false}
+                      tick={{ fill: CHART_COLORS.secondary }}
+                    />
                       <Tooltip 
                         contentStyle={{
                           backgroundColor: 'rgba(255, 255, 255, 0.98)',
@@ -1257,7 +1249,7 @@ const CustomTooltip: React.FC<TooltipProps<number, string>> = ({ active, payload
                           boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
                         }}
                         formatter={(value: number, name: string) => {
-                          if (name === 'revenue') return [`${(value / 1000).toFixed(1)}K RWF`, 'Revenue'];
+                          if (name === 'companyCommission') return [`${(value / 1000).toFixed(1)}K RWF`, 'Company Commission'];
                           if (name === 'applications') return [value, 'Applications'];
                           if (name === 'agents') return [value, 'Active Agents'];
                           if (name === 'clients') return [value, 'New Clients'];
@@ -1268,7 +1260,7 @@ const CustomTooltip: React.FC<TooltipProps<number, string>> = ({ active, payload
                         wrapperStyle={{ fontSize: '11px', paddingTop: '10px' }}
                         formatter={(value) => {
                           if (value === 'applications') return 'Applications';
-                          if (value === 'revenue') return 'Revenue (K)';
+                          if (value === 'companyCommission') return 'Company Commission (K)';
                           if (value === 'agents') return 'Active Agents';
                           if (value === 'clients') return 'New Clients';
                           return value;
@@ -1276,7 +1268,7 @@ const CustomTooltip: React.FC<TooltipProps<number, string>> = ({ active, payload
                       />
                       <Line 
                         type="monotone"
-                        dataKey="applications" 
+                      dataKey="applications" 
                         stroke="#3B82F6"
                         strokeWidth={2}
                         dot={{ fill: '#3B82F6', r: 3 }}
@@ -1284,7 +1276,7 @@ const CustomTooltip: React.FC<TooltipProps<number, string>> = ({ active, payload
                       />
                       <Line 
                         type="monotone"
-                        dataKey="revenue" 
+                        dataKey="companyCommission" 
                         stroke="#10B981"
                         strokeWidth={2}
                         dot={{ fill: '#10B981', r: 3 }}
@@ -1305,9 +1297,9 @@ const CustomTooltip: React.FC<TooltipProps<number, string>> = ({ active, payload
                         strokeWidth={2}
                         dot={{ fill: '#F59E0B', r: 3 }}
                         activeDot={{ r: 5 }}
-                      />
+                    />
                     </LineChart>
-                  </ResponsiveContainer>
+                </ResponsiveContainer>
                 </>
               )}
             </div>
