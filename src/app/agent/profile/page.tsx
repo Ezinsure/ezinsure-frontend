@@ -10,6 +10,7 @@ import { validateForm, ValidationRules, validationPatterns } from '@/components/
 import { useAuth } from '@/context/AuthContext';
 import { Trash2, FileText, Eye, EyeClosed } from 'lucide-react';
 import { rwandaProvinces } from '@/utils/rwanda-administrative';
+import { EmailChangeForm } from '@/components/admin/email-change-form';
 
 interface User {
   _id: string;
@@ -84,6 +85,7 @@ export default function ProfilePage() {
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [showDocumentViewer, setShowDocumentViewer] = useState(false);
   const [selectedDocument, setSelectedDocument] = useState<string | null>(null);
+  const [showEmailModal, setShowEmailModal] = useState(false);
   
   const [profile, setProfile] = useState<User>({
     _id: '',
@@ -798,49 +800,66 @@ export default function ProfilePage() {
           
           {/* Security Section */}
           <div className="mt-8 bg-white rounded-xl shadow-md overflow-hidden">
-            <div className="p-6 bg-gradient-to-r from-[var(--accent-orange)] to-[#f97316] text-white">
-              <h2 className="text-xl font-bold">Security Settings</h2>
-              <p className="text-sm opacity-80 mt-1">
+            <div className="p-5 bg-gradient-to-r from-[var(--accent-orange)] to-[#f97316] text-white">
+              <h2 className="text-lg font-bold">Security Settings</h2>
+              <p className="text-xs opacity-80 mt-0.5">
                 Manage your password and account security
               </p>
             </div>
             
-            <div className="p-8">
-              <div className="space-y-6">
-                <div className="flex justify-between items-center p-4 border border-gray-200 rounded-lg">
+            <div className="p-6">
+              <div className="space-y-4">
+                <div className="flex justify-between items-center p-3 border border-gray-200 rounded-lg">
                   <div>
-                    <h3 className="font-medium">Password</h3>
-                    <p className="text-sm text-gray-500">Update your password regularly to keep your account secure</p>
+                    <h3 className="text-sm font-medium">Password</h3>
+                    <p className="text-xs text-gray-500">Update your password regularly to keep your account secure</p>
                   </div>
                   <Button
                     variant="secondary"
                     onClick={() => setShowPasswordModal(true)}
+                    className="text-sm py-2 px-4"
                   >
                     Change Password
                   </Button>
                 </div>
                 
-                <div className="flex justify-between items-center p-4 border border-gray-200 rounded-lg">
+                <div className="flex justify-between items-center p-3 border border-gray-200 rounded-lg">
                   <div>
-                    <h3 className="font-medium">Two-Factor Authentication</h3>
-                    <p className="text-sm text-gray-500">Add an extra layer of security to your account</p>
+                    <h3 className="text-sm font-medium">Email Address</h3>
+                    <p className="text-xs text-gray-500">Change your email address with verification</p>
+                  </div>
+                  <Button
+                    variant="secondary"
+                    onClick={() => setShowEmailModal(true)}
+                    className="text-sm py-2 px-4"
+                  >
+                    Change Email
+                  </Button>
+                </div>
+                
+                <div className="flex justify-between items-center p-3 border border-gray-200 rounded-lg">
+                  <div>
+                    <h3 className="text-sm font-medium">Two-Factor Authentication</h3>
+                    <p className="text-xs text-gray-500">Add an extra layer of security to your account</p>
                   </div>
                   <Button
                     variant="secondary"
                     onClick={() => showToast('2FA setup is under development', 'info')}
+                    className="text-sm py-2 px-4"
                   >
                     Set Up 2FA
                   </Button>
                 </div>
                 
-                <div className="flex justify-between items-center p-4 border border-gray-200 rounded-lg">
+                <div className="flex justify-between items-center p-3 border border-gray-200 rounded-lg">
                   <div>
-                    <h3 className="font-medium">Active Sessions</h3>
-                    <p className="text-sm text-gray-500">View and manage devices where you&apos;re currently logged in</p>
+                    <h3 className="text-sm font-medium">Active Sessions</h3>
+                    <p className="text-xs text-gray-500">View and manage devices where you&apos;re currently logged in</p>
                   </div>
                   <Button
                     variant="secondary"
                     onClick={() => showToast('Session management is under development', 'info')}
+                    className="text-sm py-2 px-4"
                   >
                     Manage Sessions
                   </Button>
@@ -983,6 +1002,31 @@ export default function ProfilePage() {
                   </Button>
                 </div>
               </form>
+            </div>
+          </div>
+        )}
+
+        {/* Email Change Modal */}
+        {showEmailModal && (
+          <div className="fixed inset-0 bg-gray-600/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg w-full max-w-sm mx-4 max-h-[90vh] flex flex-col overflow-hidden shadow-xl">
+              <div className="flex justify-between items-center px-5 py-4 border-b border-gray-200 flex-shrink-0">
+                <h3 className="text-sm font-semibold text-gray-900">Change Email Address</h3>
+                <button
+                  onClick={() => setShowEmailModal(false)}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              
+              <div className="overflow-y-auto flex-1 px-5 py-4">
+                <EmailChangeForm onSuccess={() => {
+                  setTimeout(() => setShowEmailModal(false), 5000);
+                }} />
+              </div>
             </div>
           </div>
         )}

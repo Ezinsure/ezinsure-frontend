@@ -44,7 +44,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const pathname = usePathname();
 
   const handleRouteProtection = useCallback(() => {
-    const PUBLIC_ROUTES = ['/', '/apply', '/login', '/register', '/track', '/terms-and-conditions', '/privacy-policy', '/FAQ', '/reset-password'];
+    const PUBLIC_ROUTES = ['/', '/apply', '/login', '/register', '/track', '/terms-and-conditions', '/privacy-policy', '/FAQ', '/reset-password', '/verify-email-change'];
     
     // Skip if still loading, not initialized, or currently logging in
     if (isLoading || !isInitialized || isLoggingIn) return;
@@ -55,7 +55,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     // **1. If logged in (has token & user)**
     if (token && user) {
       const userDashboard = `/${user.role.toLowerCase()}/dashboard`;
-  
+
+      // Allow access to verification page even if authenticated (user might be verifying email change)
+      if (cleanPathname === '/verify-email-change') {
+        return;
+      }
+
       // Redirect to dashboard if trying to access public routes
       if (PUBLIC_ROUTES.includes(cleanPathname)) {
         router.push(userDashboard);

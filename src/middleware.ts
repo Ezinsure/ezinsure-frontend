@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-const PUBLIC_ROUTES = ['/', '/apply', '/login', '/register', '/track', '/terms-and-conditions', '/privacy-policy', '/FAQ', '/reset-password'];
+const PUBLIC_ROUTES = ['/', '/apply', '/login', '/register', '/track', '/terms-and-conditions', '/privacy-policy', '/FAQ', '/reset-password', '/verify-email-change'];
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -44,6 +44,11 @@ export function middleware(request: NextRequest) {
 
       const rolePrefix = `/${user.role.toLowerCase()}`;
       // console.log('Authenticated user:', user);
+
+      // Allow access to verification page even if authenticated (user might be verifying email change)
+      if (pathname === '/verify-email-change') {
+        return NextResponse.next();
+      }
 
       // Redirect authenticated users away from public routes
       if (PUBLIC_ROUTES.includes(pathname)) {
