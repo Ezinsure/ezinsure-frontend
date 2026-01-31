@@ -11,6 +11,7 @@ import { useToast } from '@/components/ui/toast';
 import { useAuth } from '@/context/AuthContext';
 import { rwandaProvinces } from '@/utils/rwanda-administrative';
 import { formatErrorMessage } from '@/utils/error-formatter';
+import { carTypes, motoTypes, carUses, motoUses } from '@/utils/vehicle-types';
 import {
   validateForm,
   ValidationRules,
@@ -312,49 +313,6 @@ export default function AdminNewApplicationPage() {
 
   }, []);
 
-  // Constants from apply page
-
-  const carTypes = ['Jeep', 'Voiture', 'Camionette', 'Poid Lourds', 'Remorque', 'Daihatsu', 'Ambulance', 'Pickup', 'Other'];
-
-  const motoTypes = ['Electric', 'Moped', 'Scooter', 'Motorcycle', 'Other'];
-
-  const carUses = [
-
-    'Private',
-
-    'PSV',
-
-    'Commercial - Transport of Goods',
-
-    'Commercial - Auto Ecole',
-
-    'Commercial - School Bus',
-
-    'Commercial - Ambulance',
-
-    'Commercial - Transport of Fuel',
-
-    'Commercial - For Hire',
-
-    'Commercial - Mechanic',
-
-    'Commercial - Specific Use',
-
-    'Other'
-
-  ];
-
-  const motoUses = [
-
-    'Private',
-
-    'PSV',
-
-    'Commercial - Transport of Goods',
-
-    'Other'
-
-  ];
 
   // Helper functions for document types
   const getIdentificationDocumentLabel = (type: string) => {
