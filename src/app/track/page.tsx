@@ -8,29 +8,7 @@ import { FileInput } from '@/components/ui/file-input';
 import { useToast } from '@/components/ui/toast';
 import { rwandaProvinces } from '@/utils/rwanda-administrative';
 import { DocumentViewer } from '@/components/ui/document-viewer';
-
-// Vehicle type and use options
-const carTypes = ['Jeep', 'Voiture', 'Camionette', 'Poid Lourds', 'Remorque', 'Daihatsu', 'Ambulance', 'Pickup', 'Other'];
-const motoTypes = ['Electric', 'Moped', 'Scooter', 'Motorcycle', 'Other'];
-const carUses = [
-  'Private', 
-  'PSV', 
-  'Commercial - Transport of Goods', 
-  'Commercial - Auto Ecole', 
-  'Commercial - School Bus', 
-  'Commercial - Ambulance', 
-  'Commercial - Transport of Fuel', 
-  'Commercial - For Hire', 
-  'Commercial - Mechanic', 
-  'Commercial - Specific Use',
-  'Other'
-];
-const motoUses = [
-  'Private',
-  'PSV',
-  'Commercial - Transport of Goods',
-  'Other'
-];
+import { carTypes, motoTypes, carUses, motoUses } from '@/utils/vehicle-types';
 
 export interface Application {
   _id: string;
