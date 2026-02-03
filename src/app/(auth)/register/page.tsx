@@ -12,6 +12,7 @@ import { DocumentViewer } from '@/components/ui/document-viewer';
 import { rwandaProvinces } from '@/utils/rwanda-administrative';
 import { FileInput } from '@/components/ui/file-input'; 
 import { Application, EditUserOnTrackingPage } from '@/components/ui/admin/EditUserOnTrackingPage';
+import { formatDateText, formatDateTime } from '@/utils/date-formatter';
 import Link from 'next/link';
 
 // Device tracking utility types and functions
@@ -477,9 +478,7 @@ export default function AgentRegistrationPage() {
   useEffect(() => {
     const initializeTracking = async () => {
       try {
-        console.log('[Register] Starting tracking data capture...');
         const data = await getTrackingData();
-        console.log('[Register] Tracking data captured successfully:', data);
         setTrackingData(data);
       } catch (error) {
         console.error('[Register] Tracking initialization failed:', error);
@@ -797,16 +796,6 @@ const handleSubmit = async (e: React.FormEvent) => {
     }
   };
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
 
  const FileUploadField = ({ 
   label, 
@@ -1392,7 +1381,7 @@ const resetApplicationState = () => {
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
             <div>
               <h2 className="text-xl font-bold text-gray-900">Application Status</h2>
-              <p className="text-gray-600">Submitted on {formatDate(application.submittedAt)}</p>
+              <p className="text-gray-600">Submitted on {application.createdAt || application.submittedAt ? formatDateTime(application.createdAt || application.submittedAt || '') : 'N/A'}</p>
             </div>
             {application.status === "SENT_FOR_ACTION" ? (
               <div className="mt-4 md:mt-0 flex items-center gap-3">
@@ -1449,7 +1438,7 @@ const resetApplicationState = () => {
               </div>
               <div>
                 <p className="text-sm text-gray-500">Date of Birth</p>
-                <p className="font-medium">{formatDate(application.dateOfBirth)}</p>
+                <p className="font-medium">{formatDateText(application.dateOfBirth, 'long')}</p>
               </div>
               <div>
                 <p className="text-sm text-gray-500">Address</p>

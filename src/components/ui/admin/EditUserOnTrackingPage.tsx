@@ -26,7 +26,8 @@ export interface Application {
     phoneNumber: string;
     relationship: string;
   }>;
-  submittedAt: string;
+  createdAt: string;
+  submittedAt?: string; // Keep for backward compatibility
   rejectionReason?: string;
   bankName: string;
   bankAccountNumber: string;
