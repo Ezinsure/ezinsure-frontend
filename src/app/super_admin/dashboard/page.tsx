@@ -120,9 +120,9 @@ const fetchActiveAgentsCount = async (token: string) => {
   }
 };
 
-const fetchApplicationsThisMonth = async (token: string) => {
+const fetchApplicationsThisMonth = async (token: string, startDate: string, endDate: string) => {
   try {
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/countApplicationsThisMonth`, {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/countApplicationsThisMonth?startDate=${startDate}&endDate=${endDate}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -160,9 +160,9 @@ const fetchCoveredProvinces = async (token: string) => {
     }
 };
 
-const fetchTotalCommission = async (token: string) => {
+const fetchTotalCommission = async (token: string, startDate: string, endDate: string) => {
   try {
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/getTotalCompanyCommissionThisMonth`, {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/getTotalCompanyCommissionThisMonth?startDate=${startDate}&endDate=${endDate}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -458,9 +458,9 @@ const SuperAdminDashboard = () => {
       try {
         const [activeAgents, applications, coveredProvinces, totalCommission] = await Promise.all([
           fetchActiveAgentsCount(token),
-          fetchApplicationsThisMonth(token),
+          fetchApplicationsThisMonth(token, adminFeesStartDate, adminFeesEndDate),
           fetchCoveredProvinces(token),
-          fetchTotalCommission(token)
+          fetchTotalCommission(token, adminFeesStartDate, adminFeesEndDate)
         ]);
 
         setStatsData({
@@ -493,7 +493,7 @@ const SuperAdminDashboard = () => {
     };
 
     fetchStatsData();
-  }, [token]);
+  }, [token, adminFeesStartDate, adminFeesEndDate]);
 
 
 
@@ -525,7 +525,7 @@ const SuperAdminDashboard = () => {
   useEffect(() => {
     if (!token) return;
     setIsTopAgentsLoading(true);
-    fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/getTopAgents`, {
+    fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/getTopAgents?startDate=${adminFeesStartDate}&endDate=${adminFeesEndDate}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -538,7 +538,7 @@ const SuperAdminDashboard = () => {
       })
       .catch(() => setTopAgents([]))
       .finally(() => setIsTopAgentsLoading(false));
-  }, [token]);
+  }, [token, adminFeesStartDate, adminFeesEndDate]);
 
 
 
@@ -565,7 +565,7 @@ const SuperAdminDashboard = () => {
   useEffect(() => {
     if (!token) return;
     setIsAvgCommissionLoading(true);
-    fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/getMonthlyAverageAgentCommission`, {
+    fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/getMonthlyAverageAgentCommission?startDate=${adminFeesStartDate}&endDate=${adminFeesEndDate}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -582,7 +582,7 @@ const SuperAdminDashboard = () => {
         setTotalAgents(0);
       })
       .finally(() => setIsAvgCommissionLoading(false));
-  }, [token]);
+  }, [token, adminFeesStartDate, adminFeesEndDate]);
 
 
 
@@ -621,7 +621,7 @@ const SuperAdminDashboard = () => {
   useEffect(() => {
     if (!token) return;
     setIsRevenueLoading(true);
-    fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/getRevenueAnalytics`, {
+    fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/getRevenueAnalytics?startDate=${adminFeesStartDate}&endDate=${adminFeesEndDate}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -645,7 +645,7 @@ const SuperAdminDashboard = () => {
         setRevenueData([]);
       })
       .finally(() => setIsRevenueLoading(false));
-  }, [token]);
+  }, [token, adminFeesStartDate, adminFeesEndDate]);
 
   // Fetch Daily Metrics
   useEffect(() => {
