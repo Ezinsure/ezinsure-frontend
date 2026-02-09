@@ -497,11 +497,12 @@ export default function AgentAnalyticsPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [token, startDate, endDate, generateDummyData, showToast, USE_DUMMY_DATA]);
+  }, [token, startDate, endDate, generateDummyData, USE_DUMMY_DATA]);
 
   useEffect(() => {
     fetchAgentsData();
-  }, [fetchAgentsData]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [startDate, endDate, token]);
 
   // Get unique provinces for filter
   const uniqueProvinces = useMemo(() => {
