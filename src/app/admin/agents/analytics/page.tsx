@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { MainLayout } from '@/components/ui/main-layout';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { useToast } from '@/components/ui/toast';
 import { useAuth } from '@/context/AuthContext';
 import { 
@@ -12,7 +11,6 @@ import {
   TrendingUp, 
   FileText, 
   Search, 
-  Filter,
   Download,
   ArrowUpDown,
   ArrowUp,
@@ -24,11 +22,11 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronsLeft,
-  ChevronsRight
+  ChevronsRight,
+  Eye
 } from 'lucide-react';
-import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, AreaChart, Area, ComposedChart } from 'recharts';
+import { Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area, ComposedChart, Line } from 'recharts';
 import Link from 'next/link';
-import { Eye } from 'lucide-react';
 
 // Helper functions for dates
 const getFirstDayOfMonth = () => {
@@ -255,6 +253,21 @@ const Pagination = ({ currentPage, totalPages, totalItems, itemsPerPage, onPageC
 type SortField = 'name' | 'totalCommission' | 'totalApplications' | 'averageCommission' | 'totalRevenue' | 'province';
 type SortDirection = 'asc' | 'desc';
 
+interface AgentUserApi {
+  _id: string;
+  fullName: string;
+  email?: string;
+  phoneNumber?: string;
+  province?: string;
+  district?: string;
+  sector?: string;
+  status?: string;
+  bankName?: string;
+  bankAccountNumber?: string;
+  role?: string;
+  createdAt?: string;
+}
+
 export default function AgentAnalyticsPage() {
   const { token } = useAuth();
   const { showToast, ToastContainer } = useToast();
@@ -427,11 +440,12 @@ export default function AgentAnalyticsPage() {
           throw new Error('Failed to fetch users');
         }
 
-        const usersData = await usersResponse.json();
-        const agentUsers = (usersData.data || []).filter((user: any) => user.role === 'AGENT');
+      const usersData = await usersResponse.json();
+      const rawUsers = (usersData.data || []) as AgentUserApi[];
+      const agentUsers = rawUsers.filter((user) => user.role === 'AGENT');
 
-        // Calculate metrics for each agent
-        const agentMetrics: AgentAnalytics[] = agentUsers.map((user: any) => {
+      // Calculate metrics for each agent
+      const agentMetrics: AgentAnalytics[] = agentUsers.map((user) => {
           const agentApplications = applications.filter(
             (app) => app.agent?._id === user._id || app.agent?.fullName === user.fullName
           );
@@ -483,7 +497,7 @@ export default function AgentAnalyticsPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [token, startDate, endDate, generateDummyData]); // Removed showToast and USE_DUMMY_DATA from dependencies
+  }, [token, startDate, endDate, generateDummyData, showToast, USE_DUMMY_DATA]);
 
   useEffect(() => {
     fetchAgentsData();
@@ -497,7 +511,7 @@ export default function AgentAnalyticsPage() {
 
   // Filter and sort agents
   const filteredAndSortedAgents = useMemo(() => {
-    let filtered = agents.filter(agent => {
+    const filtered = agents.filter(agent => {
       const matchesSearch = 
         agent.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         agent.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -511,15 +525,27 @@ export default function AgentAnalyticsPage() {
     });
 
     // Sort
-    filtered.sort((a, b) => {
-      let aValue: any = a[sortField];
-      let bValue: any = b[sortField];
-      
-      if (sortField === 'name') {
-        aValue = aValue?.toLowerCase() || '';
-        bValue = bValue?.toLowerCase() || '';
+    const normalizeValue = (value: string | number | undefined, field: SortField): string | number => {
+      if (field === 'name' || field === 'province') {
+        if (typeof value === 'string') {
+          return value.toLowerCase();
+        }
+        return '';
       }
+
+      if (typeof value === 'number') {
+        return value;
+      }
+
+      return 0;
+    };
+
+    filtered.sort((a, b) => {
+      const aValue = normalizeValue(a[sortField] as string | number | undefined, sortField);
+      const bValue = normalizeValue(b[sortField] as string | number | undefined, sortField);
       
+      if (aValue === bValue) return 0;
+
       if (sortDirection === 'asc') {
         return aValue > bValue ? 1 : -1;
       } else {
@@ -581,7 +607,7 @@ export default function AgentAnalyticsPage() {
   const performanceTrendData = useMemo(() => {
     const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     const totalCommission = summaryStats.totalCommission;
-    return days.map((day, index) => ({
+    return days.map((day) => ({
       day,
       commission: Math.round(totalCommission * (0.1 + Math.random() * 0.15)),
       applications: Math.round(summaryStats.totalApplications * (0.1 + Math.random() * 0.15))
@@ -607,8 +633,6 @@ export default function AgentAnalyticsPage() {
       agents: data.agents
     }));
   }, [filteredAndSortedAgents]);
-
-  const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899'];
 
   // Export to CSV
   const handleExportCSV = () => {
@@ -951,7 +975,7 @@ export default function AgentAnalyticsPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
                   {provinceChartData
                     .sort((a, b) => b.commission - a.commission)
-                    .map((province, index) => {
+                    .map((province) => {
                       const total = provinceChartData.reduce((sum, p) => sum + p.commission, 0);
                       const percent = ((province.commission / total) * 100).toFixed(1);
                       return (
