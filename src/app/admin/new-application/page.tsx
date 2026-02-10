@@ -526,6 +526,7 @@ export default function AdminNewApplicationPage() {
     insuranceEndAt: '',
     
     // Agent Assignment
+    wantsToAssignAgent: '',
     assignToAgent: ''
 
   });

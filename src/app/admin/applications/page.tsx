@@ -3052,7 +3052,7 @@ const getActionButtons = (app: Application) => {
                             type="radio"
                             name="wantsToAssignAgent"
                             value="yes"
-                            checked={wantsToAssignAgentValue === 'yes' || (!wantsToAssignAgentValue && assignToAgentValue)}
+                            checked={Boolean(wantsToAssignAgentValue === 'yes' || (!wantsToAssignAgentValue && assignToAgentValue))}
                             onChange={(e) => {
                               setEditFormData((prev) => {
                                 if (!prev) return prev;
@@ -3072,7 +3072,7 @@ const getActionButtons = (app: Application) => {
                             type="radio"
                             name="wantsToAssignAgent"
                             value="no"
-                            checked={wantsToAssignAgentValue === 'no' || (!wantsToAssignAgentValue && !assignToAgentValue)}
+                            checked={Boolean(wantsToAssignAgentValue === 'no' || (!wantsToAssignAgentValue && !assignToAgentValue))}
                             onChange={(e) => {
                               setEditFormData((prev) => {
                                 if (!prev) return prev;
