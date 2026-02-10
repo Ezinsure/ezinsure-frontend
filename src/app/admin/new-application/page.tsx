@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { FileInput } from '@/components/ui/file-input';
 import { SearchInput } from '@/components/ui/search-input';
 import { RwandaPhoneInput } from '@/components/ui/rwanda-phone-input';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import { useToast } from '@/components/ui/toast';
 import { useAuth } from '@/context/AuthContext';
 import { rwandaProvinces } from '@/utils/rwanda-administrative';
@@ -266,6 +267,9 @@ interface ApplicationFormData {
   // Status
   status: ApplicationStatus;
   insuranceEndAt: string;
+  // Agent Assignment
+  wantsToAssignAgent: 'yes' | 'no' | '';
+  assignToAgent: string;
 }
 
 export default function AdminNewApplicationPage() {
@@ -274,6 +278,28 @@ export default function AdminNewApplicationPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [trackingData, setTrackingData] = useState<TrackingData | null>(null);
+  
+  // Fetch agents emails function
+  const fetchAgentsEmails = useCallback(async () => {
+    const token = getTokenFromStorage();
+    if (!token) {
+      throw new Error('No authentication token found');
+    }
+    
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/getAgentsEmails`, {
+      method: 'GET',
+      headers: {
+        'accept': 'application/json',
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error('Failed to fetch agents emails');
+    }
+    
+    return await response.json();
+  }, []);
   // State for administrative divisions
   const [availableDistricts, setAvailableDistricts] = useState<{ name: string, sectors?: string[] }[]>([]);
   const [availableSectors, setAvailableSectors] = useState<string[]>([]);
@@ -497,7 +523,10 @@ export default function AdminNewApplicationPage() {
 
     status: ApplicationStatus.PENDING,
 
-    insuranceEndAt: ''
+    insuranceEndAt: '',
+    
+    // Agent Assignment
+    assignToAgent: ''
 
   });
 
@@ -856,6 +885,11 @@ export default function AdminNewApplicationPage() {
 
     );
 
+    // Custom validation for assignToAgent - required when wantsToAssignAgent is 'yes'
+    if (formData.wantsToAssignAgent === 'yes' && !formData.assignToAgent) {
+      formErrors.assignToAgent = 'Please select an agent to assign this application to';
+    }
+
     setErrors(formErrors);
 
     if (!hasErrors(formErrors)) {
@@ -904,6 +938,11 @@ export default function AdminNewApplicationPage() {
 
           formDataToSend.append('trackingData', JSON.stringify(trackingData));
 
+        }
+
+        // Add assignToAgent if selected and wantsToAssignAgent is yes
+        if (formData.wantsToAssignAgent === 'yes' && formData.assignToAgent) {
+          formDataToSend.append('assignToAgent', formData.assignToAgent);
         }
 
         const token = getTokenFromStorage();
@@ -1000,9 +1039,12 @@ export default function AdminNewApplicationPage() {
 
             status: ApplicationStatus.PENDING,
 
-            insuranceEndAt: '',
+    insuranceEndAt: '',
+    
+    wantsToAssignAgent: '',
+    assignToAgent: '',
 
-            // Reset API response fields
+    // Reset API response fields
 
             vehicleId: '',
 
@@ -1471,6 +1513,90 @@ export default function AdminNewApplicationPage() {
 
                 </div>
 
+              </fieldset>
+
+              {/* Agent Assignment Section */}
+              <fieldset className="mb-8 border-2 border-[var(--main-blue)] rounded-lg p-6 bg-gray-50">
+                <legend className="text-lg font-semibold text-[var(--main-blue)] px-3 bg-white border border-[var(--main-blue)] rounded-md">
+                  Agent Assignment
+                </legend>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Radio button question */}
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium mb-3">
+                      Do you want to assign this application to an agent?
+                    </label>
+                    <div className="flex gap-6">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="wantsToAssignAgent"
+                          value="yes"
+                          checked={formData.wantsToAssignAgent === 'yes'}
+                          onChange={(e) => {
+                            setFormData(prev => ({
+                              ...prev,
+                              wantsToAssignAgent: e.target.value as 'yes' | 'no',
+                              assignToAgent: e.target.value === 'no' ? '' : prev.assignToAgent
+                            }));
+                          }}
+                          className="w-4 h-4 text-[var(--main-blue)] focus:ring-[var(--main-blue)]"
+                        />
+                        <span className="text-sm text-gray-700">Yes</span>
+                      </label>
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="wantsToAssignAgent"
+                          value="no"
+                          checked={formData.wantsToAssignAgent === 'no'}
+                          onChange={(e) => {
+                            setFormData(prev => ({
+                              ...prev,
+                              wantsToAssignAgent: e.target.value as 'yes' | 'no',
+                              assignToAgent: ''
+                            }));
+                          }}
+                          className="w-4 h-4 text-[var(--main-blue)] focus:ring-[var(--main-blue)]"
+                        />
+                        <span className="text-sm text-gray-700">No</span>
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* Agent selection - only show when Yes is selected */}
+                  {formData.wantsToAssignAgent === 'yes' && (
+                    <div className="md:col-span-2">
+                      <SearchableSelect
+                        label="Assign to Agent"
+                        name="assignToAgent"
+                        placeholder="Type agent email to search..."
+                        value={formData.assignToAgent || null}
+                        onChange={(value) => {
+                          setFormData(prev => ({
+                            ...prev,
+                            assignToAgent: value || ''
+                          }));
+                          // Clear error when user selects an agent
+                          if (value && errors.assignToAgent) {
+                            setErrors(prev => {
+                              const newErrors = { ...prev };
+                              delete newErrors.assignToAgent;
+                              return newErrors;
+                            });
+                          }
+                        }}
+                        fetchOptions={fetchAgentsEmails}
+                        getDisplayValue={(option) => option.email as string}
+                        getSearchValue={(option) => option.email as string}
+                        error={errors.assignToAgent}
+                        required={true}
+                        className="w-full"
+                      />
+                    </div>
+                  )}
+                </div>
               </fieldset>
 
               {/* Insurance Details Section - EXACT COPY FROM APPLY PAGE */}

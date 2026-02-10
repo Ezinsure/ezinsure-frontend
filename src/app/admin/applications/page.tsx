@@ -5,6 +5,7 @@ import { MainLayout } from '@/components/ui/main-layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { FileInput } from '@/components/ui/file-input';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import { useToast } from '@/components/ui/toast';
 import { DocumentViewer } from '@/components/ui/document-viewer';
 import { PencilLine, Eye } from 'lucide-react';
@@ -154,6 +155,27 @@ export default function ManageApplicationsPage() {
   const [visibleEditFields, setVisibleEditFields] = useState<Record<string, boolean>>({});
   const [isSubmittingEdit, setIsSubmittingEdit] = useState(false);
 
+  // Fetch agents emails function
+  const fetchAgentsEmails = useCallback(async () => {
+    if (!token) {
+      throw new Error('No authentication token found');
+    }
+    
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/getAgentsEmails`, {
+      method: 'GET',
+      headers: {
+        'accept': 'application/json',
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error('Failed to fetch agents emails');
+    }
+    
+    return await response.json();
+  }, [token]);
+
   const allowedUploadTypes = useMemo(
     () => ['image/jpeg', 'image/png', 'image/jpg', 'application/pdf'],
     []
@@ -299,6 +321,15 @@ export default function ManageApplicationsPage() {
 
     if (Object.keys(changedFields).length === 0) {
       showToast('No changes detected', 'info');
+      return;
+    }
+
+    // Validate assignToAgent if wantsToAssignAgent is 'yes'
+    const wantsToAssignAgent = editFormData.wantsToAssignAgent as string;
+    const assignToAgent = editFormData.assignToAgent as string;
+    if (wantsToAssignAgent === 'yes' && !assignToAgent) {
+      showToast('Please select an agent to assign this application to', 'error');
+      setIsSubmittingEdit(false);
       return;
     }
 
@@ -846,6 +877,8 @@ const getActionButtons = (app: Application) => {
             agentCommission: app.agentCommission?.toString() || '',
             status: app.status || '',
             insuranceEndAt: app.insuranceEndAt || '',
+            wantsToAssignAgent: app.agent?._id ? 'yes' : 'no',
+            assignToAgent: app.agent?._id || '',
             invoice: null as File | null,
             insuranceCertificate: null as File | null,
             contract: null as File | null,
@@ -1159,6 +1192,10 @@ const getActionButtons = (app: Application) => {
     isPersistentlyVisible('transactionIdField') || hasExistingValue(transactionIdValue);
   const showPaymentInstructionsField =
     isPersistentlyVisible('paymentInstructionsField') || hasExistingValue(paymentInstructionsValue);
+  
+  const assignToAgentValue = editFormData ? getFormValue(editFormData.assignToAgent) : '';
+  const wantsToAssignAgentValue = editFormData ? getFormValue(editFormData.wantsToAssignAgent) : '';
+  const showAssignToAgentField = isPersistentlyVisible('assignToAgent') || hasExistingValue(assignToAgentValue) || editingApp?.agent?._id || true; // Always show agent assignment section
 
   const showPaymentSection =
     showAmountField ||
@@ -2989,6 +3026,92 @@ const getActionButtons = (app: Application) => {
                           value={insuranceDurationValue}
                           disabled
                           className="w-full py-1.5 px-2 text-xs rounded-lg bg-gray-100 border border-gray-300 text-gray-600"
+                        />
+                      </div>
+                    )}
+                  </div>
+                </fieldset>
+              )}
+
+              {/* Agent Assignment Section */}
+              {showAssignToAgentField && (
+                <fieldset className="mb-4 border-2 border-[var(--main-blue)] rounded-lg p-3 bg-gray-50">
+                  <legend className="text-xs font-semibold text-[var(--main-blue)] px-2 bg-white border border-[var(--main-blue)] rounded-md">
+                    Agent Assignment
+                  </legend>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {/* Radio button question */}
+                    <div className="md:col-span-2">
+                      <label className="block text-xs font-medium mb-2">
+                        Do you want to assign this application to an agent?
+                      </label>
+                      <div className="flex gap-4">
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="radio"
+                            name="wantsToAssignAgent"
+                            value="yes"
+                            checked={wantsToAssignAgentValue === 'yes' || (!wantsToAssignAgentValue && assignToAgentValue)}
+                            onChange={(e) => {
+                              setEditFormData((prev) => {
+                                if (!prev) return prev;
+                                return {
+                                  ...prev,
+                                  wantsToAssignAgent: e.target.value,
+                                  assignToAgent: e.target.value === 'no' ? '' : prev.assignToAgent || '',
+                                };
+                              });
+                            }}
+                            className="w-3.5 h-3.5 text-[var(--main-blue)] focus:ring-[var(--main-blue)]"
+                          />
+                          <span className="text-xs text-gray-700">Yes</span>
+                        </label>
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="radio"
+                            name="wantsToAssignAgent"
+                            value="no"
+                            checked={wantsToAssignAgentValue === 'no' || (!wantsToAssignAgentValue && !assignToAgentValue)}
+                            onChange={(e) => {
+                              setEditFormData((prev) => {
+                                if (!prev) return prev;
+                                return {
+                                  ...prev,
+                                  wantsToAssignAgent: e.target.value,
+                                  assignToAgent: '',
+                                };
+                              });
+                            }}
+                            className="w-3.5 h-3.5 text-[var(--main-blue)] focus:ring-[var(--main-blue)]"
+                          />
+                          <span className="text-xs text-gray-700">No</span>
+                        </label>
+                      </div>
+                    </div>
+
+                    {/* Agent selection - only show when Yes is selected */}
+                    {(wantsToAssignAgentValue === 'yes' || (!wantsToAssignAgentValue && assignToAgentValue)) && (
+                      <div className="md:col-span-2">
+                        <SearchableSelect
+                          label="Assign to Agent"
+                          name="assignToAgent"
+                          placeholder="Type agent email to search..."
+                          value={assignToAgentValue || null}
+                          onChange={(value) => {
+                            setEditFormData((prev) => {
+                              if (!prev) return prev;
+                              return {
+                                ...prev,
+                                assignToAgent: value || '',
+                                wantsToAssignAgent: value ? 'yes' : prev.wantsToAssignAgent,
+                              };
+                            });
+                          }}
+                          fetchOptions={fetchAgentsEmails}
+                          getDisplayValue={(option) => option.email as string}
+                          getSearchValue={(option) => option.email as string}
+                          required={true}
+                          className="w-full"
                         />
                       </div>
                     )}
