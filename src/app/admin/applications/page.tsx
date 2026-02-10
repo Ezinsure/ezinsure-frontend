@@ -1195,7 +1195,8 @@ const getActionButtons = (app: Application) => {
   
   const assignToAgentValue = editFormData ? getFormValue(editFormData.assignToAgent) : '';
   const wantsToAssignAgentValue = editFormData ? getFormValue(editFormData.wantsToAssignAgent) : '';
-  const showAssignToAgentField = isPersistentlyVisible('assignToAgent') || hasExistingValue(assignToAgentValue) || editingApp?.agent?._id || true; // Always show agent assignment section
+  // Always show agent assignment section in edit form
+  const showAssignToAgentField = true;
 
   const showPaymentSection =
     showAmountField ||
