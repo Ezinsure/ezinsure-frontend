@@ -546,7 +546,7 @@ const SuperAdminDashboard = () => {
   useEffect(() => {
     if (!token) return;
     setIsRegionalPerformanceLoading(true);
-    fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/getRegionalPerformance`, {
+    fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/getRegionalPerformance?startDate=${adminFeesStartDate}&endDate=${adminFeesEndDate}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -559,7 +559,7 @@ const SuperAdminDashboard = () => {
       })
       .catch(() => setRegionalPerformance([]))
       .finally(() => setIsRegionalPerformanceLoading(false));
-  }, [token]);
+  }, [token, adminFeesStartDate, adminFeesEndDate]);
 
   // Fetch average commission and total agents
   useEffect(() => {

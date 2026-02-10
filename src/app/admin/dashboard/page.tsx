@@ -428,7 +428,7 @@ const AdminDashboard = () => {
   useEffect(() => {
     if (!token) return;
     setIsRegionalPerformanceLoading(true);
-    fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/getRegionalPerformance`, {
+    fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/getRegionalPerformance?startDate=${adminFeesStartDate}&endDate=${adminFeesEndDate}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -441,7 +441,7 @@ const AdminDashboard = () => {
       })
       .catch(() => setRegionalPerformance([]))
       .finally(() => setIsRegionalPerformanceLoading(false));
-  }, [token]);
+  }, [token, adminFeesStartDate, adminFeesEndDate]);
 
   // Fetch average commission and total agents
   useEffect(() => {
@@ -1631,8 +1631,8 @@ const CustomTooltip: React.FC<TooltipProps<number, string>> = ({ active, payload
               </button>
               <Link href="/admin/agents/analytics">
                 <button className="w-full rounded-xl border border-white/30 bg-transparent text-white font-semibold py-3 hover:bg-white/10 transition-colors">
-                  View All Agents
-                </button>
+                View All Agents
+              </button>
               </Link>
             </div>
           </div>
