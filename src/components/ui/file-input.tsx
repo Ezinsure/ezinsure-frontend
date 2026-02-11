@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from 'react';
+import { Eye, X } from 'lucide-react';
 
 interface FileInputProps {
   label: string;
@@ -11,6 +12,8 @@ interface FileInputProps {
   required?: boolean;
   className?: string;
   currentFile?: string; // Add this new prop
+  documentUrl?: string; // URL to existing document (for viewing)
+  onViewDocument?: (url: string, name: string) => void; // Callback to view document
   resetTrigger?: number; // Add reset trigger prop
 }
 
@@ -23,22 +26,28 @@ export const FileInput = ({
   required = false,
   className = '',
   currentFile, // Destructure the new prop
+  documentUrl, // URL to existing document
+  onViewDocument, // Callback to view document
   resetTrigger, // Destructure the reset trigger prop
 }: FileInputProps) => {
   const [fileName, setFileName] = useState<string>(currentFile || '');
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Update fileName when currentFile changes
+  // Update fileName when currentFile or documentUrl changes
   useEffect(() => {
     if (currentFile) {
       setFileName(currentFile);
+    } else if (documentUrl) {
+      // Extract filename from URL
+      const urlParts = documentUrl.split('/');
+      setFileName(urlParts[urlParts.length - 1] || 'Existing document');
     }
-  }, [currentFile]);
+  }, [currentFile, documentUrl]);
 
   // Reset file input when resetTrigger changes
   useEffect(() => {
-    if (resetTrigger !== undefined) {
+    if (resetTrigger !== undefined && resetTrigger > 0) {
       setFileName('');
       onChange(null);
       if (fileInputRef.current) {
@@ -135,15 +144,27 @@ export const FileInput = ({
             <span className="text-sm text-[var(--main-blue)] font-medium">
               {fileName.includes('/') ? fileName.split('/').pop() : fileName}
             </span>
+            {documentUrl && onViewDocument && (
+              <button 
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onViewDocument(documentUrl, fileName);
+                }}
+                className="text-blue-600 hover:text-blue-800 p-1"
+                aria-label="View document"
+                title="View document"
+              >
+                <Eye className="h-4 w-4" />
+              </button>
+            )}
             <button 
               type="button"
               onClick={handleClearFile}
               className="text-gray-500 hover:text-red-500"
               aria-label="Remove file"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
+              <X className="h-4 w-4" />
             </button>
           </div>
         )}

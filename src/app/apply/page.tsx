@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { FileInput } from '@/components/ui/file-input';
 import { SearchInput } from '@/components/ui/search-input';
 import { RwandaPhoneInput } from '@/components/ui/rwanda-phone-input';
+import { DocumentViewer } from '@/components/ui/document-viewer';
 import { useToast } from '@/components/ui/toast';
 import {
   validateForm,
@@ -23,6 +24,7 @@ export default function ApplyPage() {
   const { showToast, ToastContainer } = useToast();
   const [formKey, setFormKey] = useState(Date.now());
   const [trackingData, setTrackingData] = useState<TrackingData | null>(null);
+  const [viewingDocument, setViewingDocument] = useState<{ url: string; name: string } | null>(null);
 
   // Initialize tracking data on component mount
   useEffect(() => {
@@ -70,6 +72,9 @@ export default function ApplyPage() {
     // API response fields
     vehicleId: '',
     clientId: '',
+    // Document URLs from API (for viewing existing documents)
+    yellowCardUrl: '',
+    pastInsuranceCertificateUrl: '',
   });
 
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
@@ -219,11 +224,23 @@ export default function ApplyPage() {
         district: '',
         sector: '',
         identificationNumber: '',
+        // Always clear vehicle fields when client changes
+        vehicleType: '',
+        vehicleAge: '',
+        vehicleUse: '',
+        otherVehicleUse: '',
+        plateNumber: '',
+        vehicleId: '',
+        // Clear document URLs
+        yellowCardUrl: '',
+        pastInsuranceCertificateUrl: '',
       }));
       setAvailableDistricts([]);
       setAvailableSectors([]);
       // Reset identification number search status
       setIdentificationNumberResetTrigger(prev => prev + 1);
+      // Reset plate number search status
+      setPlateNumberResetTrigger(prev => prev + 1);
     } 
     // Clear vehicle fields when insurance category changes
     else if (name === 'insuranceCategory') {
@@ -317,6 +334,17 @@ export default function ApplyPage() {
       province: (data.province as string) || prev.province,
       district: (data.district as string) || prev.district,
       sector: (data.sector as string) || prev.sector,
+      clientId: (data.clientId as string) || prev.clientId,
+      // Vehicle fields (if document type is plateNumber)
+      vehicleId: (data.vehicleId as string) || prev.vehicleId,
+      vehicleType: (data.vehicleType as string) || prev.vehicleType,
+      vehicleAge: (data.vehicleAge as string) || prev.vehicleAge,
+      vehicleUse: (data.vehicleUse as string) || prev.vehicleUse,
+      otherVehicleUse: (data.otherVehicleUse as string) || prev.otherVehicleUse,
+      plateNumber: (data.plateNumber as string) || prev.plateNumber,
+      // Document URLs (for viewing existing documents)
+      yellowCardUrl: (data.yellowCardUrl as string) || '',
+      pastInsuranceCertificateUrl: (data.pastInsuranceCertificateUrl as string) || '',
     }));
 
     // Update districts and sectors if province is set
@@ -591,6 +619,9 @@ export default function ApplyPage() {
           plateNumber: '',
           identificationDocumentType: 'nationalID',
           identificationNumber: '',
+          // Reset document URLs
+          yellowCardUrl: '',
+          pastInsuranceCertificateUrl: '',
           // Reset API response fields
           vehicleId: '',
           clientId: '',
@@ -691,37 +722,36 @@ export default function ApplyPage() {
                     placeholder={getIdentificationDocumentPlaceholder(formState.identificationDocumentType)}
                     value={formState.identificationNumber}
                     onChange={(value) => {
-                      setFormState(prev => {
-                        const updates: Partial<typeof prev> = {
-                          identificationNumber: value,
-                          // Clear personal information fields on any edit to avoid stale data
-                          fullName: '',
-                          email: '',
-                          phoneNumber: '',
-                          address: '',
-                          dateOfBirth: '',
-                          province: '',
-                          district: '',
-                          sector: '',
-                        };
-                        
-                        // If identification document type is plateNumber, also clear vehicle fields
-                        if (prev.identificationDocumentType === 'plateNumber') {
-                          updates.vehicleType = '';
-                          updates.vehicleAge = '';
-                          updates.vehicleUse = '';
-                          updates.otherVehicleUse = '';
-                          updates.plateNumber = '';
-                          updates.vehicleId = '';
-                        }
-                        
-                        return { ...prev, ...updates };
-                      });
+                      setFormState(prev => ({
+                        ...prev,
+                        identificationNumber: value,
+                        // Clear personal information fields on any edit to avoid stale data
+                        fullName: '',
+                        email: '',
+                        phoneNumber: '',
+                        address: '',
+                        dateOfBirth: '',
+                        province: '',
+                        district: '',
+                        sector: '',
+                        // Always clear vehicle fields when identification number changes (client changes)
+                        vehicleType: '',
+                        vehicleAge: '',
+                        vehicleUse: '',
+                        otherVehicleUse: '',
+                        plateNumber: '',
+                        vehicleId: '',
+                        // Clear document URLs
+                        yellowCardUrl: '',
+                        pastInsuranceCertificateUrl: '',
+                      }));
                       // Reset dependent selects
                       setAvailableDistricts([]);
                       setAvailableSectors([]);
                       // Reset phone number input whenever identification number changes
                       setPhoneNumberResetTrigger(prev => prev + 1);
+                      // Reset plate number input whenever identification number changes
+                      setPlateNumberResetTrigger(prev => prev + 1);
                       if (errors.identificationNumber) {
                         setErrors(prev => {
                           const newErrors = { ...prev };
@@ -1259,10 +1289,18 @@ export default function ApplyPage() {
                     key={`yellowCard-${formKey}`}
                     label="Yellow Card"
                     name="yellowCard"
-                    onChange={handleFileChange('yellowCard')}
+                    onChange={(file) => {
+                      handleFileChange('yellowCard')(file);
+                      // Clear document URL when user selects a new file
+                      if (file) {
+                        setFormState(prev => ({ ...prev, yellowCardUrl: '' }));
+                      }
+                    }}
                     error={errors.yellowCard}
                     required
                     accept="image/*,.pdf"
+                    documentUrl={formState.yellowCardUrl}
+                    onViewDocument={(url, name) => setViewingDocument({ url, name })}
                     resetTrigger={fileResetTrigger}
                   />
 
@@ -1270,9 +1308,17 @@ export default function ApplyPage() {
                     key={`pastInsuranceCertificate-${formKey}`}
                     label="Past Insurance Certificate (Optional)"
                     name="pastInsuranceCertificate"
-                    onChange={handleFileChange('pastInsuranceCertificate')}
+                    onChange={(file) => {
+                      handleFileChange('pastInsuranceCertificate')(file);
+                      // Clear document URL when user selects a new file
+                      if (file) {
+                        setFormState(prev => ({ ...prev, pastInsuranceCertificateUrl: '' }));
+                      }
+                    }}
                     accept="image/*,.pdf"
                     className="md:col-span-2"
+                    documentUrl={formState.pastInsuranceCertificateUrl}
+                    onViewDocument={(url, name) => setViewingDocument({ url, name })}
                     resetTrigger={fileResetTrigger}
                   />
                 </div>
@@ -1315,6 +1361,13 @@ export default function ApplyPage() {
         </div>
       </div>
       <ToastContainer />
+      {viewingDocument && (
+        <DocumentViewer
+          documentName={viewingDocument.name}
+          documentPath={viewingDocument.url}
+          onClose={() => setViewingDocument(null)}
+        />
+      )}
     </MainLayout>
   );
 }

@@ -98,20 +98,23 @@ export const SearchInput = ({
       const responseData = await response.json();
       console.log('responseData', responseData);
 
-      if (response.ok && responseData.exists) {
+      // Check if response is successful and has data
+      const hasData = response.ok && (responseData.exists === true || responseData.data);
+      
+      if (hasData) {
         // Success case - data found
         setSearchStatus('success');
         setSearchMessage('Data retrieved successfully!');
         showToast('Data retrieved successfully!', 'success');
         
         // Transform the API response to match expected format
-        const transformedData = transformApiResponse(responseData.data, searchType);
+        const transformedData = transformApiResponse(responseData.data, searchType, identificationDocumentType);
         console.log(`Search successful for ${searchType}:`, transformedData);
         onSearchSuccess?.(transformedData);
         
         // Notify parent component about the search result
         onSearchResult?.(true, searchType);
-      } else if (response.status === 404 && !responseData.exists) {
+      } else if (response.status === 404 || (response.ok && responseData.exists === false)) {
         // Not found case - valid format but no data
         setSearchStatus('unknown');
         const friendlyMessage = searchType === 'identificationNumber' 
@@ -146,20 +149,50 @@ export const SearchInput = ({
   };
 
   // Transform API response to match expected format for form prefilling
-  const transformApiResponse = (data: Record<string, unknown>, type: 'identificationNumber' | 'plateNumber') => {
+  const transformApiResponse = (data: Record<string, unknown>, type: 'identificationNumber' | 'plateNumber', identificationDocumentType?: string) => {
     if (type === 'identificationNumber') {
-      // Transform identification number response
-      return {
-        fullName: data.fullName || '',
-        email: data.email || '',
-        phoneNumber: data.phoneNumber || '',
-        address: data.address || '',
-        dateOfBirth: data.dateOfBirth && typeof data.dateOfBirth === 'string' ? new Date(data.dateOfBirth).toISOString().split('T')[0] : '',
-        province: data.province || '',
-        district: data.district || '',
-        sector: data.sector || '',
-        clientId: data.clientId || '',
-      };
+      // Check if this is a plateNumber search (returns vehicle with nested client)
+      if (identificationDocumentType === 'plateNumber' && data.vehicle) {
+        const vehicle = data.vehicle as Record<string, unknown>;
+        const client = vehicle.client as Record<string, unknown> | undefined;
+        
+        return {
+          fullName: client?.fullName as string || '',
+          email: client?.email as string || '',
+          phoneNumber: client?.phoneNumber as string || '',
+          address: client?.address as string || '',
+          dateOfBirth: client?.dateOfBirth && typeof client.dateOfBirth === 'string' 
+            ? new Date(client.dateOfBirth).toISOString().split('T')[0] 
+            : '',
+          province: client?.province as string || '',
+          district: client?.district as string || '',
+          sector: client?.sector as string || '',
+          clientId: client?._id as string || '',
+          // Vehicle fields
+          vehicleId: vehicle._id as string || '',
+          plateNumber: vehicle.plateNumber as string || '',
+          vehicleType: vehicle.vehicleType as string || '',
+          vehicleAge: vehicle.vehicleAge as string || '',
+          vehicleUse: vehicle.vehicleUse as string || '',
+          otherVehicleUse: vehicle.otherVehicleUse as string || '',
+          // Document URLs
+          yellowCardUrl: data.yellowCard as string || '',
+          pastInsuranceCertificateUrl: data.pastInsuranceCertificate as string || '',
+        };
+      } else {
+        // Regular identification number response
+        return {
+          fullName: data.fullName || '',
+          email: data.email || '',
+          phoneNumber: data.phoneNumber || '',
+          address: data.address || '',
+          dateOfBirth: data.dateOfBirth && typeof data.dateOfBirth === 'string' ? new Date(data.dateOfBirth).toISOString().split('T')[0] : '',
+          province: data.province || '',
+          district: data.district || '',
+          sector: data.sector || '',
+          clientId: data.clientId || data._id || '',
+        };
+      }
     } else {
       // Transform plate number response
       return {

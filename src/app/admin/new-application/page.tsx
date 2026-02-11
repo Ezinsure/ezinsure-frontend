@@ -8,6 +8,7 @@ import { FileInput } from '@/components/ui/file-input';
 import { SearchInput } from '@/components/ui/search-input';
 import { RwandaPhoneInput } from '@/components/ui/rwanda-phone-input';
 import { SearchableSelect } from '@/components/ui/searchable-select';
+import { DocumentViewer } from '@/components/ui/document-viewer';
 import { useToast } from '@/components/ui/toast';
 import { useAuth } from '@/context/AuthContext';
 import { rwandaProvinces } from '@/utils/rwanda-administrative';
@@ -245,6 +246,9 @@ interface ApplicationFormData {
   // API response fields
   vehicleId: string;
   clientId: string;
+  // Document URLs from API (for viewing existing documents)
+  yellowCardUrl: string;
+  pastInsuranceCertificateUrl: string;
   // New fields for /newApply endpoint
   isNewClient: boolean;
   isNewVehicle: boolean;
@@ -274,6 +278,7 @@ interface ApplicationFormData {
 
 export default function AdminNewApplicationPage() {
   const { showToast, ToastContainer } = useToast();
+  const [viewingDocument, setViewingDocument] = useState<{ url: string; name: string } | null>(null);
   const { user } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
@@ -385,6 +390,17 @@ export default function AdminNewApplicationPage() {
       province: (data.province as string) || prev.province,
       district: (data.district as string) || prev.district,
       sector: (data.sector as string) || prev.sector,
+      clientId: (data.clientId as string) || prev.clientId,
+      // Vehicle fields (if document type is plateNumber)
+      vehicleId: (data.vehicleId as string) || prev.vehicleId,
+      vehicleType: (data.vehicleType as string) || prev.vehicleType,
+      vehicleAge: (data.vehicleAge as string) || prev.vehicleAge,
+      vehicleUse: (data.vehicleUse as string) || prev.vehicleUse,
+      otherVehicleUse: (data.otherVehicleUse as string) || prev.otherVehicleUse,
+      plateNumber: (data.plateNumber as string) || prev.plateNumber,
+      // Document URLs (for viewing existing documents)
+      yellowCardUrl: (data.yellowCardUrl as string) || '',
+      pastInsuranceCertificateUrl: (data.pastInsuranceCertificateUrl as string) || '',
     }));
 
     // Update districts and sectors if province is set
@@ -482,6 +498,12 @@ export default function AdminNewApplicationPage() {
     vehicleId: '',
 
     clientId: '',
+
+    // Document URLs from API (for viewing existing documents)
+
+    yellowCardUrl: '',
+
+    pastInsuranceCertificateUrl: '',
 
     // New fields for /newApply endpoint
 
@@ -728,6 +750,26 @@ export default function AdminNewApplicationPage() {
 
         identificationNumber: '',
 
+        // Always clear vehicle fields when client changes
+
+        vehicleType: '',
+
+        vehicleAge: '',
+
+        vehicleUse: '',
+
+        otherVehicleUse: '',
+
+        plateNumber: '',
+
+        vehicleId: '',
+
+        // Clear document URLs
+
+        yellowCardUrl: '',
+
+        pastInsuranceCertificateUrl: '',
+
       }));
 
       setAvailableDistricts([]);
@@ -737,6 +779,20 @@ export default function AdminNewApplicationPage() {
       // Reset identification number search status
 
       setIdentificationNumberResetTrigger(prev => prev + 1);
+
+      // Reset plate number search status
+
+      setPlateNumberResetTrigger(prev => prev + 1);
+
+      // Reset isNewVehicle when document type changes
+
+      setSearchResults(prev => ({
+
+        ...prev,
+
+        isNewVehicle: true
+
+      }));
 
     }
 
@@ -825,39 +881,29 @@ export default function AdminNewApplicationPage() {
 
   // Memoized handlers for SearchInput components to prevent infinite loops
   const handleIdentificationNumberChange = useCallback((value: string) => {
-    setFormData(prev => {
-      const updates: Partial<ApplicationFormData> = {
-        identificationNumber: value,
-        // Clear personal information fields on any edit to avoid stale data
-        fullName: '',
-        email: '',
-        phoneNumber: '',
-        dateOfBirth: '',
-        address: '',
-        province: '',
-        district: '',
-        sector: ''
-      };
-      
-      // If identification document type is plateNumber, also clear vehicle fields
-      if (prev.identificationDocumentType === 'plateNumber') {
-        updates.vehicleType = '';
-        updates.vehicleAge = '';
-        updates.vehicleUse = '';
-        updates.otherVehicleUse = '';
-        updates.plateNumber = '';
-        updates.vehicleId = '';
-        // Reset plate number input trigger
-        setPlateNumberResetTrigger(prevTrigger => prevTrigger + 1);
-        // Reset isNewVehicle to true when plate number changes
-        setSearchResults(prev => ({
-          ...prev,
-          isNewVehicle: true
-        }));
-      }
-      
-      return { ...prev, ...updates };
-    });
+    setFormData(prev => ({
+      ...prev,
+      identificationNumber: value,
+      // Clear personal information fields on any edit to avoid stale data
+      fullName: '',
+      email: '',
+      phoneNumber: '',
+      dateOfBirth: '',
+      address: '',
+      province: '',
+      district: '',
+      sector: '',
+      // Always clear vehicle fields when identification number changes (client changes)
+      vehicleType: '',
+      vehicleAge: '',
+      vehicleUse: '',
+      otherVehicleUse: '',
+      plateNumber: '',
+      vehicleId: '',
+      // Clear document URLs
+      yellowCardUrl: '',
+      pastInsuranceCertificateUrl: '',
+    }));
 
     // Reset dependent selects
     setAvailableDistricts([]);
@@ -865,6 +911,13 @@ export default function AdminNewApplicationPage() {
     
     // Reset phone number input whenever identification number changes
     setPhoneNumberResetTrigger(prev => prev + 1);
+    // Reset plate number input whenever identification number changes
+    setPlateNumberResetTrigger(prev => prev + 1);
+    // Reset isNewVehicle to true when identification number changes
+    setSearchResults(prev => ({
+      ...prev,
+      isNewVehicle: true
+    }));
   }, []);
 
   const handlePlateNumberChange = useCallback((value: string) => {
@@ -1068,6 +1121,12 @@ export default function AdminNewApplicationPage() {
             vehicleId: '',
 
             clientId: '',
+
+            // Reset document URLs
+
+            yellowCardUrl: '',
+
+            pastInsuranceCertificateUrl: '',
 
             // Reset new fields for /newApply endpoint
 
@@ -2124,13 +2183,23 @@ export default function AdminNewApplicationPage() {
 
                     name="yellowCard"
 
-                    onChange={handleFileChange('yellowCard')}
+                    onChange={(file) => {
+                      handleFileChange('yellowCard')(file);
+                      // Clear document URL when user selects a new file
+                      if (file) {
+                        setFormData(prev => ({ ...prev, yellowCardUrl: '' }));
+                      }
+                    }}
 
                     error={errors.yellowCard}
 
                     required
 
                     accept="image/*,.pdf"
+
+                    documentUrl={formData.yellowCardUrl}
+
+                    onViewDocument={(url, name) => setViewingDocument({ url, name })}
 
                     resetTrigger={fileResetTrigger}
 
@@ -2142,11 +2211,21 @@ export default function AdminNewApplicationPage() {
 
                     name="pastInsuranceCertificate"
 
-                    onChange={handleFileChange('pastInsuranceCertificate')}
+                    onChange={(file) => {
+                      handleFileChange('pastInsuranceCertificate')(file);
+                      // Clear document URL when user selects a new file
+                      if (file) {
+                        setFormData(prev => ({ ...prev, pastInsuranceCertificateUrl: '' }));
+                      }
+                    }}
 
                     accept="image/*,.pdf"
 
                     className="md:col-span-2"
+
+                    documentUrl={formData.pastInsuranceCertificateUrl}
+
+                    onViewDocument={(url, name) => setViewingDocument({ url, name })}
 
                     resetTrigger={fileResetTrigger}
 
@@ -2511,9 +2590,14 @@ export default function AdminNewApplicationPage() {
       </div>
 
       <ToastContainer />
-
+      {viewingDocument && (
+        <DocumentViewer
+          documentName={viewingDocument.name}
+          documentPath={viewingDocument.url}
+          onClose={() => setViewingDocument(null)}
+        />
+      )}
     </MainLayout>
-
   );
 
 }
