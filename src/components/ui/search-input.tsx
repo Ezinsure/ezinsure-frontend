@@ -13,6 +13,7 @@ interface SearchInputProps {
   onSearchSuccess?: (data: Record<string, unknown>) => void;
   onSearchResult?: (exists: boolean, searchType: 'plateNumber' | 'identificationNumber') => void;
   searchType: 'plateNumber' | 'identificationNumber';
+  identificationDocumentType?: string; // Optional: for identificationNumber searches
   error?: string;
   required?: boolean;
   disabled?: boolean;
@@ -28,6 +29,7 @@ export const SearchInput = ({
   onSearchSuccess,
   onSearchResult,
   searchType,
+  identificationDocumentType,
   error,
   required = false,
   disabled = false,
@@ -77,8 +79,16 @@ export const SearchInput = ({
         queryParam = 'plateNumber';
       }
 
+      // Build query string
+      let queryString = `${queryParam}=${encodeURIComponent(value.trim())}`;
+      
+      // Add identificationDocumentType to query if provided and searchType is identificationNumber
+      if (searchType === 'identificationNumber' && identificationDocumentType) {
+        queryString += `&identificationDocumentType=${encodeURIComponent(identificationDocumentType)}`;
+      }
+
       // Make API call
-      const response = await fetch(`${apiUrl}?${queryParam}=${encodeURIComponent(value.trim())}`, {
+      const response = await fetch(`${apiUrl}?${queryString}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',

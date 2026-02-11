@@ -850,6 +850,7 @@ export default function AgentApplyPage() {
                       onSearchSuccess={handleIdentificationSearchSuccess}
                       onSearchResult={handleSearchResult}
                       searchType="identificationNumber"
+                      identificationDocumentType={formState.identificationDocumentType}
                       error={errors.identificationNumber}
                       required
                       resetTrigger={identificationNumberResetTrigger}

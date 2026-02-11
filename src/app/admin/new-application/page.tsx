@@ -1235,6 +1235,8 @@ export default function AdminNewApplicationPage() {
 
                     searchType="identificationNumber"
 
+                    identificationDocumentType={formData.identificationDocumentType}
+
                     required
 
                     resetTrigger={identificationNumberResetTrigger}
