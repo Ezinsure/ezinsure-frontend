@@ -9,7 +9,6 @@ import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { 
   FileText, 
   Users, 
-  Calendar,
   Search,
   Eye,
   ChevronLeft,
@@ -18,7 +17,6 @@ import {
   ChevronsRight,
   AlertCircle,
   Car,
-  Building,
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
@@ -28,15 +26,6 @@ import {
 import { DocumentViewer } from '@/components/ui/document-viewer';
 
 // Helper functions for dates
-const getFirstDayOfMonth = () => {
-  const now = new Date();
-  const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
-  const year = firstDay.getFullYear();
-  const month = String(firstDay.getMonth() + 1).padStart(2, '0');
-  const day = String(firstDay.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
-
 const getTodayDate = () => {
   const now = new Date();
   const year = now.getFullYear();
@@ -93,7 +82,7 @@ interface ExpiringApplication {
     platform?: string;
     timezone?: string;
   } | null;
-  locationInfo?: any | null;
+  locationInfo?: Record<string, unknown> | null;
   invoice?: string | null;
   insuranceCertificate?: string | null;
   yellowCard?: string | null;
@@ -310,7 +299,7 @@ export default function ExpiringInsurancePage() {
 
   // Filtered and sorted applications
   const filteredAndSortedApplications = useMemo(() => {
-    let filtered = applications.filter(app => {
+    const filtered = applications.filter(app => {
       const matchesSearch = 
         app.applicationNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
         app.client.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
