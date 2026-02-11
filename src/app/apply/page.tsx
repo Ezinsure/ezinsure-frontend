@@ -691,19 +691,32 @@ export default function ApplyPage() {
                     placeholder={getIdentificationDocumentPlaceholder(formState.identificationDocumentType)}
                     value={formState.identificationNumber}
                     onChange={(value) => {
-                      setFormState(prev => ({ 
-                        ...prev, 
-                        identificationNumber: value,
-                        // Clear personal information fields on any edit to avoid stale data
-                        fullName: '',
-                        email: '',
-                        phoneNumber: '',
-                        address: '',
-                        dateOfBirth: '',
-                        province: '',
-                        district: '',
-                        sector: '',
-                      }));
+                      setFormState(prev => {
+                        const updates: Partial<typeof prev> = {
+                          identificationNumber: value,
+                          // Clear personal information fields on any edit to avoid stale data
+                          fullName: '',
+                          email: '',
+                          phoneNumber: '',
+                          address: '',
+                          dateOfBirth: '',
+                          province: '',
+                          district: '',
+                          sector: '',
+                        };
+                        
+                        // If identification document type is plateNumber, also clear vehicle fields
+                        if (prev.identificationDocumentType === 'plateNumber') {
+                          updates.vehicleType = '';
+                          updates.vehicleAge = '';
+                          updates.vehicleUse = '';
+                          updates.otherVehicleUse = '';
+                          updates.plateNumber = '';
+                          updates.vehicleId = '';
+                        }
+                        
+                        return { ...prev, ...updates };
+                      });
                       // Reset dependent selects
                       setAvailableDistricts([]);
                       setAvailableSectors([]);

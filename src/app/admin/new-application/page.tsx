@@ -825,21 +825,39 @@ export default function AdminNewApplicationPage() {
 
   // Memoized handlers for SearchInput components to prevent infinite loops
   const handleIdentificationNumberChange = useCallback((value: string) => {
-    setFormData(prev => ({
-      ...prev,
-      identificationNumber: value,
-      // Clear personal information fields on any edit to avoid stale data
-      fullName: '',
-      email: '',
-      phoneNumber: '',
-      dateOfBirth: '',
-      address: '',
-      province: '',
-      district: '',
-      sector: '',
-      cell: '',
-      village: ''
-    }));
+    setFormData(prev => {
+      const updates: Partial<ApplicationFormData> = {
+        identificationNumber: value,
+        // Clear personal information fields on any edit to avoid stale data
+        fullName: '',
+        email: '',
+        phoneNumber: '',
+        dateOfBirth: '',
+        address: '',
+        province: '',
+        district: '',
+        sector: ''
+      };
+      
+      // If identification document type is plateNumber, also clear vehicle fields
+      if (prev.identificationDocumentType === 'plateNumber') {
+        updates.vehicleType = '';
+        updates.vehicleAge = '';
+        updates.vehicleUse = '';
+        updates.otherVehicleUse = '';
+        updates.plateNumber = '';
+        updates.vehicleId = '';
+        // Reset plate number input trigger
+        setPlateNumberResetTrigger(prevTrigger => prevTrigger + 1);
+        // Reset isNewVehicle to true when plate number changes
+        setSearchResults(prev => ({
+          ...prev,
+          isNewVehicle: true
+        }));
+      }
+      
+      return { ...prev, ...updates };
+    });
 
     // Reset dependent selects
     setAvailableDistricts([]);

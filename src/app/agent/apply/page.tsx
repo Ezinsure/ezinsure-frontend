@@ -815,19 +815,36 @@ export default function AgentApplyPage() {
                       placeholder={getIdentificationDocumentPlaceholder(formState.identificationDocumentType)}
                       value={formState.identificationNumber}
                       onChange={(value) => {
-                        setFormState(prev => ({ 
-                          ...prev, 
-                          identificationNumber: value,
-                          // Clear personal information fields on any edit to avoid stale data
-                          fullName: '',
-                          email: '',
-                          phoneNumber: '',
-                          address: '',
-                          dateOfBirth: '',
-                          province: '',
-                          district: '',
-                          sector: '',
-                        }));
+                        let shouldResetVehicle = false;
+                        setFormState(prev => {
+                          const updates: Partial<typeof prev> = {
+                            identificationNumber: value,
+                            // Clear personal information fields on any edit to avoid stale data
+                            fullName: '',
+                            email: '',
+                            phoneNumber: '',
+                            address: '',
+                            dateOfBirth: '',
+                            province: '',
+                            district: '',
+                            sector: '',
+                          };
+                          
+                          // If identification document type is plateNumber, also clear vehicle fields
+                          if (prev.identificationDocumentType === 'plateNumber') {
+                            shouldResetVehicle = true;
+                            updates.vehicleType = '';
+                            updates.vehicleAge = '';
+                            updates.vehicleUse = '';
+                            updates.otherVehicleUse = '';
+                            updates.plateNumber = '';
+                            updates.vehicleId = '';
+                            // Reset plate number input trigger
+                            setPlateNumberResetTrigger(prevTrigger => prevTrigger + 1);
+                          }
+                          
+                          return { ...prev, ...updates };
+                        });
                         // Reset dependent selects
                         setAvailableDistricts([]);
                         setAvailableSectors([]);
@@ -837,7 +854,9 @@ export default function AgentApplyPage() {
                         // (will be updated when user performs search)
                         setSearchResults(prev => ({
                           ...prev,
-                          isNewClient: true
+                          isNewClient: true,
+                          // Also reset isNewVehicle if identification document type is plateNumber
+                          isNewVehicle: shouldResetVehicle ? true : prev.isNewVehicle
                         }));
                         if (errors.identificationNumber) {
                           setErrors(prev => {
