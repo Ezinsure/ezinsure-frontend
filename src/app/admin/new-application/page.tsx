@@ -1040,12 +1040,12 @@ export default function AdminNewApplicationPage() {
 
             status: ApplicationStatus.PENDING,
 
-    insuranceEndAt: '',
+            insuranceEndAt: '',
     
     wantsToAssignAgent: '',
     assignToAgent: '',
 
-    // Reset API response fields
+            // Reset API response fields
 
             vehicleId: '',
 

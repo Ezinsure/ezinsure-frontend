@@ -24,6 +24,12 @@ export const DocumentViewer = ({
 
   useEffect(() => {
     // Check file type
+    if (!documentPath) {
+      setError(true);
+      setLoading(false);
+      return;
+    }
+
     const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg'];
     const pdfExtensions = ['.pdf'];
     
