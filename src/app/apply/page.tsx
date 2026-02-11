@@ -623,6 +623,7 @@ export default function ApplyPage() {
           identificationDocumentType: 'nationalID',
           identificationNumber: '',
           // Reset document URLs
+          identificationDocumentUrl: '',
           yellowCardUrl: '',
           pastInsuranceCertificateUrl: '',
           // Reset API response fields

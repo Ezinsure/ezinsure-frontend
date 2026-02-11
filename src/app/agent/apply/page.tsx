@@ -756,6 +756,7 @@ export default function AgentApplyPage() {
           identificationDocumentType: 'nationalID',
           identificationNumber: '',
           // Reset document URLs
+          identificationDocumentUrl: '',
           yellowCardUrl: '',
           pastInsuranceCertificateUrl: '',
           // Reset API response fields
