@@ -22,7 +22,8 @@ import {
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
-  Download
+  Download,
+  DollarSign
 } from 'lucide-react';
 import { DocumentViewer } from '@/components/ui/document-viewer';
 
@@ -583,7 +584,7 @@ export default function ExpiringInsurancePage() {
                   <p className="text-[10px] text-slate-500">Total value</p>
                 </div>
                 <div className="h-10 w-10 rounded-lg bg-slate-100 flex items-center justify-center group-hover:bg-slate-200 transition-colors">
-                  <AlertCircle className="h-5 w-5 text-slate-600" />
+                  <DollarSign className="h-5 w-5 text-slate-600" />
                 </div>
               </div>
             </div>
