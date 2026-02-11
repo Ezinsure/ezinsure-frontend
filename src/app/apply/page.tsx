@@ -73,6 +73,7 @@ export default function ApplyPage() {
     vehicleId: '',
     clientId: '',
     // Document URLs from API (for viewing existing documents)
+    identificationDocumentUrl: '',
     yellowCardUrl: '',
     pastInsuranceCertificateUrl: '',
   });
@@ -232,6 +233,7 @@ export default function ApplyPage() {
         plateNumber: '',
         vehicleId: '',
         // Clear document URLs
+        identificationDocumentUrl: '',
         yellowCardUrl: '',
         pastInsuranceCertificateUrl: '',
       }));
@@ -343,6 +345,7 @@ export default function ApplyPage() {
       otherVehicleUse: (data.otherVehicleUse as string) || prev.otherVehicleUse,
       plateNumber: (data.plateNumber as string) || prev.plateNumber,
       // Document URLs (for viewing existing documents)
+      identificationDocumentUrl: (data.identificationDocumentUrl as string) || '',
       yellowCardUrl: (data.yellowCardUrl as string) || '',
       pastInsuranceCertificateUrl: (data.pastInsuranceCertificateUrl as string) || '',
     }));
@@ -741,10 +744,11 @@ export default function ApplyPage() {
                         otherVehicleUse: '',
                         plateNumber: '',
                         vehicleId: '',
-                        // Clear document URLs
-                        yellowCardUrl: '',
-                        pastInsuranceCertificateUrl: '',
-                      }));
+                          // Clear document URLs
+                          identificationDocumentUrl: '',
+                          yellowCardUrl: '',
+                          pastInsuranceCertificateUrl: '',
+                        }));
                       // Reset dependent selects
                       setAvailableDistricts([]);
                       setAvailableSectors([]);
@@ -1278,10 +1282,18 @@ export default function ApplyPage() {
                     key={`nationalID-${formKey}`}
                     label="National ID Card / Passport / Driving License"
                     name="nationalID"
-                    onChange={handleFileChange('nationalID')}
+                    onChange={(file) => {
+                      handleFileChange('nationalID')(file);
+                      // Clear document URL when user selects a new file
+                      if (file) {
+                        setFormState(prev => ({ ...prev, identificationDocumentUrl: '' }));
+                      }
+                    }}
                     error={errors.nationalID}
                     required
                     accept="image/*,.pdf"
+                    documentUrl={formState.identificationDocumentUrl}
+                    onViewDocument={(url, name) => setViewingDocument({ url, name })}
                     resetTrigger={fileResetTrigger}
                   />
 

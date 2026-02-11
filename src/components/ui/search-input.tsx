@@ -151,11 +151,41 @@ export const SearchInput = ({
   // Transform API response to match expected format for form prefilling
   const transformApiResponse = (data: Record<string, unknown>, type: 'identificationNumber' | 'plateNumber', identificationDocumentType?: string) => {
     if (type === 'identificationNumber') {
-      // Check if this is a plateNumber search (returns vehicle with nested client)
-      if (identificationDocumentType === 'plateNumber' && data.vehicle) {
-        const vehicle = data.vehicle as Record<string, unknown>;
-        const client = vehicle.client as Record<string, unknown> | undefined;
+      // API always returns nested structure: data.vehicle.client
+      let client: Record<string, unknown> | undefined;
+      let vehicle: Record<string, unknown> | undefined;
+      let identificationDocumentUrl = '';
+      
+      if (data.vehicle) {
+        vehicle = data.vehicle as Record<string, unknown>;
+        client = vehicle.client as Record<string, unknown> | undefined;
         
+        // Extract identification document URL based on identificationDocumentType
+        if (client && identificationDocumentType) {
+          if (identificationDocumentType === 'nationalID') {
+            identificationDocumentUrl = (client.nationalID as string) || '';
+          } else if (identificationDocumentType === 'passport') {
+            identificationDocumentUrl = (client.passport as string) || '';
+          } else if (identificationDocumentType === 'drivingLicense') {
+            identificationDocumentUrl = (client.drivingLicense as string) || '';
+          }
+        }
+      } else {
+        // Fallback: try direct access (for backward compatibility)
+        client = data as Record<string, unknown>;
+        if (identificationDocumentType) {
+          if (identificationDocumentType === 'nationalID') {
+            identificationDocumentUrl = (data.nationalID as string) || '';
+          } else if (identificationDocumentType === 'passport') {
+            identificationDocumentUrl = (data.passport as string) || '';
+          } else if (identificationDocumentType === 'drivingLicense') {
+            identificationDocumentUrl = (data.drivingLicense as string) || '';
+          }
+        }
+      }
+      
+      // Check if this is a plateNumber search (has vehicle fields)
+      if (identificationDocumentType === 'plateNumber' && vehicle) {
         return {
           fullName: client?.fullName as string || '',
           email: client?.email as string || '',
@@ -176,21 +206,30 @@ export const SearchInput = ({
           vehicleUse: vehicle.vehicleUse as string || '',
           otherVehicleUse: vehicle.otherVehicleUse as string || '',
           // Document URLs
+          identificationDocumentUrl: identificationDocumentUrl,
           yellowCardUrl: data.yellowCard as string || '',
           pastInsuranceCertificateUrl: data.pastInsuranceCertificate as string || '',
         };
       } else {
-        // Regular identification number response
+        // Regular identification number response (nationalID, passport, drivingLicense)
         return {
-          fullName: data.fullName || '',
-          email: data.email || '',
-          phoneNumber: data.phoneNumber || '',
-          address: data.address || '',
-          dateOfBirth: data.dateOfBirth && typeof data.dateOfBirth === 'string' ? new Date(data.dateOfBirth).toISOString().split('T')[0] : '',
-          province: data.province || '',
-          district: data.district || '',
-          sector: data.sector || '',
-          clientId: data.clientId || data._id || '',
+          fullName: client?.fullName as string || data.fullName as string || '',
+          email: client?.email as string || data.email as string || '',
+          phoneNumber: client?.phoneNumber as string || data.phoneNumber as string || '',
+          address: client?.address as string || data.address as string || '',
+          dateOfBirth: (client?.dateOfBirth && typeof client.dateOfBirth === 'string' 
+            ? new Date(client.dateOfBirth).toISOString().split('T')[0] 
+            : (data.dateOfBirth && typeof data.dateOfBirth === 'string' 
+              ? new Date(data.dateOfBirth).toISOString().split('T')[0] 
+              : '')),
+          province: client?.province as string || data.province as string || '',
+          district: client?.district as string || data.district as string || '',
+          sector: client?.sector as string || data.sector as string || '',
+          clientId: client?._id as string || data.clientId as string || data._id as string || '',
+          // Document URLs
+          identificationDocumentUrl: identificationDocumentUrl,
+          yellowCardUrl: data.yellowCard as string || '',
+          pastInsuranceCertificateUrl: data.pastInsuranceCertificate as string || '',
         };
       }
     } else {

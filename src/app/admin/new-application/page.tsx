@@ -247,6 +247,7 @@ interface ApplicationFormData {
   vehicleId: string;
   clientId: string;
   // Document URLs from API (for viewing existing documents)
+  identificationDocumentUrl: string;
   yellowCardUrl: string;
   pastInsuranceCertificateUrl: string;
   // New fields for /newApply endpoint
@@ -399,6 +400,7 @@ export default function AdminNewApplicationPage() {
       otherVehicleUse: (data.otherVehicleUse as string) || prev.otherVehicleUse,
       plateNumber: (data.plateNumber as string) || prev.plateNumber,
       // Document URLs (for viewing existing documents)
+      identificationDocumentUrl: (data.identificationDocumentUrl as string) || '',
       yellowCardUrl: (data.yellowCardUrl as string) || '',
       pastInsuranceCertificateUrl: (data.pastInsuranceCertificateUrl as string) || '',
     }));
@@ -500,6 +502,8 @@ export default function AdminNewApplicationPage() {
     clientId: '',
 
     // Document URLs from API (for viewing existing documents)
+
+    identificationDocumentUrl: '',
 
     yellowCardUrl: '',
 
@@ -766,6 +770,8 @@ export default function AdminNewApplicationPage() {
 
         // Clear document URLs
 
+        identificationDocumentUrl: '',
+
         yellowCardUrl: '',
 
         pastInsuranceCertificateUrl: '',
@@ -901,6 +907,7 @@ export default function AdminNewApplicationPage() {
       plateNumber: '',
       vehicleId: '',
       // Clear document URLs
+      identificationDocumentUrl: '',
       yellowCardUrl: '',
       pastInsuranceCertificateUrl: '',
     }));
@@ -1123,6 +1130,8 @@ export default function AdminNewApplicationPage() {
             clientId: '',
 
             // Reset document URLs
+
+            identificationDocumentUrl: '',
 
             yellowCardUrl: '',
 
@@ -2165,13 +2174,23 @@ export default function AdminNewApplicationPage() {
 
                     name="nationalID"
 
-                    onChange={handleFileChange('nationalID')}
+                    onChange={(file) => {
+                      handleFileChange('nationalID')(file);
+                      // Clear document URL when user selects a new file
+                      if (file) {
+                        setFormData(prev => ({ ...prev, identificationDocumentUrl: '' }));
+                      }
+                    }}
 
                     error={errors.nationalID}
 
                     required
 
                     accept="image/*,.pdf"
+
+                    documentUrl={formData.identificationDocumentUrl}
+
+                    onViewDocument={(url, name) => setViewingDocument({ url, name })}
 
                     resetTrigger={fileResetTrigger}
 
