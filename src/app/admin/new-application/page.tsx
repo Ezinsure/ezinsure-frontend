@@ -428,18 +428,44 @@ export default function AdminNewApplicationPage() {
     setFormData(prev => ({
       ...prev,
       // Client information from vehicle owner
-      // fullName: (data.fullName as string) || prev.fullName,
-      // email: (data.email as string) || prev.email,
-      // phoneNumber: (data.phoneNumber as string) || prev.phoneNumber,
+      fullName: (data.fullName as string) || prev.fullName,
+      email: (data.email as string) || prev.email,
+      phoneNumber: (data.phoneNumber as string) || prev.phoneNumber,
+      address: (data.address as string) || prev.address,
+      dateOfBirth: (data.dateOfBirth as string) || prev.dateOfBirth,
+      province: (data.province as string) || prev.province,
+      district: (data.district as string) || prev.district,
+      sector: (data.sector as string) || prev.sector,
       // Vehicle-specific fields
       vehicleType: (data.vehicleType as string) || prev.vehicleType,
       vehicleAge: (data.vehicleAge as string) || prev.vehicleAge,
       vehicleUse: (data.vehicleUse as string) || prev.vehicleUse,
       otherVehicleUse: (data.otherVehicleUse as string) || prev.otherVehicleUse,
+      plateNumber: (data.plateNumber as string) || prev.plateNumber,
       // Store additional IDs for reference
       vehicleId: (data.vehicleId as string) || prev.vehicleId,
       clientId: (data.clientId as string) || prev.clientId,
+      // Document URLs (for viewing existing documents)
+      identificationDocumentUrl: (data.identificationDocumentUrl as string) || '',
+      yellowCardUrl: (data.yellowCardUrl as string) || '',
+      pastInsuranceCertificateUrl: (data.pastInsuranceCertificateUrl as string) || '',
     }));
+
+    // Update districts and sectors if province is set
+    if (data.province) {
+      const selectedProvince = rwandaProvinces.find(p => p.name === (data.province as string));
+      const districts = selectedProvince?.districts || [];
+      const transformedDistricts = districts.map(district => ({
+        name: district.name,
+        sectors: district.sectors?.map(sector => sector.name) || []
+      }));
+      setAvailableDistricts(transformedDistricts);
+
+      if (data.district) {
+        const selectedDistrict = transformedDistricts.find(d => d.name === (data.district as string));
+        setAvailableSectors(selectedDistrict?.sectors || []);
+      }
+    }
     showToast('Vehicle information loaded successfully', 'success');
   };
 
@@ -941,11 +967,16 @@ export default function AdminNewApplicationPage() {
       vehicleColor: '',
       vehicleEngineNumber: '',
       vehicleChassisNumber: '',
+      vehicleId: '',
       // Clear insurance details on any edit to avoid stale data
       insuranceType: 'Comprehensive Insurance (covers everything)',
       insuranceDuration: '1 Month',
       insuranceProvider: 'SONARWA',
-      isCOMESA: false
+      isCOMESA: false,
+      // Clear document URLs when plate number is cleared or changed
+      identificationDocumentUrl: '',
+      yellowCardUrl: '',
+      pastInsuranceCertificateUrl: '',
     }));
   }, []);
 
@@ -2176,10 +2207,8 @@ export default function AdminNewApplicationPage() {
 
                     onChange={(file) => {
                       handleFileChange('nationalID')(file);
-                      // Clear document URL when user selects a new file
-                      if (file) {
-                        setFormData(prev => ({ ...prev, identificationDocumentUrl: '' }));
-                      }
+                      // Clear document URL when user selects a new file or clears it
+                      setFormData(prev => ({ ...prev, identificationDocumentUrl: '' }));
                     }}
 
                     error={errors.nationalID}
@@ -2204,10 +2233,8 @@ export default function AdminNewApplicationPage() {
 
                     onChange={(file) => {
                       handleFileChange('yellowCard')(file);
-                      // Clear document URL when user selects a new file
-                      if (file) {
-                        setFormData(prev => ({ ...prev, yellowCardUrl: '' }));
-                      }
+                      // Clear document URL when user selects a new file or clears it
+                      setFormData(prev => ({ ...prev, yellowCardUrl: '' }));
                     }}
 
                     error={errors.yellowCard}
@@ -2232,10 +2259,8 @@ export default function AdminNewApplicationPage() {
 
                     onChange={(file) => {
                       handleFileChange('pastInsuranceCertificate')(file);
-                      // Clear document URL when user selects a new file
-                      if (file) {
-                        setFormData(prev => ({ ...prev, pastInsuranceCertificateUrl: '' }));
-                      }
+                      // Clear document URL when user selects a new file or clears it
+                      setFormData(prev => ({ ...prev, pastInsuranceCertificateUrl: '' }));
                     }}
 
                     accept="image/*,.pdf"

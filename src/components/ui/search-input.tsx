@@ -96,7 +96,6 @@ export const SearchInput = ({
       });
 
       const responseData = await response.json();
-      console.log('responseData', responseData);
 
       // Check if response is successful and has data
       const hasData = response.ok && (responseData.exists === true || responseData.data);
@@ -109,7 +108,6 @@ export const SearchInput = ({
         
         // Transform the API response to match expected format
         const transformedData = transformApiResponse(responseData.data, searchType, identificationDocumentType);
-        console.log(`Search successful for ${searchType}:`, transformedData);
         onSearchSuccess?.(transformedData);
         
         // Notify parent component about the search result
@@ -122,7 +120,6 @@ export const SearchInput = ({
           : 'Welcome! We\'re ready to register this vehicle for insurance. Please continue with the application below.';
         setSearchMessage(friendlyMessage);
         showToast(friendlyMessage, 'info');
-        console.log(`New entry for ${searchType}:`, responseData.message);
         
         // Notify parent component about the search result
         onSearchResult?.(false, searchType);
@@ -132,7 +129,6 @@ export const SearchInput = ({
         const errorMessage = responseData.message || 'Invalid input format. Please check your entry.';
         setSearchMessage(errorMessage);
         showToast(errorMessage, 'error');
-        console.log(`Search error for ${searchType}:`, errorMessage);
         
         // Notify parent component about the search result (treat as new entry for error cases)
         onSearchResult?.(false, searchType);
@@ -168,6 +164,9 @@ export const SearchInput = ({
             identificationDocumentUrl = (client.passport as string) || '';
           } else if (identificationDocumentType === 'drivingLicense') {
             identificationDocumentUrl = (client.drivingLicense as string) || '';
+          } else if (identificationDocumentType === 'plateNumber') {
+            // When searching by plate number, extract nationalID from client
+            identificationDocumentUrl = (client.nationalID as string) || '';
           }
         }
       } else {
@@ -180,6 +179,9 @@ export const SearchInput = ({
             identificationDocumentUrl = (data.passport as string) || '';
           } else if (identificationDocumentType === 'drivingLicense') {
             identificationDocumentUrl = (data.drivingLicense as string) || '';
+          } else if (identificationDocumentType === 'plateNumber') {
+            // When searching by plate number, extract nationalID from data
+            identificationDocumentUrl = (data.nationalID as string) || '';
           }
         }
       }
@@ -234,17 +236,36 @@ export const SearchInput = ({
       }
     } else {
       // Transform plate number response
+      // API structure: data.vehicle.client and data.vehicle for vehicle info
+      const vehicle = data.vehicle as Record<string, unknown> | undefined;
+      const client = vehicle?.client as Record<string, unknown> | undefined;
+      
+      // Extract nationalID from client (since identificationDocumentType is 'plateNumber', 
+      // the client's nationalID should be used for the identification document)
+      const nationalIDUrl = client?.nationalID as string || '';
+      
       return {
-        fullName: (data.client as Record<string, unknown>)?.fullName as string || '',
-        email: (data.client as Record<string, unknown>)?.email as string || '',
-        phoneNumber: (data.client as Record<string, unknown>)?.phoneNumber as string || '',
-        vehicleId: data.vehicleId || '',
-        plateNumber: data.plateNumber || '',
-        vehicleType: data.vehicleType || '',
-        vehicleAge: data.vehicleAge || '',
-        vehicleUse: data.vehicleUse || '',
-        otherVehicleUse: data.otherVehicleUse || '',
-        clientId: (data.client as Record<string, unknown>)?.clientId as string || '',
+        fullName: client?.fullName as string || '',
+        email: client?.email as string || '',
+        phoneNumber: client?.phoneNumber as string || '',
+        address: client?.address as string || '',
+        dateOfBirth: client?.dateOfBirth && typeof client.dateOfBirth === 'string' 
+          ? new Date(client.dateOfBirth).toISOString().split('T')[0] 
+          : '',
+        province: client?.province as string || '',
+        district: client?.district as string || '',
+        sector: client?.sector as string || '',
+        vehicleId: vehicle?._id as string || '',
+        plateNumber: vehicle?.plateNumber as string || '',
+        vehicleType: vehicle?.vehicleType as string || '',
+        vehicleAge: vehicle?.vehicleAge as string || '',
+        vehicleUse: vehicle?.vehicleUse as string || '',
+        otherVehicleUse: vehicle?.otherVehicleUse as string || '',
+        clientId: client?._id as string || '',
+        // Document URLs
+        identificationDocumentUrl: nationalIDUrl,
+        yellowCardUrl: data.yellowCard as string || '',
+        pastInsuranceCertificateUrl: data.pastInsuranceCertificate as string || '',
       };
     }
   };

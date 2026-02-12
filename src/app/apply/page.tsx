@@ -372,18 +372,44 @@ export default function ApplyPage() {
     setFormState(prev => ({
       ...prev,
       // Client information from vehicle owner
-      // fullName: (data.fullName as string) || prev.fullName,
-      // email: (data.email as string) || prev.email,
-      // phoneNumber: (data.phoneNumber as string) || prev.phoneNumber,
+      fullName: (data.fullName as string) || prev.fullName,
+      email: (data.email as string) || prev.email,
+      phoneNumber: (data.phoneNumber as string) || prev.phoneNumber,
+      address: (data.address as string) || prev.address,
+      dateOfBirth: (data.dateOfBirth as string) || prev.dateOfBirth,
+      province: (data.province as string) || prev.province,
+      district: (data.district as string) || prev.district,
+      sector: (data.sector as string) || prev.sector,
       // Vehicle-specific fields
       vehicleType: (data.vehicleType as string) || prev.vehicleType,
       vehicleAge: (data.vehicleAge as string) || prev.vehicleAge,
       vehicleUse: (data.vehicleUse as string) || prev.vehicleUse,
       otherVehicleUse: (data.otherVehicleUse as string) || prev.otherVehicleUse,
+      plateNumber: (data.plateNumber as string) || prev.plateNumber,
       // Store additional IDs for reference
       vehicleId: (data.vehicleId as string) || prev.vehicleId,
       clientId: (data.clientId as string) || prev.clientId,
+      // Document URLs (for viewing existing documents)
+      identificationDocumentUrl: (data.identificationDocumentUrl as string) || '',
+      yellowCardUrl: (data.yellowCardUrl as string) || '',
+      pastInsuranceCertificateUrl: (data.pastInsuranceCertificateUrl as string) || '',
     }));
+
+    // Update districts and sectors if province is set
+    if (data.province) {
+      const selectedProvince = rwandaProvinces.find(p => p.name === (data.province as string));
+      const districts = selectedProvince?.districts || [];
+      const transformedDistricts = districts.map(district => ({
+        name: district.name,
+        sectors: district.sectors?.map(sector => sector.name) || []
+      }));
+      setAvailableDistricts(transformedDistricts);
+
+      if (data.district) {
+        const selectedDistrict = transformedDistricts.find(d => d.name === (data.district as string));
+        setAvailableSectors(selectedDistrict?.sectors || []);
+      }
+    }
     
     showToast('Vehicle information loaded successfully.', 'success');
   };
@@ -485,8 +511,6 @@ export default function ApplyPage() {
       isNewClient: searchResults.isNewClient,
       isNewVehicle: searchResults.isNewVehicle,
     };
-    
-    console.log('Form Data on Submit:', formDataToLog);
 
     // Validate form
     const formErrors = validateForm(
@@ -981,6 +1005,11 @@ export default function ApplyPage() {
                             vehicleAge: '',
                             vehicleUse: '',
                             otherVehicleUse: '',
+                            vehicleId: '',
+                            // Clear document URLs when plate number is cleared or changed
+                            identificationDocumentUrl: '',
+                            yellowCardUrl: '',
+                            pastInsuranceCertificateUrl: '',
                           }));
                           if (errors.plateNumber) {
                             setErrors(prev => {
@@ -1285,10 +1314,8 @@ export default function ApplyPage() {
                     name="nationalID"
                     onChange={(file) => {
                       handleFileChange('nationalID')(file);
-                      // Clear document URL when user selects a new file
-                      if (file) {
-                        setFormState(prev => ({ ...prev, identificationDocumentUrl: '' }));
-                      }
+                      // Clear document URL when user selects a new file or clears it
+                      setFormState(prev => ({ ...prev, identificationDocumentUrl: '' }));
                     }}
                     error={errors.nationalID}
                     required
@@ -1304,10 +1331,8 @@ export default function ApplyPage() {
                     name="yellowCard"
                     onChange={(file) => {
                       handleFileChange('yellowCard')(file);
-                      // Clear document URL when user selects a new file
-                      if (file) {
-                        setFormState(prev => ({ ...prev, yellowCardUrl: '' }));
-                      }
+                      // Clear document URL when user selects a new file or clears it
+                      setFormState(prev => ({ ...prev, yellowCardUrl: '' }));
                     }}
                     error={errors.yellowCard}
                     required
@@ -1323,10 +1348,8 @@ export default function ApplyPage() {
                     name="pastInsuranceCertificate"
                     onChange={(file) => {
                       handleFileChange('pastInsuranceCertificate')(file);
-                      // Clear document URL when user selects a new file
-                      if (file) {
-                        setFormState(prev => ({ ...prev, pastInsuranceCertificateUrl: '' }));
-                      }
+                      // Clear document URL when user selects a new file or clears it
+                      setFormState(prev => ({ ...prev, pastInsuranceCertificateUrl: '' }));
                     }}
                     accept="image/*,.pdf"
                     className="md:col-span-2"

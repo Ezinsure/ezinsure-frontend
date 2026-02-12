@@ -42,6 +42,9 @@ export const FileInput = ({
       // Extract filename from URL
       const urlParts = documentUrl.split('/');
       setFileName(urlParts[urlParts.length - 1] || 'Existing document');
+    } else {
+      // Clear filename when documentUrl is cleared
+      setFileName('');
     }
   }, [currentFile, documentUrl]);
 
@@ -105,6 +108,8 @@ export const FileInput = ({
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
+    // Clear documentUrl if it exists (by calling onChange with null, which should trigger parent to clear URL)
+    // Note: The parent component should handle clearing documentUrl when file is cleared
   };
 
   return (
