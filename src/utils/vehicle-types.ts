@@ -40,7 +40,7 @@ export const motoTypes: readonly string[] = [
  */
 export const carUses: readonly string[] = [
   'Private',
-  'PSV',
+  'PSV / TAXI',
   'Commercial - Transport of Goods',
   'Commercial - Auto Ecole',
   'Commercial - School Bus',
@@ -57,7 +57,7 @@ export const carUses: readonly string[] = [
  */
 export const motoUses: readonly string[] = [
   'Private',
-  'PSV',
+  'PSV / TAXI',
   'Commercial - Transport of Goods',
   'Other'
 ];

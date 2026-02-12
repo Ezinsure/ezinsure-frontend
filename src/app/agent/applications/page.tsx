@@ -135,7 +135,7 @@ const [formState, setFormState] = useState<Partial<Application>>(() => {
   let otherVehicleUse = application.vehicle?.otherVehicleUse || application.otherVehicleUse || '';
   
   // Handle "Other - [description]" format (only for truly custom "Other" entries)
-  if (vehicleUse.startsWith('Other - ') && !vehicleUse.includes('Commercial - ') && !vehicleUse.includes('Private - ') && !vehicleUse.includes('PSV - ')) {
+  if (vehicleUse.startsWith('Other - ') && !vehicleUse.includes('Commercial - ') && !vehicleUse.includes('Private - ') && !vehicleUse.includes('PSV / TAXI - ')) {
     otherVehicleUse = vehicleUse.substring(8); // Remove "Other - " prefix
     vehicleUse = 'Other';
   }
@@ -214,7 +214,7 @@ const [formState, setFormState] = useState<Partial<Application>>(() => {
       let otherVehicleUse = application.vehicle?.otherVehicleUse || application.otherVehicleUse || '';
       
       // Handle "Other - [description]" format (only for truly custom "Other" entries)
-      if (vehicleUse.startsWith('Other - ') && !vehicleUse.includes('Commercial - ') && !vehicleUse.includes('Private - ') && !vehicleUse.includes('PSV - ')) {
+      if (vehicleUse.startsWith('Other - ') && !vehicleUse.includes('Commercial - ') && !vehicleUse.includes('Private - ') && !vehicleUse.includes('PSV / TAXI - ')) {
         otherVehicleUse = vehicleUse.substring(8); // Remove "Other - " prefix
         vehicleUse = 'Other';
       }
