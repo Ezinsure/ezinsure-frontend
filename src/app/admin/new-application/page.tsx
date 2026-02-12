@@ -987,13 +987,18 @@ export default function AdminNewApplicationPage() {
 
     // Validate form
 
-    const formErrors = validateForm(
-
-      { ...formData, isCOMESA: formData.isCOMESA ? 'true' : 'false', isNewClient: formData.isNewClient ? 'true' : 'false', isNewVehicle: formData.isNewVehicle ? 'true' : 'false' },
-
-      validationRules
-
-    );
+    // Validate form - include document URLs for file validation
+    const formDataForValidation = {
+      ...formData,
+      isCOMESA: formData.isCOMESA ? 'true' : 'false',
+      isNewClient: formData.isNewClient ? 'true' : 'false',
+      isNewVehicle: formData.isNewVehicle ? 'true' : 'false',
+      // Include document URLs so validation can check them for file fields
+      identificationDocumentUrl: formData.identificationDocumentUrl,
+      yellowCardUrl: formData.yellowCardUrl,
+      pastInsuranceCertificateUrl: formData.pastInsuranceCertificateUrl,
+    };
+    const formErrors = validateForm(formDataForValidation, validationRules);
 
     // Custom validation for assignToAgent - required when wantsToAssignAgent is 'yes'
     if (formData.wantsToAssignAgent === 'yes' && !formData.assignToAgent) {
@@ -1014,6 +1019,11 @@ export default function AdminNewApplicationPage() {
 
         Object.entries(formData).forEach(([key, value]) => {
 
+          // Skip URL fields - we'll handle them separately
+          if (key === 'identificationDocumentUrl' || key === 'yellowCardUrl' || key === 'pastInsuranceCertificateUrl') {
+            return;
+          }
+
           if (value instanceof File) {
 
             if (value) formDataToSend.append(key, value);
@@ -1025,6 +1035,25 @@ export default function AdminNewApplicationPage() {
           }
 
         });
+
+        // Handle document URLs: use File if exists, otherwise use URL
+        if (formData.nationalID instanceof File) {
+          formDataToSend.append('nationalID', formData.nationalID);
+        } else if (formData.identificationDocumentUrl) {
+          formDataToSend.append('nationalID', formData.identificationDocumentUrl);
+        }
+
+        if (formData.yellowCard instanceof File) {
+          formDataToSend.append('yellowCard', formData.yellowCard);
+        } else if (formData.yellowCardUrl) {
+          formDataToSend.append('yellowCard', formData.yellowCardUrl);
+        }
+
+        if (formData.pastInsuranceCertificate instanceof File) {
+          formDataToSend.append('pastInsuranceCertificate', formData.pastInsuranceCertificate);
+        } else if (formData.pastInsuranceCertificateUrl) {
+          formDataToSend.append('pastInsuranceCertificate', formData.pastInsuranceCertificateUrl);
+        }
 
         // Override isNewClient and isNewVehicle with searchResults
 

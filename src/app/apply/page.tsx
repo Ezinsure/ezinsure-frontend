@@ -380,6 +380,10 @@ export default function ApplyPage() {
       province: (data.province as string) || prev.province,
       district: (data.district as string) || prev.district,
       sector: (data.sector as string) || prev.sector,
+      // Update identification info to client's actual ID (not the plate number used for search)
+      // Use the client's actual identification number from the API response
+      identificationNumber: (data.identificationNumber as string) || prev.identificationNumber,
+      identificationDocumentType: (data.identificationDocumentType as string) || prev.identificationDocumentType,
       // Vehicle-specific fields
       vehicleType: (data.vehicleType as string) || prev.vehicleType,
       vehicleAge: (data.vehicleAge as string) || prev.vehicleAge,
@@ -394,6 +398,15 @@ export default function ApplyPage() {
       yellowCardUrl: (data.yellowCardUrl as string) || '',
       pastInsuranceCertificateUrl: (data.pastInsuranceCertificateUrl as string) || '',
     }));
+
+    // Update search results: if we found a vehicle, the client also exists (vehicle belongs to client)
+    if (data.clientId) {
+      setSearchResults(prev => ({
+        ...prev,
+        isNewClient: false, // Client exists since vehicle exists
+        isNewVehicle: false, // Vehicle exists (set by handleSearchResult)
+      }));
+    }
 
     // Update districts and sectors if province is set
     if (data.province) {
@@ -512,11 +525,16 @@ export default function ApplyPage() {
       isNewVehicle: searchResults.isNewVehicle,
     };
 
-    // Validate form
-    const formErrors = validateForm(
-      { ...formState, isCOMESA: formState.isCOMESA ? 'true' : 'false' },
-      validationRules
-    );
+    // Validate form - include document URLs for file validation
+    const formDataForValidation = {
+      ...formState,
+      isCOMESA: formState.isCOMESA ? 'true' : 'false',
+      // Include document URLs so validation can check them for file fields
+      identificationDocumentUrl: formState.identificationDocumentUrl,
+      yellowCardUrl: formState.yellowCardUrl,
+      pastInsuranceCertificateUrl: formState.pastInsuranceCertificateUrl,
+    };
+    const formErrors = validateForm(formDataForValidation, validationRules);
     setErrors(formErrors);
 
     if (!hasErrors(formErrors)) {
@@ -567,32 +585,42 @@ export default function ApplyPage() {
         // Append COMESA status
         formData.append('isCOMESA', formState.isCOMESA.toString());
         
-        // Append files
+        // Append files that were directly uploaded
         if (formState.nationalID) {
           formData.append('nationalID', formState.nationalID);
+        } else if (formState.identificationDocumentUrl) {
+          // Send URL if no file was uploaded but URL exists
+          formData.append('nationalID', formState.identificationDocumentUrl);
         }
+        
         if (formState.yellowCard) {
           formData.append('yellowCard', formState.yellowCard);
+        } else if (formState.yellowCardUrl) {
+          // Send URL if no file was uploaded but URL exists
+          formData.append('yellowCard', formState.yellowCardUrl);
         }
+        
         if (formState.pastInsuranceCertificate) {
           formData.append('pastInsuranceCertificate', formState.pastInsuranceCertificate);
+        } else if (formState.pastInsuranceCertificateUrl) {
+          // Send URL if no file was uploaded but URL exists
+          formData.append('pastInsuranceCertificate', formState.pastInsuranceCertificateUrl);
+        }
+        
+        // Append IDs if they exist (backend needs these to reference existing records)
+        // Send clientId when it exists - backend will use it to find existing client
+        if (formState.clientId) {
+          formData.append('clientId', formState.clientId);
+        }
+        // Send vehicleId when it exists - backend will use it to find existing vehicle
+        if (formState.vehicleId) {
+          formData.append('vehicleId', formState.vehicleId);
         }
 
         // Append tracking data
         if (trackingData) {
-          // console.log('Tracking data:', trackingData);
           formData.append('trackingData', JSON.stringify(trackingData));
         }
-
-        // Log FormData contents before sending
-        // This will log all key-value pairs, including files (as File objects)
-        // const formDataEntries = Array.from(formData.entries()).map(([key, value]) => {
-        //   if (value instanceof File) {
-        //     return [key, `File: ${value.name} (${value.type}, ${value.size} bytes)`];
-        //   }
-        //   return [key, value];
-        // });
-        // console.log('Submitting FormData:', Object.fromEntries(formDataEntries));
 
         const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/newApply`, {
           method: 'POST',

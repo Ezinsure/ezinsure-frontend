@@ -244,6 +244,16 @@ export const SearchInput = ({
       // the client's nationalID should be used for the identification document)
       const nationalIDUrl = client?.nationalID as string || '';
       
+      // Extract client's actual identification number
+      // When searching by plate number, we get the client's info, so we need their actual ID number
+      const clientIdentificationNumber = client?.identificationNumber as string || '';
+      
+      // Keep the identificationDocumentType as stored in database (even if it's "plateNumber")
+      // The backend uses this to find/validate the client, so we need to match what's in the database
+      // Note: The database might have identificationDocumentType="plateNumber" for the client
+      // even though the client's actual document is nationalID/passport/etc.
+      const clientIdentificationDocumentType = (client?.identificationDocumentType as string) || 'nationalID';
+      
       return {
         fullName: client?.fullName as string || '',
         email: client?.email as string || '',
@@ -262,6 +272,9 @@ export const SearchInput = ({
         vehicleUse: vehicle?.vehicleUse as string || '',
         otherVehicleUse: vehicle?.otherVehicleUse as string || '',
         clientId: client?._id as string || '',
+        // Client's actual identification info (not the plate number used for search)
+        identificationNumber: clientIdentificationNumber,
+        identificationDocumentType: clientIdentificationDocumentType,
         // Document URLs
         identificationDocumentUrl: nationalIDUrl,
         yellowCardUrl: data.yellowCard as string || '',
