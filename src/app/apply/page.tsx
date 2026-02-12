@@ -495,36 +495,6 @@ export default function ApplyPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Log form data when submit button is clicked (regardless of validation)
-    const formDataToLog = {
-      fullName: formState.fullName,
-      email: formState.email,
-      phoneNumber: formState.phoneNumber,
-      address: formState.address,
-      dateOfBirth: formState.dateOfBirth,
-      province: formState.province,
-      district: formState.district,
-      sector: formState.sector,
-      insuranceCategory: formatInsuranceCategory(formState.insuranceCategory),
-      insuranceType: formatInsuranceType(formState.insuranceType),
-      insuranceDuration: formatInsuranceDuration(formState.insuranceDuration),
-      insuranceProvider: formState.insuranceProvider,
-      plateNumber: formState.plateNumber,
-      identificationDocumentType: formState.identificationDocumentType,
-      identificationNumber: formState.identificationNumber,
-      vehicleType: formState.vehicleType,
-      vehicleAge: formState.vehicleAge,
-      vehicleUse: formState.vehicleUse,
-      otherVehicleUse: formState.otherVehicleUse,
-      isCOMESA: formState.isCOMESA,
-      nationalID: formState.nationalID ? 'File selected' : null,
-      yellowCard: formState.yellowCard ? 'File selected' : null,
-      pastInsuranceCertificate: formState.pastInsuranceCertificate ? 'File selected' : null,
-      // Add the missing fields for /newApply endpoint
-      isNewClient: searchResults.isNewClient,
-      isNewVehicle: searchResults.isNewVehicle,
-    };
-
     // Validate form - include document URLs for file validation
     const formDataForValidation = {
       ...formState,
