@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { MainLayout } from '@/components/ui/main-layout';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -90,8 +90,10 @@ export default function ApplyPage() {
   // Track search results for isNewClient and isNewVehicle fields
   const [searchResults, setSearchResults] = useState({
     isNewClient: true,    // Default to true (new client)
-    isNewVehicle: true,   // Default to true (new vehicle)
+    isNewVehicle: false,   // Default to false - only set to true if search confirms vehicle doesn't exist
   });
+  // Track if plate search just completed to prevent onChange from resetting isNewVehicle
+  const plateSearchJustCompletedRef = useRef(false);
 
   // Console log form data whenever it changes (disabled for production)
   // useEffect(() => {
@@ -318,10 +320,16 @@ export default function ApplyPage() {
 
   // Handle search results to track isNewClient and isNewVehicle
   const handleSearchResult = (exists: boolean, searchType: 'plateNumber' | 'identificationNumber') => {
-    setSearchResults(prev => ({
-      ...prev,
-      [searchType === 'identificationNumber' ? 'isNewClient' : 'isNewVehicle']: !exists
-    }));
+    setSearchResults(prev => {
+      const newState = {
+        ...prev,
+        [searchType === 'identificationNumber' ? 'isNewClient' : 'isNewVehicle']: !exists
+      };
+      // Debug: Log when plate number search finds a vehicle
+      if (searchType === 'plateNumber') {
+      }
+      return newState;
+    });
   };
 
   // Handle search success for identification number
@@ -369,6 +377,9 @@ export default function ApplyPage() {
 
   // Handle search success for plate number
   const handlePlateSearchSuccess = (data: Record<string, unknown>) => {
+    // Mark that a plate search just completed
+    plateSearchJustCompletedRef.current = true;
+    
     setFormState(prev => ({
       ...prev,
       // Client information from vehicle owner
@@ -401,11 +412,19 @@ export default function ApplyPage() {
 
     // Update search results: if we found a vehicle, the client also exists (vehicle belongs to client)
     // handlePlateSearchSuccess is only called when a vehicle is found, so always set isNewVehicle to false
-    setSearchResults(prev => ({
-      ...prev,
-      isNewClient: (data.clientId ? false : prev.isNewClient), // Client exists if clientId is present
-      isNewVehicle: false, // Vehicle exists - we found it via plate search
-    }));
+    setSearchResults(prev => {
+      const newState = {
+        ...prev,
+        isNewClient: (data.clientId ? false : prev.isNewClient), // Client exists if clientId is present
+        isNewVehicle: false, // Vehicle exists - we found it via plate search
+      };
+      return newState;
+    });
+    
+    // Reset the flag after a short delay to allow state updates to complete
+    setTimeout(() => {
+      plateSearchJustCompletedRef.current = false;
+    }, 100);
 
     // Update districts and sectors if province is set
     if (data.province) {
@@ -529,6 +548,7 @@ export default function ApplyPage() {
         formData.append('insuranceProvider', formState.insuranceProvider);
         
         // Append new fields for /newApply endpoint
+        // Debug: Log isNewVehicle before submission
         formData.append('isNewClient', searchResults.isNewClient.toString());
         formData.append('isNewVehicle', searchResults.isNewVehicle.toString());
         formData.append('identificationDocumentType', formState.identificationDocumentType);
@@ -658,7 +678,7 @@ export default function ApplyPage() {
         // Reset search results
         setSearchResults({
           isNewClient: true,
-          isNewVehicle: true,
+          isNewVehicle: false, // Default to false - only true if search confirms vehicle doesn't exist
         });
 
         // Reset search input components to clear their messages
@@ -990,6 +1010,13 @@ export default function ApplyPage() {
                         placeholder={formState.insuranceCategory === 'car' ? 'e.g. RAA 123A' : 'e.g. RA 123A'}
                         value={formState.plateNumber}
                         onChange={(value) => {
+                          // Don't reset isNewVehicle if a plate search just completed
+                          if (plateSearchJustCompletedRef.current) {
+                            // This is from a search result, just update the plate number without clearing fields
+                            setFormState(prev => ({ ...prev, plateNumber: value }));
+                            return;
+                          }
+                          
                           setFormState(prev => ({ 
                             ...prev, 
                             plateNumber: value,
@@ -1007,6 +1034,12 @@ export default function ApplyPage() {
                             identificationDocumentUrl: '',
                             yellowCardUrl: '',
                             pastInsuranceCertificateUrl: '',
+                          }));
+                          // Reset isNewVehicle to false when plate number changes manually
+                          // (will be updated when user performs search - true if not found, false if found)
+                          setSearchResults(prev => ({
+                            ...prev,
+                            isNewVehicle: false // Reset to false, will be updated by search result
                           }));
                           if (errors.plateNumber) {
                             setErrors(prev => {

@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { MainLayout } from '@/components/ui/main-layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -315,11 +315,12 @@ export default function AdminNewApplicationPage() {
   const [phoneNumberResetTrigger, setPhoneNumberResetTrigger] = useState(0);
   const [fileResetTrigger, setFileResetTrigger] = useState(0);
   // Track search results for isNewClient and isNewVehicle fields
-
   const [searchResults, setSearchResults] = useState({
     isNewClient: true,    // Default to true (new client)
-    isNewVehicle: true,   // Default to true (new vehicle)
+    isNewVehicle: false,   // Default to false - only set to true if search confirms vehicle doesn't exist
   });
+  // Track if plate search just completed to prevent onChange from resetting isNewVehicle
+  const plateSearchJustCompletedRef = useRef(false);
 
   // Initialize tracking data on component mount
 
@@ -425,6 +426,9 @@ export default function AdminNewApplicationPage() {
 
   // Handle search success for plate number
   const handlePlateSearchSuccess = (data: Record<string, unknown>) => {
+    // Mark that a plate search just completed
+    plateSearchJustCompletedRef.current = true;
+    
     setFormData(prev => ({
       ...prev,
       // Client information from vehicle owner
@@ -456,11 +460,19 @@ export default function AdminNewApplicationPage() {
 
     // Update search results: if we found a vehicle, the client also exists (vehicle belongs to client)
     // handlePlateSearchSuccess is only called when a vehicle is found, so always set isNewVehicle to false
-    setSearchResults(prev => ({
-      ...prev,
-      isNewClient: (data.clientId ? false : prev.isNewClient), // Client exists if clientId is present
-      isNewVehicle: false, // Vehicle exists - we found it via plate search
-    }));
+    setSearchResults(prev => {
+      const newState = {
+        ...prev,
+        isNewClient: (data.clientId ? false : prev.isNewClient), // Client exists if clientId is present
+        isNewVehicle: false, // Vehicle exists - we found it via plate search
+      };
+      return newState;
+    });
+    
+    // Reset the flag after a short delay to allow state updates to complete
+    setTimeout(() => {
+      plateSearchJustCompletedRef.current = false;
+    }, 100);
 
     // Update districts and sectors if province is set
     if (data.province) {
@@ -482,10 +494,16 @@ export default function AdminNewApplicationPage() {
 
   // Handle search results to track isNewClient and isNewVehicle
   const handleSearchResult = (exists: boolean, searchType: 'plateNumber' | 'identificationNumber') => {
-    setSearchResults(prev => ({
-      ...prev,
-      [searchType === 'identificationNumber' ? 'isNewClient' : 'isNewVehicle']: !exists
-    }));
+    setSearchResults(prev => {
+      const newState = {
+        ...prev,
+        [searchType === 'identificationNumber' ? 'isNewClient' : 'isNewVehicle']: !exists
+      };
+      // Debug: Log when plate number search finds a vehicle
+      if (searchType === 'plateNumber') {
+      }
+      return newState;
+    });
   };
 
   const getTokenFromStorage = () => {
@@ -550,7 +568,7 @@ export default function AdminNewApplicationPage() {
 
     isNewClient: true,
 
-    isNewVehicle: true,
+    isNewVehicle: false, // Default to false - only true if search confirms vehicle doesn't exist
 
     // Payment Information
 
@@ -833,7 +851,7 @@ export default function AdminNewApplicationPage() {
 
         ...prev,
 
-        isNewVehicle: true
+        isNewVehicle: false // Reset to false, will be updated by search result
 
       }));
 
@@ -957,14 +975,21 @@ export default function AdminNewApplicationPage() {
     setPhoneNumberResetTrigger(prev => prev + 1);
     // Reset plate number input whenever identification number changes
     setPlateNumberResetTrigger(prev => prev + 1);
-    // Reset isNewVehicle to true when identification number changes
+    // Reset isNewVehicle to false when identification number changes
     setSearchResults(prev => ({
       ...prev,
-      isNewVehicle: true
+      isNewVehicle: false // Reset to false, will be updated by search result
     }));
   }, []);
 
   const handlePlateNumberChange = useCallback((value: string) => {
+    // Don't reset isNewVehicle if a plate search just completed
+    if (plateSearchJustCompletedRef.current) {
+      // This is from a search result, just update the plate number without clearing fields
+      setFormData(prev => ({ ...prev, plateNumber: value }));
+      return;
+    }
+    
     setFormData(prev => ({
       ...prev,
       plateNumber: value,
@@ -988,6 +1013,13 @@ export default function AdminNewApplicationPage() {
       identificationDocumentUrl: '',
       yellowCardUrl: '',
       pastInsuranceCertificateUrl: '',
+    }));
+    
+    // Reset isNewVehicle to false when plate number changes manually
+    // (will be updated when user performs search - true if not found, false if found)
+    setSearchResults(prev => ({
+      ...prev,
+      isNewVehicle: false // Reset to false, will be updated by search result
     }));
   }, []);
 
@@ -1070,6 +1102,7 @@ export default function AdminNewApplicationPage() {
 
         formDataToSend.set('isNewClient', searchResults.isNewClient ? 'true' : 'false');
 
+        // Debug: Log isNewVehicle before submission
         formDataToSend.set('isNewVehicle', searchResults.isNewVehicle ? 'true' : 'false');
 
         // Add admin user info
@@ -1212,7 +1245,7 @@ export default function AdminNewApplicationPage() {
 
             isNewClient: true,
 
-            isNewVehicle: true,
+            isNewVehicle: false, // Default to false - only true if search confirms vehicle doesn't exist
 
           });
 
@@ -1228,7 +1261,7 @@ export default function AdminNewApplicationPage() {
 
             isNewClient: true,
 
-            isNewVehicle: true,
+            isNewVehicle: false, // Default to false - only true if search confirms vehicle doesn't exist
 
           });
 
