@@ -279,6 +279,11 @@ export default function AgentAnalyticsPage() {
   // Data state
   const [agents, setAgents] = useState<AgentAnalytics[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [weeklyCommissionData, setWeeklyCommissionData] = useState<{
+    weekStart: string;
+    weekEnd: string;
+    data: Array<{ totalCommission: number; day: string }>;
+  } | null>(null);
   
   // Filter and search state
   const [searchQuery, setSearchQuery] = useState('');
@@ -374,6 +379,100 @@ export default function AgentAnalyticsPage() {
     // Sort by total commission descending
     return dummyAgents.sort((a, b) => b.totalCommission - a.totalCommission);
   }, []); // No dependencies - function is stable
+
+  // Fetch weekly commission data
+  const fetchWeeklyCommission = useCallback(async () => {
+    if (!token) return;
+    
+    try {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/getWeeklyAgentsCommission`,
+        {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          }
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch weekly commission data');
+      }
+
+      const data = await response.json();
+      setWeeklyCommissionData(data);
+    } catch (error) {
+      console.error('Error fetching weekly commission data:', error);
+      // Don't show toast for this as it's not critical
+    }
+  }, [token]);
+
+  // Fetch the three analytics APIs with logging
+  const fetchAnalyticsAPIs = useCallback(async () => {
+    if (!token) return;
+    
+    try {
+      // Fetch getAgentAnalytics
+      const agentAnalyticsResponse = await fetch(
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/getAgentAnalytics?startDate=${startDate}&endDate=${endDate}`,
+        {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          }
+        }
+      );
+
+      if (agentAnalyticsResponse.ok) {
+        const agentAnalyticsData = await agentAnalyticsResponse.json();
+        console.log('getAgentAnalytics response:', agentAnalyticsData);
+      } else {
+        console.error('Failed to fetch getAgentAnalytics:', agentAnalyticsResponse.status);
+      }
+
+      // Fetch getTopAgentsPerfomance
+      const topAgentsResponse = await fetch(
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/getTopAgentsPerfomance?startDate=${startDate}&endDate=${endDate}`,
+        {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          }
+        }
+      );
+
+      if (topAgentsResponse.ok) {
+        const topAgentsData = await topAgentsResponse.json();
+        console.log('getTopAgentsPerfomance response:', topAgentsData);
+      } else {
+        console.error('Failed to fetch getTopAgentsPerfomance:', topAgentsResponse.status);
+      }
+
+      // Fetch getAllAgentsDetails
+      const allAgentsDetailsResponse = await fetch(
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/getAllAgentsDetails?startDate=${startDate}&endDate=${endDate}`,
+        {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          }
+        }
+      );
+
+      if (allAgentsDetailsResponse.ok) {
+        const allAgentsDetailsData = await allAgentsDetailsResponse.json();
+        console.log('getAllAgentsDetails response:', allAgentsDetailsData);
+      } else {
+        console.error('Failed to fetch getAllAgentsDetails:', allAgentsDetailsResponse.status);
+      }
+    } catch (error) {
+      console.error('Error fetching analytics APIs:', error);
+    }
+  }, [token, startDate, endDate]);
 
   // Fetch agents data
   const fetchAgentsData = useCallback(async () => {
@@ -501,6 +600,8 @@ export default function AgentAnalyticsPage() {
 
   useEffect(() => {
     fetchAgentsData();
+    fetchWeeklyCommission();
+    fetchAnalyticsAPIs();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [startDate, endDate, token]);
 
@@ -604,8 +705,17 @@ export default function AgentAnalyticsPage() {
       }));
   }, [filteredAndSortedAgents]);
 
-  // Performance trend data (simulated - would come from API)
+  // Performance trend data from API
   const performanceTrendData = useMemo(() => {
+    if (weeklyCommissionData && weeklyCommissionData.data) {
+      // Map API data to chart format
+      return weeklyCommissionData.data.map((item) => ({
+        day: item.day,
+        commission: item.totalCommission,
+        applications: 0 // API doesn't provide applications, keeping for compatibility
+      }));
+    }
+    // Fallback to dummy data if API data not available
     const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     const totalCommission = summaryStats.totalCommission;
     return days.map((day) => ({
@@ -613,7 +723,7 @@ export default function AgentAnalyticsPage() {
       commission: Math.round(totalCommission * (0.1 + Math.random() * 0.15)),
       applications: Math.round(summaryStats.totalApplications * (0.1 + Math.random() * 0.15))
     }));
-  }, [summaryStats]);
+  }, [weeklyCommissionData, summaryStats]);
 
   // Chart data for province distribution
   const provinceChartData = useMemo(() => {
