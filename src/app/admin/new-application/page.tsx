@@ -436,6 +436,9 @@ export default function AdminNewApplicationPage() {
       province: (data.province as string) || prev.province,
       district: (data.district as string) || prev.district,
       sector: (data.sector as string) || prev.sector,
+      // Update identification info to client's actual ID (not the plate number used for search)
+      identificationNumber: (data.identificationNumber as string) || prev.identificationNumber,
+      identificationDocumentType: (data.identificationDocumentType as string) || prev.identificationDocumentType,
       // Vehicle-specific fields
       vehicleType: (data.vehicleType as string) || prev.vehicleType,
       vehicleAge: (data.vehicleAge as string) || prev.vehicleAge,
@@ -450,6 +453,15 @@ export default function AdminNewApplicationPage() {
       yellowCardUrl: (data.yellowCardUrl as string) || '',
       pastInsuranceCertificateUrl: (data.pastInsuranceCertificateUrl as string) || '',
     }));
+
+    // Update search results: if we found a vehicle, the client also exists (vehicle belongs to client)
+    if (data.clientId) {
+      setSearchResults(prev => ({
+        ...prev,
+        isNewClient: false, // Client exists since vehicle exists
+        isNewVehicle: false, // Vehicle exists (set by handleSearchResult)
+      }));
+    }
 
     // Update districts and sectors if province is set
     if (data.province) {
