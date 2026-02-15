@@ -26,7 +26,6 @@ import {
   Eye
 } from 'lucide-react';
 import { Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area, ComposedChart, Line } from 'recharts';
-import Link from 'next/link';
 
 // Helper functions for dates
 const getFirstDayOfMonth = () => {
@@ -65,6 +64,35 @@ interface AgentAnalytics {
   createdAt?: string;
   bankName?: string;
   bankAccountNumber?: string;
+}
+
+// API Response Interfaces
+interface TopAgentPerformance {
+  totalCommission: number;
+  numberOfApplications: number;
+  agentId: string;
+  fullName: string;
+}
+
+interface AgentAnalyticsResponse {
+  _id: null;
+  totalCommissionEarned: number;
+  totalAmountEarned: number;
+  numberOfApplications: number;
+  averageCommissionPerApplication: number;
+}
+
+interface AgentDetail {
+  fullName: string;
+  email: string;
+  status: string;
+  province: string;
+  district: string;
+  numberOfApplications: number;
+  totalCommission: number;
+  totalAmount: number;
+  averageCommission: number;
+  agentId: string;
 }
 
 interface Application {
@@ -285,6 +313,11 @@ export default function AgentAnalyticsPage() {
     data: Array<{ totalCommission: number; day: string }>;
   } | null>(null);
   
+  // API data state
+  const [topAgentsPerformance, setTopAgentsPerformance] = useState<TopAgentPerformance[]>([]);
+  const [overallAnalytics, setOverallAnalytics] = useState<AgentAnalyticsResponse | null>(null);
+  const [allAgentsDetails, setAllAgentsDetails] = useState<AgentDetail[]>([]);
+  
   // Filter and search state
   const [searchQuery, setSearchQuery] = useState('');
   const [provinceFilter, setProvinceFilter] = useState<string>('all');
@@ -299,7 +332,7 @@ export default function AgentAnalyticsPage() {
   const [itemsPerPage, setItemsPerPage] = useState(10);
 
   // TODO: Set to false when APIs are ready
-  const USE_DUMMY_DATA = true;
+  const USE_DUMMY_DATA = false; // Now using real APIs
 
   // Generate dummy data based on date range
   const generateDummyData = useCallback((start: string, end: string): AgentAnalytics[] => {
@@ -408,87 +441,110 @@ export default function AgentAnalyticsPage() {
     }
   }, [token]);
 
-  // Fetch the three analytics APIs with logging
+  // Fetch the three analytics APIs and store data
   const fetchAnalyticsAPIs = useCallback(async () => {
     if (!token) return;
     
     try {
-      // Fetch getAgentAnalytics
-      const agentAnalyticsResponse = await fetch(
-        `${process.env.NEXT_PUBLIC_API_BASE_URL}/getAgentAnalytics?startDate=${startDate}&endDate=${endDate}`,
-        {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
+      // Fetch all three APIs in parallel for better performance
+      const [agentAnalyticsResponse, topAgentsResponse, allAgentsDetailsResponse] = await Promise.all([
+        fetch(
+          `${process.env.NEXT_PUBLIC_API_BASE_URL}/getAgentAnalytics?startDate=${startDate}&endDate=${endDate}`,
+          {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            }
           }
-        }
-      );
+        ),
+        fetch(
+          `${process.env.NEXT_PUBLIC_API_BASE_URL}/getTopAgentsPerfomance?startDate=${startDate}&endDate=${endDate}`,
+          {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            }
+          }
+        ),
+        fetch(
+          `${process.env.NEXT_PUBLIC_API_BASE_URL}/getAllAgentsDetails?startDate=${startDate}&endDate=${endDate}`,
+          {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            }
+          }
+        )
+      ]);
 
+      // Process getAgentAnalytics
       if (agentAnalyticsResponse.ok) {
         const agentAnalyticsData = await agentAnalyticsResponse.json();
-        console.log('getAgentAnalytics response:', agentAnalyticsData);
+        setOverallAnalytics(agentAnalyticsData);
       } else {
         console.error('Failed to fetch getAgentAnalytics:', agentAnalyticsResponse.status);
       }
 
-      // Fetch getTopAgentsPerfomance
-      const topAgentsResponse = await fetch(
-        `${process.env.NEXT_PUBLIC_API_BASE_URL}/getTopAgentsPerfomance?startDate=${startDate}&endDate=${endDate}`,
-        {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          }
-        }
-      );
-
+      // Process getTopAgentsPerfomance
       if (topAgentsResponse.ok) {
         const topAgentsData = await topAgentsResponse.json();
-        console.log('getTopAgentsPerfomance response:', topAgentsData);
+        setTopAgentsPerformance(topAgentsData);
       } else {
         console.error('Failed to fetch getTopAgentsPerfomance:', topAgentsResponse.status);
       }
 
-      // Fetch getAllAgentsDetails
-      const allAgentsDetailsResponse = await fetch(
-        `${process.env.NEXT_PUBLIC_API_BASE_URL}/getAllAgentsDetails?startDate=${startDate}&endDate=${endDate}`,
-        {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          }
-        }
-      );
-
+      // Process getAllAgentsDetails
       if (allAgentsDetailsResponse.ok) {
         const allAgentsDetailsData = await allAgentsDetailsResponse.json();
-        console.log('getAllAgentsDetails response:', allAgentsDetailsData);
+        setAllAgentsDetails(allAgentsDetailsData);
+        
+        // Transform API data to match AgentAnalytics interface
+        const transformedAgents: AgentAnalytics[] = allAgentsDetailsData.map((agent: AgentDetail) => ({
+          _id: agent.agentId,
+          agentId: agent.agentId,
+          agentFullName: agent.fullName,
+          name: agent.fullName,
+          email: agent.email,
+          phoneNumber: '', // Not provided by API
+          province: agent.province,
+          district: agent.district,
+          sector: '', // Not provided by API
+          status: agent.status,
+          totalCommission: agent.totalCommission,
+          totalApplications: agent.numberOfApplications,
+          averageCommission: agent.averageCommission,
+          totalRevenue: agent.totalAmount,
+        }));
+        
+        setAgents(transformedAgents);
       } else {
         console.error('Failed to fetch getAllAgentsDetails:', allAgentsDetailsResponse.status);
       }
     } catch (error) {
       console.error('Error fetching analytics APIs:', error);
+      showToast('Failed to load analytics data', 'error');
     }
-  }, [token, startDate, endDate]);
+  }, [token, startDate, endDate, showToast]);
 
   // Fetch agents data
   const fetchAgentsData = useCallback(async () => {
     if (!token && !USE_DUMMY_DATA) return;
     
-    setIsLoading(true);
-    
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 800));
-    
     try {
       if (USE_DUMMY_DATA) {
+        // Simulate API delay
+        await new Promise(resolve => setTimeout(resolve, 800));
         // Use dummy data - pass dates as parameters
         const dummyData = generateDummyData(startDate, endDate);
         setAgents(dummyData);
       } else {
+        // Real APIs are now handled by fetchAnalyticsAPIs
+        // This function is kept for backward compatibility but won't fetch if USE_DUMMY_DATA is false
+        // The actual data comes from getAllAgentsDetails in fetchAnalyticsAPIs
+        return; // Early return - data comes from fetchAnalyticsAPIs
         // TODO: Replace with actual API calls when ready
         // Fetch all applications to calculate agent metrics
         const applicationsResponse = await fetch(
@@ -599,9 +655,21 @@ export default function AgentAnalyticsPage() {
   }, [token, startDate, endDate, generateDummyData, USE_DUMMY_DATA]);
 
   useEffect(() => {
-    fetchAgentsData();
-    fetchWeeklyCommission();
-    fetchAnalyticsAPIs();
+    const loadData = async () => {
+      setIsLoading(true);
+      try {
+        // Fetch all data in parallel
+        await Promise.all([
+          fetchAgentsData(),
+          fetchWeeklyCommission(),
+          fetchAnalyticsAPIs()
+        ]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [startDate, endDate, token]);
 
@@ -664,8 +732,20 @@ export default function AgentAnalyticsPage() {
     currentPage * itemsPerPage
   );
 
-  // Summary statistics
+  // Summary statistics - use API data if available, otherwise calculate from filtered agents
   const summaryStats = useMemo(() => {
+    if (overallAnalytics) {
+      // Use data from getAgentAnalytics API
+      return {
+        totalAgents: allAgentsDetails.length,
+        totalCommission: overallAnalytics.totalCommissionEarned,
+        totalApplications: overallAnalytics.numberOfApplications,
+        averageCommission: overallAnalytics.averageCommissionPerApplication,
+        totalRevenue: overallAnalytics.totalAmountEarned
+      };
+    }
+    
+    // Fallback to calculated stats from filtered agents
     const totalAgents = filteredAndSortedAgents.length;
     const totalCommission = filteredAndSortedAgents.reduce((sum, agent) => sum + agent.totalCommission, 0);
     const totalApplications = filteredAndSortedAgents.reduce((sum, agent) => sum + agent.totalApplications, 0);
@@ -679,7 +759,7 @@ export default function AgentAnalyticsPage() {
       averageCommission,
       totalRevenue
     };
-  }, [filteredAndSortedAgents]);
+  }, [overallAnalytics, allAgentsDetails.length, filteredAndSortedAgents]);
 
   // Handle sort
   const handleSort = (field: SortField) => {
@@ -692,8 +772,20 @@ export default function AgentAnalyticsPage() {
     setCurrentPage(1);
   };
 
-  // Chart data for top agents with trend indicators
+  // Chart data for top agents - use API data if available, otherwise use filtered agents
   const topAgentsChartData = useMemo(() => {
+    if (topAgentsPerformance.length > 0) {
+      // Use data from getTopAgentsPerfomance API
+      return topAgentsPerformance.map((agent, index) => ({
+        name: agent.fullName.length > 12 ? agent.fullName.substring(0, 12) + '...' : agent.fullName,
+        commission: agent.totalCommission,
+        applications: agent.numberOfApplications,
+        revenue: 0, // Not provided by API
+        rank: index + 1
+      }));
+    }
+    
+    // Fallback to filtered agents data
     return filteredAndSortedAgents
       .slice(0, 10)
       .map((agent, index) => ({
@@ -703,7 +795,7 @@ export default function AgentAnalyticsPage() {
         revenue: agent.totalRevenue,
         rank: index + 1
       }));
-  }, [filteredAndSortedAgents]);
+  }, [topAgentsPerformance, filteredAndSortedAgents]);
 
   // Performance trend data from API
   const performanceTrendData = useMemo(() => {
@@ -1267,17 +1359,16 @@ export default function AgentAnalyticsPage() {
                             </span>
                           </td>
                           <td className="px-4 py-4 whitespace-nowrap">
-                            <Link href={`/admin/agents/analytics/${agent._id}`}>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="flex items-center gap-1.5 h-7 px-2.5 text-xs"
-                              >
-                                <Eye className="h-3.5 w-3.5" />
-                                <span className="hidden sm:inline">View Details</span>
-                                <span className="sm:hidden">View</span>
-                              </Button>
-                            </Link>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="flex items-center gap-1.5 h-7 px-2.5 text-xs"
+                              onClick={() => showToast('Coming soon', 'info')}
+                            >
+                              <Eye className="h-3.5 w-3.5" />
+                              <span className="hidden sm:inline">View Details</span>
+                              <span className="sm:hidden">View</span>
+                            </Button>
                           </td>
                         </tr>
                       ))}
