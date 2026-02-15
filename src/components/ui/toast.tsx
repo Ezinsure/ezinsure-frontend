@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 interface ToastProps {
   message: string;
@@ -16,7 +16,6 @@ export const Toast = ({ message, type, onClose }: ToastProps) => {
       setIsVisible(false);
       setTimeout(onClose, 300); // Allow exit animation to complete
     }, 5000);
-
     return () => clearTimeout(timer);
   }, [onClose]);
 
@@ -61,14 +60,14 @@ export const Toast = ({ message, type, onClose }: ToastProps) => {
 export const useToast = () => {
   const [toasts, setToasts] = useState<Array<{ id: string; message: string; type: 'success' | 'error' | 'info' }>>([]);
 
-  const showToast = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
+  const showToast = useCallback((message: string, type: 'success' | 'error' | 'info' = 'info') => {
     const id = Math.random().toString(36).substring(2, 9);
     setToasts((prev) => [...prev, { id, message, type }]);
-  };
+  }, []);
 
-  const hideToast = (id: string) => {
+  const hideToast = useCallback((id: string) => {
     setToasts((prev) => prev.filter((toast) => toast.id !== id));
-  };
+  }, []);
 
   const ToastContainer = () => (
     <>

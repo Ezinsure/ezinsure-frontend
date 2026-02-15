@@ -135,7 +135,7 @@ const [formState, setFormState] = useState<Partial<Application>>(() => {
   let otherVehicleUse = application.vehicle?.otherVehicleUse || application.otherVehicleUse || '';
   
   // Handle "Other - [description]" format (only for truly custom "Other" entries)
-  if (vehicleUse.startsWith('Other - ') && !vehicleUse.includes('Commercial - ') && !vehicleUse.includes('Private - ') && !vehicleUse.includes('PSV - ')) {
+  if (vehicleUse.startsWith('Other - ') && !vehicleUse.includes('Commercial - ') && !vehicleUse.includes('Private - ') && !vehicleUse.includes('PSV / TAXI - ')) {
     otherVehicleUse = vehicleUse.substring(8); // Remove "Other - " prefix
     vehicleUse = 'Other';
   }
@@ -214,7 +214,7 @@ const [formState, setFormState] = useState<Partial<Application>>(() => {
       let otherVehicleUse = application.vehicle?.otherVehicleUse || application.otherVehicleUse || '';
       
       // Handle "Other - [description]" format (only for truly custom "Other" entries)
-      if (vehicleUse.startsWith('Other - ') && !vehicleUse.includes('Commercial - ') && !vehicleUse.includes('Private - ') && !vehicleUse.includes('PSV - ')) {
+      if (vehicleUse.startsWith('Other - ') && !vehicleUse.includes('Commercial - ') && !vehicleUse.includes('Private - ') && !vehicleUse.includes('PSV / TAXI - ')) {
         otherVehicleUse = vehicleUse.substring(8); // Remove "Other - " prefix
         vehicleUse = 'Other';
       }
@@ -2246,7 +2246,7 @@ const getActionButtons = (app: Application) => {
                 {selectedApp.insuranceEndAt && (
                   <div>
                     <p className="text-sm text-gray-500">Insurance End Date</p>
-                    <p className="font-semibold">{selectedApp.insuranceEndAt ? new Date(selectedApp.insuranceEndAt).toLocaleDateString() : 'N/A'}</p>
+                    <p className="font-semibold">{formatDateUTC(selectedApp.insuranceEndAt)}</p>
                   </div>
                 )}
                 <div>

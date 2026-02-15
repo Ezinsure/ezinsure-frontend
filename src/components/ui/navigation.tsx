@@ -49,12 +49,14 @@ export const Navigation = () => {
           { href: `${rolePrefix}/my-applications`, label: 'My Applications' },
           { href: `${rolePrefix}/new-application`, label: 'Apply' },
           { href: `${rolePrefix}/commission-review`, label: 'Commission Review' },
-          { href: `${rolePrefix}/users`, label: 'Manage Users' }
+          { href: `${rolePrefix}/users`, label: 'Manage Users' },
+          { href: `${rolePrefix}/expiring-insurance`, label: 'Expiring Insurance' }
         );
       } else if (user.role === 'SUPER_ADMIN') {
         newLinks.push(
           { href: `${rolePrefix}/applications`, label: 'Applications' },
-          { href: `${rolePrefix}/users`, label: 'Manage Users' }
+          { href: `${rolePrefix}/users`, label: 'Manage Users' },
+          { href: `${rolePrefix}/expiring-insurance`, label: 'Expiring Insurance' }
         );
       } else if (user.role === 'AGENT') {
         newLinks.push(

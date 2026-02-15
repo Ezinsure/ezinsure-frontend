@@ -1,12 +1,13 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { MainLayout } from '@/components/ui/main-layout';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { FileInput } from '@/components/ui/file-input';
 import { SearchInput } from '@/components/ui/search-input';
 import { RwandaPhoneInput } from '@/components/ui/rwanda-phone-input';
+import { DocumentViewer } from '@/components/ui/document-viewer';
 import { useToast } from '@/components/ui/toast';
 import {
   validateForm,
@@ -204,6 +205,7 @@ export default function AgentApplyPage() {
   const { showToast, ToastContainer } = useToast();
   const [formKey, setFormKey] = useState(Date.now());
   const [trackingData, setTrackingData] = useState<TrackingData | null>(null);
+  const [viewingDocument, setViewingDocument] = useState<{ url: string; name: string } | null>(null);
 
   // State for administrative divisions
   const [availableDistricts, setAvailableDistricts] = useState<{name: string, sectors?: string[]}[]>([]);
@@ -237,6 +239,10 @@ export default function AgentApplyPage() {
     // API response fields
     vehicleId: '',
     clientId: '',
+    // Document URLs from API (for viewing existing documents)
+    identificationDocumentUrl: '',
+    yellowCardUrl: '',
+    pastInsuranceCertificateUrl: '',
   });
 
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
@@ -251,8 +257,10 @@ export default function AgentApplyPage() {
   // Track search results for isNewClient and isNewVehicle fields
   const [searchResults, setSearchResults] = useState({
     isNewClient: true,    // Default to true (new client)
-    isNewVehicle: true,   // Default to true (new vehicle)
+    isNewVehicle: false,   // Default to false - only set to true if search confirms vehicle doesn't exist
   });
+  // Track if plate search just completed to prevent onChange from resetting isNewVehicle
+  const plateSearchJustCompletedRef = useRef(false);
 
   // Initialize tracking data on component mount
   useEffect(() => {
@@ -387,11 +395,29 @@ export default function AgentApplyPage() {
         district: '',
         sector: '',
         identificationNumber: '',
+        // Always clear vehicle fields when client changes
+        vehicleType: '',
+        vehicleAge: '',
+        vehicleUse: '',
+        otherVehicleUse: '',
+        plateNumber: '',
+        vehicleId: '',
+        // Clear document URLs
+        identificationDocumentUrl: '',
+        yellowCardUrl: '',
+        pastInsuranceCertificateUrl: '',
       }));
       setAvailableDistricts([]);
       setAvailableSectors([]);
       // Reset identification number search status
       setIdentificationNumberResetTrigger(prev => prev + 1);
+      // Reset plate number search status
+      setPlateNumberResetTrigger(prev => prev + 1);
+      // Reset isNewVehicle when document type changes
+      setSearchResults(prev => ({
+        ...prev,
+        isNewVehicle: false // Reset to false, will be updated by search result
+      }));
     } 
     // Clear vehicle fields when insurance category changes
     else if (name === 'insuranceCategory') {
@@ -477,6 +503,18 @@ export default function AgentApplyPage() {
       province: (data.province as string) || prev.province,
       district: (data.district as string) || prev.district,
       sector: (data.sector as string) || prev.sector,
+      clientId: (data.clientId as string) || prev.clientId,
+      // Vehicle fields (if document type is plateNumber)
+      vehicleId: (data.vehicleId as string) || prev.vehicleId,
+      vehicleType: (data.vehicleType as string) || prev.vehicleType,
+      vehicleAge: (data.vehicleAge as string) || prev.vehicleAge,
+      vehicleUse: (data.vehicleUse as string) || prev.vehicleUse,
+      otherVehicleUse: (data.otherVehicleUse as string) || prev.otherVehicleUse,
+      plateNumber: (data.plateNumber as string) || prev.plateNumber,
+      // Document URLs (for viewing existing documents)
+      identificationDocumentUrl: (data.identificationDocumentUrl as string) || '',
+      yellowCardUrl: (data.yellowCardUrl as string) || '',
+      pastInsuranceCertificateUrl: (data.pastInsuranceCertificateUrl as string) || '',
     }));
 
     // Update districts and sectors if province is set
@@ -498,31 +536,85 @@ export default function AgentApplyPage() {
 
   // Handle search success for plate number
   const handlePlateSearchSuccess = (data: Record<string, unknown>) => {
+    // Mark that a plate search just completed
+    plateSearchJustCompletedRef.current = true;
+    
     setFormState(prev => ({
       ...prev,
       // Client information from vehicle owner
-      // fullName: (data.fullName as string) || prev.fullName,
-      // email: (data.email as string) || prev.email,
-      // phoneNumber: (data.phoneNumber as string) || prev.phoneNumber,
+      fullName: (data.fullName as string) || prev.fullName,
+      email: (data.email as string) || prev.email,
+      phoneNumber: (data.phoneNumber as string) || prev.phoneNumber,
+      address: (data.address as string) || prev.address,
+      dateOfBirth: (data.dateOfBirth as string) || prev.dateOfBirth,
+      province: (data.province as string) || prev.province,
+      district: (data.district as string) || prev.district,
+      sector: (data.sector as string) || prev.sector,
+      // Update identification info to client's actual ID (not the plate number used for search)
+      identificationNumber: (data.identificationNumber as string) || prev.identificationNumber,
+      identificationDocumentType: (data.identificationDocumentType as string) || prev.identificationDocumentType,
       // Vehicle-specific fields
       vehicleType: (data.vehicleType as string) || prev.vehicleType,
       vehicleAge: (data.vehicleAge as string) || prev.vehicleAge,
       vehicleUse: (data.vehicleUse as string) || prev.vehicleUse,
       otherVehicleUse: (data.otherVehicleUse as string) || prev.otherVehicleUse,
+      plateNumber: (data.plateNumber as string) || prev.plateNumber,
       // Store additional IDs for reference
       vehicleId: (data.vehicleId as string) || prev.vehicleId,
       clientId: (data.clientId as string) || prev.clientId,
+      // Document URLs (for viewing existing documents)
+      identificationDocumentUrl: (data.identificationDocumentUrl as string) || '',
+      yellowCardUrl: (data.yellowCardUrl as string) || '',
+      pastInsuranceCertificateUrl: (data.pastInsuranceCertificateUrl as string) || '',
     }));
+
+    // Update search results: if we found a vehicle, the client also exists (vehicle belongs to client)
+    // handlePlateSearchSuccess is only called when a vehicle is found, so always set isNewVehicle to false
+    setSearchResults(prev => {
+      const newState = {
+        ...prev,
+        isNewClient: (data.clientId ? false : prev.isNewClient), // Client exists if clientId is present
+        isNewVehicle: false, // Vehicle exists - we found it via plate search
+      };
+      return newState;
+    });
+    
+    // Reset the flag after a short delay to allow state updates to complete
+    setTimeout(() => {
+      plateSearchJustCompletedRef.current = false;
+    }, 100);
+
+    // Update districts and sectors if province is set
+    if (data.province) {
+      const selectedProvince = rwandaProvinces.find(p => p.name === (data.province as string));
+      const districts = selectedProvince?.districts || [];
+      const transformedDistricts = districts.map(district => ({
+        name: district.name,
+        sectors: district.sectors?.map(sector => sector.name) || []
+      }));
+      setAvailableDistricts(transformedDistricts);
+
+      if (data.district) {
+        const selectedDistrict = transformedDistricts.find(d => d.name === (data.district as string));
+        setAvailableSectors(selectedDistrict?.sectors || []);
+      }
+    }
     
     showToast('Vehicle information loaded successfully.', 'success');
   };
 
   // Handle search results to track isNewClient and isNewVehicle
   const handleSearchResult = (exists: boolean, searchType: 'plateNumber' | 'identificationNumber') => {
-    setSearchResults(prev => ({
-      ...prev,
-      [searchType === 'identificationNumber' ? 'isNewClient' : 'isNewVehicle']: !exists
-    }));
+    setSearchResults(prev => {
+      const newState = {
+        ...prev,
+        [searchType === 'identificationNumber' ? 'isNewClient' : 'isNewVehicle']: !exists
+      };
+      // Debug: Log when plate number search finds a vehicle
+      if (searchType === 'plateNumber') {
+      }
+      return newState;
+    });
   };
 
 
@@ -585,10 +677,16 @@ export default function AgentApplyPage() {
     
 
     // Validate form
-    const formErrors = validateForm(
-      { ...formState, isCOMESA: formState.isCOMESA ? 'true' : 'false' },
-      validationRules
-    );
+    // Validate form - include document URLs for file validation
+    const formDataForValidation = {
+      ...formState,
+      isCOMESA: formState.isCOMESA ? 'true' : 'false',
+      // Include document URLs so validation can check them for file fields
+      identificationDocumentUrl: formState.identificationDocumentUrl,
+      yellowCardUrl: formState.yellowCardUrl,
+      pastInsuranceCertificateUrl: formState.pastInsuranceCertificateUrl,
+    };
+    const formErrors = validateForm(formDataForValidation, validationRules);
     setErrors(formErrors);
 
     if (!hasErrors(formErrors)) {
@@ -637,17 +735,39 @@ export default function AgentApplyPage() {
         
         // Append new fields for /newApply endpoint
         formData.append('isNewClient', searchResults.isNewClient ? 'true' : 'false');
+        // Debug: Log isNewVehicle before submission
         formData.append('isNewVehicle', searchResults.isNewVehicle ? 'true' : 'false');
         
-        // Append files
+        // Append files that were directly uploaded
         if (formState.nationalID) {
           formData.append('nationalID', formState.nationalID);
+        } else if (formState.identificationDocumentUrl) {
+          // Send URL if no file was uploaded but URL exists
+          formData.append('nationalID', formState.identificationDocumentUrl);
         }
+        
         if (formState.yellowCard) {
           formData.append('yellowCard', formState.yellowCard);
+        } else if (formState.yellowCardUrl) {
+          // Send URL if no file was uploaded but URL exists
+          formData.append('yellowCard', formState.yellowCardUrl);
         }
+        
         if (formState.pastInsuranceCertificate) {
           formData.append('pastInsuranceCertificate', formState.pastInsuranceCertificate);
+        } else if (formState.pastInsuranceCertificateUrl) {
+          // Send URL if no file was uploaded but URL exists
+          formData.append('pastInsuranceCertificate', formState.pastInsuranceCertificateUrl);
+        }
+        
+        // Append IDs if they exist (backend needs these to reference existing records)
+        // Send clientId when it exists - backend will use it to find existing client
+        if (formState.clientId) {
+          formData.append('clientId', formState.clientId);
+        }
+        // Send vehicleId when it exists - backend will use it to find existing vehicle
+        if (formState.vehicleId) {
+          formData.append('vehicleId', formState.vehicleId);
         }
 
         // Append tracking data
@@ -719,6 +839,10 @@ export default function AgentApplyPage() {
           plateNumber: '',
           identificationDocumentType: 'nationalID',
           identificationNumber: '',
+          // Reset document URLs
+          identificationDocumentUrl: '',
+          yellowCardUrl: '',
+          pastInsuranceCertificateUrl: '',
           // Reset API response fields
           vehicleId: '',
           clientId: '',
@@ -730,7 +854,7 @@ export default function AgentApplyPage() {
         // Reset search results
         setSearchResults({
           isNewClient: true,
-          isNewVehicle: true,
+          isNewVehicle: false, // Default to false - only true if search confirms vehicle doesn't exist
         });
 
         // Reset search input components to clear their messages
@@ -815,8 +939,8 @@ export default function AgentApplyPage() {
                       placeholder={getIdentificationDocumentPlaceholder(formState.identificationDocumentType)}
                       value={formState.identificationNumber}
                       onChange={(value) => {
-                        setFormState(prev => ({ 
-                          ...prev, 
+                        setFormState(prev => ({
+                          ...prev,
                           identificationNumber: value,
                           // Clear personal information fields on any edit to avoid stale data
                           fullName: '',
@@ -827,17 +951,31 @@ export default function AgentApplyPage() {
                           province: '',
                           district: '',
                           sector: '',
+                          // Always clear vehicle fields when identification number changes (client changes)
+                          vehicleType: '',
+                          vehicleAge: '',
+                          vehicleUse: '',
+                          otherVehicleUse: '',
+                          plateNumber: '',
+                          vehicleId: '',
+                          // Clear document URLs
+                          identificationDocumentUrl: '',
+                          yellowCardUrl: '',
+                          pastInsuranceCertificateUrl: '',
                         }));
                         // Reset dependent selects
                         setAvailableDistricts([]);
                         setAvailableSectors([]);
                         // Reset phone number input whenever identification number changes
                         setPhoneNumberResetTrigger(prev => prev + 1);
-                        // Reset isNewClient to true when identification number changes
+                        // Reset plate number input whenever identification number changes
+                        setPlateNumberResetTrigger(prev => prev + 1);
+                        // Reset isNewClient and isNewVehicle to true when identification number changes
                         // (will be updated when user performs search)
                         setSearchResults(prev => ({
                           ...prev,
-                          isNewClient: true
+                          isNewClient: true,
+                          isNewVehicle: false // Reset to false, will be updated by search result
                         }));
                         if (errors.identificationNumber) {
                           setErrors(prev => {
@@ -850,6 +988,7 @@ export default function AgentApplyPage() {
                       onSearchSuccess={handleIdentificationSearchSuccess}
                       onSearchResult={handleSearchResult}
                       searchType="identificationNumber"
+                      identificationDocumentType={formState.identificationDocumentType}
                       error={errors.identificationNumber}
                       required
                       resetTrigger={identificationNumberResetTrigger}
@@ -1050,6 +1189,13 @@ export default function AgentApplyPage() {
                         placeholder={formState.insuranceCategory === 'car' ? 'e.g. RAA 123A' : 'e.g. RA 123A'}
                         value={formState.plateNumber}
                         onChange={(value) => {
+                          // Don't reset isNewVehicle if a plate search just completed
+                          if (plateSearchJustCompletedRef.current) {
+                            // This is from a search result, just update the plate number without clearing fields
+                            setFormState(prev => ({ ...prev, plateNumber: value }));
+                            return;
+                          }
+                          
                           setFormState(prev => ({ 
                             ...prev, 
                             plateNumber: value,
@@ -1062,12 +1208,17 @@ export default function AgentApplyPage() {
                             vehicleAge: '',
                             vehicleUse: '',
                             otherVehicleUse: '',
+                            vehicleId: '',
+                            // Clear document URLs when plate number is cleared or changed
+                            identificationDocumentUrl: '',
+                            yellowCardUrl: '',
+                            pastInsuranceCertificateUrl: '',
                           }));
-                          // Reset isNewVehicle to true when plate number changes
-                          // (will be updated when user performs search)
+                          // Reset isNewVehicle to false when plate number changes manually
+                          // (will be updated when user performs search - true if not found, false if found)
                           setSearchResults(prev => ({
                             ...prev,
-                            isNewVehicle: true
+                            isNewVehicle: false // Reset to false, will be updated by search result
                           }));
                           if (errors.plateNumber) {
                             setErrors(prev => {
@@ -1372,10 +1523,16 @@ export default function AgentApplyPage() {
                     key={`nationalID-${formKey}`}
                     label="National ID Card / Passport / Driving License"
                     name="nationalID"
-                    onChange={handleFileChange('nationalID')}
+                    onChange={(file) => {
+                      handleFileChange('nationalID')(file);
+                      // Clear document URL when user selects a new file or clears it
+                      setFormState(prev => ({ ...prev, identificationDocumentUrl: '' }));
+                    }}
                     error={errors.nationalID}
                     required
                     accept="image/*,.pdf"
+                    documentUrl={formState.identificationDocumentUrl}
+                    onViewDocument={(url, name) => setViewingDocument({ url, name })}
                     resetTrigger={fileResetTrigger}
                   />
 
@@ -1383,10 +1540,16 @@ export default function AgentApplyPage() {
                     key={`yellowCard-${formKey}`}
                     label="Yellow Card"
                     name="yellowCard"
-                    onChange={handleFileChange('yellowCard')}
+                    onChange={(file) => {
+                      handleFileChange('yellowCard')(file);
+                      // Clear document URL when user selects a new file or clears it
+                      setFormState(prev => ({ ...prev, yellowCardUrl: '' }));
+                    }}
                     error={errors.yellowCard}
                     required
                     accept="image/*,.pdf"
+                    documentUrl={formState.yellowCardUrl}
+                    onViewDocument={(url, name) => setViewingDocument({ url, name })}
                     resetTrigger={fileResetTrigger}
                   />
 
@@ -1394,9 +1557,15 @@ export default function AgentApplyPage() {
                     key={`pastInsuranceCertificate-${formKey}`}
                     label="Past Insurance Certificate (Optional)"
                     name="pastInsuranceCertificate"
-                    onChange={handleFileChange('pastInsuranceCertificate')}
+                    onChange={(file) => {
+                      handleFileChange('pastInsuranceCertificate')(file);
+                      // Clear document URL when user selects a new file or clears it
+                      setFormState(prev => ({ ...prev, pastInsuranceCertificateUrl: '' }));
+                    }}
                     accept="image/*,.pdf"
                     className="md:col-span-2"
+                    documentUrl={formState.pastInsuranceCertificateUrl}
+                    onViewDocument={(url, name) => setViewingDocument({ url, name })}
                     resetTrigger={fileResetTrigger}
                   />
                 </div>
@@ -1439,6 +1608,13 @@ export default function AgentApplyPage() {
         </div>
       </div>
       <ToastContainer />
+      {viewingDocument && (
+        <DocumentViewer
+          documentName={viewingDocument.name}
+          documentPath={viewingDocument.url}
+          onClose={() => setViewingDocument(null)}
+        />
+      )}
     </MainLayout>
   );
 }

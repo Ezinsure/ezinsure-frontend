@@ -885,7 +885,14 @@ const getActionButtons = (app: Application) => {
   const statusValue = editFormData ? getFormValue(editFormData.status) : '';
   const showStatusField = isPersistentlyVisible('statusField') || hasExistingValue(statusValue);
   const insuranceEndDateValue = editingApp?.insuranceEndAt
-    ? new Date(editingApp.insuranceEndAt).toISOString().split('T')[0]
+    ? (() => {
+        const date = new Date(editingApp.insuranceEndAt);
+        if (isNaN(date.getTime())) return '';
+        const year = date.getUTCFullYear();
+        const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+        const day = String(date.getUTCDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+      })()
     : '';
   const showInsuranceEndDateField = isPersistentlyVisible('insuranceEndDateField') || hasExistingValue(insuranceEndDateValue);
   const showStatusSection = showStatusField || showInsuranceEndDateField;

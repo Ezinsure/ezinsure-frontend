@@ -1,12 +1,14 @@
 ﻿'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { MainLayout } from '@/components/ui/main-layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { FileInput } from '@/components/ui/file-input';
 import { SearchInput } from '@/components/ui/search-input';
 import { RwandaPhoneInput } from '@/components/ui/rwanda-phone-input';
+import { SearchableSelect } from '@/components/ui/searchable-select';
+import { DocumentViewer } from '@/components/ui/document-viewer';
 import { useToast } from '@/components/ui/toast';
 import { useAuth } from '@/context/AuthContext';
 import { rwandaProvinces } from '@/utils/rwanda-administrative';
@@ -244,6 +246,10 @@ interface ApplicationFormData {
   // API response fields
   vehicleId: string;
   clientId: string;
+  // Document URLs from API (for viewing existing documents)
+  identificationDocumentUrl: string;
+  yellowCardUrl: string;
+  pastInsuranceCertificateUrl: string;
   // New fields for /newApply endpoint
   isNewClient: boolean;
   isNewVehicle: boolean;
@@ -266,14 +272,40 @@ interface ApplicationFormData {
   // Status
   status: ApplicationStatus;
   insuranceEndAt: string;
+  // Agent Assignment
+  wantsToAssignAgent: 'yes' | 'no' | '';
+  assignToAgent: string;
 }
 
 export default function AdminNewApplicationPage() {
   const { showToast, ToastContainer } = useToast();
+  const [viewingDocument, setViewingDocument] = useState<{ url: string; name: string } | null>(null);
   const { user } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [trackingData, setTrackingData] = useState<TrackingData | null>(null);
+  
+  // Fetch agents emails function
+  const fetchAgentsEmails = useCallback(async () => {
+    const token = getTokenFromStorage();
+    if (!token) {
+      throw new Error('No authentication token found');
+    }
+    
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/getAgentsEmails`, {
+      method: 'GET',
+      headers: {
+        'accept': 'application/json',
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error('Failed to fetch agents emails');
+    }
+    
+    return await response.json();
+  }, []);
   // State for administrative divisions
   const [availableDistricts, setAvailableDistricts] = useState<{ name: string, sectors?: string[] }[]>([]);
   const [availableSectors, setAvailableSectors] = useState<string[]>([]);
@@ -283,11 +315,12 @@ export default function AdminNewApplicationPage() {
   const [phoneNumberResetTrigger, setPhoneNumberResetTrigger] = useState(0);
   const [fileResetTrigger, setFileResetTrigger] = useState(0);
   // Track search results for isNewClient and isNewVehicle fields
-
   const [searchResults, setSearchResults] = useState({
     isNewClient: true,    // Default to true (new client)
-    isNewVehicle: true,   // Default to true (new vehicle)
+    isNewVehicle: false,   // Default to false - only set to true if search confirms vehicle doesn't exist
   });
+  // Track if plate search just completed to prevent onChange from resetting isNewVehicle
+  const plateSearchJustCompletedRef = useRef(false);
 
   // Initialize tracking data on component mount
 
@@ -359,6 +392,18 @@ export default function AdminNewApplicationPage() {
       province: (data.province as string) || prev.province,
       district: (data.district as string) || prev.district,
       sector: (data.sector as string) || prev.sector,
+      clientId: (data.clientId as string) || prev.clientId,
+      // Vehicle fields (if document type is plateNumber)
+      vehicleId: (data.vehicleId as string) || prev.vehicleId,
+      vehicleType: (data.vehicleType as string) || prev.vehicleType,
+      vehicleAge: (data.vehicleAge as string) || prev.vehicleAge,
+      vehicleUse: (data.vehicleUse as string) || prev.vehicleUse,
+      otherVehicleUse: (data.otherVehicleUse as string) || prev.otherVehicleUse,
+      plateNumber: (data.plateNumber as string) || prev.plateNumber,
+      // Document URLs (for viewing existing documents)
+      identificationDocumentUrl: (data.identificationDocumentUrl as string) || '',
+      yellowCardUrl: (data.yellowCardUrl as string) || '',
+      pastInsuranceCertificateUrl: (data.pastInsuranceCertificateUrl as string) || '',
     }));
 
     // Update districts and sectors if province is set
@@ -381,30 +426,84 @@ export default function AdminNewApplicationPage() {
 
   // Handle search success for plate number
   const handlePlateSearchSuccess = (data: Record<string, unknown>) => {
+    // Mark that a plate search just completed
+    plateSearchJustCompletedRef.current = true;
+    
     setFormData(prev => ({
       ...prev,
       // Client information from vehicle owner
-      // fullName: (data.fullName as string) || prev.fullName,
-      // email: (data.email as string) || prev.email,
-      // phoneNumber: (data.phoneNumber as string) || prev.phoneNumber,
+      fullName: (data.fullName as string) || prev.fullName,
+      email: (data.email as string) || prev.email,
+      phoneNumber: (data.phoneNumber as string) || prev.phoneNumber,
+      address: (data.address as string) || prev.address,
+      dateOfBirth: (data.dateOfBirth as string) || prev.dateOfBirth,
+      province: (data.province as string) || prev.province,
+      district: (data.district as string) || prev.district,
+      sector: (data.sector as string) || prev.sector,
+      // Update identification info to client's actual ID (not the plate number used for search)
+      identificationNumber: (data.identificationNumber as string) || prev.identificationNumber,
+      identificationDocumentType: (data.identificationDocumentType as string) || prev.identificationDocumentType,
       // Vehicle-specific fields
       vehicleType: (data.vehicleType as string) || prev.vehicleType,
       vehicleAge: (data.vehicleAge as string) || prev.vehicleAge,
       vehicleUse: (data.vehicleUse as string) || prev.vehicleUse,
       otherVehicleUse: (data.otherVehicleUse as string) || prev.otherVehicleUse,
+      plateNumber: (data.plateNumber as string) || prev.plateNumber,
       // Store additional IDs for reference
       vehicleId: (data.vehicleId as string) || prev.vehicleId,
       clientId: (data.clientId as string) || prev.clientId,
+      // Document URLs (for viewing existing documents)
+      identificationDocumentUrl: (data.identificationDocumentUrl as string) || '',
+      yellowCardUrl: (data.yellowCardUrl as string) || '',
+      pastInsuranceCertificateUrl: (data.pastInsuranceCertificateUrl as string) || '',
     }));
+
+    // Update search results: if we found a vehicle, the client also exists (vehicle belongs to client)
+    // handlePlateSearchSuccess is only called when a vehicle is found, so always set isNewVehicle to false
+    setSearchResults(prev => {
+      const newState = {
+        ...prev,
+        isNewClient: (data.clientId ? false : prev.isNewClient), // Client exists if clientId is present
+        isNewVehicle: false, // Vehicle exists - we found it via plate search
+      };
+      return newState;
+    });
+    
+    // Reset the flag after a short delay to allow state updates to complete
+    setTimeout(() => {
+      plateSearchJustCompletedRef.current = false;
+    }, 100);
+
+    // Update districts and sectors if province is set
+    if (data.province) {
+      const selectedProvince = rwandaProvinces.find(p => p.name === (data.province as string));
+      const districts = selectedProvince?.districts || [];
+      const transformedDistricts = districts.map(district => ({
+        name: district.name,
+        sectors: district.sectors?.map(sector => sector.name) || []
+      }));
+      setAvailableDistricts(transformedDistricts);
+
+      if (data.district) {
+        const selectedDistrict = transformedDistricts.find(d => d.name === (data.district as string));
+        setAvailableSectors(selectedDistrict?.sectors || []);
+      }
+    }
     showToast('Vehicle information loaded successfully', 'success');
   };
 
   // Handle search results to track isNewClient and isNewVehicle
   const handleSearchResult = (exists: boolean, searchType: 'plateNumber' | 'identificationNumber') => {
-    setSearchResults(prev => ({
-      ...prev,
-      [searchType === 'identificationNumber' ? 'isNewClient' : 'isNewVehicle']: !exists
-    }));
+    setSearchResults(prev => {
+      const newState = {
+        ...prev,
+        [searchType === 'identificationNumber' ? 'isNewClient' : 'isNewVehicle']: !exists
+      };
+      // Debug: Log when plate number search finds a vehicle
+      if (searchType === 'plateNumber') {
+      }
+      return newState;
+    });
   };
 
   const getTokenFromStorage = () => {
@@ -457,11 +556,19 @@ export default function AdminNewApplicationPage() {
 
     clientId: '',
 
+    // Document URLs from API (for viewing existing documents)
+
+    identificationDocumentUrl: '',
+
+    yellowCardUrl: '',
+
+    pastInsuranceCertificateUrl: '',
+
     // New fields for /newApply endpoint
 
     isNewClient: true,
 
-    isNewVehicle: true,
+    isNewVehicle: false, // Default to false - only true if search confirms vehicle doesn't exist
 
     // Payment Information
 
@@ -497,7 +604,11 @@ export default function AdminNewApplicationPage() {
 
     status: ApplicationStatus.PENDING,
 
-    insuranceEndAt: ''
+    insuranceEndAt: '',
+    
+    // Agent Assignment
+    wantsToAssignAgent: '',
+    assignToAgent: ''
 
   });
 
@@ -698,6 +809,28 @@ export default function AdminNewApplicationPage() {
 
         identificationNumber: '',
 
+        // Always clear vehicle fields when client changes
+
+        vehicleType: '',
+
+        vehicleAge: '',
+
+        vehicleUse: '',
+
+        otherVehicleUse: '',
+
+        plateNumber: '',
+
+        vehicleId: '',
+
+        // Clear document URLs
+
+        identificationDocumentUrl: '',
+
+        yellowCardUrl: '',
+
+        pastInsuranceCertificateUrl: '',
+
       }));
 
       setAvailableDistricts([]);
@@ -707,6 +840,20 @@ export default function AdminNewApplicationPage() {
       // Reset identification number search status
 
       setIdentificationNumberResetTrigger(prev => prev + 1);
+
+      // Reset plate number search status
+
+      setPlateNumberResetTrigger(prev => prev + 1);
+
+      // Reset isNewVehicle when document type changes
+
+      setSearchResults(prev => ({
+
+        ...prev,
+
+        isNewVehicle: false // Reset to false, will be updated by search result
+
+      }));
 
     }
 
@@ -807,8 +954,17 @@ export default function AdminNewApplicationPage() {
       province: '',
       district: '',
       sector: '',
-      cell: '',
-      village: ''
+      // Always clear vehicle fields when identification number changes (client changes)
+      vehicleType: '',
+      vehicleAge: '',
+      vehicleUse: '',
+      otherVehicleUse: '',
+      plateNumber: '',
+      vehicleId: '',
+      // Clear document URLs
+      identificationDocumentUrl: '',
+      yellowCardUrl: '',
+      pastInsuranceCertificateUrl: '',
     }));
 
     // Reset dependent selects
@@ -817,9 +973,23 @@ export default function AdminNewApplicationPage() {
     
     // Reset phone number input whenever identification number changes
     setPhoneNumberResetTrigger(prev => prev + 1);
+    // Reset plate number input whenever identification number changes
+    setPlateNumberResetTrigger(prev => prev + 1);
+    // Reset isNewVehicle to false when identification number changes
+    setSearchResults(prev => ({
+      ...prev,
+      isNewVehicle: false // Reset to false, will be updated by search result
+    }));
   }, []);
 
   const handlePlateNumberChange = useCallback((value: string) => {
+    // Don't reset isNewVehicle if a plate search just completed
+    if (plateSearchJustCompletedRef.current) {
+      // This is from a search result, just update the plate number without clearing fields
+      setFormData(prev => ({ ...prev, plateNumber: value }));
+      return;
+    }
+    
     setFormData(prev => ({
       ...prev,
       plateNumber: value,
@@ -833,11 +1003,23 @@ export default function AdminNewApplicationPage() {
       vehicleColor: '',
       vehicleEngineNumber: '',
       vehicleChassisNumber: '',
+      vehicleId: '',
       // Clear insurance details on any edit to avoid stale data
       insuranceType: 'Comprehensive Insurance (covers everything)',
       insuranceDuration: '1 Month',
       insuranceProvider: 'SONARWA',
-      isCOMESA: false
+      isCOMESA: false,
+      // Clear document URLs when plate number is cleared or changed
+      identificationDocumentUrl: '',
+      yellowCardUrl: '',
+      pastInsuranceCertificateUrl: '',
+    }));
+    
+    // Reset isNewVehicle to false when plate number changes manually
+    // (will be updated when user performs search - true if not found, false if found)
+    setSearchResults(prev => ({
+      ...prev,
+      isNewVehicle: false // Reset to false, will be updated by search result
     }));
   }, []);
 
@@ -848,13 +1030,23 @@ export default function AdminNewApplicationPage() {
 
     // Validate form
 
-    const formErrors = validateForm(
+    // Validate form - include document URLs for file validation
+    const formDataForValidation = {
+      ...formData,
+      isCOMESA: formData.isCOMESA ? 'true' : 'false',
+      isNewClient: formData.isNewClient ? 'true' : 'false',
+      isNewVehicle: formData.isNewVehicle ? 'true' : 'false',
+      // Include document URLs so validation can check them for file fields
+      identificationDocumentUrl: formData.identificationDocumentUrl,
+      yellowCardUrl: formData.yellowCardUrl,
+      pastInsuranceCertificateUrl: formData.pastInsuranceCertificateUrl,
+    };
+    const formErrors = validateForm(formDataForValidation, validationRules);
 
-      { ...formData, isCOMESA: formData.isCOMESA ? 'true' : 'false', isNewClient: formData.isNewClient ? 'true' : 'false', isNewVehicle: formData.isNewVehicle ? 'true' : 'false' },
-
-      validationRules
-
-    );
+    // Custom validation for assignToAgent - required when wantsToAssignAgent is 'yes'
+    if (formData.wantsToAssignAgent === 'yes' && !formData.assignToAgent) {
+      formErrors.assignToAgent = 'Please select an agent to assign this application to';
+    }
 
     setErrors(formErrors);
 
@@ -870,6 +1062,11 @@ export default function AdminNewApplicationPage() {
 
         Object.entries(formData).forEach(([key, value]) => {
 
+          // Skip URL fields - we'll handle them separately
+          if (key === 'identificationDocumentUrl' || key === 'yellowCardUrl' || key === 'pastInsuranceCertificateUrl') {
+            return;
+          }
+
           if (value instanceof File) {
 
             if (value) formDataToSend.append(key, value);
@@ -882,10 +1079,30 @@ export default function AdminNewApplicationPage() {
 
         });
 
+        // Handle document URLs: use File if exists, otherwise use URL
+        if (formData.nationalID instanceof File) {
+          formDataToSend.append('nationalID', formData.nationalID);
+        } else if (formData.identificationDocumentUrl) {
+          formDataToSend.append('nationalID', formData.identificationDocumentUrl);
+        }
+
+        if (formData.yellowCard instanceof File) {
+          formDataToSend.append('yellowCard', formData.yellowCard);
+        } else if (formData.yellowCardUrl) {
+          formDataToSend.append('yellowCard', formData.yellowCardUrl);
+        }
+
+        if (formData.pastInsuranceCertificate instanceof File) {
+          formDataToSend.append('pastInsuranceCertificate', formData.pastInsuranceCertificate);
+        } else if (formData.pastInsuranceCertificateUrl) {
+          formDataToSend.append('pastInsuranceCertificate', formData.pastInsuranceCertificateUrl);
+        }
+
         // Override isNewClient and isNewVehicle with searchResults
 
         formDataToSend.set('isNewClient', searchResults.isNewClient ? 'true' : 'false');
 
+        // Debug: Log isNewVehicle before submission
         formDataToSend.set('isNewVehicle', searchResults.isNewVehicle ? 'true' : 'false');
 
         // Add admin user info
@@ -904,6 +1121,11 @@ export default function AdminNewApplicationPage() {
 
           formDataToSend.append('trackingData', JSON.stringify(trackingData));
 
+        }
+
+        // Add assignToAgent if selected and wantsToAssignAgent is yes
+        if (formData.wantsToAssignAgent === 'yes' && formData.assignToAgent) {
+          formDataToSend.append('assignToAgent', formData.assignToAgent);
         }
 
         const token = getTokenFromStorage();
@@ -1001,6 +1223,9 @@ export default function AdminNewApplicationPage() {
             status: ApplicationStatus.PENDING,
 
             insuranceEndAt: '',
+    
+    wantsToAssignAgent: '',
+    assignToAgent: '',
 
             // Reset API response fields
 
@@ -1008,11 +1233,19 @@ export default function AdminNewApplicationPage() {
 
             clientId: '',
 
+            // Reset document URLs
+
+            identificationDocumentUrl: '',
+
+            yellowCardUrl: '',
+
+            pastInsuranceCertificateUrl: '',
+
             // Reset new fields for /newApply endpoint
 
             isNewClient: true,
 
-            isNewVehicle: true,
+            isNewVehicle: false, // Default to false - only true if search confirms vehicle doesn't exist
 
           });
 
@@ -1028,7 +1261,7 @@ export default function AdminNewApplicationPage() {
 
             isNewClient: true,
 
-            isNewVehicle: true,
+            isNewVehicle: false, // Default to false - only true if search confirms vehicle doesn't exist
 
           });
 
@@ -1191,6 +1424,8 @@ export default function AdminNewApplicationPage() {
                     onSearchResult={handleSearchResult}
 
                     searchType="identificationNumber"
+
+                    identificationDocumentType={formData.identificationDocumentType}
 
                     required
 
@@ -1471,6 +1706,90 @@ export default function AdminNewApplicationPage() {
 
                 </div>
 
+              </fieldset>
+
+              {/* Agent Assignment Section */}
+              <fieldset className="mb-8 border-2 border-[var(--main-blue)] rounded-lg p-6 bg-gray-50">
+                <legend className="text-lg font-semibold text-[var(--main-blue)] px-3 bg-white border border-[var(--main-blue)] rounded-md">
+                  Agent Assignment
+                </legend>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Radio button question */}
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium mb-3">
+                      Do you want to assign this application to an agent?
+                    </label>
+                    <div className="flex gap-6">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="wantsToAssignAgent"
+                          value="yes"
+                          checked={formData.wantsToAssignAgent === 'yes'}
+                          onChange={(e) => {
+                            setFormData(prev => ({
+                              ...prev,
+                              wantsToAssignAgent: e.target.value as 'yes' | 'no',
+                              assignToAgent: e.target.value === 'no' ? '' : prev.assignToAgent
+                            }));
+                          }}
+                          className="w-4 h-4 text-[var(--main-blue)] focus:ring-[var(--main-blue)]"
+                        />
+                        <span className="text-sm text-gray-700">Yes</span>
+                      </label>
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="wantsToAssignAgent"
+                          value="no"
+                          checked={formData.wantsToAssignAgent === 'no'}
+                          onChange={(e) => {
+                            setFormData(prev => ({
+                              ...prev,
+                              wantsToAssignAgent: e.target.value as 'yes' | 'no',
+                              assignToAgent: ''
+                            }));
+                          }}
+                          className="w-4 h-4 text-[var(--main-blue)] focus:ring-[var(--main-blue)]"
+                        />
+                        <span className="text-sm text-gray-700">No</span>
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* Agent selection - only show when Yes is selected */}
+                  {formData.wantsToAssignAgent === 'yes' && (
+                    <div className="md:col-span-2">
+                      <SearchableSelect
+                        label="Assign to Agent"
+                        name="assignToAgent"
+                        placeholder="Type agent email to search..."
+                        value={formData.assignToAgent || null}
+                        onChange={(value) => {
+                          setFormData(prev => ({
+                            ...prev,
+                            assignToAgent: value || ''
+                          }));
+                          // Clear error when user selects an agent
+                          if (value && errors.assignToAgent) {
+                            setErrors(prev => {
+                              const newErrors = { ...prev };
+                              delete newErrors.assignToAgent;
+                              return newErrors;
+                            });
+                          }
+                        }}
+                        fetchOptions={fetchAgentsEmails}
+                        getDisplayValue={(option) => option.email as string}
+                        getSearchValue={(option) => option.email as string}
+                        error={errors.assignToAgent}
+                        required={true}
+                        className="w-full"
+                      />
+                    </div>
+                  )}
+                </div>
               </fieldset>
 
               {/* Insurance Details Section - EXACT COPY FROM APPLY PAGE */}
@@ -1959,13 +2278,21 @@ export default function AdminNewApplicationPage() {
 
                     name="nationalID"
 
-                    onChange={handleFileChange('nationalID')}
+                    onChange={(file) => {
+                      handleFileChange('nationalID')(file);
+                      // Clear document URL when user selects a new file or clears it
+                      setFormData(prev => ({ ...prev, identificationDocumentUrl: '' }));
+                    }}
 
                     error={errors.nationalID}
 
                     required
 
                     accept="image/*,.pdf"
+
+                    documentUrl={formData.identificationDocumentUrl}
+
+                    onViewDocument={(url, name) => setViewingDocument({ url, name })}
 
                     resetTrigger={fileResetTrigger}
 
@@ -1977,13 +2304,21 @@ export default function AdminNewApplicationPage() {
 
                     name="yellowCard"
 
-                    onChange={handleFileChange('yellowCard')}
+                    onChange={(file) => {
+                      handleFileChange('yellowCard')(file);
+                      // Clear document URL when user selects a new file or clears it
+                      setFormData(prev => ({ ...prev, yellowCardUrl: '' }));
+                    }}
 
                     error={errors.yellowCard}
 
                     required
 
                     accept="image/*,.pdf"
+
+                    documentUrl={formData.yellowCardUrl}
+
+                    onViewDocument={(url, name) => setViewingDocument({ url, name })}
 
                     resetTrigger={fileResetTrigger}
 
@@ -1995,11 +2330,19 @@ export default function AdminNewApplicationPage() {
 
                     name="pastInsuranceCertificate"
 
-                    onChange={handleFileChange('pastInsuranceCertificate')}
+                    onChange={(file) => {
+                      handleFileChange('pastInsuranceCertificate')(file);
+                      // Clear document URL when user selects a new file or clears it
+                      setFormData(prev => ({ ...prev, pastInsuranceCertificateUrl: '' }));
+                    }}
 
                     accept="image/*,.pdf"
 
                     className="md:col-span-2"
+
+                    documentUrl={formData.pastInsuranceCertificateUrl}
+
+                    onViewDocument={(url, name) => setViewingDocument({ url, name })}
 
                     resetTrigger={fileResetTrigger}
 
@@ -2364,9 +2707,14 @@ export default function AdminNewApplicationPage() {
       </div>
 
       <ToastContainer />
-
+      {viewingDocument && (
+        <DocumentViewer
+          documentName={viewingDocument.name}
+          documentPath={viewingDocument.url}
+          onClose={() => setViewingDocument(null)}
+        />
+      )}
     </MainLayout>
-
   );
 
 }
