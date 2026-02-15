@@ -455,13 +455,12 @@ export default function AdminNewApplicationPage() {
     }));
 
     // Update search results: if we found a vehicle, the client also exists (vehicle belongs to client)
-    if (data.clientId) {
-      setSearchResults(prev => ({
-        ...prev,
-        isNewClient: false, // Client exists since vehicle exists
-        isNewVehicle: false, // Vehicle exists (set by handleSearchResult)
-      }));
-    }
+    // handlePlateSearchSuccess is only called when a vehicle is found, so always set isNewVehicle to false
+    setSearchResults(prev => ({
+      ...prev,
+      isNewClient: (data.clientId ? false : prev.isNewClient), // Client exists if clientId is present
+      isNewVehicle: false, // Vehicle exists - we found it via plate search
+    }));
 
     // Update districts and sectors if province is set
     if (data.province) {
