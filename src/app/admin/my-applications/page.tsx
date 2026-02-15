@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/components/ui/toast';
 import { DocumentViewer } from '@/components/ui/document-viewer';
 import { useAuth } from '@/context/AuthContext';
+import { formatDateUTC } from '@/utils/date-formatter';
 
 // Application statuses
 enum ApplicationStatus {
@@ -934,7 +935,7 @@ export default function AdminMyApplicationsPage() {
     </td>
     <td className="px-4 py-4 text-sm whitespace-nowrap">
       <div className="text-sm text-gray-900">
-        {app.insuranceEndAt ? new Date(app.insuranceEndAt).toLocaleDateString() : 'N/A'}
+        {formatDateUTC(app.insuranceEndAt)}
       </div>
     </td>
     <td className="px-4 py-4 text-sm whitespace-nowrap">
@@ -1058,7 +1059,7 @@ export default function AdminMyApplicationsPage() {
                   {selectedApp.insuranceEndAt && (
                     <div>
                       <p className="text-sm text-gray-500 mb-1">Insurance End Date</p>
-                      <p className="font-medium text-gray-900">{new Date(selectedApp.insuranceEndAt).toLocaleDateString()}</p>
+                      <p className="font-medium text-gray-900">{formatDateUTC(selectedApp.insuranceEndAt)}</p>
                     </div>
                   )}
                   <div>

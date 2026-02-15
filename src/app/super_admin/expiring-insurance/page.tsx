@@ -24,6 +24,7 @@ import {
   DollarSign
 } from 'lucide-react';
 import { DocumentViewer } from '@/components/ui/document-viewer';
+import { formatDateUTC } from '@/utils/date-formatter';
 
 // Helper functions for dates
 const getTodayDate = () => {
@@ -937,7 +938,7 @@ function ApplicationDetailModal({ application, onClose, onViewDocument, isSuperA
               </div>
               <div>
                 <span className="text-gray-500">Expires At:</span>
-                <span className="ml-2 font-medium text-red-600">{formatDate(application.insuranceEndAt)}</span>
+                <span className="ml-2 font-medium text-red-600">{formatDateUTC(application.insuranceEndAt)}</span>
               </div>
               <div>
                 <span className="text-gray-500">Status:</span>

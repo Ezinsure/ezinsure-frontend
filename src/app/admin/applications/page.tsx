@@ -1122,7 +1122,14 @@ const getActionButtons = (app: Application) => {
     editFormData?.insuranceCategory === 'MotorBike Insurance';
 
   const insuranceEndDateValue = editingApp?.insuranceEndAt
-    ? new Date(editingApp.insuranceEndAt).toISOString().split('T')[0]
+    ? (() => {
+        const date = new Date(editingApp.insuranceEndAt);
+        if (isNaN(date.getTime())) return '';
+        const year = date.getUTCFullYear();
+        const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+        const day = String(date.getUTCDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+      })()
     : '';
 
   const isPersistentlyVisible = (field: string) => visibleEditFields[field] ?? false;
@@ -1867,7 +1874,7 @@ const getActionButtons = (app: Application) => {
           {selectedApp.insuranceEndAt && (
             <div>
               <p className="text-sm text-gray-500">Insurance End Date</p>
-              <p className="font-semibold">{new Date(selectedApp.insuranceEndAt).toLocaleDateString()}</p>
+              <p className="font-semibold">{formatDateUTC(selectedApp.insuranceEndAt)}</p>
             </div>
           )}
           <div>
@@ -2533,7 +2540,7 @@ const getActionButtons = (app: Application) => {
           {selectedApp.insuranceEndAt && (
             <div>
               <p className="text-sm text-gray-500">Insurance End Date</p>
-              <p className="font-semibold">{new Date(selectedApp.insuranceEndAt).toLocaleDateString()}</p>
+              <p className="font-semibold">{formatDateUTC(selectedApp.insuranceEndAt)}</p>
             </div>
           )}
           <div>

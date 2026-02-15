@@ -16,7 +16,6 @@ export const Toast = ({ message, type, onClose }: ToastProps) => {
       setIsVisible(false);
       setTimeout(onClose, 300); // Allow exit animation to complete
     }, 5000);
-
     return () => clearTimeout(timer);
   }, [onClose]);
 

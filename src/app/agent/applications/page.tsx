@@ -2246,7 +2246,7 @@ const getActionButtons = (app: Application) => {
                 {selectedApp.insuranceEndAt && (
                   <div>
                     <p className="text-sm text-gray-500">Insurance End Date</p>
-                    <p className="font-semibold">{selectedApp.insuranceEndAt ? new Date(selectedApp.insuranceEndAt).toLocaleDateString() : 'N/A'}</p>
+                    <p className="font-semibold">{formatDateUTC(selectedApp.insuranceEndAt)}</p>
                   </div>
                 )}
                 <div>
