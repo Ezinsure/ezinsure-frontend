@@ -392,9 +392,14 @@ export default function ApplyPage() {
       district: (data.district as string) || prev.district,
       sector: (data.sector as string) || prev.sector,
       // Update identification info to client's actual ID (not the plate number used for search)
-      // Use the client's actual identification number from the API response
-      identificationNumber: (data.identificationNumber as string) || prev.identificationNumber,
-      identificationDocumentType: (data.identificationDocumentType as string) || prev.identificationDocumentType,
+      // Only update if we have valid values from API - don't overwrite with empty strings
+      // If clientId exists, we can rely on that instead of identification fields
+      identificationNumber: (data.identificationNumber as string && data.identificationNumber !== '') 
+        ? (data.identificationNumber as string) 
+        : prev.identificationNumber,
+      identificationDocumentType: (data.identificationDocumentType as string && data.identificationDocumentType !== '' && data.identificationDocumentType !== 'plateNumber')
+        ? (data.identificationDocumentType as string)
+        : prev.identificationDocumentType,
       // Vehicle-specific fields
       vehicleType: (data.vehicleType as string) || prev.vehicleType,
       vehicleAge: (data.vehicleAge as string) || prev.vehicleAge,
@@ -551,8 +556,25 @@ export default function ApplyPage() {
         // Debug: Log isNewVehicle before submission
         formData.append('isNewClient', searchResults.isNewClient.toString());
         formData.append('isNewVehicle', searchResults.isNewVehicle.toString());
-        formData.append('identificationDocumentType', formState.identificationDocumentType);
-        formData.append('identificationNumber', formState.identificationNumber);
+        
+        // Only send identification fields if:
+        // 1. We don't have clientId (new client), OR
+        // 2. We have valid identification fields (not plateNumber type and not plate number value)
+        // When clientId exists and isNewClient is false, backend should use clientId, not identification fields
+        if (!formState.clientId || searchResults.isNewClient) {
+          // New client - must send identification fields
+          formData.append('identificationDocumentType', formState.identificationDocumentType || 'nationalID');
+          formData.append('identificationNumber', formState.identificationNumber || '');
+        } else if (formState.identificationDocumentType && 
+                   formState.identificationDocumentType !== 'plateNumber' && 
+                   formState.identificationNumber && 
+                   formState.identificationNumber !== formState.plateNumber) {
+          // Existing client but we have valid identification fields - send them
+          formData.append('identificationDocumentType', formState.identificationDocumentType);
+          formData.append('identificationNumber', formState.identificationNumber);
+        }
+        // If clientId exists and identification fields are invalid/plateNumber, don't send them
+        // Backend will use clientId to find the client
         
         // Append new fields
         if (formState.plateNumber) {
