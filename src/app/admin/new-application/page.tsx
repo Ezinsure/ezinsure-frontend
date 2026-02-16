@@ -1067,6 +1067,11 @@ export default function AdminNewApplicationPage() {
             return;
           }
 
+          // Skip document file fields - we'll handle them separately to avoid duplicates
+          if (key === 'nationalID' || key === 'yellowCard' || key === 'pastInsuranceCertificate') {
+            return;
+          }
+
           if (value instanceof File) {
 
             if (value) formDataToSend.append(key, value);
