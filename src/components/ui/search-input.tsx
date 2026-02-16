@@ -236,9 +236,19 @@ export const SearchInput = ({
       }
     } else {
       // Transform plate number response
-      // API structure: data.vehicle.client and data.vehicle for vehicle info
-      const vehicle = data.vehicle as Record<string, unknown> | undefined;
-      const client = vehicle?.client as Record<string, unknown> | undefined;
+      // API structure can be either:
+      // 1. Old structure: data.vehicle.client and data.vehicle for vehicle info
+      // 2. New structure: data.vehicleId, data.plateNumber, etc. directly in data, and data.client for client info
+      
+      // Check which structure we have
+      const hasNestedVehicle = !!(data.vehicle as Record<string, unknown> | undefined);
+      const vehicle = hasNestedVehicle 
+        ? (data.vehicle as Record<string, unknown>)
+        : data; // Use data directly if vehicle fields are at top level
+      
+      const client = hasNestedVehicle
+        ? (vehicle?.client as Record<string, unknown> | undefined)
+        : (data.client as Record<string, unknown> | undefined);
       
       // Extract nationalID from client (since identificationDocumentType is 'plateNumber', 
       // the client's nationalID should be used for the identification document)
@@ -254,6 +264,11 @@ export const SearchInput = ({
       // even though the client's actual document is nationalID/passport/etc.
       const clientIdentificationDocumentType = (client?.identificationDocumentType as string) || 'nationalID';
       
+      // Extract vehicle fields - handle both structures
+      const vehicleId = hasNestedVehicle 
+        ? (vehicle?._id as string || '')
+        : (data.vehicleId as string || '');
+      
       return {
         fullName: client?.fullName as string || '',
         email: client?.email as string || '',
@@ -265,20 +280,20 @@ export const SearchInput = ({
         province: client?.province as string || '',
         district: client?.district as string || '',
         sector: client?.sector as string || '',
-        vehicleId: vehicle?._id as string || '',
-        plateNumber: vehicle?.plateNumber as string || '',
-        vehicleType: vehicle?.vehicleType as string || '',
-        vehicleAge: vehicle?.vehicleAge as string || '',
-        vehicleUse: vehicle?.vehicleUse as string || '',
-        otherVehicleUse: vehicle?.otherVehicleUse as string || '',
-        clientId: client?._id as string || '',
+        vehicleId: vehicleId,
+        plateNumber: (vehicle?.plateNumber as string || data.plateNumber as string || ''),
+        vehicleType: (vehicle?.vehicleType as string || data.vehicleType as string || ''),
+        vehicleAge: (vehicle?.vehicleAge as string || data.vehicleAge as string || ''),
+        vehicleUse: (vehicle?.vehicleUse as string || data.vehicleUse as string || ''),
+        otherVehicleUse: (vehicle?.otherVehicleUse as string || data.otherVehicleUse as string || ''),
+        clientId: (client?._id as string || client?.clientId as string || ''),
         // Client's actual identification info (not the plate number used for search)
         identificationNumber: clientIdentificationNumber,
         identificationDocumentType: clientIdentificationDocumentType,
         // Document URLs
         identificationDocumentUrl: nationalIDUrl,
-        yellowCardUrl: data.yellowCard as string || '',
-        pastInsuranceCertificateUrl: data.pastInsuranceCertificate as string || '',
+        yellowCardUrl: (data.yellowCard as string || ''),
+        pastInsuranceCertificateUrl: (data.pastInsuranceCertificate as string || ''),
       };
     }
   };
