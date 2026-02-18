@@ -74,6 +74,33 @@ interface MonthlyStat {
   commission: number;
 }
 
+interface ApiApplicationItem {
+  _id?: string;
+  applicationNumber?: string;
+  status?: string;
+  insuranceCategory?: string;
+  insuranceType?: string;
+  amount?: number;
+  submittedAt?: string;
+  client?: {
+    _id?: string;
+    fullName?: string;
+    email?: string;
+    phoneNumber?: string;
+    province?: string;
+    district?: string;
+  };
+  vehicle?: {
+    plateNumber?: string;
+  };
+  fullName?: string;
+}
+
+interface ApiDistributionItem {
+  category?: string;
+  count?: number;
+}
+
 const getFirstDayOfMonth = () => {
   const now = new Date();
   const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -148,7 +175,6 @@ export default function AgentDetailModal({ isOpen, onClose, agentId, agentName, 
   const [isApplicationsLoading, setIsApplicationsLoading] = useState(false);
   const [showCommissionChart, setShowCommissionChart] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedInsuranceType, setSelectedInsuranceType] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
   
   // Date range for filtering
@@ -175,7 +201,7 @@ export default function AgentDetailModal({ isOpen, onClose, agentId, agentName, 
           },
         });
         const data = await res.json();
-        const mapped = (data.data || []).map((item: any) => ({
+        const mapped = (data.data || []).map((item: ApiApplicationItem) => ({
           _id: item._id || '',
           applicationNumber: item.applicationNumber || '',
           status: item.status,
@@ -213,13 +239,13 @@ export default function AgentDetailModal({ isOpen, onClose, agentId, agentName, 
         });
         const data = await res.json();
         const dist = data.data || [];
-        const total = dist.reduce((sum: number, item: any) => sum + (item.count || 0), 0);
+        const total = dist.reduce((sum: number, item: ApiDistributionItem) => sum + (item.count || 0), 0);
         setInsuranceDistribution(
-          dist.map((item: any) => ({
-            name: item.category,
-            value: item.count,
-            color: INSURANCE_COLORS[item.category] || '#A3A3A3',
-            percent: total > 0 ? Math.round((item.count / total) * 100) : 0,
+          dist.map((item: ApiDistributionItem) => ({
+            name: item.category || 'Unknown',
+            value: item.count || 0,
+            color: item.category ? (INSURANCE_COLORS[item.category] || '#A3A3A3') : '#A3A3A3',
+            percent: total > 0 ? Math.round(((item.count || 0) / total) * 100) : 0,
           }))
         );
       } catch (error) {
@@ -358,24 +384,6 @@ export default function AgentDetailModal({ isOpen, onClose, agentId, agentName, 
       iconClasses: 'bg-slate-100 text-slate-600'
     }
   ];
-
-  const filteredApplications = recentApplications.filter((app: Application) => {
-    if (!app.client || !app.client.fullName) return false;
-    
-    const matchesSearch =
-      app.client.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      app.applicationNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      app.insuranceCategory.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      app.insuranceType.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesType = selectedInsuranceType === 'all' ||
-      (selectedInsuranceType === 'car' && app.insuranceCategory.toLowerCase().includes('car')) ||
-      (selectedInsuranceType === 'health' && app.insuranceCategory.toLowerCase().includes('health')) ||
-      (selectedInsuranceType === 'travel' && app.insuranceCategory.toLowerCase().includes('travel')) ||
-      (selectedInsuranceType === 'building' && app.insuranceCategory.toLowerCase().includes('building')) ||
-      (selectedInsuranceType === 'fire' && app.insuranceCategory.toLowerCase().includes('fire')) ||
-      (selectedInsuranceType === 'motorbike' && app.insuranceCategory.toLowerCase().includes('motorbike'));
-    return matchesSearch && matchesType;
-  });
 
   // Filter all applications for table
   const filteredTableApplications = useMemo(() => {
