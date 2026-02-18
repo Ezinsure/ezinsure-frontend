@@ -37,6 +37,8 @@ interface Application {
   agent?: {
     _id: string;
     fullName: string;
+    email?: string;
+    phoneNumber?: string;
   } | null;
   admin?: {
     _id: string;
@@ -1284,6 +1286,22 @@ const getActionButtons = (app: Application) => {
                         : 'Client'}
                   </p>
                 </div>
+                {selectedApp.agent && (
+                  <>
+                    {selectedApp.agent.email && (
+                      <div>
+                        <p className="text-sm text-gray-500">Agent Email</p>
+                        <p className="font-semibold">{selectedApp.agent.email}</p>
+                      </div>
+                    )}
+                    {selectedApp.agent.phoneNumber && (
+                      <div>
+                        <p className="text-sm text-gray-500">Agent Phone</p>
+                        <p className="font-semibold">{selectedApp.agent.phoneNumber}</p>
+                      </div>
+                    )}
+                  </>
+                )}
                 {selectedApp.amount && (
                   <div>
                     <p className="text-sm text-gray-500">Amount</p>
