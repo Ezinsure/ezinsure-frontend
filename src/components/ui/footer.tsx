@@ -33,13 +33,15 @@ export const Footer = () => {
           { href: `${rolePrefix}/my-applications`, label: 'My Applications' },
           { href: `${rolePrefix}/new-application`, label: 'Apply' },
           { href: `${rolePrefix}/users`, label: 'Manage Users' },
-          { href: `${rolePrefix}/expiring-insurance`, label: 'Expiring Insurance' }
+          { href: `${rolePrefix}/expiring-insurance`, label: 'Expiring Insurance' },
+          { href: `${rolePrefix}/sms-tracking`, label: 'SMS Tracking' }
         );
       } else if (user.role === 'SUPER_ADMIN') {
         newLinks.push(
           { href: `${rolePrefix}/applications`, label: 'Applications' },
           { href: `${rolePrefix}/users`, label: 'Manage Users' },
-          { href: `${rolePrefix}/expiring-insurance`, label: 'Expiring Insurance' }
+          { href: `${rolePrefix}/expiring-insurance`, label: 'Expiring Insurance' },
+          { href: `${rolePrefix}/sms-tracking`, label: 'SMS Tracking' }
         );
       } else if (user.role === 'AGENT') {
         newLinks.push(
