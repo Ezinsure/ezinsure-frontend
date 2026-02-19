@@ -193,7 +193,12 @@ export default function AgentDetailModal({ isOpen, onClose, agentId, agentName, 
 
     const fetchRecentApplications = async () => {
       try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/getRecentAgentApplications?agentId=${agentId}`, {
+        const url = new URL(`${process.env.NEXT_PUBLIC_API_BASE_URL}/getRecentAgentApplications`);
+        url.searchParams.append('agentId', agentId);
+        if (startDate) url.searchParams.append('startDate', startDate);
+        if (endDate) url.searchParams.append('endDate', endDate);
+        
+        const res = await fetch(url.toString(), {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
@@ -230,7 +235,12 @@ export default function AgentDetailModal({ isOpen, onClose, agentId, agentName, 
 
     const fetchInsuranceDistribution = async () => {
       try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/getAgentInsuranceDistribution?agentId=${agentId}`, {
+        const url = new URL(`${process.env.NEXT_PUBLIC_API_BASE_URL}/getAgentInsuranceDistribution`);
+        url.searchParams.append('agentId', agentId);
+        if (startDate) url.searchParams.append('startDate', startDate);
+        if (endDate) url.searchParams.append('endDate', endDate);
+        
+        const res = await fetch(url.toString(), {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
@@ -256,7 +266,12 @@ export default function AgentDetailModal({ isOpen, onClose, agentId, agentName, 
 
     const fetchWeeklyStats = async () => {
       try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/getWeeklyAgentStats?agentId=${agentId}`, {
+        const url = new URL(`${process.env.NEXT_PUBLIC_API_BASE_URL}/getWeeklyAgentStats`);
+        url.searchParams.append('agentId', agentId);
+        if (startDate) url.searchParams.append('startDate', startDate);
+        if (endDate) url.searchParams.append('endDate', endDate);
+        
+        const res = await fetch(url.toString(), {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
@@ -273,7 +288,12 @@ export default function AgentDetailModal({ isOpen, onClose, agentId, agentName, 
 
     const fetchMonthlyStats = async () => {
       try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/getMonthlyAgentStats?agentId=${agentId}`, {
+        const url = new URL(`${process.env.NEXT_PUBLIC_API_BASE_URL}/getMonthlyAgentStats`);
+        url.searchParams.append('agentId', agentId);
+        if (startDate) url.searchParams.append('startDate', startDate);
+        if (endDate) url.searchParams.append('endDate', endDate);
+        
+        const res = await fetch(url.toString(), {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
@@ -296,7 +316,7 @@ export default function AgentDetailModal({ isOpen, onClose, agentId, agentName, 
     ]).finally(() => {
       setIsLoading(false);
     });
-  }, [isOpen, agentId, token]);
+  }, [isOpen, agentId, token, startDate, endDate]);
 
   // Fetch all applications (same API as agent portal)
   useEffect(() => {
@@ -305,7 +325,12 @@ export default function AgentDetailModal({ isOpen, onClose, agentId, agentName, 
     const fetchAllApplications = async () => {
       setIsApplicationsLoading(true);
       try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/getApplicationsByAgent?agentId=${agentId}`, {
+        const url = new URL(`${process.env.NEXT_PUBLIC_API_BASE_URL}/getApplicationsByAgent`);
+        url.searchParams.append('agentId', agentId);
+        if (startDate) url.searchParams.append('startDate', startDate);
+        if (endDate) url.searchParams.append('endDate', endDate);
+        
+        const res = await fetch(url.toString(), {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
@@ -332,7 +357,7 @@ export default function AgentDetailModal({ isOpen, onClose, agentId, agentName, 
     };
 
     fetchAllApplications();
-  }, [isOpen, agentId, token]);
+  }, [isOpen, agentId, token, startDate, endDate]);
 
   const highlightStats = useMemo(() => {
     const totalCommission = monthlyStats.reduce((sum, stat) => sum + (stat.commission || 0), 0);

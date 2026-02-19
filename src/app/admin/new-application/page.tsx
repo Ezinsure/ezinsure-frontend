@@ -496,8 +496,8 @@ export default function AdminNewApplicationPage() {
   const handleSearchResult = (exists: boolean, searchType: 'plateNumber' | 'identificationNumber') => {
     setSearchResults(prev => {
       const newState = {
-        ...prev,
-        [searchType === 'identificationNumber' ? 'isNewClient' : 'isNewVehicle']: !exists
+      ...prev,
+      [searchType === 'identificationNumber' ? 'isNewClient' : 'isNewVehicle']: !exists
       };
       // Debug: Log when plate number search finds a vehicle
       if (searchType === 'plateNumber') {
