@@ -2,13 +2,11 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { MainLayout } from '@/components/ui/main-layout';
-import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/toast';
 import { useAuth } from '@/context/AuthContext';
 import { 
   MessageSquare, 
   Search, 
-  Calendar,
   CheckCircle,
   XCircle,
   Clock,
@@ -18,7 +16,6 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
-  Download,
   Filter
 } from 'lucide-react';
 import { formatDateUTC, formatTime } from '@/utils/date-formatter';
@@ -240,7 +237,7 @@ const getStatusBadge = (status: string) => {
 };
 
 export default function SMSTrackingPage() {
-  const { showToast, ToastContainer } = useToast();
+  const { ToastContainer } = useToast();
   const { token } = useAuth();
   const [smsRecords, setSmsRecords] = useState<SMSRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
