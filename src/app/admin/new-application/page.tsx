@@ -1072,6 +1072,11 @@ export default function AdminNewApplicationPage() {
             return;
           }
 
+          // Skip assignToAgent and wantsToAssignAgent - we'll handle them separately to avoid duplicates
+          if (key === 'assignToAgent' || key === 'wantsToAssignAgent') {
+            return;
+          }
+
           if (value instanceof File) {
 
             if (value) formDataToSend.append(key, value);
