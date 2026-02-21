@@ -551,8 +551,14 @@ export default function AgentApplyPage() {
       district: (data.district as string) || prev.district,
       sector: (data.sector as string) || prev.sector,
       // Update identification info to client's actual ID (not the plate number used for search)
-      identificationNumber: (data.identificationNumber as string) || prev.identificationNumber,
-      identificationDocumentType: (data.identificationDocumentType as string) || prev.identificationDocumentType,
+      // Match admin form behavior: only update if API provides valid values, otherwise preserve previous values
+      // Backend needs these fields even when clientId exists, so don't clear them
+      identificationNumber: (data.identificationNumber as string && data.identificationNumber !== '') 
+        ? (data.identificationNumber as string)
+        : prev.identificationNumber, // Preserve previous value if API doesn't provide one
+      identificationDocumentType: (data.identificationDocumentType as string && data.identificationDocumentType !== '' && data.identificationDocumentType !== 'plateNumber')
+        ? (data.identificationDocumentType as string)
+        : prev.identificationDocumentType, // Preserve previous value if API doesn't provide one
       // Vehicle-specific fields
       vehicleType: (data.vehicleType as string) || prev.vehicleType,
       vehicleAge: (data.vehicleAge as string) || prev.vehicleAge,
@@ -711,12 +717,20 @@ export default function AgentApplyPage() {
         formData.append('insuranceDuration', formatInsuranceDuration(formState.insuranceDuration));
         formData.append('insuranceProvider', formState.insuranceProvider);
         
-        // Append new fields
+        // Append new fields for /newApply endpoint - match admin form order
+        formData.append('isNewClient', searchResults.isNewClient ? 'true' : 'false');
+        formData.append('isNewVehicle', searchResults.isNewVehicle ? 'true' : 'false');
+        
+        // Always send identification fields - match admin form behavior exactly
+        // Send whatever is in formState (even if it's plateNumber type/number)
+        // Backend needs these fields even when clientId exists
+        formData.append('identificationDocumentType', formState.identificationDocumentType || '');
+        formData.append('identificationNumber', formState.identificationNumber || '');
+        
+        // Append plate number
         if (formState.plateNumber) {
           formData.append('plateNumber', formState.plateNumber);
         }
-        formData.append('identificationDocumentType', formState.identificationDocumentType);
-        formData.append('identificationNumber', formState.identificationNumber);
         
         // Append vehicle details if applicable
         if (formState.insuranceCategory === 'car' || formState.insuranceCategory === 'motorbike') {

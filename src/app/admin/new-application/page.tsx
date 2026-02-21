@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { MainLayout } from '@/components/ui/main-layout';
@@ -429,6 +429,7 @@ export default function AdminNewApplicationPage() {
     // Mark that a plate search just completed
     plateSearchJustCompletedRef.current = true;
     
+    const hasClientId = !!(data.clientId as string);
     setFormData(prev => ({
       ...prev,
       // Client information from vehicle owner
@@ -456,18 +457,18 @@ export default function AdminNewApplicationPage() {
       identificationDocumentUrl: (data.identificationDocumentUrl as string) || '',
       yellowCardUrl: (data.yellowCardUrl as string) || '',
       pastInsuranceCertificateUrl: (data.pastInsuranceCertificateUrl as string) || '',
+      // Keep formData in sync: plate search found vehicle (and client if clientId present)
+      isNewClient: !hasClientId,
+      isNewVehicle: false,
     }));
 
     // Update search results: if we found a vehicle, the client also exists (vehicle belongs to client)
     // handlePlateSearchSuccess is only called when a vehicle is found, so always set isNewVehicle to false
-    setSearchResults(prev => {
-      const newState = {
-        ...prev,
-        isNewClient: (data.clientId ? false : prev.isNewClient), // Client exists if clientId is present
-        isNewVehicle: false, // Vehicle exists - we found it via plate search
-      };
-      return newState;
-    });
+    setSearchResults(prev => ({
+      ...prev,
+      isNewClient: !hasClientId, // Client exists iff clientId is present
+      isNewVehicle: false, // Vehicle exists - we found it via plate search
+    }));
     
     // Reset the flag after a short delay to allow state updates to complete
     setTimeout(() => {
@@ -492,18 +493,12 @@ export default function AdminNewApplicationPage() {
     showToast('Vehicle information loaded successfully', 'success');
   };
 
-  // Handle search results to track isNewClient and isNewVehicle
+  // Handle search results to track isNewClient and isNewVehicle (sync formData and searchResults)
   const handleSearchResult = (exists: boolean, searchType: 'plateNumber' | 'identificationNumber') => {
-    setSearchResults(prev => {
-      const newState = {
-        ...prev,
-        [searchType === 'identificationNumber' ? 'isNewClient' : 'isNewVehicle']: !exists
-      };
-      // Debug: Log when plate number search finds a vehicle
-      if (searchType === 'plateNumber') {
-      }
-      return newState;
-    });
+    const isNew = !exists;
+    const key = searchType === 'identificationNumber' ? 'isNewClient' : 'isNewVehicle';
+    setSearchResults(prev => ({ ...prev, [key]: isNew }));
+    setFormData(prev => ({ ...prev, [key]: isNew }));
   };
 
   const getTokenFromStorage = () => {
@@ -831,6 +826,12 @@ export default function AdminNewApplicationPage() {
 
         pastInsuranceCertificateUrl: '',
 
+        // Reset flags for new search (will be updated by search result)
+
+        isNewClient: true,
+
+        isNewVehicle: false,
+
       }));
 
       setAvailableDistricts([]);
@@ -845,15 +846,9 @@ export default function AdminNewApplicationPage() {
 
       setPlateNumberResetTrigger(prev => prev + 1);
 
-      // Reset isNewVehicle when document type changes
+      // Reset search-result flags when document type changes (sync with formData)
 
-      setSearchResults(prev => ({
-
-        ...prev,
-
-        isNewVehicle: false // Reset to false, will be updated by search result
-
-      }));
+      setSearchResults({ isNewClient: true, isNewVehicle: false });
 
     }
 
@@ -975,11 +970,9 @@ export default function AdminNewApplicationPage() {
     setPhoneNumberResetTrigger(prev => prev + 1);
     // Reset plate number input whenever identification number changes
     setPlateNumberResetTrigger(prev => prev + 1);
-    // Reset isNewVehicle to false when identification number changes
-    setSearchResults(prev => ({
-      ...prev,
-      isNewVehicle: false // Reset to false, will be updated by search result
-    }));
+    // Reset isNewVehicle when identification number changes (sync formData and searchResults)
+    setSearchResults(prev => ({ ...prev, isNewVehicle: false }));
+    setFormData(prev => ({ ...prev, isNewVehicle: false }));
   }, []);
 
   const handlePlateNumberChange = useCallback((value: string) => {
@@ -1015,12 +1008,10 @@ export default function AdminNewApplicationPage() {
       pastInsuranceCertificateUrl: '',
     }));
     
-    // Reset isNewVehicle to false when plate number changes manually
+    // Reset isNewVehicle to false when plate number changes manually (sync formData and searchResults)
     // (will be updated when user performs search - true if not found, false if found)
-    setSearchResults(prev => ({
-      ...prev,
-      isNewVehicle: false // Reset to false, will be updated by search result
-    }));
+    setSearchResults(prev => ({ ...prev, isNewVehicle: false }));
+    setFormData(prev => ({ ...prev, isNewVehicle: false }));
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -1069,6 +1060,11 @@ export default function AdminNewApplicationPage() {
 
           // Skip document file fields - we'll handle them separately to avoid duplicates
           if (key === 'nationalID' || key === 'yellowCard' || key === 'pastInsuranceCertificate') {
+            return;
+          }
+
+          // Skip assignToAgent and wantsToAssignAgent - we'll handle them separately to avoid duplicates
+          if (key === 'assignToAgent' || key === 'wantsToAssignAgent') {
             return;
           }
 
@@ -1211,7 +1207,7 @@ export default function AdminNewApplicationPage() {
 
             companyCommission: '',
 
-            administrationFees: '',
+            administrationFees: calculateAdministrationFees('Car Insurance').toString(),
 
             proofOfPayment: null,
 
