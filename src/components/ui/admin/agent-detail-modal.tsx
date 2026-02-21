@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { X, DollarSign, Users, Briefcase, ArrowUpRight, Search, Eye, EyeOff, Mail, Calendar, ChevronLeft, ChevronRight, FileText } from 'lucide-react';
+import { X, DollarSign, Users, Briefcase, ArrowUpRight, Search, Eye, EyeOff, Mail, Calendar, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, FileText } from 'lucide-react';
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { TooltipProps } from 'recharts';
@@ -165,6 +165,137 @@ const getStatusBadge = (status: string) => {
   }
 };
 
+interface TablePaginationProps {
+  currentPage: number;
+  totalPages: number;
+  totalItems: number;
+  itemsPerPage: number;
+  onPageChange: (page: number) => void;
+  onItemsPerPageChange: (items: number) => void;
+}
+
+const TablePagination = ({ currentPage, totalPages, totalItems, itemsPerPage, onPageChange, onItemsPerPageChange }: TablePaginationProps) => {
+  const getVisiblePages = () => {
+    const maxVisiblePages = 7;
+    const pages: (number | string)[] = [];
+    if (totalPages <= maxVisiblePages) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+      pages.push(1);
+      let startPage = Math.max(2, currentPage - 2);
+      let endPage = Math.min(totalPages - 1, currentPage + 2);
+      if (currentPage <= 4) {
+        startPage = 2;
+        endPage = Math.min(6, totalPages - 1);
+      }
+      if (currentPage >= totalPages - 3) {
+        startPage = Math.max(2, totalPages - 5);
+        endPage = totalPages - 1;
+      }
+      if (startPage > 2) pages.push('...');
+      for (let i = startPage; i <= endPage; i++) pages.push(i);
+      if (endPage < totalPages - 1) pages.push('...');
+      pages.push(totalPages);
+    }
+    return pages;
+  };
+  const visiblePages = getVisiblePages();
+  return (
+    <div className="flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-gray-200 bg-white px-4 py-4 sm:px-6">
+      <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2">
+          <label className="text-sm text-gray-700">Show:</label>
+          <select
+            value={itemsPerPage}
+            onChange={(e) => {
+              onItemsPerPageChange(Number(e.target.value));
+              onPageChange(1);
+            }}
+            className="rounded-md border border-gray-300 bg-white px-2 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          >
+            <option value={10}>10</option>
+            <option value={25}>25</option>
+            <option value={50}>50</option>
+            <option value={100}>100</option>
+          </select>
+          <span className="text-sm text-gray-700">per page</span>
+        </div>
+        <div className="text-sm text-gray-700">
+          Showing <span className="font-medium">{(currentPage - 1) * itemsPerPage + 1}</span> to{' '}
+          <span className="font-medium">{Math.min(currentPage * itemsPerPage, totalItems)}</span> of{' '}
+          <span className="font-medium">{totalItems}</span> results
+        </div>
+      </div>
+      <div className="flex items-center gap-2">
+        <nav className="isolate inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
+          <button
+            onClick={() => onPageChange(1)}
+            disabled={currentPage === 1}
+            className="relative inline-flex items-center rounded-l-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            title="First page"
+          >
+            <span className="sr-only">First page</span>
+            <ChevronsLeft className="h-4 w-4" aria-hidden="true" />
+          </button>
+          <button
+            onClick={() => onPageChange(Math.max(1, currentPage - 1))}
+            disabled={currentPage === 1}
+            className="relative inline-flex items-center px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            title="Previous page"
+          >
+            <span className="sr-only">Previous</span>
+            <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+          </button>
+          {visiblePages.map((page, index) => {
+            if (page === '...') {
+              return (
+                <span
+                  key={`ellipsis-${index}`}
+                  className="relative inline-flex items-center px-4 py-2 text-sm font-semibold text-gray-700 ring-1 ring-inset ring-gray-300"
+                >
+                  ...
+                </span>
+              );
+            }
+            const pageNum = page as number;
+            return (
+              <button
+                key={pageNum}
+                onClick={() => onPageChange(pageNum)}
+                className={`relative inline-flex items-center px-4 py-2 text-sm font-semibold transition-colors ${
+                  pageNum === currentPage
+                    ? 'z-10 bg-blue-600 text-white focus:z-20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600'
+                    : 'text-gray-900 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0'
+                }`}
+              >
+                {pageNum}
+              </button>
+            );
+          })}
+          <button
+            onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
+            disabled={currentPage === totalPages}
+            className="relative inline-flex items-center px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            title="Next page"
+          >
+            <span className="sr-only">Next</span>
+            <ChevronRight className="h-4 w-4" aria-hidden="true" />
+          </button>
+          <button
+            onClick={() => onPageChange(totalPages)}
+            disabled={currentPage === totalPages}
+            className="relative inline-flex items-center rounded-r-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            title="Last page"
+          >
+            <span className="sr-only">Last page</span>
+            <ChevronsRight className="h-4 w-4" aria-hidden="true" />
+          </button>
+        </nav>
+      </div>
+    </div>
+  );
+};
+
 export default function AgentDetailModal({ isOpen, onClose, agentId, agentName, agentEmail, token }: AgentDetailModalProps) {
   const [recentApplications, setRecentApplications] = useState<Application[]>([]);
   const [allApplications, setAllApplications] = useState<Application[]>([]);
@@ -181,9 +312,14 @@ export default function AgentDetailModal({ isOpen, onClose, agentId, agentName, 
   const [startDate, setStartDate] = useState<string>(getFirstDayOfMonth());
   const [endDate, setEndDate] = useState<string>(getTodayDate());
   
-  // Applications table pagination
+  // Applications table pagination (same as admin agents table)
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+
+  // Reset to page 1 when modal opens or agent changes
+  useEffect(() => {
+    if (isOpen && agentId) setCurrentPage(1);
+  }, [isOpen, agentId]);
 
   // Fetch all agent data
   useEffect(() => {
@@ -860,35 +996,15 @@ export default function AgentDetailModal({ isOpen, onClose, agentId, agentName, 
                         </table>
                       </div>
                       
-                      {/* Pagination */}
-                      {totalPages > 1 && (
-                        <div className="bg-white px-4 py-3 border-t border-gray-200 flex items-center justify-between">
-                          <div className="text-sm text-gray-700">
-                            Showing <span className="font-medium">{(currentPage - 1) * itemsPerPage + 1}</span> to{' '}
-                            <span className="font-medium">{Math.min(currentPage * itemsPerPage, filteredTableApplications.length)}</span> of{' '}
-                            <span className="font-medium">{filteredTableApplications.length}</span> results
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <button
-                              onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                              disabled={currentPage === 1}
-                              className="px-3 py-1.5 text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                              <ChevronLeft className="h-4 w-4" />
-                            </button>
-                            <span className="text-sm text-gray-700">
-                              Page {currentPage} of {totalPages}
-                            </span>
-                            <button
-                              onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-                              disabled={currentPage === totalPages}
-                              className="px-3 py-1.5 text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                              <ChevronRight className="h-4 w-4" />
-                            </button>
-                          </div>
-                        </div>
-                      )}
+                      {/* Pagination - same as agents table in admin/agents/analytics */}
+                      <TablePagination
+                        currentPage={currentPage}
+                        totalPages={totalPages}
+                        totalItems={filteredTableApplications.length}
+                        itemsPerPage={itemsPerPage}
+                        onPageChange={setCurrentPage}
+                        onItemsPerPageChange={setItemsPerPage}
+                      />
                     </>
                   )}
                 </div>
