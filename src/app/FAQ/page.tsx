@@ -6,6 +6,15 @@ import { MainLayout } from '@/components/ui/main-layout';
 // General FAQ for public users and clients
 const generalFaqItems = [
   {
+    question: 'How do I apply to become an Agent?',
+    answer: [
+      'Go to the "Agents" page from the navigation.',
+      'Fill in and submit the application form.',
+      'Wait for approval (usually within 3 business days).'
+    ],
+    videoLink: 'https://youtu.be/8-R6Ls3sgxM'
+  },
+  {
     question: 'How do I apply for Insurance?',
     answer: [
       'Click on the "Apply Now" button in the top navigation.',
@@ -67,15 +76,6 @@ const generalFaqItems = [
     videoLink: ''
   },
   {
-    question: 'How do I apply to become an Agent?',
-    answer: [
-      'Go to the "Agents" page from the navigation.',
-      'Fill in and submit the application form.',
-      'Wait for approval (usually within 3 business days).'
-    ],
-    videoLink: ''
-  },
-  {
     question: 'How do I track my agent application?',
     answer: [
       'Track using your application number and OTP if not yet approved.',
@@ -85,14 +85,14 @@ const generalFaqItems = [
   }
 ];
 
-// Commented out - will be used when video links are added
-// const getEmbedUrl = (url: string) => {
-//   const match = url.match(/(?:https?:\/\/)?(?:www\.)?youtube\.com\/watch\?v=([^&]+)/);
-//   if (match && match[1]) {
-//     return `https://www.youtube.com/embed/${match[1]}`;
-//   }
-//   return url;
-// };
+const getEmbedUrl = (url: string) => {
+  if (!url?.trim()) return '';
+  const youtuBe = url.match(/(?:https?:\/\/)?(?:www\.)?youtu\.be\/([^/?&]+)/);
+  if (youtuBe && youtuBe[1]) return `https://www.youtube.com/embed/${youtuBe[1]}`;
+  const watch = url.match(/(?:https?:\/\/)?(?:www\.)?youtube\.com\/watch\?v=([^&]+)/);
+  if (watch && watch[1]) return `https://www.youtube.com/embed/${watch[1]}`;
+  return url;
+};
 
 export default function FAQPage() {
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
@@ -139,27 +139,30 @@ export default function FAQPage() {
                     <li key={idx} className="text-sm leading-relaxed">{step}</li>
                   ))}
                 </ol>
-                {/* Video section - to be added later with actual YouTube links */}
-                {/* <div className="aspect-w-16 aspect-h-9 mb-4">
-                  <iframe
-                    width="100%"
-                    height="315"
-                    src={getEmbedUrl(item.videoLink)}
-                    title={`Video tutorial for ${item.question}`}
-                    frameBorder="0"
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                    allowFullScreen
-                    className="rounded-lg"
-                  ></iframe>
-                </div>
-                <a
-                  href={item.videoLink}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-[var(--secondary-blue)] hover:text-[var(--main-blue)] font-medium transition-colors"
-                >
-                  Watch on YouTube ↗
-                </a> */}
+                {item.videoLink && getEmbedUrl(item.videoLink) && (
+                  <div className="mt-4">
+                    <p className="text-sm font-medium text-gray-700 mb-2">Watch tutorial</p>
+                    <div className="aspect-video max-w-2xl rounded-lg overflow-hidden bg-black">
+                      <iframe
+                        width="100%"
+                        height="100%"
+                        src={getEmbedUrl(item.videoLink)}
+                        title={`Video tutorial: ${item.question}`}
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                        className="w-full h-full"
+                      />
+                    </div>
+                    <a
+                      href={item.videoLink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-block mt-2 text-sm text-[var(--secondary-blue)] hover:text-[var(--main-blue)] font-medium transition-colors"
+                    >
+                      Watch on YouTube ↗
+                    </a>
+                  </div>
+                )}
               </div>
             </div>
           ))}
