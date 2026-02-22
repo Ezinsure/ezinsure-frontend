@@ -530,7 +530,7 @@ export default function AgentDetailModal({ isOpen, onClose, agentId, agentName, 
   // Stats cards data sources (see console in dev for raw API responses):
   // - Total Commission: getMonthlyAgentStats (sum of commission per month)
   // - Clients Served: getMonthlyAgentStats (sum of clients per month)
-  // - Active Applications: getRecentAgentApplications (array length)
+  // - Recent Applications: getRecentAgentApplications (array length)
   // - Policies in Portfolio: getAgentInsuranceDistribution (sum of count per category)
   const highlightStats = useMemo(() => {
     const totalCommission = monthlyStats.reduce((sum, stat) => sum + (stat.commission || 0), 0);
@@ -567,7 +567,7 @@ export default function AgentDetailModal({ isOpen, onClose, agentId, agentName, 
     },
     {
       key: 'applications',
-      title: 'Active Applications',
+      title: 'Recent Applications',
       value: formatNumber(highlightStats.pipelineApplications),
       caption: 'Recent applications under management',
       icon: <Briefcase className="w-4 h-4" />,
