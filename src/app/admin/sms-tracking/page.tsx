@@ -38,57 +38,32 @@ const getTodayDate = () => {
   return `${year}-${month}-${day}`;
 };
 
-// Interface for SMS record
+// API response item shape
+interface RelatedApplication {
+  _id: string;
+  applicationNumber: string;
+}
+
+// Interface for SMS record (matches getSMSReport API)
 interface SMSRecord {
+  _id: string;
   phone: string;
   message: string;
   requestId: string;
   status: 'PENDING' | 'DELIVERED' | 'FAILED';
-  type: string;
-  relatedApplication: string;
+  type?: string;
+  relatedApplication?: RelatedApplication;
   sentAt: string;
-  deliveredAt: string | null;
 }
 
-// Generate dummy data
-const generateDummyData = (): SMSRecord[] => {
-  const statuses: ('PENDING' | 'DELIVERED' | 'FAILED')[] = ['PENDING', 'DELIVERED', 'FAILED'];
-  const types = ['Insurance Expiration Reminder', 'Payment Reminder', 'Policy Renewal'];
-  const messages = [
-    'Your insurance policy is expiring soon. Please renew to continue coverage.',
-    'Reminder: Your insurance payment is due. Please make payment to avoid policy cancellation.',
-    'Your insurance policy will expire in 7 days. Contact us to renew.',
-    'Important: Your vehicle insurance expires on {date}. Renew now to stay protected.',
-    'Payment reminder: Your insurance premium payment is overdue. Please pay immediately.'
-  ];
-  
-  const dummyData: SMSRecord[] = [];
-  const now = new Date();
-  
-  for (let i = 0; i < 150; i++) {
-    const daysAgo = Math.floor(Math.random() * 60); // Last 60 days
-    const sentDate = new Date(now);
-    sentDate.setDate(sentDate.getDate() - daysAgo);
-    
-    const status = statuses[Math.floor(Math.random() * statuses.length)];
-    const deliveredDate = status === 'DELIVERED' 
-      ? new Date(sentDate.getTime() + Math.random() * 3600000) // Within 1 hour
-      : null;
-    
-    dummyData.push({
-      phone: `250${Math.floor(Math.random() * 90000000 + 10000000)}`,
-      message: messages[Math.floor(Math.random() * messages.length)],
-      requestId: `SMS-${Date.now()}-${i}-${Math.random().toString(36).substr(2, 9)}`,
-      status,
-      type: types[Math.floor(Math.random() * types.length)],
-      relatedApplication: `APP-${Math.floor(Math.random() * 10000)}`,
-      sentAt: sentDate.toISOString(),
-      deliveredAt: deliveredDate ? deliveredDate.toISOString() : null
-    });
-  }
-  
-  return dummyData.sort((a, b) => new Date(b.sentAt).getTime() - new Date(a.sentAt).getTime());
-};
+// API report summary (returned with data)
+interface SMSReportSummary {
+  totalMessages: number;
+  delivered: number;
+  failed: number;
+  pending: number;
+  deliveryRate: string;
+}
 
 interface PaginationProps {
   currentPage: number;
@@ -237,9 +212,10 @@ const getStatusBadge = (status: string) => {
 };
 
 export default function SMSTrackingPage() {
-  const { ToastContainer } = useToast();
+  const { ToastContainer, showToast } = useToast();
   const { token } = useAuth();
   const [smsRecords, setSmsRecords] = useState<SMSRecord[]>([]);
+  const [reportSummary, setReportSummary] = useState<SMSReportSummary | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
@@ -248,16 +224,48 @@ export default function SMSTrackingPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(25);
 
-  // Fetch SMS records (using dummy data for now)
+  // Fetch SMS records from API
   useEffect(() => {
-    setIsLoading(true);
-    // Simulate API call
-    setTimeout(() => {
-      const data = generateDummyData();
-      setSmsRecords(data);
+    if (!token) {
       setIsLoading(false);
-    }, 500);
-  }, [token, startDate, endDate]);
+      return;
+    }
+    const controller = new AbortController();
+    setIsLoading(true);
+    const url = new URL(`${process.env.NEXT_PUBLIC_API_BASE_URL}/getSMSReport`);
+    url.searchParams.set('startDate', startDate);
+    url.searchParams.set('endDate', endDate);
+    fetch(url.toString(), {
+      signal: controller.signal,
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    })
+      .then(async (res) => {
+        if (!res.ok) {
+          const errText = await res.text();
+          throw new Error(errText || `Failed to load SMS report (${res.status})`);
+        }
+        const json = await res.json();
+        const data: SMSRecord[] = Array.isArray(json?.data) ? json.data : [];
+        setSmsRecords(data);
+        setReportSummary({
+          totalMessages: typeof json.totalMessages === 'number' ? json.totalMessages : data.length,
+          delivered: typeof json.delivered === 'number' ? json.delivered : data.filter((r: SMSRecord) => r.status === 'DELIVERED').length,
+          failed: typeof json.failed === 'number' ? json.failed : data.filter((r: SMSRecord) => r.status === 'FAILED').length,
+          pending: typeof json.pending === 'number' ? json.pending : data.filter((r: SMSRecord) => r.status === 'PENDING').length,
+          deliveryRate: typeof json.deliveryRate === 'string' ? json.deliveryRate : (typeof json.deliveryRate === 'number' ? String(json.deliveryRate) : (data.length > 0 ? ((data.filter((r: SMSRecord) => r.status === 'DELIVERED').length / data.length) * 100).toFixed(2) : '0')),
+        });
+      })
+      .catch((err) => {
+        if (err.name === 'AbortError') return;
+        showToast(err instanceof Error ? err.message : 'Failed to load SMS report', 'error');
+        setSmsRecords([]);
+        setReportSummary(null);
+      })
+      .finally(() => setIsLoading(false));
+    return () => controller.abort();
+  }, [token, startDate, endDate, showToast]);
 
   // Filter SMS records
   const filteredRecords = useMemo(() => {
@@ -267,8 +275,8 @@ export default function SMSTrackingPage() {
         record.phone.toLowerCase().includes(searchTerm.toLowerCase()) ||
         record.message.toLowerCase().includes(searchTerm.toLowerCase()) ||
         record.requestId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        record.relatedApplication.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        record.type.toLowerCase().includes(searchTerm.toLowerCase());
+        (record.relatedApplication?.applicationNumber ?? '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (record.type ?? '').toLowerCase().includes(searchTerm.toLowerCase());
       
       // Status filter
       const matchesStatus = selectedStatus === 'all' || record.status === selectedStatus;
@@ -306,16 +314,24 @@ export default function SMSTrackingPage() {
 
   const totalPages = Math.ceil(filteredRecords.length / itemsPerPage);
 
-  // Statistics
+  // Statistics: use API report summary when available (for selected date range), else compute from filtered data
   const stats = useMemo(() => {
+    if (reportSummary) {
+      return {
+        total: reportSummary.totalMessages,
+        delivered: reportSummary.delivered,
+        pending: reportSummary.pending,
+        failed: reportSummary.failed,
+        deliveryRate: reportSummary.deliveryRate,
+      };
+    }
     const total = filteredRecords.length;
     const delivered = filteredRecords.filter(r => r.status === 'DELIVERED').length;
     const pending = filteredRecords.filter(r => r.status === 'PENDING').length;
     const failed = filteredRecords.filter(r => r.status === 'FAILED').length;
-    const deliveryRate = total > 0 ? ((delivered / total) * 100).toFixed(1) : '0';
-    
+    const deliveryRate = total > 0 ? ((delivered / total) * 100).toFixed(2) : '0';
     return { total, delivered, pending, failed, deliveryRate };
-  }, [filteredRecords]);
+  }, [reportSummary, filteredRecords]);
 
   // Reset to page 1 when filters change
   useEffect(() => {
@@ -457,7 +473,6 @@ export default function SMSTrackingPage() {
                     type="date"
                     value={endDate}
                     onChange={(e) => setEndDate(e.target.value)}
-                    max={getTodayDate()}
                     className="flex-1 px-2 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   />
                 </div>
@@ -519,8 +534,8 @@ export default function SMSTrackingPage() {
                       </td>
                     </tr>
                   ) : (
-                    paginatedRecords.map((record, index) => (
-                      <tr key={index} className="hover:bg-gray-50 transition-colors">
+                    paginatedRecords.map((record) => (
+                      <tr key={record._id} className="hover:bg-gray-50 transition-colors">
                         <td className="px-4 py-3 text-sm text-gray-900">
                           <div className="flex items-center gap-2">
                             <Phone className="h-4 w-4 text-gray-400" />
@@ -533,13 +548,13 @@ export default function SMSTrackingPage() {
                           </div>
                         </td>
                         <td className="px-4 py-3 text-sm text-gray-600">
-                          {record.type}
+                          {record.type ?? '–'}
                         </td>
                         <td className="px-4 py-3 text-sm">
                           {getStatusBadge(record.status)}
                         </td>
                         <td className="px-4 py-3 text-sm text-gray-600 font-mono">
-                          {record.relatedApplication}
+                          {record.relatedApplication?.applicationNumber ?? '–'}
                         </td>
                         <td className="px-4 py-3 text-sm text-gray-600 font-mono text-xs">
                           {record.requestId}
@@ -551,14 +566,7 @@ export default function SMSTrackingPage() {
                           </div>
                         </td>
                         <td className="px-4 py-3 text-sm text-gray-600">
-                          {record.deliveredAt ? (
-                            <div className="flex flex-col">
-                              <span>{formatDateUTC(record.deliveredAt)}</span>
-                              <span className="text-xs text-gray-400">{formatTime(record.deliveredAt)}</span>
-                            </div>
-                          ) : (
-                            <span className="text-gray-400">-</span>
-                          )}
+                          <span className="text-gray-400">–</span>
                         </td>
                       </tr>
                     ))
