@@ -81,6 +81,7 @@ interface ApiApplicationItem {
   insuranceCategory?: string;
   insuranceType?: string;
   amount?: number;
+  agentCommission?: number;
   submittedAt?: string;
   client?: {
     _id?: string;
@@ -342,6 +343,9 @@ export default function AgentDetailModal({ isOpen, onClose, agentId, agentName, 
           },
         });
         const data = await res.json();
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[Agent Detail Modal] getRecentAgentApplications response:', { agentId, startDate, endDate, data });
+        }
         const mapped = (data.data || []).map((item: ApiApplicationItem) => ({
           _id: item._id || '',
           applicationNumber: item.applicationNumber || '',
@@ -384,6 +388,9 @@ export default function AgentDetailModal({ isOpen, onClose, agentId, agentName, 
           },
         });
         const data = await res.json();
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[Agent Detail Modal] getAgentInsuranceDistribution response:', { agentId, startDate, endDate, data });
+        }
         const dist = data.data || [];
         const total = dist.reduce((sum: number, item: ApiDistributionItem) => sum + (item.count || 0), 0);
         setInsuranceDistribution(
@@ -415,6 +422,9 @@ export default function AgentDetailModal({ isOpen, onClose, agentId, agentName, 
           },
         });
         const data = await res.json();
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[Agent Detail Modal] getWeeklyAgentStats response:', { agentId, startDate, endDate, data });
+        }
         setWeeklyStats(data.data || []);
       } catch (error) {
         console.error('Error fetching weekly stats:', error);
@@ -437,6 +447,9 @@ export default function AgentDetailModal({ isOpen, onClose, agentId, agentName, 
           },
         });
         const data = await res.json();
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[Agent Detail Modal] getMonthlyAgentStats response:', { agentId, startDate, endDate, data });
+        }
         setMonthlyStats(data.data || []);
       } catch (error) {
         console.error('Error fetching monthly stats:', error);
@@ -479,10 +492,29 @@ export default function AgentDetailModal({ isOpen, onClose, agentId, agentName, 
         }
         
         const data = await res.json();
-        const sortedApplications = (data.data || []).sort((a: Application, b: Application) => {
+        const raw = data.data || [];
+        const mapped = raw.map((item: ApiApplicationItem) => ({
+          _id: item._id || '',
+          applicationNumber: item.applicationNumber || '',
+          status: item.status ?? '',
+          insuranceCategory: item.insuranceCategory ?? '',
+          insuranceType: item.insuranceType ?? '',
+          amount: item.amount,
+          agentCommission: item.agentCommission,
+          submittedAt: item.submittedAt || '',
+          client: {
+            _id: item.client?._id || '',
+            fullName: item.client?.fullName ?? (item as ApiApplicationItem).fullName ?? '',
+            email: item.client?.email ?? '',
+            phoneNumber: item.client?.phoneNumber ?? '',
+            province: item.client?.province ?? '',
+            district: item.client?.district ?? '',
+          },
+          vehicle: item.vehicle ? { plateNumber: item.vehicle.plateNumber ?? '' } : undefined,
+        }));
+        const sortedApplications = mapped.sort((a: Application, b: Application) => {
           return new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime();
         });
-        
         setAllApplications(sortedApplications);
       } catch (error) {
         console.error('Error fetching applications:', error);
@@ -495,6 +527,11 @@ export default function AgentDetailModal({ isOpen, onClose, agentId, agentName, 
     fetchAllApplications();
   }, [isOpen, agentId, token, startDate, endDate]);
 
+  // Stats cards data sources (see console in dev for raw API responses):
+  // - Total Commission: getMonthlyAgentStats (sum of commission per month)
+  // - Clients Served: getMonthlyAgentStats (sum of clients per month)
+  // - Active Applications: getRecentAgentApplications (array length)
+  // - Policies in Portfolio: getAgentInsuranceDistribution (sum of count per category)
   const highlightStats = useMemo(() => {
     const totalCommission = monthlyStats.reduce((sum, stat) => sum + (stat.commission || 0), 0);
     const totalClients = monthlyStats.reduce((sum, stat) => sum + (stat.clients || 0), 0);
@@ -548,16 +585,23 @@ export default function AgentDetailModal({ isOpen, onClose, agentId, agentName, 
 
   // Filter all applications for table
   const filteredTableApplications = useMemo(() => {
+    const term = searchTerm.trim().toLowerCase();
     return allApplications.filter(app => {
-      const clientName = app.client?.fullName || '';
-      const clientEmail = app.client?.email || '';
-      
-      const matchesSearch = !searchTerm || 
-        clientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        clientEmail.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        app.applicationNumber.toLowerCase().includes(searchTerm.toLowerCase());
-      
-      const matchesStatus = selectedStatus === 'all' || app.status === selectedStatus;
+      const clientName = (app.client?.fullName ?? '').toLowerCase();
+      const clientEmail = (app.client?.email ?? '').toLowerCase();
+      const appNum = (app.applicationNumber ?? '').toLowerCase();
+      const category = (app.insuranceCategory ?? '').toLowerCase();
+      const type = (app.insuranceType ?? '').toLowerCase();
+
+      const matchesSearch = !term ||
+        clientName.includes(term) ||
+        clientEmail.includes(term) ||
+        appNum.includes(term) ||
+        category.includes(term) ||
+        type.includes(term);
+
+      const appStatus = (app.status ?? '').toLowerCase();
+      const matchesStatus = selectedStatus === 'all' || appStatus === selectedStatus.toLowerCase();
       
       const matchesDateRange = (() => {
         if (!startDate && !endDate) return true;
