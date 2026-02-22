@@ -734,7 +734,10 @@ export default function AgentDetailModal({ isOpen, onClose, agentId, agentName, 
               </div>
             ) : (
               <>
-                {/* Highlight Cards */}
+                {/* Highlight Cards - stats are for the selected date range above */}
+                <p className="text-xs text-slate-500 mb-3">
+                  Stats for <span className="font-medium text-slate-700">{startDate}</span> to <span className="font-medium text-slate-700">{endDate}</span>
+                </p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                   {highlightCards.map((card) => (
                     <div key={card.key} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm hover:shadow-md transition-shadow">
