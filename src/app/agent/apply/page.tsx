@@ -747,11 +747,6 @@ export default function AgentApplyPage() {
         // Append COMESA status
         formData.append('isCOMESA', formState.isCOMESA.toString());
         
-        // Append new fields for /newApply endpoint
-        formData.append('isNewClient', searchResults.isNewClient ? 'true' : 'false');
-        // Debug: Log isNewVehicle before submission
-        formData.append('isNewVehicle', searchResults.isNewVehicle ? 'true' : 'false');
-        
         // Append files that were directly uploaded
         if (formState.nationalID) {
           formData.append('nationalID', formState.nationalID);
