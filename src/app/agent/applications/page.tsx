@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { MainLayout } from '@/components/ui/main-layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -964,7 +964,7 @@ const [formState, setFormState] = useState<Partial<Application>>(() => {
 
 export default function AgentApplicationsPage() {
   const { showToast, ToastContainer } = useToast();
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const [applications, setApplications] = useState<Application[]>([]);
   const [selectedApp, setSelectedApp] = useState<Application | null>(null);
   const [paymentProof, setPaymentProof] = useState<File | null>(null);
@@ -1062,42 +1062,48 @@ export default function AgentApplicationsPage() {
     setShowRightFade(scrollLeft < scrollWidth - clientWidth - 1);
   };
 
-  const fetchApplications = async () => {
-  try {
-    setIsLoading(true);
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/getApplicationsByAgent`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
+  const fetchApplications = useCallback(async (signal?: AbortSignal) => {
+    if (!token || !user?._id) return;
+    try {
+      setIsLoading(true);
+      const url = new URL(`${process.env.NEXT_PUBLIC_API_BASE_URL}/getApplicationsByAgent`);
+      url.searchParams.set('agentId', user._id);
+      if (startDate) url.searchParams.set('startDate', startDate);
+      if (endDate) url.searchParams.set('endDate', endDate);
+      const response = await fetch(url.toString(), {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        ...(signal && { signal }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch applications');
       }
-    });
-    
-    if (!response.ok) {
-      throw new Error('Failed to fetch applications');
+
+      const data = await response.json();
+
+      const sortedApplications = (data.data || []).sort((a: Application, b: Application) => {
+        return new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime();
+      });
+      setApplications(sortedApplications);
+    } catch (error) {
+      if ((error as Error).name === 'AbortError') return;
+      console.error('Error fetching applications:', error);
+      showToast('Failed to load applications', 'error');
+    } finally {
+      setIsLoading(false);
     }
-    
-    const data = await response.json();
+  }, [token, user?._id, startDate, endDate, showToast]);
 
-    // Sort applications by submittedAt in descending order (newest first)
-    const sortedApplications = data.data.sort((a: Application, b: Application) => {
-      return new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime();
-    });
-    setApplications(sortedApplications);
-  } catch (error) {
-    console.error('Error fetching applications:', error);
-    showToast('Failed to load applications', 'error');
-  } finally {
-    setIsLoading(false);
-  }
-};
-
-  // Fetch applications for the agent
-useEffect(() => {
-  if (token) {
-    fetchApplications();
-  }
-}, [token]);
+  useEffect(() => {
+    if (!token || !user?._id) return;
+    const controller = new AbortController();
+    fetchApplications(controller.signal);
+    return () => controller.abort();
+  }, [token, user?._id, startDate, endDate, fetchApplications]);
 
   // Filter applications based on search query, status, and date range
   const filteredApplications = applications.filter(app => {

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { Eye, EyeOff, Search, Users, Briefcase, DollarSign, ArrowUpRight } from 'lucide-react';
+import { Eye, EyeOff, Search, Users, Briefcase, DollarSign, ArrowUpRight, Calendar } from 'lucide-react';
 import Link from 'next/link';
 import { MainLayout } from '@/components/ui/main-layout';
 import type { TooltipProps } from 'recharts';
@@ -22,6 +22,23 @@ const CHART_COLORS = {
   secondary: '#0EA5E9',
   accent: '#059669',
   muted: '#94A3B8',
+};
+
+const getFirstDayOfMonth = (): string => {
+  const now = new Date();
+  const first = new Date(now.getFullYear(), now.getMonth(), 1);
+  const y = first.getFullYear();
+  const m = String(first.getMonth() + 1).padStart(2, '0');
+  const d = String(first.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+};
+
+const getTodayDate = (): string => {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, '0');
+  const d = String(now.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
 };
 
 const Dashboard = () => {
@@ -139,6 +156,8 @@ const Dashboard = () => {
   const [isMonthlyStatsLoading, setIsMonthlyStatsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedInsuranceType, setSelectedInsuranceType] = useState('all');
+  const [startDate, setStartDate] = useState<string>(getFirstDayOfMonth());
+  const [endDate, setEndDate] = useState<string>(getTodayDate());
 
   const highlightStats = useMemo(() => {
     const totalCommission = monthlyStats.reduce((sum, stat) => sum + (stat.commission || 0), 0);
@@ -175,7 +194,7 @@ const Dashboard = () => {
     },
     {
       key: 'applications',
-      title: 'Active Applications',
+      title: 'Recent Applications',
       value: formatNumber(highlightStats.pipelineApplications),
       caption: 'Recent applications under management',
       icon: <Briefcase className="w-4 h-4" />,
@@ -191,15 +210,18 @@ const Dashboard = () => {
     }
   ];
 
-  // Fetch data on mount
+  // Fetch data (same APIs as admin agent-detail modal, with date range)
   useEffect(() => {
     if (!user?._id || !token) return;
 
-    // Fetch recent applications
     const fetchRecentApplications = async () => {
       setIsRecentApplicationsLoading(true);
       try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/getRecentAgentApplications?agentId=${user._id}`, {
+        const url = new URL(`${process.env.NEXT_PUBLIC_API_BASE_URL}/getRecentAgentApplications`);
+        url.searchParams.set('agentId', user._id);
+        if (startDate) url.searchParams.set('startDate', startDate);
+        if (endDate) url.searchParams.set('endDate', endDate);
+        const res = await fetch(url.toString(), {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
@@ -240,11 +262,14 @@ const Dashboard = () => {
       }
     };
 
-    // Fetch insurance distribution
     const fetchInsuranceDistribution = async () => {
       setIsInsuranceDistributionLoading(true);
       try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/getAgentInsuranceDistribution?agentId=${user._id}`, {
+        const url = new URL(`${process.env.NEXT_PUBLIC_API_BASE_URL}/getAgentInsuranceDistribution`);
+        url.searchParams.set('agentId', user._id);
+        if (startDate) url.searchParams.set('startDate', startDate);
+        if (endDate) url.searchParams.set('endDate', endDate);
+        const res = await fetch(url.toString(), {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
@@ -270,11 +295,14 @@ const Dashboard = () => {
       }
     };
 
-    // Fetch weekly stats
     const fetchWeeklyStats = async () => {
       setIsWeeklyStatsLoading(true);
       try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/getWeeklyAgentStats?agentId=${user._id}`, {
+        const url = new URL(`${process.env.NEXT_PUBLIC_API_BASE_URL}/getWeeklyAgentStats`);
+        url.searchParams.set('agentId', user._id);
+        if (startDate) url.searchParams.set('startDate', startDate);
+        if (endDate) url.searchParams.set('endDate', endDate);
+        const res = await fetch(url.toString(), {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
@@ -291,11 +319,14 @@ const Dashboard = () => {
       }
     };
 
-    // Fetch monthly stats
     const fetchMonthlyStats = async () => {
       setIsMonthlyStatsLoading(true);
       try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/getMonthlyAgentStats?agentId=${user._id}`, {
+        const url = new URL(`${process.env.NEXT_PUBLIC_API_BASE_URL}/getMonthlyAgentStats`);
+        url.searchParams.set('agentId', user._id);
+        if (startDate) url.searchParams.set('startDate', startDate);
+        if (endDate) url.searchParams.set('endDate', endDate);
+        const res = await fetch(url.toString(), {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
@@ -316,7 +347,7 @@ const Dashboard = () => {
     fetchInsuranceDistribution();
     fetchWeeklyStats();
     fetchMonthlyStats();
-  }, [user?._id, token]);
+  }, [user?._id, token, startDate, endDate]);
 
   // Add a combined loading state
   const isAnyLoading = isWeeklyStatsLoading || isMonthlyStatsLoading || isRecentApplicationsLoading || isInsuranceDistributionLoading;
@@ -405,6 +436,38 @@ const CustomTooltip = ({ active, payload, label }: TooltipProps<number, string>)
                   >
                     View Pipeline
                   </Link>
+                </div>
+              </div>
+              <div className="mt-6 pt-6 border-t border-slate-200/80">
+                <div className="flex flex-wrap items-center gap-4">
+                  <div className="flex items-center gap-2 text-sm font-medium text-slate-600">
+                    <Calendar className="h-4 w-4 text-slate-500" />
+                    Date range
+                  </div>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2">
+                      <label htmlFor="agent-dash-start-date" className="text-xs font-medium text-slate-500 uppercase tracking-wide">From</label>
+                      <input
+                        id="agent-dash-start-date"
+                        type="date"
+                        value={startDate}
+                        onChange={(e) => setStartDate(e.target.value)}
+                        max={endDate}
+                        className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2">
+                      <label htmlFor="agent-dash-end-date" className="text-xs font-medium text-slate-500 uppercase tracking-wide">To</label>
+                      <input
+                        id="agent-dash-end-date"
+                        type="date"
+                        value={endDate}
+                        onChange={(e) => setEndDate(e.target.value)}
+                        max={getTodayDate()}
+                        className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
