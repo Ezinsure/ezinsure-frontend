@@ -194,7 +194,7 @@ const Dashboard = () => {
     },
     {
       key: 'applications',
-      title: 'Active Applications',
+      title: 'Recent Applications',
       value: formatNumber(highlightStats.pipelineApplications),
       caption: 'Recent applications under management',
       icon: <Briefcase className="w-4 h-4" />,
