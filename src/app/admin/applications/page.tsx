@@ -260,6 +260,7 @@ export default function ManageApplicationsPage() {
     administrationFeesField: hasExistingValue(formData.administrationFees),
     transactionIdField: hasExistingValue(formData.transactionId),
     paymentInstructionsField: hasExistingValue(formData.paymentInstructions),
+    submittedAtField: hasExistingValue(formData.submittedAt),
     statusField: hasExistingValue(formData.status),
     insuranceEndDateField: hasExistingValue(app.insuranceEndAt),
     invoiceUpload: hasExistingValue(app.invoice),
@@ -876,6 +877,9 @@ const getActionButtons = (app: Application) => {
             administrationFees: app.administrationFees || '',
             agentCommission: app.agentCommission?.toString() || '',
             status: app.status || '',
+            submittedAt: app.submittedAt
+              ? new Date(app.submittedAt).toISOString().split('T')[0]
+              : '',
             insuranceEndAt: app.insuranceEndAt || '',
             wantsToAssignAgent: app.agent?._id ? 'yes' : 'no',
             assignToAgent: app.agent?._id || '',
@@ -1116,6 +1120,7 @@ const getActionButtons = (app: Application) => {
   const transactionIdValue = editFormData ? getFormValue(editFormData.transactionId) : '';
   const paymentInstructionsValue = editFormData ? getFormValue(editFormData.paymentInstructions) : '';
   const statusValue = editFormData ? getFormValue(editFormData.status) : '';
+  const submittedAtValue = editFormData ? getFormValue(editFormData.submittedAt) : '';
 
   const isVehicleInsurance =
     editFormData?.insuranceCategory === 'Car Insurance' ||
@@ -1214,9 +1219,10 @@ const getActionButtons = (app: Application) => {
     showPaymentInstructionsField;
 
   const showStatusField = isPersistentlyVisible('statusField') || hasExistingValue(statusValue);
+  const showSubmittedAtField = isPersistentlyVisible('submittedAtField') || hasExistingValue(submittedAtValue);
   const showInsuranceEndDateField =
     isPersistentlyVisible('insuranceEndDateField') || hasExistingValue(insuranceEndDateValue);
-  const showStatusSection = showStatusField || showInsuranceEndDateField;
+  const showStatusSection = showStatusField || showSubmittedAtField || showInsuranceEndDateField;
 
   const showInvoiceUpload = isPersistentlyVisible('invoiceUpload') || hasExistingValue(editingApp?.invoice);
   const showInsuranceCertificateUpload =
@@ -3232,6 +3238,18 @@ const getActionButtons = (app: Application) => {
                           <option value="PAYMENT_VERIFIED">Payment Verified</option>
                           <option value="INSURANCE_ISSUED">Insurance Issued</option>
                         </select>
+                      </div>
+                    )}
+                    {showSubmittedAtField && (
+                      <div>
+                        <label className="block text-xs font-medium mb-1">Submitted At</label>
+                        <input
+                          type="date"
+                          name="submittedAt"
+                          value={submittedAtValue}
+                          onChange={handleEditInputChange}
+                          className="w-full py-1.5 px-2 text-xs rounded-lg focus:outline-none border border-gray-300 focus:border-[var(--main-blue)]"
+                        />
                       </div>
                     )}
                     {showInsuranceEndDateField && (
