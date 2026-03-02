@@ -132,8 +132,8 @@ const agentFaqItems = [
   }
 ];
 
-// Combine general and agent FAQ items
-const allAgentFaqItems = [...generalFaqItems, ...agentFaqItems];
+// Combine general and agent FAQ items, ensuring the agent submission question comes first
+const allAgentFaqItems = [agentFaqItems[0], ...generalFaqItems, ...agentFaqItems.slice(1)];
 
 const getEmbedUrl = (url: string) => {
   if (!url?.trim()) return '';
