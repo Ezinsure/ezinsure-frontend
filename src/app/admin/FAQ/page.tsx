@@ -94,7 +94,7 @@ const agentFaqItems = [
       'Click on "New Application" and fill in the application on behalf of your client.',
       'Submit to initiate the review process.'
     ],
-    videoLink: ''
+    videoLink: 'https://www.youtube.com/watch?v=W9nUWiCnOE8'
   },
   {
     question: 'How can I edit a client\'s application in Action Required?',
