@@ -814,7 +814,6 @@ const handleEditUser = async (updatedUser: User) => {
         formatDate(user.createdAt),
       ]);
 
-      // @ts-ignore - autoTable attaches to jsPDF instance at runtime
       autoTable.default(doc, {
         startY: infoY + 8,
         head: [['#', 'Full Name', 'Email', 'Phone', 'Role', 'Status', 'District', 'Sector', 'Submitted At']],
