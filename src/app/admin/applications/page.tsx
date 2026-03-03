@@ -1224,19 +1224,15 @@ const getActionButtons = (app: Application) => {
     isPersistentlyVisible('insuranceEndDateField') || hasExistingValue(insuranceEndDateValue);
   const showStatusSection = showStatusField || showSubmittedAtField || showInsuranceEndDateField;
 
-  const showInvoiceUpload = isPersistentlyVisible('invoiceUpload') || hasExistingValue(editingApp?.invoice);
-  const showInsuranceCertificateUpload =
-    isPersistentlyVisible('insuranceCertificateUpload') || hasExistingValue(editingApp?.insuranceCertificate);
-  const showContractUpload = isPersistentlyVisible('contractUpload') || hasExistingValue(editingApp?.contract);
-  const showReceiptUpload = isPersistentlyVisible('receiptUpload') || hasExistingValue(editingApp?.receipt);
-  const showEbmUpload = isPersistentlyVisible('ebmUpload') || hasExistingValue(editingApp?.ebm);
+  // Always show all insurance document upload fields while editing,
+  // so admin can upload missing documents later (even if none exist yet)
+  const showInvoiceUpload = true;
+  const showInsuranceCertificateUpload = true;
+  const showContractUpload = true;
+  const showReceiptUpload = true;
+  const showEbmUpload = true;
 
-  const showInsuranceDocumentsSection =
-    showInvoiceUpload ||
-    showInsuranceCertificateUpload ||
-    showContractUpload ||
-    showReceiptUpload ||
-    showEbmUpload;
+  const showInsuranceDocumentsSection = true;
 
   const showProofOfPaymentInfo =
     isPersistentlyVisible('proofOfPaymentInfo') || hasExistingValue(editingApp?.proofOfPayment);
