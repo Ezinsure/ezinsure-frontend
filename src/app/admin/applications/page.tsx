@@ -880,7 +880,9 @@ const getActionButtons = (app: Application) => {
             submittedAt: app.submittedAt
               ? new Date(app.submittedAt).toISOString().split('T')[0]
               : '',
-            insuranceEndAt: app.insuranceEndAt || '',
+            insuranceEndAt: app.insuranceEndAt
+              ? new Date(app.insuranceEndAt).toISOString().split('T')[0]
+              : '',
             wantsToAssignAgent: app.agent?._id ? 'yes' : 'no',
             assignToAgent: app.agent?._id || '',
             invoice: null as File | null,
@@ -1121,21 +1123,11 @@ const getActionButtons = (app: Application) => {
   const paymentInstructionsValue = editFormData ? getFormValue(editFormData.paymentInstructions) : '';
   const statusValue = editFormData ? getFormValue(editFormData.status) : '';
   const submittedAtValue = editFormData ? getFormValue(editFormData.submittedAt) : '';
+  const insuranceEndDateValue = editFormData ? getFormValue(editFormData.insuranceEndAt) : '';
 
   const isVehicleInsurance =
     editFormData?.insuranceCategory === 'Car Insurance' ||
     editFormData?.insuranceCategory === 'MotorBike Insurance';
-
-  const insuranceEndDateValue = editingApp?.insuranceEndAt
-    ? (() => {
-        const date = new Date(editingApp.insuranceEndAt);
-        if (isNaN(date.getTime())) return '';
-        const year = date.getUTCFullYear();
-        const month = String(date.getUTCMonth() + 1).padStart(2, '0');
-        const day = String(date.getUTCDate()).padStart(2, '0');
-        return `${year}-${month}-${day}`;
-      })()
-    : '';
 
   const isPersistentlyVisible = (field: string) => visibleEditFields[field] ?? false;
 
@@ -3252,10 +3244,11 @@ const getActionButtons = (app: Application) => {
                       <div>
                         <label className="block text-xs font-medium mb-1">Insurance End Date</label>
                         <input
-                          type="text"
+                          type="date"
+                          name="insuranceEndAt"
                           value={insuranceEndDateValue}
-                          disabled
-                          className="w-full py-1.5 px-2 text-xs rounded-lg bg-gray-100 border border-gray-300 text-gray-600"
+                          onChange={handleEditInputChange}
+                          className="w-full py-1.5 px-2 text-xs rounded-lg focus:outline-none border border-gray-300 focus:border-[var(--main-blue)]"
                         />
                       </div>
                     )}
