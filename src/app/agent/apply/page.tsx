@@ -262,6 +262,10 @@ export default function AgentApplyPage() {
   // Track if plate search just completed to prevent onChange from resetting isNewVehicle
   const plateSearchJustCompletedRef = useRef(false);
 
+  // Track whether identification and plate searches have been performed
+  const [hasFetchedIdentification, setHasFetchedIdentification] = useState(false);
+  const [hasFetchedPlate, setHasFetchedPlate] = useState(false);
+
   // Initialize tracking data on component mount
   useEffect(() => {
     const initializeTracking = async () => {
@@ -418,6 +422,9 @@ export default function AgentApplyPage() {
         ...prev,
         isNewVehicle: false // Reset to false, will be updated by search result
       }));
+      // Reset search fetch flags
+      setHasFetchedIdentification(false);
+      setHasFetchedPlate(false);
     } 
     // Clear vehicle fields when insurance category changes
     else if (name === 'insuranceCategory') {
@@ -611,16 +618,19 @@ export default function AgentApplyPage() {
 
   // Handle search results to track isNewClient and isNewVehicle
   const handleSearchResult = (exists: boolean, searchType: 'plateNumber' | 'identificationNumber') => {
-    setSearchResults(prev => {
-      const newState = {
-        ...prev,
-        [searchType === 'identificationNumber' ? 'isNewClient' : 'isNewVehicle']: !exists
-      };
-      // Debug: Log when plate number search finds a vehicle
-      if (searchType === 'plateNumber') {
+    setSearchResults(prev => ({
+      ...prev,
+      [searchType === 'identificationNumber' ? 'isNewClient' : 'isNewVehicle']: !exists
+    }));
+
+    if (searchType === 'identificationNumber') {
+      setHasFetchedIdentification(true);
+      if (formState.identificationDocumentType === 'plateNumber') {
+        setHasFetchedPlate(true);
       }
-      return newState;
-    });
+    } else if (searchType === 'plateNumber') {
+      setHasFetchedPlate(true);
+    }
   };
 
 
@@ -695,6 +705,21 @@ export default function AgentApplyPage() {
     };
     const formErrors = validateForm(formDataForValidation, validationRules);
     setErrors(formErrors);
+
+    // Business rule: require successful searches before submission
+    const needsPlateSearch =
+      (formState.insuranceCategory === 'car' || formState.insuranceCategory === 'motorbike') &&
+      !(formState.identificationDocumentType === 'plateNumber' && hasFetchedIdentification);
+
+    if (!hasFetchedIdentification) {
+      showToast('Please search the identification document before submitting the application.', 'error');
+      return;
+    }
+
+    if (needsPlateSearch && !hasFetchedPlate) {
+      showToast('Please search the plate number before submitting the application.', 'error');
+      return;
+    }
 
     if (!hasErrors(formErrors)) {
       setIsSubmitting(true);
@@ -867,6 +892,10 @@ export default function AgentApplyPage() {
           isNewVehicle: false, // Default to false - only true if search confirms vehicle doesn't exist
         });
 
+      // Reset search fetch flags
+      setHasFetchedIdentification(false);
+      setHasFetchedPlate(false);
+
         // Reset search input components to clear their messages
         setIdentificationNumberResetTrigger(prev => prev + 1);
         setPlateNumberResetTrigger(prev => prev + 1);
@@ -987,6 +1016,11 @@ export default function AgentApplyPage() {
                           isNewClient: true,
                           isNewVehicle: false // Reset to false, will be updated by search result
                         }));
+                        // Identification search must be performed again
+                        setHasFetchedIdentification(false);
+                        if (formState.identificationDocumentType === 'plateNumber') {
+                          setHasFetchedPlate(false);
+                        }
                         if (errors.identificationNumber) {
                           setErrors(prev => {
                             const newErrors = { ...prev };
@@ -1230,6 +1264,8 @@ export default function AgentApplyPage() {
                             ...prev,
                             isNewVehicle: false // Reset to false, will be updated by search result
                           }));
+                          // Require a fresh plate search before submit
+                          setHasFetchedPlate(false);
                           if (errors.plateNumber) {
                             setErrors(prev => {
                               const newErrors = { ...prev };
