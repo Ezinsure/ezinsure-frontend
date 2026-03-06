@@ -2245,6 +2245,8 @@ export default function AdminNewApplicationPage() {
 
                       <option value="9 Months">9 Months</option>
 
+                      <option value="11 Months">11 Months</option>
+
                       <option value="12 Months">12 Months</option>
 
                     </select>

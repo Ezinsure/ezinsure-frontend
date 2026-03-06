@@ -457,6 +457,7 @@ export default function ApplyPage() {
       case '3': return '3 Months';
       case '6': return '6 Months';
       case '9': return '9 Months';
+      case '11': return '11 Months';
       case '12': return '12 Months';
       default: return '12 Months';
     }
@@ -1331,6 +1332,7 @@ export default function ApplyPage() {
                     <option value="3">3 Months</option>
                     <option value="6">6 Months</option>
                     <option value="9">9 Months</option>
+                  <option value="11">11 Months</option>
                     <option value="12">12 Months</option>
                   </select>
                   {errors.insuranceDuration && (
