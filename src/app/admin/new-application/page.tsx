@@ -429,57 +429,50 @@ export default function AdminNewApplicationPage() {
 
   // Handle search success for plate number
   const handlePlateSearchSuccess = (data: Record<string, unknown>) => {
-    // Mark that a plate search just completed
     plateSearchJustCompletedRef.current = true;
-    
-    const hasClientId = !!(data.clientId as string);
+    const usePlateAsClientId = formData.identificationDocumentType === 'plateNumber';
+
     setFormData(prev => ({
       ...prev,
-      // Client information from vehicle owner
-      fullName: (data.fullName as string) || prev.fullName,
-      email: (data.email as string) || prev.email,
-      phoneNumber: (data.phoneNumber as string) || prev.phoneNumber,
-      address: (data.address as string) || prev.address,
-      dateOfBirth: (data.dateOfBirth as string) || prev.dateOfBirth,
-      province: (data.province as string) || prev.province,
-      district: (data.district as string) || prev.district,
-      sector: (data.sector as string) || prev.sector,
-      // Update identification info to client's actual ID (not the plate number used for search)
-      identificationNumber: (data.identificationNumber as string) || prev.identificationNumber,
-      identificationDocumentType: (data.identificationDocumentType as string) || prev.identificationDocumentType,
-      // Vehicle-specific fields
+      ...(usePlateAsClientId
+        ? {
+            fullName: (data.fullName as string) || prev.fullName,
+            email: (data.email as string) || prev.email,
+            phoneNumber: (data.phoneNumber as string) || prev.phoneNumber,
+            address: (data.address as string) || prev.address,
+            dateOfBirth: (data.dateOfBirth as string) || prev.dateOfBirth,
+            province: (data.province as string) || prev.province,
+            district: (data.district as string) || prev.district,
+            sector: (data.sector as string) || prev.sector,
+            identificationNumber: (data.identificationNumber as string) || prev.identificationNumber,
+            identificationDocumentType: (data.identificationDocumentType as string) || prev.identificationDocumentType,
+            clientId: (data.clientId as string) || prev.clientId,
+            identificationDocumentUrl: (data.identificationDocumentUrl as string) || '',
+            isNewClient: !!(data.clientId as string) ? false : prev.isNewClient,
+          }
+        : {}),
       vehicleType: (data.vehicleType as string) || prev.vehicleType,
       vehicleAge: (data.vehicleAge as string) || prev.vehicleAge,
       vehicleUse: (data.vehicleUse as string) || prev.vehicleUse,
       otherVehicleUse: (data.otherVehicleUse as string) || prev.otherVehicleUse,
       plateNumber: (data.plateNumber as string) || prev.plateNumber,
-      // Store additional IDs for reference
       vehicleId: (data.vehicleId as string) || prev.vehicleId,
-      clientId: (data.clientId as string) || prev.clientId,
-      // Document URLs (for viewing existing documents)
-      identificationDocumentUrl: (data.identificationDocumentUrl as string) || '',
       yellowCardUrl: (data.yellowCardUrl as string) || '',
       pastInsuranceCertificateUrl: (data.pastInsuranceCertificateUrl as string) || '',
-      // Keep formData in sync: plate search found vehicle (and client if clientId present)
-      isNewClient: !hasClientId,
       isNewVehicle: false,
     }));
 
-    // Update search results: if we found a vehicle, the client also exists (vehicle belongs to client)
-    // handlePlateSearchSuccess is only called when a vehicle is found, so always set isNewVehicle to false
     setSearchResults(prev => ({
       ...prev,
-      isNewClient: !hasClientId, // Client exists iff clientId is present
-      isNewVehicle: false, // Vehicle exists - we found it via plate search
+      isNewClient: usePlateAsClientId && data.clientId ? false : prev.isNewClient,
+      isNewVehicle: false,
     }));
-    
-    // Reset the flag after a short delay to allow state updates to complete
+
     setTimeout(() => {
       plateSearchJustCompletedRef.current = false;
     }, 100);
 
-    // Update districts and sectors if province is set
-    if (data.province) {
+    if (usePlateAsClientId && data.province) {
       const selectedProvince = rwandaProvinces.find(p => p.name === (data.province as string));
       const districts = selectedProvince?.districts || [];
       const transformedDistricts = districts.map(district => ({
@@ -487,7 +480,6 @@ export default function AdminNewApplicationPage() {
         sectors: district.sectors?.map(sector => sector.name) || []
       }));
       setAvailableDistricts(transformedDistricts);
-
       if (data.district) {
         const selectedDistrict = transformedDistricts.find(d => d.name === (data.district as string));
         setAvailableSectors(selectedDistrict?.sectors || []);
