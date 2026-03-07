@@ -17,7 +17,8 @@ enum ApplicationStatus {
   INVOICE_SENT = 'invoice_sent',
   REVIEW_PAYMENT = 'review_payment',
   PAYMENT_VERIFIED = 'payment_verified',
-  INSURANCE_ISSUED = 'insurance_issued'
+  INSURANCE_ISSUED = 'insurance_issued',
+  CANCELLED = 'cancelled'
 }
 
 interface Application {
@@ -595,6 +596,8 @@ export default function AdminMyApplicationsPage() {
         return <span className="px-2 py-1 rounded-full bg-green-100 text-green-700 text-sm font-medium">Payment Verified</span>;
       case ApplicationStatus.INSURANCE_ISSUED:
         return <span className="px-2 py-1 rounded-full bg-emerald-100 text-emerald-700 text-sm font-medium">Insurance Issued</span>;
+      case ApplicationStatus.CANCELLED:
+        return <span className="px-2 py-1 rounded-full bg-slate-100 text-slate-700 text-sm font-medium">Cancelled</span>;
       default:
         return <span className="px-2 py-1 rounded-full bg-gray-100 text-gray-700 text-sm font-medium">Unknown</span>;
     }
@@ -763,6 +766,7 @@ export default function AdminMyApplicationsPage() {
                 <option value={ApplicationStatus.REVIEW_PAYMENT}>Review Payment</option>
                 <option value={ApplicationStatus.PAYMENT_VERIFIED}>Payment Verified</option>
                 <option value={ApplicationStatus.INSURANCE_ISSUED}>Insurance Issued</option>
+                <option value={ApplicationStatus.CANCELLED}>Cancelled</option>
               </select>
             </div>
             

@@ -32,7 +32,9 @@ enum ApplicationStatus {
 
   PAYMENT_VERIFIED = 'payment_verified',
 
-  INSURANCE_ISSUED = 'insurance_issued'
+  INSURANCE_ISSUED = 'insurance_issued',
+
+  CANCELLED = 'cancelled'
 }
 
 // Tracking data interfaces

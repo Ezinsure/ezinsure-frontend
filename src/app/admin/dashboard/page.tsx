@@ -747,6 +747,8 @@ const CustomTooltip: React.FC<TooltipProps<number, string>> = ({ active, payload
         return <span className="px-2 py-1 rounded-full bg-green-100 text-green-700 text-[9px] font-medium">Payment Verified</span>;
       case 'insurance_issued':
         return <span className="px-2 py-1 rounded-full bg-emerald-100 text-emerald-700 text-[9px] font-medium">Insurance Issued</span>;
+      case 'cancelled':
+        return <span className="px-2 py-1 rounded-full bg-slate-100 text-slate-700 text-[9px] font-medium">Cancelled</span>;
       default:
         return <span className="px-2 py-1 rounded-full bg-gray-100 text-gray-700 text-[9px] font-medium">{status.charAt(0).toUpperCase() + status.slice(1)}</span>;
     }
