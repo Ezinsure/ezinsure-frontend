@@ -655,6 +655,12 @@ const getActionButtons = (app: Application) => {
             Insurance Issued
           </span>
         );
+      case 'cancelled':
+        return (
+          <span className="px-2 py-1 rounded-full bg-slate-100 text-slate-700 text-[10px] font-medium">
+            Cancelled
+          </span>
+        );
       default:
         return (
           <span className="px-2 py-1 rounded-full bg-gray-100 text-gray-700 text-[10px] font-medium">
@@ -991,6 +997,7 @@ const getActionButtons = (app: Application) => {
                 <option value="review_payment">Payment Review</option>
                 <option value="payment_verified">Payment Verified</option>
                 <option value="insurance_issued">Insurance Issued</option>
+                <option value="cancelled">Cancelled</option>
               </select>
             </div>
 
@@ -1949,6 +1956,7 @@ const getActionButtons = (app: Application) => {
                           <option value="REVIEW_PAYMENT">Review Payment</option>
                           <option value="PAYMENT_VERIFIED">Payment Verified</option>
                           <option value="INSURANCE_ISSUED">Insurance Issued</option>
+                          <option value="CANCELLED">Cancelled</option>
                         </select>
                       </div>
                     )}

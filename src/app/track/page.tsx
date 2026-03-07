@@ -1133,6 +1133,8 @@ const handleEditSuccess = async (): Promise<void> => {
         return <span className="px-2 py-1 rounded-full bg-green-100 text-green-700 text-xs font-medium">Payment Verified</span>;
       case 'INSURANCE_ISSUED':
         return <span className="px-2 py-1 rounded-full bg-emerald-100 text-emerald-700 text-xs font-medium">Insurance Issued</span>;
+      case 'CANCELLED':
+        return <span className="px-2 py-1 rounded-full bg-slate-100 text-slate-700 text-xs font-medium">Cancelled</span>;
       default:
         return <span className="px-2 py-1 rounded-full bg-gray-100 text-gray-700 text-xs font-medium">{status}</span>;
     }
@@ -1585,6 +1587,14 @@ const handleEditSuccess = async (): Promise<void> => {
           <h4 className="font-medium text-emerald-700 mb-2">Insurance Issued</h4>
           <p className="text-sm text-gray-600">
             Your insurance has been issued. You can download your certificate above.
+          </p>
+        </div>
+      )}
+      {application.status === 'CANCELLED' && (
+        <div className="mt-6 bg-slate-50 p-4 rounded-lg">
+          <h4 className="font-medium text-slate-700 mb-2">Application Cancelled</h4>
+          <p className="text-sm text-gray-600">
+            This application was cancelled. You can start a new application anytime.
           </p>
         </div>
       )}

@@ -65,6 +65,8 @@ const Dashboard = () => {
         return <span className={`${badgeBase} bg-green-100 text-green-700`}>Payment Verified</span>;
       case 'insurance_issued':
         return <span className={`${badgeBase} bg-emerald-100 text-emerald-700`}>Insurance Issued</span>;
+      case 'cancelled':
+        return <span className={`${badgeBase} bg-slate-100 text-slate-700`}>Cancelled</span>;
       default:
         return <span className={`${badgeBase} bg-gray-100 text-gray-700`}>{status?.charAt(0).toUpperCase() + status?.slice(1)}</span>;
     }
