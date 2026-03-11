@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { FileInput } from '@/components/ui/file-input';
 import { useToast } from '@/components/ui/toast';
 import { useAuth } from '@/context/AuthContext';
+import { useApiClient } from '@/utils/apiClient';
 import { DocumentViewer } from '@/components/ui/document-viewer';
 
 interface Application {
@@ -85,6 +86,7 @@ interface PaginationProps {
 const AdminCommissionReviewPage = () => {
   const { showToast, ToastContainer } = useToast();
   const { token } = useAuth();
+  const { apiFetch } = useApiClient();
   const showToastRef = useRef(showToast);
 
   // Keep ref updated with latest showToast (without useEffect to avoid loops)
@@ -141,17 +143,9 @@ const AdminCommissionReviewPage = () => {
 
     try {
       setIsLoading(true);
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/getAllApplicationsPendingAdminReview`, {
+      const response = await apiFetch('/getAllApplicationsPendingAdminReview', {
         method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
       });
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch applications ready to be paid');
-      }
 
       const data = await response.json();
       const fetched: Application[] = data.data || [];

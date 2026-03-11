@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { MainLayout } from '@/components/ui/main-layout';
 import { useToast } from '@/components/ui/toast';
 import { useAuth } from '@/context/AuthContext';
+import { useApiClient } from '@/utils/apiClient';
 import { 
   MessageSquare, 
   Search, 
@@ -223,6 +224,7 @@ export default function SMSTrackingPage() {
   const [endDate, setEndDate] = useState<string>(getTodayDate());
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(25);
+  const { apiFetch } = useApiClient();
 
   // Fetch SMS records from API
   useEffect(() => {
@@ -232,40 +234,65 @@ export default function SMSTrackingPage() {
     }
     const controller = new AbortController();
     setIsLoading(true);
-    const url = new URL(`${process.env.NEXT_PUBLIC_API_BASE_URL}/getSMSReport`);
-    url.searchParams.set('startDate', startDate);
-    url.searchParams.set('endDate', endDate);
-    fetch(url.toString(), {
-      signal: controller.signal,
-      headers: {
-        'Authorization': `Bearer ${token}`,
-      },
-    })
-      .then(async (res) => {
-        if (!res.ok) {
-          const errText = await res.text();
-          throw new Error(errText || `Failed to load SMS report (${res.status})`);
-        }
+
+    const query = new URLSearchParams({
+      startDate,
+      endDate,
+    }).toString();
+
+    (async () => {
+      try {
+        const res = await apiFetch(`/getSMSReport?${query}`, {
+          signal: controller.signal,
+          method: 'GET',
+        });
+
         const json = await res.json();
         const data: SMSRecord[] = Array.isArray(json?.data) ? json.data : [];
         setSmsRecords(data);
         setReportSummary({
-          totalMessages: typeof json.totalMessages === 'number' ? json.totalMessages : data.length,
-          delivered: typeof json.delivered === 'number' ? json.delivered : data.filter((r: SMSRecord) => r.status === 'DELIVERED').length,
-          failed: typeof json.failed === 'number' ? json.failed : data.filter((r: SMSRecord) => r.status === 'FAILED').length,
-          pending: typeof json.pending === 'number' ? json.pending : data.filter((r: SMSRecord) => r.status === 'PENDING').length,
-          deliveryRate: typeof json.deliveryRate === 'string' ? json.deliveryRate : (typeof json.deliveryRate === 'number' ? String(json.deliveryRate) : (data.length > 0 ? ((data.filter((r: SMSRecord) => r.status === 'DELIVERED').length / data.length) * 100).toFixed(2) : '0')),
+          totalMessages:
+            typeof json.totalMessages === 'number' ? json.totalMessages : data.length,
+          delivered:
+            typeof json.delivered === 'number'
+              ? json.delivered
+              : data.filter((r: SMSRecord) => r.status === 'DELIVERED').length,
+          failed:
+            typeof json.failed === 'number'
+              ? json.failed
+              : data.filter((r: SMSRecord) => r.status === 'FAILED').length,
+          pending:
+            typeof json.pending === 'number'
+              ? json.pending
+              : data.filter((r: SMSRecord) => r.status === 'PENDING').length,
+          deliveryRate:
+            typeof json.deliveryRate === 'string'
+              ? json.deliveryRate
+              : typeof json.deliveryRate === 'number'
+              ? String(json.deliveryRate)
+              : data.length > 0
+              ? (
+                  (data.filter((r: SMSRecord) => r.status === 'DELIVERED').length /
+                    data.length) *
+                  100
+                ).toFixed(2)
+              : '0',
         });
-      })
-      .catch((err) => {
-        if (err.name === 'AbortError') return;
-        showToast(err instanceof Error ? err.message : 'Failed to load SMS report', 'error');
+      } catch (err: any) {
+        if (err?.name === 'AbortError') return;
+        showToast(
+          err instanceof Error ? err.message : 'Failed to load SMS report',
+          'error',
+        );
         setSmsRecords([]);
         setReportSummary(null);
-      })
-      .finally(() => setIsLoading(false));
+      } finally {
+        setIsLoading(false);
+      }
+    })();
+
     return () => controller.abort();
-  }, [token, startDate, endDate, showToast]);
+  }, [token, startDate, endDate, showToast, apiFetch]);
 
   // Filter SMS records
   const filteredRecords = useMemo(() => {

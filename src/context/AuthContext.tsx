@@ -21,6 +21,7 @@ interface AuthContextType {
   logout: () => void;
   isLoading: boolean;
   isAuthenticated: boolean;
+  forceLogout: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -217,6 +218,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [router, token]);
 
+  // Force logout without waiting for backend – used when token is expired or invalid
+  const forceLogout = useCallback(() => {
+    setToken(null);
+    setUser(null);
+    sessionStorage.removeItem('ezinsure_token');
+    document.cookie = 'ezinsure_token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT';
+    window.location.href = '/login';
+  }, []);
+
   // Listen for storage events (cross-tab communication)
   useEffect(() => {
     const handleStorageChange = (e: StorageEvent) => {
@@ -254,6 +264,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     logout,
     isLoading,
     isAuthenticated: !!token,
+    forceLogout,
   };
 
   useEffect(() => {

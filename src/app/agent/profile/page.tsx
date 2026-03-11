@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/toast';
 import { validateForm, ValidationRules, validationPatterns } from '@/components/ui/form-validation';
 import { useAuth } from '@/context/AuthContext';
+import { useApiClient } from '@/utils/apiClient';
 import { Trash2, FileText, Eye, EyeClosed } from 'lucide-react';
 import { rwandaProvinces } from '@/utils/rwanda-administrative';
 import { EmailChangeForm } from '@/components/admin/email-change-form';
@@ -86,6 +87,7 @@ export default function ProfilePage() {
   const [showDocumentViewer, setShowDocumentViewer] = useState(false);
   const [selectedDocument, setSelectedDocument] = useState<string | null>(null);
   const [showEmailModal, setShowEmailModal] = useState(false);
+  const { apiFetch } = useApiClient();
   
   const [profile, setProfile] = useState<User>({
     _id: '',
@@ -307,13 +309,9 @@ export default function ProfilePage() {
           return;
         }
 
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/updateUser/${profile._id}`, {
+        const response = await apiFetch(`/updateUser/${profile._id}`, {
           method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify(changedFields)
+          body: JSON.stringify(changedFields),
         });
 
         if (!response.ok) {
@@ -376,17 +374,13 @@ export default function ProfilePage() {
       setIsChangingPassword(true);
       
       try {
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/resetPassword`, {
+        const response = await apiFetch('/resetPassword', {
           method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
           body: JSON.stringify({
             currentPassword: passwordData.currentPassword,
             newPassword: passwordData.newPassword,
-            confirmPassword: passwordData.confirmPassword
-          })
+            confirmPassword: passwordData.confirmPassword,
+          }),
         });
 
         if (!response.ok) {

@@ -9,6 +9,7 @@ import { SearchInput } from '@/components/ui/search-input';
 import { RwandaPhoneInput } from '@/components/ui/rwanda-phone-input';
 import { DocumentViewer } from '@/components/ui/document-viewer';
 import { useToast } from '@/components/ui/toast';
+import { useApiClient } from '@/utils/apiClient';
 import {
   validateForm,
   ValidationRules,
@@ -203,6 +204,7 @@ const getTrackingData = async (): Promise<TrackingData> => {
 
 export default function AgentApplyPage() {
   const { showToast, ToastContainer } = useToast();
+  const { apiFetch } = useApiClient();
   const [formKey, setFormKey] = useState(Date.now());
   const [trackingData, setTrackingData] = useState<TrackingData | null>(null);
   const [viewingDocument, setViewingDocument] = useState<{ url: string; name: string } | null>(null);
@@ -804,34 +806,10 @@ export default function AgentApplyPage() {
           console.warn('[Agent Apply] No tracking data available - it was not captured!');
         }
 
-        const token = getTokenFromStorage();
-
-        if (!token) {
-          showToast('Authentication required. Please login again.', 'error');
-          return;
-        }
-
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/newApply`, {
+        const response = await apiFetch('/newApply', {
           method: 'POST',
           body: formData,
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
         });
-
-        if (!response.ok) {
-          const errorData = await response.json();
-          console.error('Submission error:', errorData);
-          let errorMessage = errorData.error || errorData.message || 'Application submission failed';
-
-          if (typeof errorMessage === 'string' && errorMessage.toLowerCase().includes('duplicate key')) {
-            if (errorMessage.toLowerCase().includes('email')) {
-              errorMessage = 'This email is already linked to another client. Please use a different email or search using the identification number to retrieve the existing client.';
-            }
-          }
-
-          throw new Error(errorMessage);
-        }
 
         const data = await response.json();
         
