@@ -278,8 +278,8 @@ export default function SMSTrackingPage() {
                 ).toFixed(2)
               : '0',
         });
-      } catch (err: any) {
-        if (err?.name === 'AbortError') return;
+      } catch (err: unknown) {
+        if ((err as { name?: string })?.name === 'AbortError') return;
         showToast(
           err instanceof Error ? err.message : 'Failed to load SMS report',
           'error',

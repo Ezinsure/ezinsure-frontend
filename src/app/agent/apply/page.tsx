@@ -309,15 +309,6 @@ export default function AgentApplyPage() {
     identificationNumber: { required: true },
   };
 
-  const getTokenFromStorage = () => {
-    try {
-      return sessionStorage.getItem('ezinsure_token');
-    } catch (error) {
-      console.error('Error accessing sessionStorage:', error);
-      return null;
-    }
-  };
-
   const getDateLimits = () => {
     const today = new Date();
     const maxDate = new Date(today.getFullYear() - 18, today.getMonth(), today.getDate());

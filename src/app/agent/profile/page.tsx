@@ -67,7 +67,7 @@ interface PasswordValidation {
 export default function ProfilePage() {
   const router = useRouter();
   const { showToast, ToastContainer } = useToast();
-  const { token, user: authUser } = useAuth();
+  const { user: authUser } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
