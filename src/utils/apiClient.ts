@@ -9,17 +9,22 @@ export const useApiClient = () => {
   const { token, forceLogout } = useAuth();
 
   const apiFetch = async (path: string, options: RequestInit = {}) => {
-    const response = await fetch(
-      `${process.env.NEXT_PUBLIC_API_BASE_URL}${path}`,
-      {
-        ...options,
-        headers: {
-          'Content-Type': 'application/json',
-          ...(options.headers || {}),
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-      },
-    );
+    const isFormData = typeof FormData !== 'undefined' && options.body instanceof FormData;
+
+    const baseHeaders: HeadersInit = {
+      ...(options.headers || {}),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    };
+
+    // Only set JSON content type by default for non-FormData bodies.
+    if (!isFormData && !(baseHeaders as Record<string, string>)['Content-Type']) {
+      (baseHeaders as Record<string, string>)['Content-Type'] = 'application/json';
+    }
+
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}${path}`, {
+      ...options,
+      headers: baseHeaders,
+    });
 
     if (!response.ok) {
       // Try to detect expired or invalid JWT
