@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/toast';
 import { validateForm, ValidationRules, validationPatterns } from '@/components/ui/form-validation';
 import { useAuth } from '@/context/AuthContext';
+import { useApiClient } from '@/utils/apiClient';
 import { Trash2, FileText, Eye, EyeClosed, Settings, Users, Mail } from 'lucide-react';
 import { rwandaProvinces } from '@/utils/rwanda-administrative';
 import { MassClientCreation } from '@/components/admin/mass-client-creation';
@@ -78,7 +79,7 @@ interface ClientMessage {
 export default function SuperAdminProfilePage() {
   const router = useRouter();
   const { showToast, ToastContainer } = useToast();
-  const { token, user: authUser } = useAuth();
+  const { user: authUser } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
@@ -109,6 +110,7 @@ export default function SuperAdminProfilePage() {
   });
   const [isSendingMessage, setIsSendingMessage] = useState(false);
   const [messageErrors, setMessageErrors] = useState<{ [key: string]: string }>({});
+  const { apiFetch } = useApiClient();
   
   const [profile, setProfile] = useState<User>({
     _id: '',
@@ -324,13 +326,9 @@ export default function SuperAdminProfilePage() {
           return;
         }
 
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/updateUser/${profile._id}`, {
+        const response = await apiFetch(`/updateUser/${profile._id}`, {
           method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify(changedFields)
+          body: JSON.stringify(changedFields),
         });
 
         if (!response.ok) {
@@ -393,17 +391,13 @@ export default function SuperAdminProfilePage() {
       setIsChangingPassword(true);
       
       try {
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/resetPassword`, {
+        const response = await apiFetch('/resetPassword', {
           method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
           body: JSON.stringify({
             currentPassword: passwordData.currentPassword,
             newPassword: passwordData.newPassword,
-            confirmPassword: passwordData.confirmPassword
-          })
+            confirmPassword: passwordData.confirmPassword,
+          }),
         });
 
         if (!response.ok) {
@@ -437,13 +431,9 @@ export default function SuperAdminProfilePage() {
     setIsSavingSettings(true);
     
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/system-settings`, {
+      const response = await apiFetch('/system-settings', {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(systemSettings)
+        body: JSON.stringify(systemSettings),
       });
 
       if (!response.ok) {
@@ -496,13 +486,9 @@ export default function SuperAdminProfilePage() {
       
       // Debug: Log the message being sent
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/sendSMSToAllclients`, {
+      const response = await apiFetch('/sendSMSToAllclients', {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/x-www-form-urlencoded'
-        },
-        body: formData
+        body: formData,
       });
 
       if (!response.ok) {

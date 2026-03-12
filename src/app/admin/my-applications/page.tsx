@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/components/ui/toast';
 import { DocumentViewer } from '@/components/ui/document-viewer';
 import { useAuth } from '@/context/AuthContext';
+import { useApiClient } from '@/utils/apiClient';
 import { formatDateUTC } from '@/utils/date-formatter';
 
 // Application statuses
@@ -145,6 +146,8 @@ export default function AdminMyApplicationsPage() {
   } | null>(null);
   const itemsPerPage = 10;
 
+  const { apiFetch } = useApiClient();
+
   // Helper functions for date filtering
   const getFirstDayOfMonth = () => {
     const now = new Date();
@@ -166,17 +169,9 @@ export default function AdminMyApplicationsPage() {
   const fetchApplications = useCallback(async () => {
     try {
       setIsLoading(true);
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/getApplicationsByAdmin`, {
+      const response = await apiFetch('/getApplicationsByAdmin', {
         method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        }
       });
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch applications');
-      }
       
       const data = await response.json();
       

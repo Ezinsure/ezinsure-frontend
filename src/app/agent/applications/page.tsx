@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/components/ui/toast';
 import { DocumentViewer } from '@/components/ui/document-viewer';
 import { useAuth } from '@/context/AuthContext';
+import { useApiClient } from '@/utils/apiClient';
 import { FileInput } from '@/components/ui/file-input';
 import { rwandaProvinces } from '@/utils/rwanda-administrative';
 import { formatDateUTC, formatDateForExcel as formatDateForExcelUtil, formatTime } from '@/utils/date-formatter';
@@ -966,6 +967,7 @@ const [formState, setFormState] = useState<Partial<Application>>(() => {
 export default function AgentApplicationsPage() {
   const { showToast, ToastContainer } = useToast();
   const { token, user } = useAuth();
+  const { apiFetch } = useApiClient();
   const [applications, setApplications] = useState<Application[]>([]);
   const [selectedApp, setSelectedApp] = useState<Application | null>(null);
   const [paymentProof, setPaymentProof] = useState<File | null>(null);
@@ -1067,22 +1069,14 @@ export default function AgentApplicationsPage() {
     if (!token || !user?._id) return;
     try {
       setIsLoading(true);
-      const url = new URL(`${process.env.NEXT_PUBLIC_API_BASE_URL}/getApplicationsByAgent`);
-      url.searchParams.set('agentId', user._id);
-      if (startDate) url.searchParams.set('startDate', startDate);
-      if (endDate) url.searchParams.set('endDate', endDate);
-      const response = await fetch(url.toString(), {
+      const params = new URLSearchParams({ agentId: user._id });
+      if (startDate) params.set('startDate', startDate);
+      if (endDate) params.set('endDate', endDate);
+
+      const response = await apiFetch(`/getApplicationsByAgent?${params.toString()}`, {
         method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
         ...(signal && { signal }),
       });
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch applications');
-      }
 
       const data = await response.json();
 

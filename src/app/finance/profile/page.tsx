@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/toast';
 import { validateForm, ValidationRules, validationPatterns } from '@/components/ui/form-validation';
 import { useAuth } from '@/context/AuthContext';
+import { useApiClient } from '@/utils/apiClient';
 import { Trash2, FileText, Eye } from 'lucide-react';
 import { rwandaProvinces } from '@/utils/rwanda-administrative';
 
@@ -55,7 +56,7 @@ interface PasswordValidation {
 export default function FinanceProfilePage() {
   const router = useRouter();
   const { showToast, ToastContainer } = useToast();
-  const { token, user: authUser } = useAuth();
+  const { user: authUser } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
@@ -71,6 +72,7 @@ export default function FinanceProfilePage() {
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [showDocumentViewer, setShowDocumentViewer] = useState(false);
   const [selectedDocument, setSelectedDocument] = useState<string | null>(null);
+  const { apiFetch } = useApiClient();
   
   const [profile, setProfile] = useState<User>({
     _id: '',
@@ -290,13 +292,9 @@ export default function FinanceProfilePage() {
           return;
         }
 
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/updateUser/${profile._id}`, {
+        const response = await apiFetch(`/updateUser/${profile._id}`, {
           method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify(changedFields)
+          body: JSON.stringify(changedFields),
         });
 
         if (!response.ok) {
@@ -359,17 +357,13 @@ export default function FinanceProfilePage() {
       setIsChangingPassword(true);
       
       try {
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/resetPassword`, {
+        const response = await apiFetch('/resetPassword', {
           method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
           body: JSON.stringify({
             currentPassword: passwordData.currentPassword,
             newPassword: passwordData.newPassword,
-            confirmPassword: passwordData.confirmPassword
-          })
+            confirmPassword: passwordData.confirmPassword,
+          }),
         });
 
         if (!response.ok) {

@@ -21,6 +21,7 @@ interface AuthContextType {
   logout: () => void;
   isLoading: boolean;
   isAuthenticated: boolean;
+  forceLogout: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -133,32 +134,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       const { data, token } = await response.json();
 
-      
-      // Set cookies properly
+      // Persist the token for both middleware (cookie) and client-side code (sessionStorage).
+      sessionStorage.setItem('ezinsure_token', token);
+
       const cookieOptions = {
         path: '/',
         sameSite: 'Lax' as const,
         secure: process.env.NODE_ENV === 'production',
       };
 
-      // Set token cookie
+      // Minimal auth cookie for middleware; user data always comes from /auth/me
       document.cookie = `ezinsure_token=${token}; ${Object.entries(cookieOptions)
         .map(([key, value]) => `${key}=${value}`)
         .join('; ')}`;
-
-      // Set user cookie with simplified data
-      const userData = {
-        _id: data._id,
-        role: data.role,
-        email: data.email
-      };
-      document.cookie = `ezinsure_user=${JSON.stringify(userData)}; ${Object.entries(cookieOptions)
-        .map(([key, value]) => `${key}=${value}`)
-        .join('; ')}`;
-
-      // Store in sessionStorage for client-side access
-      sessionStorage.setItem('ezinsure_token', token);
-      sessionStorage.setItem('ezinsure_user', JSON.stringify(data));
 
       // Update state immediately
       setToken(token);
@@ -204,9 +192,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setToken(null);
         setUser(null);
         sessionStorage.removeItem('ezinsure_token');
-        sessionStorage.removeItem('ezinsure_user');
+        // Clear auth cookie so middleware treats user as logged out
         document.cookie = 'ezinsure_token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT';
-        document.cookie = 'ezinsure_user=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT';
         localStorage.setItem('auth_event', JSON.stringify({
           type: 'logout',
           timestamp: Date.now()
@@ -230,6 +217,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       // Optionally, show a toast or alert here
     }
   }, [router, token]);
+
+  // Force logout without waiting for backend – used when token is expired or invalid
+  const forceLogout = useCallback(() => {
+    setToken(null);
+    setUser(null);
+    sessionStorage.removeItem('ezinsure_token');
+    document.cookie = 'ezinsure_token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT';
+    window.location.href = '/login';
+  }, []);
 
   // Listen for storage events (cross-tab communication)
   useEffect(() => {
@@ -268,42 +264,59 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     logout,
     isLoading,
     isAuthenticated: !!token,
+    forceLogout,
   };
 
   useEffect(() => {
     const initializeAuth = async () => {
       try {
-        // First, try to get from sessionStorage
+        // First, try to get token from sessionStorage
         let storedToken = sessionStorage.getItem('ezinsure_token');
-        let storedUser = sessionStorage.getItem('ezinsure_user');
-        
-        // If not in sessionStorage, check cookies (for new tabs)
-        if (!storedToken || !storedUser) {
+
+        // If not in sessionStorage, check cookie (for new tabs)
+        if (!storedToken) {
           const cookieToken = getCookie('ezinsure_token');
-          const cookieUser = getCookie('ezinsure_user');
-          
-          if (cookieToken && cookieUser) {
+          if (cookieToken) {
             storedToken = cookieToken;
-            storedUser = decodeURIComponent(cookieUser);
-            
-            // Sync to sessionStorage
             sessionStorage.setItem('ezinsure_token', storedToken);
-            sessionStorage.setItem('ezinsure_user', storedUser);
           }
         }
-        
-        if (storedToken && storedUser) {
-          const userData = JSON.parse(storedUser);
+
+        // If we have a token, always ask the backend who the user is
+        if (storedToken) {
           setToken(storedToken);
-          setUser(userData);
+          try {
+            const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/auth/me`, {
+              method: 'GET',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${storedToken}`,
+              },
+            });
+
+            if (response.ok) {
+              const userData: User = await response.json();
+              setUser(userData);
+            } else {
+              // Invalid/expired token – clear it
+              setToken(null);
+              setUser(null);
+              sessionStorage.removeItem('ezinsure_token');
+              document.cookie = 'ezinsure_token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT';
+            }
+          } catch (error) {
+            console.error('Failed to fetch current user', error);
+            setToken(null);
+            setUser(null);
+            sessionStorage.removeItem('ezinsure_token');
+            document.cookie = 'ezinsure_token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT';
+          }
         }
       } catch (error) {
         console.error('Failed to initialize auth', error);
         // Clear invalid data
         sessionStorage.removeItem('ezinsure_token');
-        sessionStorage.removeItem('ezinsure_user');
         document.cookie = 'ezinsure_token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT';
-        document.cookie = 'ezinsure_user=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT';
       } finally {
         setIsLoading(false);
         setIsInitialized(true);

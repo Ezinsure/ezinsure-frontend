@@ -11,6 +11,7 @@ import { SearchableSelect } from '@/components/ui/searchable-select';
 import { DocumentViewer } from '@/components/ui/document-viewer';
 import { useToast } from '@/components/ui/toast';
 import { useAuth } from '@/context/AuthContext';
+import { useApiClient } from '@/utils/apiClient';
 import { rwandaProvinces } from '@/utils/rwanda-administrative';
 import { formatErrorMessage } from '@/utils/error-formatter';
 import { carTypes, motoTypes, carUses, motoUses } from '@/utils/vehicle-types';
@@ -286,20 +287,12 @@ export default function AdminNewApplicationPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [trackingData, setTrackingData] = useState<TrackingData | null>(null);
+  const { apiFetch } = useApiClient();
   
   // Fetch agents emails function
   const fetchAgentsEmails = useCallback(async () => {
-    const token = getTokenFromStorage();
-    if (!token) {
-      throw new Error('No authentication token found');
-    }
-    
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/getAgentsEmails`, {
+    const response = await apiFetch('/getAgentsEmails', {
       method: 'GET',
-      headers: {
-        'accept': 'application/json',
-        'Authorization': `Bearer ${token}`
-      }
     });
     
     if (!response.ok) {
@@ -307,7 +300,7 @@ export default function AdminNewApplicationPage() {
     }
     
     return await response.json();
-  }, []);
+  }, [apiFetch]);
   // State for administrative divisions
   const [availableDistricts, setAvailableDistricts] = useState<{ name: string, sectors?: string[] }[]>([]);
   const [availableSectors, setAvailableSectors] = useState<string[]>([]);
@@ -504,15 +497,6 @@ export default function AdminNewApplicationPage() {
       }
     } else if (searchType === 'plateNumber') {
       setHasFetchedPlate(true);
-    }
-  };
-
-  const getTokenFromStorage = () => {
-    try {
-      return sessionStorage.getItem('ezinsure_token');
-    } catch (error) {
-      console.error('Error accessing sessionStorage:', error);
-      return null;
     }
   };
 
@@ -1157,20 +1141,9 @@ export default function AdminNewApplicationPage() {
           formDataToSend.append('assignToAgent', formData.assignToAgent);
         }
 
-        const token = getTokenFromStorage();
-
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/applyAdmin`, {
-
+        const response = await apiFetch('/applyAdmin', {
           method: 'POST',
-
           body: formDataToSend,
-
-          headers: {
-
-            'Authorization': `Bearer ${token}`,
-
-          },
-
         });
 
         if (response.ok) {
@@ -1920,6 +1893,8 @@ export default function AdminNewApplicationPage() {
                         required
 
                         resetTrigger={plateNumberResetTrigger}
+
+                        disabled={formData.identificationDocumentType === 'plateNumber'}
 
                       />
 
