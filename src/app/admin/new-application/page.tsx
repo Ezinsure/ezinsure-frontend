@@ -487,13 +487,31 @@ export default function AdminNewApplicationPage() {
   const handleSearchResult = (exists: boolean, searchType: 'plateNumber' | 'identificationNumber') => {
     const isNew = !exists;
     const key = searchType === 'identificationNumber' ? 'isNewClient' : 'isNewVehicle';
-    setSearchResults(prev => ({ ...prev, [key]: isNew }));
-    setFormData(prev => ({ ...prev, [key]: isNew }));
+
+    setSearchResults(prev => ({
+      ...prev,
+      [key]: isNew,
+      // When using plateNumber as identification document type,
+      // an identification search also implies a vehicle existence check.
+      ...(searchType === 'identificationNumber' && formData.identificationDocumentType === 'plateNumber'
+        ? { isNewVehicle: isNew }
+        : {}),
+    }));
+
+    setFormData(prev => ({
+      ...prev,
+      [key]: isNew,
+      ...(searchType === 'identificationNumber' && formData.identificationDocumentType === 'plateNumber'
+        ? { isNewVehicle: isNew }
+        : {}),
+    }));
 
     if (searchType === 'identificationNumber') {
       setHasFetchedIdentification(true);
       if (formData.identificationDocumentType === 'plateNumber') {
-        setHasFetchedPlate(true);
+        // Only treat the plate as "fetched" from the identification search
+        // when an existing record was found.
+        setHasFetchedPlate(exists);
       }
     } else if (searchType === 'plateNumber') {
       setHasFetchedPlate(true);
@@ -1894,7 +1912,11 @@ export default function AdminNewApplicationPage() {
 
                         resetTrigger={plateNumberResetTrigger}
 
-                        disabled={formData.identificationDocumentType === 'plateNumber'}
+                        disabled={
+                          formData.identificationDocumentType === 'plateNumber' &&
+                          hasFetchedPlate &&
+                          !searchResults.isNewClient
+                        }
 
                       />
 
