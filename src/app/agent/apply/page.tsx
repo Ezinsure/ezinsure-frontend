@@ -603,15 +603,22 @@ export default function AgentApplyPage() {
 
   // Handle search results to track isNewClient and isNewVehicle
   const handleSearchResult = (exists: boolean, searchType: 'plateNumber' | 'identificationNumber') => {
+    const isNew = !exists;
+    const key = searchType === 'identificationNumber' ? 'isNewClient' : 'isNewVehicle';
+
     setSearchResults(prev => ({
       ...prev,
-      [searchType === 'identificationNumber' ? 'isNewClient' : 'isNewVehicle']: !exists
+      [key]: isNew,
+      ...(searchType === 'identificationNumber' && formState.identificationDocumentType === 'plateNumber'
+        ? { isNewVehicle: isNew }
+        : {}),
     }));
 
     if (searchType === 'identificationNumber') {
       setHasFetchedIdentification(true);
       if (formState.identificationDocumentType === 'plateNumber') {
-        setHasFetchedPlate(true);
+        // For plateNumber as ID: only count as plate fetched when an existing record is found.
+        setHasFetchedPlate(exists);
       }
     } else if (searchType === 'plateNumber') {
       setHasFetchedPlate(true);
@@ -1241,7 +1248,11 @@ export default function AgentApplyPage() {
                         error={errors.plateNumber}
                         required
                         resetTrigger={plateNumberResetTrigger}
-                        disabled={formState.identificationDocumentType === 'plateNumber'}
+                        disabled={
+                          formState.identificationDocumentType === 'plateNumber' &&
+                          hasFetchedPlate &&
+                          !searchResults.isNewClient
+                        }
                       />
                     </div>
                   )}
