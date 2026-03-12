@@ -1092,6 +1092,7 @@ export default function ApplyPage() {
                         error={errors.plateNumber}
                         required
                         resetTrigger={plateNumberResetTrigger}
+                        disabled={formState.identificationDocumentType === 'plateNumber'}
                       />
                     </div>
                   )}

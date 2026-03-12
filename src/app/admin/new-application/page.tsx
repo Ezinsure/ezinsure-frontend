@@ -1894,6 +1894,8 @@ export default function AdminNewApplicationPage() {
 
                         resetTrigger={plateNumberResetTrigger}
 
+                        disabled={formData.identificationDocumentType === 'plateNumber'}
+
                       />
 
                     </div>
