@@ -23,6 +23,8 @@ export interface SearchableSelectProps<T extends SearchableSelectOption> {
   className?: string;
   emptyMessage?: string;
   noResultsMessage?: string;
+  renderOptionContent?: (option: T, isSelected: boolean) => React.ReactNode;
+  renderSelectedValue?: (option: T) => React.ReactNode;
 }
 
 export function SearchableSelect<T extends SearchableSelectOption>({
@@ -40,6 +42,8 @@ export function SearchableSelect<T extends SearchableSelectOption>({
   className = '',
   emptyMessage = 'No options available',
   noResultsMessage = 'No results found',
+  renderOptionContent,
+  renderSelectedValue,
 }: SearchableSelectProps<T>) {
   const [options, setOptions] = useState<T[]>([]);
   const [isOpen, setIsOpen] = useState(false);
@@ -178,13 +182,20 @@ export function SearchableSelect<T extends SearchableSelectOption>({
               placeholder={placeholder}
               value={searchQuery || displayText}
               onChange={handleInputChange}
+              onFocus={() => { if (!disabled && !isFetching) setIsOpen(true); }}
               onKeyDown={handleKeyDown}
               disabled={disabled || isFetching}
               className="w-full bg-transparent border-none outline-none text-sm text-gray-900 placeholder-gray-400"
             />
           ) : (
             <div className="flex items-center justify-between w-full pr-8">
-              <span className="text-sm text-gray-900 flex-1 truncate">{displayText}</span>
+              {selectedOption && renderSelectedValue ? (
+                <div className="flex-1 min-w-0">
+                  {renderSelectedValue(selectedOption)}
+                </div>
+              ) : (
+                <span className="text-sm text-gray-900 flex-1 truncate">{displayText}</span>
+              )}
               {!disabled && value && (
                 <button
                   type="button"
@@ -252,10 +263,16 @@ export function SearchableSelect<T extends SearchableSelectOption>({
                         }
                       `}
                     >
-                      <div className="flex items-center justify-between">
-                        <span>{displayValue}</span>
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          {renderOptionContent ? (
+                            renderOptionContent(option, isSelected)
+                          ) : (
+                            <span className="truncate">{displayValue}</span>
+                          )}
+                        </div>
                         {isSelected && (
-                          <Check className="h-4 w-4 text-blue-600" />
+                          <Check className="h-4 w-4 text-blue-600 flex-shrink-0" />
                         )}
                       </div>
                     </li>

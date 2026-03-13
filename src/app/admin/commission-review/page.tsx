@@ -1,14 +1,16 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { MainLayout } from '@/components/ui/main-layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { FileInput } from '@/components/ui/file-input';
 import { useToast } from '@/components/ui/toast';
+import { SearchableSelect, type SearchableSelectOption } from '@/components/ui/searchable-select';
 import { useAuth } from '@/context/AuthContext';
 import { useApiClient } from '@/utils/apiClient';
 import { DocumentViewer } from '@/components/ui/document-viewer';
+import { ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 
 interface Application {
   _id: string;
@@ -80,7 +82,10 @@ interface Application {
 interface PaginationProps {
   currentPage: number;
   totalPages: number;
+  totalItems: number;
+  itemsPerPage: number;
   onPageChange: (page: number) => void;
+  onItemsPerPageChange: (value: number) => void;
 }
 
 const AdminCommissionReviewPage = () => {
@@ -97,6 +102,7 @@ const AdminCommissionReviewPage = () => {
   const [totalApplications, setTotalApplications] = useState<number>(0);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
+  const [selectedAgentId, setSelectedAgentId] = useState<string>('all');
   const [startDate, setStartDate] = useState<string>('');
   const [endDate, setEndDate] = useState<string>('');
   const [isLoading, setIsLoading] = useState(true);
@@ -117,7 +123,61 @@ const AdminCommissionReviewPage = () => {
   const [originalEditFormData, setOriginalEditFormData] = useState<Record<string, string | number | boolean | File | null> | null>(null);
   const [visibleEditFields, setVisibleEditFields] = useState<Record<string, boolean>>({});
   const [isSubmittingEdit, setIsSubmittingEdit] = useState(false);
-  const itemsPerPage = 10;
+  const [isBulkMarkingReady, setIsBulkMarkingReady] = useState(false);
+
+  // Sort state
+  const [sortField, setSortField] = useState<
+    'applicationNumber' | 'clientName' | 'agentName' | 'insuranceCategory' | 'insuranceEndAt' | 'submittedAt' | 'agentCommission' | 'agentCommissionPaymentStatus'
+  >('submittedAt');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+
+  const handleSort = (
+    field: 'applicationNumber' | 'clientName' | 'agentName' | 'insuranceCategory' | 'insuranceEndAt' | 'submittedAt' | 'agentCommission' | 'agentCommissionPaymentStatus',
+  ) => {
+    if (sortField === field) {
+      setSortDirection((d) => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+    setCurrentPage(1);
+  };
+
+  const SortIcon = ({ field }: { field: typeof sortField }) => {
+    if (sortField !== field) return <ArrowUpDown className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />;
+    return sortDirection === 'asc'
+      ? <ArrowUp className="h-3.5 w-3.5 text-blue-600 flex-shrink-0" />
+      : <ArrowDown className="h-3.5 w-3.5 text-blue-600 flex-shrink-0" />;
+  };
+
+  // Stable fetchOptions for the agent SearchableSelect.
+  // Depends on `applications` so the dropdown re-populates after data loads.
+  const fetchAgentOptions = useCallback(async () => {
+    try {
+      const uniqueAgentsMap = new Map<
+        string,
+        { _id: string; fullName: string; email?: string; phoneNumber?: string }
+      >();
+      applications.forEach((app) => {
+        if (app.agent?._id && app.agent.fullName) {
+          uniqueAgentsMap.set(app.agent._id, {
+            _id: app.agent._id,
+            fullName: app.agent.fullName,
+            email: app.agent.email,
+            phoneNumber: app.agent.phoneNumber,
+          });
+        }
+      });
+      const data = Array.from(uniqueAgentsMap.values()).sort((a, b) =>
+        a.fullName.localeCompare(b.fullName),
+      );
+      return { success: true, data };
+    } catch (err) {
+      console.error('Error building agent options:', err);
+      return { success: false, data: [] };
+    }
+  }, [applications]);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
 
   // Helper to format dates
   const formatDate = (dateString: string | undefined) => {
@@ -165,6 +225,8 @@ const AdminCommissionReviewPage = () => {
     } finally {
       setIsLoading(false);
     }
+    // NOTE: we intentionally omit apiFetch from dependencies to avoid refetch loops
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 
   useEffect(() => {
@@ -188,39 +250,87 @@ const AdminCommissionReviewPage = () => {
     setShowRightFade(scrollLeft < scrollWidth - clientWidth - 1);
   };
 
-  // Filter applications (search, status, date range)
-  const filteredApplications = applications.filter((app) => {
-    const searchableFields: string[] = [];
+  // Filter + sort applications
+  const filteredApplications = useMemo(() => {
+    const filtered = applications.filter((app) => {
+      const searchableFields: string[] = [];
 
-    const clientName = app.client?.fullName || app.fullName;
-    const clientEmail = app.client?.email || app.email;
+      const clientName = app.client?.fullName || app.fullName;
+      const clientEmail = app.client?.email || app.email;
 
-    if (clientName && clientName.trim()) {
-      searchableFields.push(clientName.toLowerCase());
-    }
-    if (clientEmail && clientEmail.trim()) {
-      searchableFields.push(clientEmail.toLowerCase());
-    }
-    if (app.applicationNumber && app.applicationNumber.trim()) {
-      searchableFields.push(app.applicationNumber.toLowerCase());
-    }
+      if (clientName && clientName.trim()) searchableFields.push(clientName.toLowerCase());
+      if (clientEmail && clientEmail.trim()) searchableFields.push(clientEmail.toLowerCase());
+      if (app.applicationNumber && app.applicationNumber.trim())
+        searchableFields.push(app.applicationNumber.toLowerCase());
 
-    const matchesSearch =
-      searchQuery === '' ||
-      searchableFields.some((field) => field.includes(searchQuery.toLowerCase()));
+      const matchesSearch =
+        searchQuery === '' ||
+        searchableFields.some((field) => field.includes(searchQuery.toLowerCase()));
 
-    const matchesStatus =
-      selectedStatus === 'all' ||
-      (app.status && app.status.toLowerCase() === selectedStatus);
+      const matchesStatus =
+        selectedStatus === 'all' ||
+        (app.status && app.status.toLowerCase() === selectedStatus);
 
-    const submittedAtDate = new Date(app.submittedAt);
-    const matchesStartDate =
-      !startDate || submittedAtDate >= new Date(startDate + 'T00:00:00');
-    const matchesEndDate =
-      !endDate || submittedAtDate <= new Date(endDate + 'T23:59:59');
+      const matchesAgent =
+        selectedAgentId === 'all' ||
+        (app.agent && app.agent._id === selectedAgentId);
 
-    return matchesSearch && matchesStatus && matchesStartDate && matchesEndDate;
-  });
+      const submittedAtDate = new Date(app.submittedAt);
+      const matchesStartDate =
+        !startDate || submittedAtDate >= new Date(startDate + 'T00:00:00');
+      const matchesEndDate =
+        !endDate || submittedAtDate <= new Date(endDate + 'T23:59:59');
+
+      return matchesSearch && matchesStatus && matchesAgent && matchesStartDate && matchesEndDate;
+    });
+
+    // Sort
+    filtered.sort((a, b) => {
+      let aVal: string | number = '';
+      let bVal: string | number = '';
+
+      switch (sortField) {
+        case 'applicationNumber':
+          aVal = a.applicationNumber?.toLowerCase() ?? '';
+          bVal = b.applicationNumber?.toLowerCase() ?? '';
+          break;
+        case 'clientName':
+          aVal = (a.client?.fullName || a.fullName || '').toLowerCase();
+          bVal = (b.client?.fullName || b.fullName || '').toLowerCase();
+          break;
+        case 'agentName':
+          aVal = (a.agent?.fullName || '').toLowerCase();
+          bVal = (b.agent?.fullName || '').toLowerCase();
+          break;
+        case 'insuranceCategory':
+          aVal = (a.insuranceCategory || '').toLowerCase();
+          bVal = (b.insuranceCategory || '').toLowerCase();
+          break;
+        case 'insuranceEndAt':
+          aVal = a.insuranceEndAt ? new Date(a.insuranceEndAt).getTime() : 0;
+          bVal = b.insuranceEndAt ? new Date(b.insuranceEndAt).getTime() : 0;
+          break;
+        case 'submittedAt':
+          aVal = a.submittedAt ? new Date(a.submittedAt).getTime() : 0;
+          bVal = b.submittedAt ? new Date(b.submittedAt).getTime() : 0;
+          break;
+        case 'agentCommission':
+          aVal = a.agentCommission ?? 0;
+          bVal = b.agentCommission ?? 0;
+          break;
+        case 'agentCommissionPaymentStatus':
+          aVal = (a.agentCommissionPaymentStatus || '').toLowerCase();
+          bVal = (b.agentCommissionPaymentStatus || '').toLowerCase();
+          break;
+      }
+
+      if (aVal < bVal) return sortDirection === 'asc' ? -1 : 1;
+      if (aVal > bVal) return sortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
+
+    return filtered;
+  }, [applications, searchQuery, selectedStatus, selectedAgentId, startDate, endDate, sortField, sortDirection]);
 
   // Pagination
   const paginatedApplications = filteredApplications.slice(
@@ -466,12 +576,8 @@ const getActionButtons = (app: Application) => {
 
     setIsMarkingReady(true);
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/markAsReadyToBePaid/${selectedApp._id}`, {
+      const response = await apiFetch(`/markAsReadyToBePaid/${selectedApp._id}`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
       });
 
       if (!response.ok) {
@@ -493,6 +599,50 @@ const getActionButtons = (app: Application) => {
       showToast(error instanceof Error ? error.message : 'Failed to mark application as ready', 'error');
     } finally {
       setIsMarkingReady(false);
+    }
+  };
+
+  // Handle marking all currently filtered applications as ready to be paid
+  const handleMarkAllVisibleAsReady = async () => {
+    if (!token || filteredApplications.length === 0) {
+      return;
+    }
+
+    setIsBulkMarkingReady(true);
+    try {
+      const idsToUpdate = filteredApplications.map((app) => app._id);
+
+      const results = await Promise.allSettled(
+        idsToUpdate.map((id) =>
+          apiFetch(`/markAsReadyToBePaid/${id}`, {
+            method: 'PUT',
+          }),
+        ),
+      );
+
+      const successful = results.filter((r) => r.status === 'fulfilled').length;
+      const failed = results.length - successful;
+
+      if (successful > 0) {
+        showToastRef.current(
+          `${successful} application${successful > 1 ? 's' : ''} marked as ready to be paid${
+            failed > 0 ? `, ${failed} failed` : ''
+          }.`,
+          'success',
+        );
+      } else if (failed > 0) {
+        showToastRef.current('Failed to mark applications as ready to be paid. Please try again.', 'error');
+      }
+
+      await fetchApplications();
+    } catch (error) {
+      console.error('Error bulk marking applications as ready:', error);
+      showToastRef.current(
+        error instanceof Error ? error.message : 'Failed to mark applications as ready to be paid.',
+        'error',
+      );
+    } finally {
+      setIsBulkMarkingReady(false);
     }
   };
 
@@ -664,7 +814,7 @@ const getActionButtons = (app: Application) => {
     }
   };
 
-  const Pagination = ({ currentPage, totalPages, onPageChange }: PaginationProps) => {
+  const Pagination = ({ currentPage, totalPages, totalItems, itemsPerPage, onPageChange, onItemsPerPageChange }: PaginationProps) => {
     const maxVisiblePages = 5;
     let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
     const endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
@@ -679,36 +829,39 @@ const getActionButtons = (app: Application) => {
     }
 
     return (
-      <div className="flex items-center justify-between mt-6 p-6">
-        <div className="flex-1 flex justify-between sm:hidden">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => onPageChange(Math.max(1, currentPage - 1))}
-            disabled={currentPage === 1}
-          >
-            Previous
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
-            disabled={currentPage === totalPages}
-          >
-            Next
-          </Button>
-        </div>
-        <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-          <div>
-            <p className="text-sm text-gray-700">
-              Showing <span className="font-medium">{(currentPage - 1) * itemsPerPage + 1}</span> to{' '}
-              <span className="font-medium">
-                {Math.min(currentPage * itemsPerPage, filteredApplications.length)}
-              </span>{' '}
-              of <span className="font-medium">{filteredApplications.length}</span> applications
-            </p>
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mt-6 p-6 border-t border-gray-100">
+        {/* Left: rows-per-page + summary */}
+        <div className="flex flex-col sm:flex-row items-center gap-3 text-sm text-gray-700">
+          <div className="flex items-center gap-2">
+            <span className="whitespace-nowrap text-xs text-gray-500">Rows per page:</span>
+            <select
+              value={itemsPerPage}
+              onChange={(e) => {
+                onItemsPerPageChange(Number(e.target.value));
+                onPageChange(1);
+              }}
+              className="border border-gray-300 rounded px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+            >
+              {[5, 10, 25, 50, 100].map((n) => (
+                <option key={n} value={n}>{n}</option>
+              ))}
+            </select>
           </div>
-          <div>
+          <p className="text-xs text-gray-500">
+            Showing{' '}
+            <span className="font-medium text-gray-700">{totalItems === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1}</span>
+            {' '}–{' '}
+            <span className="font-medium text-gray-700">{Math.min(currentPage * itemsPerPage, totalItems)}</span>
+            {' '}of{' '}
+            <span className="font-medium text-gray-700">{totalItems}</span> applications
+          </p>
+        </div>
+        {/* Mobile prev/next */}
+        <div className="flex sm:hidden justify-between w-full">
+          <Button variant="outline" size="sm" onClick={() => onPageChange(Math.max(1, currentPage - 1))} disabled={currentPage === 1}>Previous</Button>
+          <Button variant="outline" size="sm" onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))} disabled={currentPage === totalPages}>Next</Button>
+        </div>
+        <div className="hidden sm:flex sm:items-center">
             <nav
               className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px"
               aria-label="Pagination"
@@ -781,7 +934,6 @@ const getActionButtons = (app: Application) => {
                 »
               </Button>
             </nav>
-          </div>
         </div>
       </div>
     );
@@ -948,80 +1100,171 @@ const getActionButtons = (app: Application) => {
           </div>
         </div>
 
-        {/* Search and filter section */}
-        <div className="mb-6 bg-white p-4 rounded-lg shadow-sm">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
-            {/* Search Input */}
-            <div className="lg:col-span-2">
-              <label className="block text-xs font-semibold text-gray-600 tracking-wide mb-1 uppercase">
-                Search Applications
-              </label>
-              <Input
-                label="Search"
-                hideLabel
-                size="compact"
-                className="mb-0"
-                name="search"
-                placeholder="Search by client name, email or ID..."
-                value={searchQuery}
-                onChange={(e) => {
-                  setSearchQuery(e.target.value);
-                  setCurrentPage(1);
-                }}
-                error={undefined}
-              />
+        {/* Search, filter and bulk actions section */}
+        <div className="mb-6 bg-white rounded-xl shadow-sm border border-gray-100">
+
+          {/* Top bar: result count + bulk action */}
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 px-4 py-3 bg-gray-50 border-b border-gray-100">
+            <p className="text-xs sm:text-sm text-gray-500">
+              Showing{' '}
+              <span className="font-semibold text-gray-800">
+                {filteredApplications.length.toLocaleString()}
+              </span>{' '}
+              application{filteredApplications.length === 1 ? '' : 's'} after filters
+            </p>
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={filteredApplications.length === 0 || isBulkMarkingReady || isLoading}
+              onClick={handleMarkAllVisibleAsReady}
+              className="self-start sm:self-auto"
+            >
+              {isBulkMarkingReady ? 'Approving…' : 'Approve All Filtered'}
+            </Button>
+          </div>
+
+          {/* Filter body: two-column layout on md+ */}
+          <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+
+            {/* ── LEFT COLUMN: Search + Agent ── */}
+            <div className="flex flex-col gap-3">
+
+              {/* Search */}
+              <div>
+                <label className="block text-[10px] sm:text-xs font-semibold text-gray-500 tracking-widest mb-1 uppercase">
+                  Search Applications
+                </label>
+                <Input
+                  label="Search"
+                  hideLabel
+                  size="compact"
+                  className="mb-0"
+                  name="search"
+                  placeholder="Search by client name, email or ID…"
+                  value={searchQuery}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                  error={undefined}
+                />
+              </div>
+
+              {/* Agent (searchable) */}
+              <div>
+                <SearchableSelect<SearchableSelectOption>
+                  label="Agent"
+                  name="agent"
+                  placeholder="Type to search agents…"
+                  value={selectedAgentId === 'all' ? null : selectedAgentId}
+                  onChange={(value) => {
+                    setSelectedAgentId(value || 'all');
+                    setCurrentPage(1);
+                  }}
+                  fetchOptions={fetchAgentOptions}
+                  getDisplayValue={(option) => option.fullName as string}
+                  getSearchValue={(option) =>
+                    `${option.fullName ?? ''} ${option.email ?? ''} ${option.phoneNumber ?? ''}`
+                  }
+                  renderOptionContent={(option) => (
+                    <div className="flex flex-col min-w-0">
+                      <span className="text-sm font-medium text-gray-900 truncate">
+                        {option.fullName as string}
+                      </span>
+                      {(option.email || option.phoneNumber) && (
+                        <span className="text-[11px] text-gray-400 truncate">
+                          {(option.email ?? option.phoneNumber) as string}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                  renderSelectedValue={(option) => (
+                    <div className="flex flex-col min-w-0">
+                      <span className="text-sm font-medium text-gray-900 truncate">
+                        {option.fullName as string}
+                      </span>
+                      {(option.email || option.phoneNumber) && (
+                        <span className="text-[11px] text-gray-400 truncate">
+                          {(option.email ?? option.phoneNumber) as string}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                  emptyMessage="No agents available"
+                  noResultsMessage="No agents match your search"
+                />
+              </div>
             </div>
 
-            {/* Status Select */}
-            <div>
-              <label className="block text-xs font-semibold text-gray-600 tracking-wide mb-1 uppercase">Status Filter</label>
-              <select
-                value={selectedStatus}
-                onChange={(e) => {
-                  setSelectedStatus(e.target.value);
-                  setCurrentPage(1);
-                }}
-                className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--main-blue)] focus:border-[var(--main-blue)] bg-white"
-              >
-                <option value="all">All Statuses</option>
-                <option value="pending">Pending</option>
-                <option value="application_approved">Approved</option>
-                <option value="waiting_for_user_action">Action Required</option>
-                <option value="invoice_sent">Invoice Sent</option>
-                <option value="review_payment">Payment Review</option>
-                <option value="payment_verified">Payment Verified</option>
-                <option value="insurance_issued">Insurance Issued</option>
-                <option value="cancelled">Cancelled</option>
-              </select>
+            {/* ── RIGHT COLUMN: Date range + Status + Clear ── */}
+            <div className="flex flex-col gap-3">
+
+              {/* Date Range */}
+              <div>
+                <label className="block text-[10px] sm:text-xs font-semibold text-gray-500 tracking-widest mb-1 uppercase">
+                  Date Range
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-[10px] text-gray-400 mb-0.5">From</label>
+                    <input
+                      type="date"
+                      value={startDate}
+                      onChange={(e) => { setStartDate(e.target.value); setCurrentPage(1); }}
+                      className="w-full px-2 py-1.5 text-xs sm:text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--main-blue)] focus:border-transparent bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-gray-400 mb-0.5">To</label>
+                    <input
+                      type="date"
+                      value={endDate}
+                      onChange={(e) => { setEndDate(e.target.value); setCurrentPage(1); }}
+                      className="w-full px-2 py-1.5 text-xs sm:text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--main-blue)] focus:border-transparent bg-white"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Status + Clear */}
+              <div className="flex flex-col sm:flex-row sm:items-end gap-2">
+                <div className="flex-1">
+                  <label className="block text-[10px] sm:text-xs font-semibold text-gray-500 tracking-widest mb-1 uppercase">
+                    Status
+                  </label>
+                  <select
+                    value={selectedStatus}
+                    onChange={(e) => { setSelectedStatus(e.target.value); setCurrentPage(1); }}
+                    className="w-full px-2 py-1.5 text-xs sm:text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--main-blue)] focus:border-transparent bg-white"
+                  >
+                    <option value="all">All Statuses</option>
+                    <option value="pending">Pending</option>
+                    <option value="application_approved">Approved</option>
+                    <option value="waiting_for_user_action">Action Required</option>
+                    <option value="invoice_sent">Invoice Sent</option>
+                    <option value="review_payment">Payment Review</option>
+                    <option value="payment_verified">Payment Verified</option>
+                    <option value="insurance_issued">Insurance Issued</option>
+                    <option value="cancelled">Cancelled</option>
+                  </select>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSearchQuery('');
+                    setSelectedAgentId('all');
+                    setSelectedStatus('all');
+                    setStartDate('');
+                    setEndDate('');
+                    setCurrentPage(1);
+                  }}
+                  className="shrink-0 px-3 py-1.5 text-xs sm:text-sm font-medium text-gray-600 bg-white border border-gray-300 rounded-md hover:bg-gray-50 hover:text-gray-800 transition-colors whitespace-nowrap"
+                >
+                  Clear all filters
+                </button>
+              </div>
             </div>
 
-            {/* Start Date */}
-            <div>
-              <label className="block text-xs font-semibold text-gray-600 tracking-wide mb-1 uppercase">From Date</label>
-              <input
-                type="date"
-                value={startDate}
-                onChange={(e) => {
-                  setStartDate(e.target.value);
-                  setCurrentPage(1);
-                }}
-                className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--main-blue)] focus:border-[var(--main-blue)] bg-white"
-              />
-            </div>
-
-            {/* End Date */}
-            <div>
-              <label className="block text-xs font-semibold text-gray-600 tracking-wide mb-1 uppercase">To Date</label>
-              <input
-                type="date"
-                value={endDate}
-                onChange={(e) => {
-                  setEndDate(e.target.value);
-                  setCurrentPage(1);
-                }}
-                className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--main-blue)] focus:border-[var(--main-blue)] bg-white"
-              />
-            </div>
           </div>
         </div>
 
@@ -1082,28 +1325,30 @@ const getActionButtons = (app: Application) => {
                 <table className="w-full">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase tracking-wider">
-                        ID
-                      </th>
-                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase tracking-wider">
-                        Client
-                      </th>
-                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase tracking-wider">
-                        Insurance Category
-                      </th>
-                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase tracking-wider">
-                        Insurance End Date
-                      </th>
-                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase tracking-wider">
-                        Date
-                      </th>
-                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase tracking-wider">
-                        Commission
-                      </th>
-                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase tracking-wider">
-                        Payment Status
-                      </th>
-                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase tracking-wider">
+                      {(
+                        [
+                          { label: 'ID', field: 'applicationNumber' },
+                          { label: 'Client', field: 'clientName' },
+                          { label: 'Agent', field: 'agentName' },
+                          { label: 'Insurance Category', field: 'insuranceCategory' },
+                          { label: 'Insurance End Date', field: 'insuranceEndAt' },
+                          { label: 'Date', field: 'submittedAt' },
+                          { label: 'Commission', field: 'agentCommission' },
+                          { label: 'Payment Status', field: 'agentCommissionPaymentStatus' },
+                        ] as const
+                      ).map(({ label, field }) => (
+                        <th
+                          key={field}
+                          className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none transition-colors"
+                          onClick={() => handleSort(field)}
+                        >
+                          <div className="flex items-center gap-1.5">
+                            {label}
+                            <SortIcon field={field} />
+                          </div>
+                        </th>
+                      ))}
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Actions
                       </th>
                     </tr>
@@ -1120,6 +1365,14 @@ const getActionButtons = (app: Application) => {
                           </div>
                           <div className="text-sm text-gray-500">
                             {app.client?.phoneNumber || app.phoneNumber || 'N/A'}
+                          </div>
+                        </td>
+                        <td className="px-4 py-4 whitespace-nowrap">
+                          <div className="text-sm font-medium text-gray-900">
+                            {app.agent?.fullName || 'N/A'}
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            {app.agent?.email || app.agent?.phoneNumber || ''}
                           </div>
                         </td>
                         <td className="px-4 py-4 whitespace-nowrap">
@@ -1154,7 +1407,13 @@ const getActionButtons = (app: Application) => {
               <Pagination
                 currentPage={currentPage}
                 totalPages={Math.ceil(filteredApplications.length / itemsPerPage)}
+                totalItems={filteredApplications.length}
+                itemsPerPage={itemsPerPage}
                 onPageChange={setCurrentPage}
+                onItemsPerPageChange={(val) => {
+                  setItemsPerPage(val);
+                  setCurrentPage(1);
+                }}
               />
             </div>
           )}
