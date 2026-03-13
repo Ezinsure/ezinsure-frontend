@@ -533,17 +533,17 @@ export default function AgentDetailModal({ isOpen, onClose, agentId, agentName, 
   // - Total Commission: getMonthlyAgentStats (sum of commission per month)
   // - Clients Served: getMonthlyAgentStats (sum of clients per month)
   // - Recent Applications: getRecentAgentApplications (array length)
-  // - Policies in Portfolio: getAgentInsuranceDistribution (sum of count per category)
+  // - Active Applications: getAgentInsuranceDistribution (sum of count per category)
   const highlightStats = useMemo(() => {
     const totalCommission = monthlyStats.reduce((sum, stat) => sum + (stat.commission || 0), 0);
     const totalClients = monthlyStats.reduce((sum, stat) => sum + (stat.clients || 0), 0);
     const pipelineApplications = recentApplications.length;
-    const insuranceMix = insuranceDistribution.reduce((sum, type) => sum + (type.value || 0), 0);
+    const activeApplications = insuranceDistribution.reduce((sum, type) => sum + (type.value || 0), 0);
     return {
       totalCommission,
       totalClients,
       pipelineApplications,
-      insuranceMix
+      activeApplications
     };
   }, [monthlyStats, recentApplications, insuranceDistribution]);
 
@@ -577,9 +577,9 @@ export default function AgentDetailModal({ isOpen, onClose, agentId, agentName, 
     },
     {
       key: 'policies',
-      title: 'Policies in Portfolio',
-      value: formatNumber(highlightStats.insuranceMix),
-      caption: 'Distribution across insurance lines',
+      title: 'Active Applications',
+      value: formatNumber(highlightStats.activeApplications),
+      caption: 'Currently active insurance applications',
       icon: <ArrowUpRight className="w-4 h-4" />,
       iconClasses: 'bg-slate-100 text-slate-600'
     }
