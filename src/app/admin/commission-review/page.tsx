@@ -1355,9 +1355,9 @@ const getActionButtons = (app: Application) => {
                       <span className="text-sm font-medium text-gray-900 truncate">
                         {option.fullName as string}
                       </span>
-                      {(option.email || option.phoneNumber) && (
+                      {((option.email as string | undefined) || (option.phoneNumber as string | undefined)) && (
                         <span className="text-[11px] text-gray-400 truncate">
-                          {(option.email ?? option.phoneNumber) as string}
+                          {((option.email as string | undefined) ?? (option.phoneNumber as string | undefined))}
                         </span>
                       )}
                     </div>
@@ -1367,9 +1367,9 @@ const getActionButtons = (app: Application) => {
                       <span className="text-sm font-medium text-gray-900 truncate">
                         {option.fullName as string}
                       </span>
-                      {(option.email || option.phoneNumber) && (
+                      {((option.email as string | undefined) || (option.phoneNumber as string | undefined)) && (
                         <span className="text-[11px] text-gray-400 truncate">
-                          {(option.email ?? option.phoneNumber) as string}
+                          {((option.email as string | undefined) ?? (option.phoneNumber as string | undefined))}
                         </span>
                       )}
                     </div>
