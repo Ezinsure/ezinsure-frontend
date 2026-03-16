@@ -1072,6 +1072,157 @@ const getActionButtons = (app: Application) => {
   const showAgentInfoSection =
     showProofOfPaymentInfo || showTransactionIdInfo || showYellowCardInfo || showPastInsuranceCertificateInfo;
 
+  // ── Download helpers ──────────────────────────────────────────────────────
+
+  const isVehicleCategory = (category: string) => {
+    const cat = (category || '').toLowerCase();
+    return cat.includes('car') || cat.includes('vehicle') || cat.includes('motor') || cat.includes('auto');
+  };
+
+  const formatDateForExport = (dateString: string | undefined) => {
+    if (!dateString) return 'N/A';
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return 'N/A';
+      const day = String(date.getDate()).padStart(2, '0');
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      return `${day}/${month}/${date.getFullYear()}`;
+    } catch {
+      return 'N/A';
+    }
+  };
+
+  const buildExportRow = (app: Application) => ({
+    id: app.applicationNumber || 'N/A',
+    clientPhone: app.client?.phoneNumber || app.phoneNumber || 'N/A',
+    clientName: app.client?.fullName || app.fullName || 'N/A',
+    agentEmail: app.agent?.email || 'N/A',
+    agentName: app.agent?.fullName || 'N/A',
+    category: app.insuranceCategory || 'N/A',
+    insuranceEndDate: formatDateForExport(app.insuranceEndAt),
+    commission: app.agentCommission ?? 0,
+    plateNumber: isVehicleCategory(app.insuranceCategory) ? (app.vehicle?.plateNumber || 'N/A') : '',
+  });
+
+  const EXPORT_HEADERS = [
+    'Application ID',
+    'Client Phone',
+    'Client Name',
+    'Agent Email',
+    'Agent Name',
+    'Insurance Category',
+    'Insurance End Date',
+    'Commission (RWF)',
+    'Plate Number',
+  ];
+
+  const handleDownloadPDF = async () => {
+    try {
+      const { jsPDF } = await import('jspdf');
+      const autoTable = await import('jspdf-autotable');
+
+      const doc = new jsPDF('landscape', 'mm', 'a4');
+      const now = new Date();
+
+      doc.setFontSize(18);
+      doc.setTextColor(10, 37, 64);
+      doc.text('Commission Review Report', 14, 20);
+
+      doc.setFontSize(10);
+      doc.setTextColor(100, 100, 100);
+      doc.text(`Generated: ${now.toLocaleDateString()} at ${now.toLocaleTimeString()}`, 14, 28);
+      doc.text(`Total applications: ${filteredApplications.length}`, 14, 34);
+
+      const totalComm = filteredApplications.reduce((s, a) => s + (a.agentCommission ?? 0), 0);
+      doc.text(`Total commission: ${totalComm.toLocaleString()} RWF`, 14, 40);
+
+      const tableData = filteredApplications.map((app) => {
+        const r = buildExportRow(app);
+        return [
+          r.id,
+          r.clientPhone,
+          r.clientName.length > 26 ? r.clientName.slice(0, 26) + '…' : r.clientName,
+          r.agentEmail.length > 30 ? r.agentEmail.slice(0, 30) + '…' : r.agentEmail,
+          r.agentName.length > 22 ? r.agentName.slice(0, 22) + '…' : r.agentName,
+          r.category,
+          r.insuranceEndDate,
+          `${r.commission.toLocaleString()} RWF`,
+          r.plateNumber,
+        ];
+      });
+
+      autoTable.default(doc, {
+        head: [EXPORT_HEADERS],
+        body: tableData,
+        startY: 48,
+        styles: { fontSize: 7, cellPadding: 1.5, overflow: 'linebreak', lineColor: [200, 200, 200], lineWidth: 0.1 },
+        headStyles: { fillColor: [51, 122, 183], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 8, halign: 'center' },
+        columnStyles: {
+          0: { cellWidth: 36 },
+          1: { cellWidth: 24 },
+          2: { cellWidth: 28 },
+          3: { cellWidth: 38 },
+          4: { cellWidth: 26 },
+          5: { cellWidth: 26 },
+          6: { cellWidth: 22, halign: 'center' },
+          7: { cellWidth: 26, halign: 'right' },
+          8: { cellWidth: 20 },
+        },
+        alternateRowStyles: { fillColor: [245, 245, 245] },
+        margin: { top: 10, right: 8, bottom: 12, left: 8 },
+        didDrawPage: (data) => {
+          doc.setFontSize(8);
+          doc.setTextColor(130, 130, 130);
+          doc.text(`Page ${data.pageNumber}`, doc.internal.pageSize.width - 20, doc.internal.pageSize.height - 8);
+        },
+      });
+
+      const dateStr = now.toISOString().split('T')[0];
+      doc.save(`commission_review_${dateStr}.pdf`);
+      showToast('PDF downloaded successfully', 'success');
+    } catch (err) {
+      console.error('PDF generation error:', err);
+      showToast('Failed to generate PDF', 'error');
+    }
+  };
+
+  const handleDownloadExcel = () => {
+    try {
+      const csvRows = [
+        EXPORT_HEADERS.join(','),
+        ...filteredApplications.map((app) => {
+          const r = buildExportRow(app);
+          const cells = [
+            r.id,
+            r.clientPhone,
+            r.clientName,
+            r.agentEmail,
+            r.agentName,
+            r.category,
+            r.insuranceEndDate,
+            r.commission.toString(),
+            r.plateNumber,
+          ];
+          return cells.map((c) => (String(c).includes(',') ? `"${c}"` : c)).join(',');
+        }),
+      ].join('\n');
+
+      const blob = new Blob([csvRows], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `commission_review_${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      showToast('Excel file downloaded successfully', 'success');
+    } catch (err) {
+      console.error('Excel generation error:', err);
+      showToast('Failed to generate Excel file', 'error');
+    }
+  };
+
   return (
     <MainLayout containerClass="p-0" fullWidth>
       <div className="container mx-auto px-4 py-8">
@@ -1103,7 +1254,7 @@ const getActionButtons = (app: Application) => {
         {/* Search, filter and bulk actions section */}
         <div className="mb-6 bg-white rounded-xl shadow-sm border border-gray-100">
 
-          {/* Top bar: result count + bulk action */}
+          {/* Top bar: result count + bulk action + downloads */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 px-4 py-3 bg-gray-50 border-b border-gray-100">
             <p className="text-xs sm:text-sm text-gray-500">
               Showing{' '}
@@ -1112,15 +1263,48 @@ const getActionButtons = (app: Application) => {
               </span>{' '}
               application{filteredApplications.length === 1 ? '' : 's'} after filters
             </p>
-            <Button
-              variant="secondary"
-              size="sm"
-              disabled={filteredApplications.length === 0 || isBulkMarkingReady || isLoading}
-              onClick={handleMarkAllVisibleAsReady}
-              className="self-start sm:self-auto"
-            >
-              {isBulkMarkingReady ? 'Approving…' : 'Approve All Filtered'}
-            </Button>
+            <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+              {filteredApplications.length > 0 && (
+                <>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={handleDownloadPDF}
+                    className="bg-green-600 hover:bg-green-700 text-white flex items-center gap-1.5 px-3 py-1.5 text-xs"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                      <polyline points="14,2 14,8 20,8" />
+                      <line x1="16" y1="13" x2="8" y2="13" />
+                      <line x1="16" y1="17" x2="8" y2="17" />
+                    </svg>
+                    PDF
+                  </Button>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={handleDownloadExcel}
+                    className="bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-1.5 px-3 py-1.5 text-xs"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                      <polyline points="14,2 14,8 20,8" />
+                      <line x1="16" y1="13" x2="8" y2="13" />
+                      <line x1="16" y1="17" x2="8" y2="17" />
+                    </svg>
+                    Excel
+                  </Button>
+                </>
+              )}
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={filteredApplications.length === 0 || isBulkMarkingReady || isLoading}
+                onClick={handleMarkAllVisibleAsReady}
+              >
+                {isBulkMarkingReady ? 'Approving…' : 'Approve All Filtered'}
+              </Button>
+            </div>
           </div>
 
           {/* Filter body: two-column layout on md+ */}
