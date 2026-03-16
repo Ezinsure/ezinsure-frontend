@@ -5,6 +5,7 @@ import { MainLayout } from '@/components/ui/main-layout';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/toast';
 import { useAuth } from '@/context/AuthContext';
+import { useApiClient } from '@/utils/apiClient';
 import { 
   Users, 
   DollarSign, 
@@ -300,6 +301,7 @@ interface AgentUserApi {
 export default function AgentAnalyticsPage() {
   const { token } = useAuth();
   const { showToast, ToastContainer } = useToast();
+  const { apiFetch } = useApiClient();
   
   // Date range state
   const [startDate, setStartDate] = useState<string>(getFirstDayOfMonth());
@@ -422,16 +424,9 @@ export default function AgentAnalyticsPage() {
     if (!token) return;
     
     try {
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_BASE_URL}/getWeeklyAgentsCommission`,
-        {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          }
-        }
-      );
+      const response = await apiFetch('/getWeeklyAgentsCommission', {
+        method: 'GET',
+      });
 
       if (!response.ok) {
         throw new Error('Failed to fetch weekly commission data');
@@ -443,7 +438,7 @@ export default function AgentAnalyticsPage() {
       console.error('Error fetching weekly commission data:', error);
       // Don't show toast for this as it's not critical
     }
-  }, [token]);
+  }, [apiFetch, token]);
 
   // Fetch the three analytics APIs and store data
   const fetchAnalyticsAPIs = useCallback(async () => {
@@ -452,36 +447,15 @@ export default function AgentAnalyticsPage() {
     try {
       // Fetch all three APIs in parallel for better performance
       const [agentAnalyticsResponse, topAgentsResponse, allAgentsDetailsResponse] = await Promise.all([
-        fetch(
-          `${process.env.NEXT_PUBLIC_API_BASE_URL}/getAgentAnalytics?startDate=${startDate}&endDate=${endDate}`,
-          {
-            method: 'GET',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`
-            }
-          }
-        ),
-        fetch(
-          `${process.env.NEXT_PUBLIC_API_BASE_URL}/getTopAgentsPerfomance?startDate=${startDate}&endDate=${endDate}`,
-          {
-            method: 'GET',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`
-            }
-          }
-        ),
-        fetch(
-          `${process.env.NEXT_PUBLIC_API_BASE_URL}/getAllAgentsDetails?startDate=${startDate}&endDate=${endDate}`,
-          {
-            method: 'GET',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`
-            }
-          }
-        )
+        apiFetch(`/getAgentAnalytics?startDate=${startDate}&endDate=${endDate}`, {
+          method: 'GET',
+        }),
+        apiFetch(`/getTopAgentsPerfomance?startDate=${startDate}&endDate=${endDate}`, {
+          method: 'GET',
+        }),
+        apiFetch(`/getAllAgentsDetails?startDate=${startDate}&endDate=${endDate}`, {
+          method: 'GET',
+        })
       ]);
 
       // Process getAgentAnalytics
@@ -531,7 +505,7 @@ export default function AgentAnalyticsPage() {
       console.error('Error fetching analytics APIs:', error);
       showToast('Failed to load analytics data', 'error');
     }
-  }, [token, startDate, endDate, showToast]);
+  }, [apiFetch, token, startDate, endDate, showToast]);
 
   // Fetch agents data
   const fetchAgentsData = useCallback(async () => {
