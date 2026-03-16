@@ -1141,9 +1141,9 @@ const getActionButtons = (app: Application) => {
         return [
           r.id,
           r.clientPhone,
-          r.clientName.length > 26 ? r.clientName.slice(0, 26) + '…' : r.clientName,
-          r.agentEmail.length > 30 ? r.agentEmail.slice(0, 30) + '…' : r.agentEmail,
-          r.agentName.length > 22 ? r.agentName.slice(0, 22) + '…' : r.agentName,
+          r.clientName,
+          r.agentEmail,
+          r.agentName,
           r.category,
           r.insuranceEndDate,
           `${r.commission.toLocaleString()} RWF`,
@@ -1155,18 +1155,18 @@ const getActionButtons = (app: Application) => {
         head: [EXPORT_HEADERS],
         body: tableData,
         startY: 48,
-        styles: { fontSize: 7, cellPadding: 1.5, overflow: 'linebreak', lineColor: [200, 200, 200], lineWidth: 0.1 },
+        styles: { fontSize: 7, cellPadding: 1.5, overflow: 'linebreak', lineColor: [200, 200, 200], lineWidth: 0.1, valign: 'top' },
         headStyles: { fillColor: [51, 122, 183], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 8, halign: 'center' },
         columnStyles: {
-          0: { cellWidth: 36 },
-          1: { cellWidth: 24 },
-          2: { cellWidth: 28 },
-          3: { cellWidth: 38 },
-          4: { cellWidth: 26 },
-          5: { cellWidth: 26 },
-          6: { cellWidth: 22, halign: 'center' },
-          7: { cellWidth: 26, halign: 'right' },
-          8: { cellWidth: 20 },
+          0: { cellWidth: 36 },                    // Application ID
+          1: { cellWidth: 24 },                    // Client Phone
+          2: { cellWidth: 44 },                    // Client Name  ← wider
+          3: { cellWidth: 38 },                    // Agent Email
+          4: { cellWidth: 41 },                    // Agent Name   ← wider
+          5: { cellWidth: 26 },                    // Insurance Category
+          6: { cellWidth: 22, halign: 'center' },  // Insurance End Date
+          7: { cellWidth: 26, halign: 'right' },   // Commission
+          8: { cellWidth: 20 },                    // Plate Number
         },
         alternateRowStyles: { fillColor: [245, 245, 245] },
         margin: { top: 10, right: 8, bottom: 12, left: 8 },
