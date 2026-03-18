@@ -30,6 +30,9 @@ interface AgentDetailModalProps {
   agentName: string;
   agentEmail: string;
   token: string;
+  /** Pre-select the date range to match the parent analytics page */
+  initialStartDate?: string;
+  initialEndDate?: string;
 }
 
 interface Application {
@@ -101,6 +104,13 @@ interface ApiDistributionItem {
   category?: string;
   count?: number;
 }
+
+/**
+ * Raw response shape from GET /getAgentDashboardStats
+ * Fields will be populated once the backend response is confirmed.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AgentDashboardStats = Record<string, any> | null;
 
 const getFirstDayOfMonth = () => {
   const now = new Date();
@@ -299,8 +309,7 @@ const TablePagination = ({ currentPage, totalPages, totalItems, itemsPerPage, on
   );
 };
 
-export default function AgentDetailModal({ isOpen, onClose, agentId, agentName, agentEmail, token }: AgentDetailModalProps) {
-  const [recentApplications, setRecentApplications] = useState<Application[]>([]);
+export default function AgentDetailModal({ isOpen, onClose, agentId, agentName, agentEmail, token, initialStartDate, initialEndDate }: AgentDetailModalProps) {
   const [allApplications, setAllApplications] = useState<Application[]>([]);
   const [insuranceDistribution, setInsuranceDistribution] = useState<InsuranceDistribution[]>([]);
   const [weeklyStats, setWeeklyStats] = useState<WeeklyStat[]>([]);
@@ -310,10 +319,23 @@ export default function AgentDetailModal({ isOpen, onClose, agentId, agentName, 
   const [showCommissionChart, setShowCommissionChart] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStatus, setSelectedStatus] = useState('all');
+
+  // Dashboard stats from /getAgentDashboardStats — raw until response shape is confirmed
+  const [dashboardStats, setDashboardStats] = useState<AgentDashboardStats>(null);
+  const [isDashboardStatsLoading, setIsDashboardStatsLoading] = useState(false);
   
-  // Date range for filtering
-  const [startDate, setStartDate] = useState<string>(getFirstDayOfMonth());
-  const [endDate, setEndDate] = useState<string>(getTodayDate());
+  // Date range — initialised from the parent page so they always stay in sync
+  const [startDate, setStartDate] = useState<string>(initialStartDate ?? getFirstDayOfMonth());
+  const [endDate, setEndDate] = useState<string>(initialEndDate ?? getTodayDate());
+
+  // Keep the date range in sync if the parent changes it while the modal is open
+  useEffect(() => {
+    if (initialStartDate) setStartDate(initialStartDate);
+  }, [initialStartDate]);
+
+  useEffect(() => {
+    if (initialEndDate) setEndDate(initialEndDate);
+  }, [initialEndDate]);
   
   // Applications table pagination (same as admin agents table)
   const [currentPage, setCurrentPage] = useState(1);
@@ -329,51 +351,6 @@ export default function AgentDetailModal({ isOpen, onClose, agentId, agentName, 
     if (!isOpen || !agentId || !token) return;
 
     setIsLoading(true);
-
-    const fetchRecentApplications = async () => {
-      try {
-        const url = new URL(`${process.env.NEXT_PUBLIC_API_BASE_URL}/getRecentAgentApplications`);
-        url.searchParams.append('agentId', agentId);
-        if (startDate) url.searchParams.append('startDate', startDate);
-        if (endDate) url.searchParams.append('endDate', endDate);
-        
-        const res = await fetch(url.toString(), {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
-          },
-        });
-        const data = await res.json();
-        if (process.env.NODE_ENV === 'development') {
-          console.log('[Agent Detail Modal] getRecentAgentApplications response:', { agentId, startDate, endDate, data });
-        }
-        const mapped = (data.data || []).map((item: ApiApplicationItem) => ({
-          _id: item._id || '',
-          applicationNumber: item.applicationNumber || '',
-          status: item.status,
-          insuranceCategory: item.insuranceCategory,
-          insuranceType: item.insuranceType,
-          amount: item.amount,
-          submittedAt: item.submittedAt || '',
-          client: {
-            _id: item.client?._id || '',
-            fullName: item.client?.fullName || item.fullName,
-            email: item.client?.email || '',
-            phoneNumber: item.client?.phoneNumber || '',
-            province: item.client?.province || '',
-            district: item.client?.district || '',
-          },
-          vehicle: item.vehicle ? {
-            plateNumber: item.vehicle.plateNumber || '',
-          } : undefined,
-        }));
-        setRecentApplications(mapped);
-      } catch (error) {
-        console.error('Error fetching recent applications:', error);
-        setRecentApplications([]);
-      }
-    };
 
     const fetchInsuranceDistribution = async () => {
       try {
@@ -460,7 +437,6 @@ export default function AgentDetailModal({ isOpen, onClose, agentId, agentName, 
     };
 
     Promise.all([
-      fetchRecentApplications(),
       fetchInsuranceDistribution(),
       fetchWeeklyStats(),
       fetchMonthlyStats()
@@ -529,60 +505,98 @@ export default function AgentDetailModal({ isOpen, onClose, agentId, agentName, 
     fetchAllApplications();
   }, [isOpen, agentId, token, startDate, endDate]);
 
-  // Stats cards data sources (see console in dev for raw API responses):
-  // - Total Commission: getMonthlyAgentStats (sum of commission per month)
-  // - Clients Served: getMonthlyAgentStats (sum of clients per month)
-  // - Recent Applications: getRecentAgentApplications (array length)
-  // - Active Applications: getAgentInsuranceDistribution (sum of count per category)
-  const highlightStats = useMemo(() => {
-    const totalCommission = monthlyStats.reduce((sum, stat) => sum + (stat.commission || 0), 0);
-    const totalClients = monthlyStats.reduce((sum, stat) => sum + (stat.clients || 0), 0);
-    const pipelineApplications = recentApplications.length;
-    const activeApplications = insuranceDistribution.reduce((sum, type) => sum + (type.value || 0), 0);
-    return {
-      totalCommission,
-      totalClients,
-      pipelineApplications,
-      activeApplications
-    };
-  }, [monthlyStats, recentApplications, insuranceDistribution]);
+  // ── /getAgentDashboardStats ──────────────────────────────────────────────
+  // Fetches accurate per-agent stats for the selected date range.
+  // The raw response is stored in `dashboardStats` and logged in development
+  // so the shape can be confirmed before wiring it into the UI cards.
+  useEffect(() => {
+    if (!isOpen || !agentId || !token) return;
+
+    const controller = new AbortController();
+    setIsDashboardStatsLoading(true);
+    setDashboardStats(null);
+
+    (async () => {
+      try {
+        const url = new URL(`${process.env.NEXT_PUBLIC_API_BASE_URL}/getAgentDashboardStats`);
+        url.searchParams.set('agentId', agentId);
+        url.searchParams.set('startDate', startDate);
+        url.searchParams.set('endDate', endDate);
+
+        const res = await fetch(url.toString(), {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          signal: controller.signal,
+        });
+
+        if (!res.ok) {
+          throw new Error(`/getAgentDashboardStats responded with ${res.status}`);
+        }
+
+        const json = await res.json();
+
+        // ── Inspect this in the Network tab or the console ──
+        if (process.env.NODE_ENV === 'development') {
+          console.group('[AgentDetailModal] /getAgentDashboardStats');
+          console.log('Request :', { agentId, startDate, endDate });
+          console.log('Response:', json);
+          console.groupEnd();
+        }
+
+        setDashboardStats(json);
+      } catch (err: unknown) {
+        if ((err as { name?: string })?.name === 'AbortError') return;
+        console.error('[AgentDetailModal] /getAgentDashboardStats error:', err);
+        setDashboardStats(null);
+      } finally {
+        setIsDashboardStatsLoading(false);
+      }
+    })();
+
+    return () => controller.abort();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, agentId, token, startDate, endDate]);
+
+  // Stats cards — sourced from /getAgentDashboardStats
+  // Response shape: { totalCommission, clientsServed, recentApplications }
+  const highlightStats = useMemo(() => ({
+    totalCommission: (dashboardStats?.totalCommission as number) ?? 0,
+    clientsServed:   (dashboardStats?.clientsServed   as number) ?? 0,
+    recentApplications: (dashboardStats?.recentApplications as number) ?? 0,
+  }), [dashboardStats]);
 
   const formatCurrency = (value: number) => `${value.toLocaleString()} RWF`;
-  const formatNumber = (value: number) => value.toLocaleString();
+  const formatNumber   = (value: number) => value.toLocaleString();
 
   const highlightCards = [
     {
       key: 'commission',
       title: 'Total Commission',
       value: formatCurrency(highlightStats.totalCommission),
-      caption: 'Aggregated across reported months',
+      caption: 'For the selected date range',
       icon: <DollarSign className="w-4 h-4" />,
-      iconClasses: 'bg-blue-50 text-blue-600'
+      iconClasses: 'bg-blue-50 text-blue-600',
     },
     {
       key: 'clients',
       title: 'Clients Served',
-      value: formatNumber(highlightStats.totalClients),
-      caption: 'From monthly performance data',
+      value: formatNumber(highlightStats.clientsServed),
+      caption: 'For the selected date range',
       icon: <Users className="w-4 h-4" />,
-      iconClasses: 'bg-emerald-50 text-emerald-600'
+      iconClasses: 'bg-emerald-50 text-emerald-600',
     },
     {
       key: 'applications',
       title: 'Recent Applications',
-      value: formatNumber(highlightStats.pipelineApplications),
-      caption: 'Recent applications under management',
+      value: formatNumber(highlightStats.recentApplications),
+      caption: 'For the selected date range',
       icon: <Briefcase className="w-4 h-4" />,
-      iconClasses: 'bg-indigo-50 text-indigo-600'
+      iconClasses: 'bg-indigo-50 text-indigo-600',
     },
-    {
-      key: 'policies',
-      title: 'Active Applications',
-      value: formatNumber(highlightStats.activeApplications),
-      caption: 'Currently active insurance applications',
-      icon: <ArrowUpRight className="w-4 h-4" />,
-      iconClasses: 'bg-slate-100 text-slate-600'
-    }
+    // "Active Applications" card removed — not returned by /getAgentDashboardStats
   ];
 
   // Filter all applications for table
@@ -740,7 +754,7 @@ export default function AgentDetailModal({ isOpen, onClose, agentId, agentName, 
                 <p className="text-xs text-slate-500 mb-3">
                   Stats for <span className="font-medium text-slate-700">{startDate}</span> to <span className="font-medium text-slate-700">{endDate}</span>
                 </p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
                   {highlightCards.map((card) => (
                     <div key={card.key} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm hover:shadow-md transition-shadow">
                       <div className="flex items-center justify-between mb-4">
@@ -750,7 +764,11 @@ export default function AgentDetailModal({ isOpen, onClose, agentId, agentName, 
                         <ArrowUpRight className="w-4 h-4 text-slate-300" />
                       </div>
                       <p className="text-xs uppercase tracking-wide text-slate-500">{card.title}</p>
-                      <p className="text-xl font-semibold text-slate-900 mt-1">{card.value}</p>
+                      {isDashboardStatsLoading ? (
+                        <div className="h-7 w-24 bg-slate-200 rounded animate-pulse mt-1" />
+                      ) : (
+                        <p className="text-xl font-semibold text-slate-900 mt-1">{card.value}</p>
+                      )}
                       <p className="text-xs text-slate-500 mt-1">{card.caption}</p>
                     </div>
                   ))}
