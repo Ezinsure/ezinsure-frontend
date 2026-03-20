@@ -77,6 +77,81 @@ interface Application {
   email?: string;
   phoneNumber?: string;
   address?: string;
+  clientId?: string;
+  vehicleId?: string;
+  agentId?: string;
+}
+
+type CommissionReviewTab = 'pending_review' | 'ready_to_be_paid';
+
+/** Normalise API rows that may omit populated `client` / `agent` / `vehicle` */
+function normalizeCommissionRow(raw: unknown): Application {
+  const r = raw as Record<string, unknown>;
+  if (!r || typeof r !== 'object') {
+    return raw as Application;
+  }
+
+  let client = r.client as Application['client'] | undefined;
+  if (!client && r.clientId) {
+    client = {
+      _id: String(r.clientId),
+      fullName: (r.clientName as string) || (r.fullName as string) || '—',
+      email: (r.clientEmail as string) || (r.email as string) || '',
+      phoneNumber: (r.clientPhone as string) || (r.phoneNumber as string) || '',
+      dateOfBirth: (r.clientDateOfBirth as string) || '',
+      address: (r.clientAddress as string) || (r.address as string) || '',
+      nationalID: (r.clientNationalId as string) || '',
+      identificationDocumentType: '',
+      identificationNumber: '',
+      province: (r.clientProvince as string) || '',
+      district: (r.clientDistrict as string) || '',
+      sector: (r.clientSector as string) || '',
+      createdAt: '',
+    };
+  }
+  if (!client) {
+    client = {
+      _id: '',
+      fullName: '—',
+      email: '',
+      phoneNumber: '',
+      dateOfBirth: '',
+      address: '',
+      nationalID: '',
+      identificationDocumentType: '',
+      identificationNumber: '',
+      province: '',
+      district: '',
+      sector: '',
+      createdAt: '',
+    };
+  }
+
+  let agent = r.agent as Application['agent'] | null | undefined;
+  if (!agent && r.agentId) {
+    agent = {
+      _id: String(r.agentId),
+      fullName: (r.agentName as string) || '—',
+      email: r.agentEmail as string | undefined,
+      phoneNumber: r.agentPhone as string | undefined,
+    };
+  }
+
+  let vehicle = r.vehicle as Application['vehicle'] | undefined;
+  if (!vehicle && r.vehicleId) {
+    vehicle = {
+      _id: String(r.vehicleId),
+      clientId: String(r.clientId || ''),
+      vehicleType: (r.vehicleType as string) || '',
+      vehicleAge: (r.vehicleAge as string) || '',
+      plateNumber: r.plateNumber as string | undefined,
+      vehicleUse: (r.vehicleUse as string) || '',
+      otherVehicleUse: r.otherVehicleUse as string | undefined,
+      createdAt: '',
+    };
+  }
+
+  return { ...r, client, agent: agent ?? null, vehicle } as Application;
 }
 
 interface PaginationProps {
@@ -97,15 +172,23 @@ const AdminCommissionReviewPage = () => {
   // Keep ref updated with latest showToast (without useEffect to avoid loops)
   showToastRef.current = showToast;
 
-  const [applications, setApplications] = useState<Application[]>([]);
-  const [totalCommission, setTotalCommission] = useState<number>(0);
-  const [totalApplications, setTotalApplications] = useState<number>(0);
+  const [activeTab, setActiveTab] = useState<CommissionReviewTab>('pending_review');
+
+  const [reviewApplications, setReviewApplications] = useState<Application[]>([]);
+  const [reviewTotalCommission, setReviewTotalCommission] = useState<number>(0);
+  const [reviewCount, setReviewCount] = useState<number>(0);
+
+  const [readyApplications, setReadyApplications] = useState<Application[]>([]);
+  const [readyTotalCommission, setReadyTotalCommission] = useState<number>(0);
+  const [readyCount, setReadyCount] = useState<number>(0);
+
+  const [isLoadingReview, setIsLoadingReview] = useState(true);
+  const [isLoadingReady, setIsLoadingReady] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [selectedAgentId, setSelectedAgentId] = useState<string>('all');
   const [startDate, setStartDate] = useState<string>('');
   const [endDate, setEndDate] = useState<string>('');
-  const [isLoading, setIsLoading] = useState(true);
   const [showLeftFade, setShowLeftFade] = useState(false);
   const [showRightFade, setShowRightFade] = useState(true);
   const [showScrollHint, setShowScrollHint] = useState(true);
@@ -124,12 +207,24 @@ const AdminCommissionReviewPage = () => {
   const [visibleEditFields, setVisibleEditFields] = useState<Record<string, boolean>>({});
   const [isSubmittingEdit, setIsSubmittingEdit] = useState(false);
   const [isBulkMarkingReady, setIsBulkMarkingReady] = useState(false);
+  const [isRevertingToReview, setIsRevertingToReview] = useState(false);
 
   // Sort state
   const [sortField, setSortField] = useState<
     'applicationNumber' | 'clientName' | 'agentName' | 'insuranceCategory' | 'insuranceEndAt' | 'submittedAt' | 'agentCommission' | 'agentCommissionPaymentStatus'
   >('submittedAt');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+
+  const applications =
+    activeTab === 'pending_review' ? reviewApplications : readyApplications;
+  const totalCommission =
+    activeTab === 'pending_review' ? reviewTotalCommission : readyTotalCommission;
+  const totalApplications =
+    activeTab === 'pending_review' ? reviewCount : readyCount;
+  const isLoading =
+    activeTab === 'pending_review' ? isLoadingReview : isLoadingReady;
 
   const handleSort = (
     field: 'applicationNumber' | 'clientName' | 'agentName' | 'insuranceCategory' | 'insuranceEndAt' | 'submittedAt' | 'agentCommission' | 'agentCommissionPaymentStatus',
@@ -177,7 +272,6 @@ const AdminCommissionReviewPage = () => {
       return { success: false, data: [] };
     }
   }, [applications]);
-  const [itemsPerPage, setItemsPerPage] = useState(10);
 
   // Helper to format dates
   const formatDate = (dateString: string | undefined) => {
@@ -197,41 +291,70 @@ const AdminCommissionReviewPage = () => {
     }
   };
 
-  // Fetch applications ready to be paid
-  const fetchApplications = useCallback(async () => {
-    if (!token) return;
+  const loadCommissionQueues = useCallback(
+    async (options?: { withSpinner?: boolean }) => {
+      if (!token) return;
+      const withSpinner = options?.withSpinner !== false;
+      if (withSpinner) {
+        setIsLoadingReview(true);
+        setIsLoadingReady(true);
+      }
+      try {
+        const [resReview, resReady] = await Promise.all([
+          apiFetch('/getAllApplicationsPendingAdminReview', { method: 'GET' }),
+          apiFetch('/getReadyToBePaidApplications', { method: 'GET' }),
+        ]);
 
-    try {
-      setIsLoading(true);
-      const response = await apiFetch('/getAllApplicationsPendingAdminReview', {
-        method: 'GET',
-      });
+        const sortBySubmitted = (a: Application, b: Application) =>
+          new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime();
 
-      const data = await response.json();
-      const fetched: Application[] = data.data || [];
+        if (resReview.ok) {
+          const dataReview = await resReview.json();
+          const fetchedReview = (dataReview.data || []).map(normalizeCommissionRow);
+          setReviewApplications(fetchedReview.slice().sort(sortBySubmitted));
+          setReviewTotalCommission(Number(dataReview.totalAgentCommission) || 0);
+          setReviewCount(dataReview.count ?? fetchedReview.length);
+        } else {
+          console.error('Pending review queue failed:', resReview.status);
+          showToastRef.current('Could not load pending admin review queue.', 'error');
+          setReviewApplications([]);
+          setReviewTotalCommission(0);
+          setReviewCount(0);
+        }
 
-      // Sort by submittedAt (newest first)
-      const sorted = fetched.slice().sort((a, b) => {
-        return new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime();
-      });
-
-      setApplications(sorted);
-      // Use values returned by API instead of calculating on the frontend
-      setTotalCommission(data.totalAgentCommission || 0);
-      setTotalApplications(data.count || fetched.length);
-    } catch (error) {
-      console.error('Error fetching applications ready to be paid:', error);
-      showToastRef.current('Failed to load applications to review for commission payment.', 'error');
-    } finally {
-      setIsLoading(false);
-    }
-    // NOTE: we intentionally omit apiFetch from dependencies to avoid refetch loops
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token]);
+        if (resReady.ok) {
+          const dataReady = await resReady.json();
+          const fetchedReady = (dataReady.data || []).map(normalizeCommissionRow);
+          setReadyApplications(fetchedReady.slice().sort(sortBySubmitted));
+          setReadyTotalCommission(Number(dataReady.totalAgentCommission) || 0);
+          setReadyCount(dataReady.count ?? fetchedReady.length);
+        } else {
+          console.error('Ready to be paid queue failed:', resReady.status);
+          showToastRef.current('Could not load ready-to-be-paid applications.', 'error');
+          setReadyApplications([]);
+          setReadyTotalCommission(0);
+          setReadyCount(0);
+        }
+      } catch (error) {
+        console.error('Error loading commission queues:', error);
+        showToastRef.current(
+          'Failed to load commission review data. Please refresh the page.',
+          'error',
+        );
+      } finally {
+        if (withSpinner) {
+          setIsLoadingReview(false);
+          setIsLoadingReady(false);
+        }
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- apiFetch identity changes each render
+    [token],
+  );
 
   useEffect(() => {
-    fetchApplications();
-  }, [fetchApplications]);
+    loadCommissionQueues({ withSpinner: true });
+  }, [loadCommissionQueues]);
 
   // Scroll hint visibility
   useEffect(() => {
@@ -337,6 +460,10 @@ const AdminCommissionReviewPage = () => {
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
   );
+
+  /** Rows included in PDF/Excel: current filters, or full active-tab list if filters exclude everything */
+  const exportApplications =
+    filteredApplications.length > 0 ? filteredApplications : applications;
 
   const getPaymentStatusBadge = (status?: string) => {
     if (!status) {
@@ -501,7 +628,7 @@ const getActionButtons = (app: Application) => {
           size="xs"
           onClick={() => setSelectedApp(app)}
         >
-          Review
+          {activeTab === 'ready_to_be_paid' ? 'Details' : 'Review'}
         </Button>
       </div>
     );
@@ -559,7 +686,7 @@ const getActionButtons = (app: Application) => {
       setSelectedApp(null);
       setHoldComment('');
       // Refetch applications
-      await fetchApplications();
+      await loadCommissionQueues({ withSpinner: false });
     } catch (error) {
       console.error('Error putting application on hold:', error);
       showToast(error instanceof Error ? error.message : 'Failed to put application on hold', 'error');
@@ -593,12 +720,50 @@ const getActionButtons = (app: Application) => {
       setSelectedApp(null);
       setHoldComment('');
       // Refetch applications
-      await fetchApplications();
+      await loadCommissionQueues({ withSpinner: false });
     } catch (error) {
       console.error('Error marking application as ready:', error);
       showToast(error instanceof Error ? error.message : 'Failed to mark application as ready', 'error');
     } finally {
       setIsMarkingReady(false);
+    }
+  };
+
+  /** Move an application from READY_TO_BE_PAID back to pending admin review */
+  const handleSetToPendingAdminReview = async () => {
+    if (!selectedApp) return;
+    setIsRevertingToReview(true);
+    try {
+      const response = await apiFetch(`/setToPendingAdminReview/${selectedApp._id}`, {
+        method: 'PUT',
+      });
+      if (!response.ok) {
+        let message = 'Failed to return application to pending review';
+        try {
+          const errBody = await response.json();
+          message = errBody.message || message;
+        } catch {
+          /* ignore */
+        }
+        throw new Error(message);
+      }
+      const responseData = await response.json().catch(() => ({}));
+      showToast(
+        (responseData as { message?: string }).message ||
+          'Application returned to pending admin review.',
+        'success',
+      );
+      setSelectedApp(null);
+      setHoldComment('');
+      await loadCommissionQueues({ withSpinner: false });
+    } catch (error) {
+      console.error('Error reverting to pending review:', error);
+      showToast(
+        error instanceof Error ? error.message : 'Could not update application status.',
+        'error',
+      );
+    } finally {
+      setIsRevertingToReview(false);
     }
   };
 
@@ -634,7 +799,7 @@ const getActionButtons = (app: Application) => {
         showToastRef.current('Failed to mark applications as ready to be paid. Please try again.', 'error');
       }
 
-      await fetchApplications();
+      await loadCommissionQueues({ withSpinner: false });
     } catch (error) {
       console.error('Error bulk marking applications as ready:', error);
       showToastRef.current(
@@ -715,7 +880,7 @@ const getActionButtons = (app: Application) => {
       setEditFormData(null);
       setOriginalEditFormData(null);
       // Refetch applications
-      await fetchApplications();
+      await loadCommissionQueues({ withSpinner: false });
     } catch (error) {
       console.error('Error updating application:', error);
       showToast(error instanceof Error ? error.message : 'Failed to update application', 'error');
@@ -1127,16 +1292,35 @@ const getActionButtons = (app: Application) => {
       doc.setFontSize(18);
       doc.setTextColor(10, 37, 64);
       doc.text('Commission Review Report', 14, 20);
+      doc.setFontSize(11);
+      doc.setTextColor(60, 60, 60);
+      doc.text(
+        activeTab === 'pending_review' ? 'Queue: Pending admin review' : 'Queue: Ready to be paid',
+        14,
+        26,
+      );
 
       doc.setFontSize(10);
       doc.setTextColor(100, 100, 100);
-      doc.text(`Generated: ${now.toLocaleDateString()} at ${now.toLocaleTimeString()}`, 14, 28);
-      doc.text(`Total applications: ${filteredApplications.length}`, 14, 34);
+      doc.text(`Generated: ${now.toLocaleDateString()} at ${now.toLocaleTimeString()}`, 14, 32);
+      doc.text(`Total applications: ${exportApplications.length}`, 14, 38);
 
-      const totalComm = filteredApplications.reduce((s, a) => s + (a.agentCommission ?? 0), 0);
-      doc.text(`Total commission: ${totalComm.toLocaleString()} RWF`, 14, 40);
+      const totalComm = exportApplications.reduce((s, a) => s + (a.agentCommission ?? 0), 0);
+      doc.text(`Total commission: ${totalComm.toLocaleString()} RWF`, 14, 44);
 
-      const tableData = filteredApplications.map((app) => {
+      let tableStartY = 52;
+      if (filteredApplications.length === 0 && applications.length > 0) {
+        doc.setFontSize(8);
+        doc.setTextColor(160, 100, 0);
+        doc.text(
+          'Note: Current filters match no rows — export includes the full list for this tab.',
+          14,
+          49,
+        );
+        tableStartY = 58;
+      }
+
+      const tableData = exportApplications.map((app) => {
         const r = buildExportRow(app);
         return [
           r.id,
@@ -1154,7 +1338,7 @@ const getActionButtons = (app: Application) => {
       autoTable.default(doc, {
         head: [EXPORT_HEADERS],
         body: tableData,
-        startY: 48,
+        startY: tableStartY,
         styles: { fontSize: 7, cellPadding: 1.5, overflow: 'linebreak', lineColor: [200, 200, 200], lineWidth: 0.1, valign: 'top' },
         headStyles: { fillColor: [51, 122, 183], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 8, halign: 'center' },
         columnStyles: {
@@ -1178,7 +1362,8 @@ const getActionButtons = (app: Application) => {
       });
 
       const dateStr = now.toISOString().split('T')[0];
-      doc.save(`commission_review_${dateStr}.pdf`);
+      const queueSlug = activeTab === 'pending_review' ? 'pending_review' : 'ready_to_be_paid';
+      doc.save(`commission_review_${queueSlug}_${dateStr}.pdf`);
       showToast('PDF downloaded successfully', 'success');
     } catch (err) {
       console.error('PDF generation error:', err);
@@ -1190,7 +1375,7 @@ const getActionButtons = (app: Application) => {
     try {
       const csvRows = [
         EXPORT_HEADERS.join(','),
-        ...filteredApplications.map((app) => {
+        ...exportApplications.map((app) => {
           const r = buildExportRow(app);
           const cells = [
             r.id,
@@ -1211,7 +1396,8 @@ const getActionButtons = (app: Application) => {
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `commission_review_${new Date().toISOString().split('T')[0]}.csv`;
+      const queueSlug = activeTab === 'pending_review' ? 'pending_review' : 'ready_to_be_paid';
+      link.download = `commission_review_${queueSlug}_${new Date().toISOString().split('T')[0]}.csv`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -1229,22 +1415,90 @@ const getActionButtons = (app: Application) => {
         <div className="absolute top-0 left-0 w-full h-[10vh] overflow-hidden z-0 bg-gradient-to-br from-[#0A2540] to-[#126BB3]" />
 
         <div className="mb-8 mt-16">
-          <h1 className="text-3xl font-bold mb-2">Applications Ready for Commission Review</h1>
-          <p className="text-gray-600">
-            Review applications from all agents and prepare them for commission payment.
+          <h1 className="text-2xl sm:text-3xl font-bold mb-1">Commission review</h1>
+          <p className="text-gray-600 text-sm sm:text-base mb-4">
+            Review agent commissions, approve for payout, or return applications to review if needed.
           </p>
 
+          {/* Tabs */}
+          <div
+            className="flex flex-col sm:flex-row gap-2 sm:gap-3 mb-4"
+            role="tablist"
+            aria-label="Commission review views"
+          >
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeTab === 'pending_review'}
+              id="tab-pending-review"
+              className={[
+                'flex-1 sm:flex-none min-h-[44px] px-4 py-2.5 rounded-xl text-sm font-semibold transition-all border-2 text-left sm:text-center',
+                activeTab === 'pending_review'
+                  ? 'bg-[var(--main-blue)] text-white border-[var(--main-blue)] shadow-md'
+                  : 'bg-white text-gray-700 border-gray-200 hover:border-gray-300 hover:bg-gray-50',
+              ].join(' ')}
+              onClick={() => {
+                setActiveTab('pending_review');
+                setCurrentPage(1);
+                setSelectedApp(null);
+                setHoldComment('');
+              }}
+            >
+              <span className="block">Pending admin review</span>
+              <span
+                className={`text-xs font-normal mt-0.5 block ${
+                  activeTab === 'pending_review' ? 'text-blue-100' : 'text-gray-500'
+                }`}
+              >
+                {isLoadingReview && reviewCount === 0 ? '…' : `${reviewCount} in queue`}
+              </span>
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeTab === 'ready_to_be_paid'}
+              id="tab-ready-paid"
+              className={[
+                'flex-1 sm:flex-none min-h-[44px] px-4 py-2.5 rounded-xl text-sm font-semibold transition-all border-2 text-left sm:text-center',
+                activeTab === 'ready_to_be_paid'
+                  ? 'bg-[var(--main-blue)] text-white border-[var(--main-blue)] shadow-md'
+                  : 'bg-white text-gray-700 border-gray-200 hover:border-gray-300 hover:bg-gray-50',
+              ].join(' ')}
+              onClick={() => {
+                setActiveTab('ready_to_be_paid');
+                setCurrentPage(1);
+                setSelectedApp(null);
+                setHoldComment('');
+              }}
+            >
+              <span className="block">Ready to be paid</span>
+              <span
+                className={`text-xs font-normal mt-0.5 block ${
+                  activeTab === 'ready_to_be_paid' ? 'text-blue-100' : 'text-gray-500'
+                }`}
+              >
+                {isLoadingReady && readyCount === 0 ? '…' : `${readyCount} approved`}
+              </span>
+            </button>
+          </div>
+
           {/* Summary card */}
-          <div className="mt-4 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4">
+          <div className="mt-2 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4">
             <div className="flex items-center justify-between flex-wrap gap-4">
               <div>
-                <p className="text-sm text-gray-600">Total Commission (Ready to be Paid)</p>
+                <p className="text-sm text-gray-600">
+                  {activeTab === 'pending_review'
+                    ? 'Total agent commission (pending review)'
+                    : 'Total agent commission (ready to be paid)'}
+                </p>
                 <p className="text-2xl font-bold text-[var(--main-blue)]">
                   {totalCommission.toLocaleString()} RWF
                 </p>
               </div>
               <div>
-                <p className="text-sm text-gray-600">Total Applications</p>
+                <p className="text-sm text-gray-600">
+                  {activeTab === 'pending_review' ? 'Applications in this queue' : 'Applications ready for payout'}
+                </p>
                 <p className="text-xl font-semibold text-gray-800">{totalApplications}</p>
               </div>
             </div>
@@ -1264,7 +1518,7 @@ const getActionButtons = (app: Application) => {
               application{filteredApplications.length === 1 ? '' : 's'} after filters
             </p>
             <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
-              {filteredApplications.length > 0 && (
+              {applications.length > 0 && (
                 <>
                   <Button
                     variant="primary"
@@ -1296,14 +1550,16 @@ const getActionButtons = (app: Application) => {
                   </Button>
                 </>
               )}
-              <Button
-                variant="secondary"
-                size="sm"
-                disabled={filteredApplications.length === 0 || isBulkMarkingReady || isLoading}
-                onClick={handleMarkAllVisibleAsReady}
-              >
-                {isBulkMarkingReady ? 'Approving…' : 'Approve All Filtered'}
-              </Button>
+              {activeTab === 'pending_review' && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  disabled={filteredApplications.length === 0 || isBulkMarkingReady || isLoading}
+                  onClick={handleMarkAllVisibleAsReady}
+                >
+                  {isBulkMarkingReady ? 'Approving…' : 'Approve All Filtered'}
+                </Button>
+              )}
             </div>
           </div>
 
@@ -1608,14 +1864,26 @@ const getActionButtons = (app: Application) => {
       {selectedApp && (
         <div className="fixed inset-0 bg-gray-600/50 flex items-center justify-center z-50">
           <div className="max-h-[90vh] overflow-y-auto bg-white rounded-lg shadow-xl p-6 w-full max-w-3xl mx-4 fade-in">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold">Review Application</h3>
+            <div className="flex justify-between items-center mb-4 gap-3">
+              <div>
+                <h3 className="text-lg font-semibold">
+                  {activeTab === 'ready_to_be_paid'
+                    ? 'Application — ready to be paid'
+                    : 'Review application'}
+                </h3>
+                {activeTab === 'ready_to_be_paid' && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    This application is approved for commission payout. You can return it to pending review if it was
+                    marked by mistake.
+                  </p>
+                )}
+              </div>
               <button
                 onClick={() => {
                   setSelectedApp(null);
                   setHoldComment('');
                 }}
-                className="text-gray-400 hover:text-gray-600"
+                className="text-gray-400 hover:text-gray-600 shrink-0"
               >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
@@ -1991,7 +2259,7 @@ const getActionButtons = (app: Application) => {
             {/* Comment field for putting on hold */}
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Comment (Required for putting on hold)
+                Comment (required to put on hold)
               </label>
               <textarea
                 value={holdComment}
@@ -2003,30 +2271,48 @@ const getActionButtons = (app: Application) => {
             </div>
 
             {/* Action Buttons */}
-            <div className="flex justify-end gap-3">
+            <div className="flex flex-col-reverse sm:flex-row sm:justify-end sm:flex-wrap gap-2 sm:gap-3">
               <Button
                 variant="text"
                 onClick={() => {
                   setSelectedApp(null);
                   setHoldComment('');
                 }}
-                disabled={isPuttingOnHold || isMarkingReady}
+                disabled={isPuttingOnHold || isMarkingReady || isRevertingToReview}
+                className="w-full sm:w-auto"
               >
                 Cancel
               </Button>
               <Button
                 variant="danger"
                 onClick={handlePutOnHold}
-                disabled={!holdComment.trim() || isPuttingOnHold || isMarkingReady}
+                disabled={
+                  !holdComment.trim() || isPuttingOnHold || isMarkingReady || isRevertingToReview
+                }
+                className="w-full sm:w-auto"
               >
                 {isPuttingOnHold ? 'Putting on Hold...' : 'Put on Hold'}
               </Button>
-              <Button
-                onClick={handleMarkAsReady}
-                disabled={isPuttingOnHold || isMarkingReady}
-              >
-                {isMarkingReady ? 'Marking as Ready...' : 'Mark as Ready to be Paid'}
-              </Button>
+              {activeTab === 'ready_to_be_paid' ? (
+                <Button
+                  variant="outline"
+                  onClick={handleSetToPendingAdminReview}
+                  disabled={isPuttingOnHold || isMarkingReady || isRevertingToReview}
+                  className="w-full sm:w-auto border-amber-500 text-amber-800 hover:bg-amber-50"
+                >
+                  {isRevertingToReview
+                    ? 'Updating…'
+                    : 'Send to pending admin review'}
+                </Button>
+              ) : (
+                <Button
+                  onClick={handleMarkAsReady}
+                  disabled={isPuttingOnHold || isMarkingReady || isRevertingToReview}
+                  className="w-full sm:w-auto"
+                >
+                  {isMarkingReady ? 'Marking as Ready...' : 'Mark as Ready to be Paid'}
+                </Button>
+              )}
             </div>
           </div>
         </div>
