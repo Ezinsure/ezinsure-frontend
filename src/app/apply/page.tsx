@@ -20,6 +20,7 @@ import { formatErrorMessage } from '@/utils/error-formatter';
 import { getTrackingData, TrackingData } from '@/utils/tracking';
 import { carUses, motoUses, carTypes, motoTypes } from '@/utils/vehicle-types';
 import { ComboboxField } from '@/components/ui/combobox-field';
+import { calculateAdministrationFeesRwf } from '@/utils/administration-fees';
 
 export default function ApplyPage() {
   const { showToast, ToastContainer } = useToast();
@@ -606,7 +607,11 @@ export default function ApplyPage() {
         
         // Append COMESA status
         formData.append('isCOMESA', formState.isCOMESA.toString());
-        
+        formData.append(
+          'administrationFees',
+          String(calculateAdministrationFeesRwf(formState.insuranceCategory, formState.isCOMESA)),
+        );
+
         // Append files that were directly uploaded
         if (formState.nationalID) {
           formData.append('nationalID', formState.nationalID);

@@ -20,6 +20,7 @@ import { rwandaProvinces } from '@/utils/rwanda-administrative';
 import { formatErrorMessage } from '@/utils/error-formatter';
 import { carUses, motoUses, carTypes, motoTypes } from '@/utils/vehicle-types';
 import { ComboboxField } from '@/components/ui/combobox-field';
+import { calculateAdministrationFeesRwf } from '@/utils/administration-fees';
 
 // Device tracking utility types and functions
 interface DeviceInfo {
@@ -765,7 +766,11 @@ export default function AgentApplyPage() {
         
         // Append COMESA status
         formData.append('isCOMESA', formState.isCOMESA.toString());
-        
+        formData.append(
+          'administrationFees',
+          String(calculateAdministrationFeesRwf(formState.insuranceCategory, formState.isCOMESA)),
+        );
+
         // Append files that were directly uploaded
         if (formState.nationalID) {
           formData.append('nationalID', formState.nationalID);

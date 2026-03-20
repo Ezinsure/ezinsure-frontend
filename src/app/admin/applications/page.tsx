@@ -11,6 +11,10 @@ import { DocumentViewer } from '@/components/ui/document-viewer';
 import { PencilLine, Eye } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { formatDateUTC } from '@/utils/date-formatter';
+import {
+  calculateAdministrationFeesRwf,
+  isMotorVehicleInsuranceCategory,
+} from '@/utils/administration-fees';
 
 // Application statuses
 enum ApplicationStatus {
@@ -150,6 +154,21 @@ export default function ManageApplicationsPage() {
   const [showScrollHint, setShowScrollHint] = useState(true);
   const itemsPerPage = 10;
   const [fileErrors, setFileErrors] = useState<{ [key: string]: string }>({});
+
+  // Send-invoice modal: administration fees from application COMESA + category (car/motor rules)
+  useEffect(() => {
+    if (activeModal !== 'invoice' || !selectedApp) return;
+    const fees = calculateAdministrationFeesRwf(
+      selectedApp.insuranceCategory || '',
+      Boolean(selectedApp.isCOMESA),
+    );
+    setAdministrationFees(String(fees));
+  }, [
+    activeModal,
+    selectedApp?._id,
+    selectedApp?.insuranceCategory,
+    selectedApp?.isCOMESA,
+  ]);
   const [editingApp, setEditingApp] = useState<Application | null>(null);
   const [editFormData, setEditFormData] = useState<Record<string, string | number | boolean | File | null> | null>(null);
   const [originalEditFormData, setOriginalEditFormData] = useState<Record<string, string | number | boolean | File | null> | null>(null);
@@ -2051,6 +2070,16 @@ const getActionButtons = (app: Application) => {
           placeholder="Enter amount"
           required
         />
+        {isMotorVehicleInsuranceCategory(selectedApp.insuranceCategory || '') && (
+          <p className="mt-2 text-xs text-gray-600 rounded-md bg-slate-50 border border-slate-100 px-3 py-2">
+            <span className="font-medium text-gray-700">COMESA on this application:</span>{' '}
+            {selectedApp.isCOMESA ? (
+              <span>Yes — administration fees use 25% of 12,500 RWF (see below).</span>
+            ) : (
+              <span>No — administration fees use 25% of 2,500 RWF (see below).</span>
+            )}
+          </p>
+        )}
       </div>
 
       {/* Agent Commission field - only show if application has an agent */}
@@ -2089,18 +2118,35 @@ const getActionButtons = (app: Application) => {
           className="w-full px-3 py-2 border border-[var(--card-green)] rounded-md shadow-sm focus:outline-none focus:ring-[var(--card-green)] focus:border-[var(--card-green)] sm:text-sm"
           value={administrationFees}
           onChange={(e) => setAdministrationFees(e.target.value)}
-          placeholder="Administration fees (auto-calculated)"
+          placeholder="Administration fees (from application rules)"
           required
         />
-        <p className="text-xs text-gray-500 mt-1">
-          {(() => {
-            const cat = selectedApp.insuranceCategory.toLowerCase();
-            const isCarOrMoto = cat.includes('car') || cat.includes('motor') || cat.includes('moto');
-            return isCarOrMoto
-              ? 'Calculated as 25% of 2500 RWF for both motorbike and car insurance'
-              : 'Calculated as 25% of 2500 RWF for other insurance types (including fire and building)';
-          })()}
-        </p>
+        {isMotorVehicleInsuranceCategory(selectedApp.insuranceCategory || '') ? (
+          <div className="mt-2 text-sm text-gray-600 rounded-lg bg-gray-50 border border-gray-100 px-3 py-2">
+            Administration fees (amount above):{' '}
+            <strong className="text-gray-900">
+              {administrationFees
+                ? Number(administrationFees).toLocaleString()
+                : calculateAdministrationFeesRwf(
+                    selectedApp.insuranceCategory || '',
+                    Boolean(selectedApp.isCOMESA),
+                  ).toLocaleString()}{' '}
+              RWF
+            </strong>
+            <span className="text-gray-500">
+              {' '}
+              {selectedApp.isCOMESA ? (
+                <> — 25% of 12,500 RWF because COMESA was selected on this application.</>
+              ) : (
+                <> — 25% of 2,500 RWF (COMESA not selected on this application).</>
+              )}
+            </span>
+          </div>
+        ) : (
+          <p className="text-xs text-gray-500 mt-1">
+            Calculated as 25% of 1,500 RWF for this insurance category. You may adjust the field if needed.
+          </p>
+        )}
       </div>
       
       <div className="mt-4">

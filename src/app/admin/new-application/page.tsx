@@ -16,6 +16,7 @@ import { rwandaProvinces } from '@/utils/rwanda-administrative';
 import { formatErrorMessage } from '@/utils/error-formatter';
 import { carUses, motoUses, carTypes, motoTypes } from '@/utils/vehicle-types';
 import { ComboboxField } from '@/components/ui/combobox-field';
+import { calculateAdministrationFeesRwf } from '@/utils/administration-fees';
 import {
   validateForm,
   ValidationRules,
@@ -656,30 +657,19 @@ export default function AdminNewApplicationPage() {
     ebm: { required: false },
   };
 
-  // Calculate administration fees based on insurance category
-  const calculateAdministrationFees = (insuranceCategory: string) => {
-    const normalizedCategory = insuranceCategory.toLowerCase();
-    const isVehicleCategory =
-      normalizedCategory.includes('car') ||
-      normalizedCategory.includes('motor') ||
-      normalizedCategory.includes('moto');
-    const baseAmount = isVehicleCategory ? 2500 : 1500;
-    return Math.round(baseAmount * 0.25);
-  };
-
-  // Auto-calculate administration fees when insurance category changes
-
+  // Keep administration fees in sync with category + COMESA (read from `prev` to avoid stale values)
   useEffect(() => {
-
-    if (formData.insuranceCategory) {
-
-      const calculatedFees = calculateAdministrationFees(formData.insuranceCategory);
-
-      setFormData(prev => ({ ...prev, administrationFees: calculatedFees.toString() }));
-
-    }
-
-  }, [formData.insuranceCategory]);
+    setFormData((prev) => {
+      if (!prev.insuranceCategory) return prev;
+      const calculatedFees = calculateAdministrationFeesRwf(
+        prev.insuranceCategory,
+        Boolean(prev.isCOMESA),
+      );
+      const nextFees = calculatedFees.toString();
+      if (prev.administrationFees === nextFees) return prev;
+      return { ...prev, administrationFees: nextFees };
+    });
+  }, [formData.insuranceCategory, formData.isCOMESA]);
 
   // Update districts when province changes
 
@@ -865,30 +855,34 @@ export default function AdminNewApplicationPage() {
 
     else if (name === 'insuranceCategory') {
 
-      setFormData(prev => ({
-
-        ...prev,
-
-        [name]: value,
-
-        // Clear only vehicle-related fields (not client info)
-
-        plateNumber: '',
-
-        vehicleType: '',
-
-        vehicleAge: '',
-
-        vehicleUse: '',
-
-        otherVehicleUse: '',
-
-      }));
+      setFormData((prev) => {
+        const next = {
+          ...prev,
+          [name]: value,
+          plateNumber: '',
+          vehicleType: '',
+          vehicleAge: '',
+          vehicleUse: '',
+          otherVehicleUse: '',
+        };
+        const fees = calculateAdministrationFeesRwf(String(value), Boolean(next.isCOMESA));
+        return { ...next, administrationFees: fees.toString() };
+      });
 
       // Reset plate number search status
 
-      setPlateNumberResetTrigger(prev => prev + 1);
+      setPlateNumberResetTrigger((p) => p + 1);
 
+    } else if (name === 'isCOMESA' && type === 'checkbox') {
+      const nextComesa = Boolean((e.target as HTMLInputElement).checked);
+      setFormData((prev) => {
+        const fees = calculateAdministrationFeesRwf(prev.insuranceCategory, nextComesa);
+        return {
+          ...prev,
+          isCOMESA: nextComesa,
+          administrationFees: fees.toString(),
+        };
+      });
     } else {
 
       setFormData(prev => ({
@@ -997,35 +991,34 @@ export default function AdminNewApplicationPage() {
       return;
     }
     
-    setFormData(prev => ({
-      ...prev,
-      plateNumber: value,
-      // Clear vehicle information fields on any edit to avoid stale data
-      vehicleType: '',
-      vehicleAge: '',
-      vehicleUse: '',
-      vehicleMake: '',
-      vehicleModel: '',
-      vehicleYear: '',
-      vehicleColor: '',
-      vehicleEngineNumber: '',
-      vehicleChassisNumber: '',
-      vehicleId: '',
-      // Clear insurance details on any edit to avoid stale data
-      insuranceType: 'Third Party Insurance (covers partial)',
-      insuranceDuration: '1 Month',
-      insuranceProvider: 'SONARWA',
-      isCOMESA: false,
-      // Clear document URLs when plate number is cleared or changed
-      identificationDocumentUrl: '',
-      yellowCardUrl: '',
-      pastInsuranceCertificateUrl: '',
-    }));
-    
-    // Reset isNewVehicle to false when plate number changes manually (sync formData and searchResults)
-    // (will be updated when user performs search - true if not found, false if found)
-    setSearchResults(prev => ({ ...prev, isNewVehicle: false }));
-    setFormData(prev => ({ ...prev, isNewVehicle: false }));
+    setFormData((prev) => {
+      const next = {
+        ...prev,
+        plateNumber: value,
+        vehicleType: '',
+        vehicleAge: '',
+        vehicleUse: '',
+        vehicleMake: '',
+        vehicleModel: '',
+        vehicleYear: '',
+        vehicleColor: '',
+        vehicleEngineNumber: '',
+        vehicleChassisNumber: '',
+        vehicleId: '',
+        insuranceType: 'Third Party Insurance (covers partial)',
+        insuranceDuration: '1 Month',
+        insuranceProvider: 'SONARWA',
+        isCOMESA: false,
+        isNewVehicle: false,
+        identificationDocumentUrl: '',
+        yellowCardUrl: '',
+        pastInsuranceCertificateUrl: '',
+      };
+      const fees = calculateAdministrationFeesRwf(next.insuranceCategory, false);
+      return { ...next, administrationFees: fees.toString() };
+    });
+
+    setSearchResults((p) => ({ ...p, isNewVehicle: false }));
     // Require a fresh plate search before submit
     setHasFetchedPlate(false);
   }, []);
@@ -1227,7 +1220,7 @@ export default function AdminNewApplicationPage() {
 
             companyCommission: '',
 
-            administrationFees: calculateAdministrationFees('Car Insurance').toString(),
+            administrationFees: calculateAdministrationFeesRwf('Car Insurance', false).toString(),
 
             proofOfPayment: null,
 
@@ -2445,13 +2438,19 @@ export default function AdminNewApplicationPage() {
                       />
 
                       <p className="text-xs text-gray-500 mt-1">
-
-                        {formData.insuranceCategory.toLowerCase().includes('motobike')
-
-                          ? 'Calculated as 25% of 2500 RWF for MOTO insurance'
-
-                          : 'Calculated as 25% of 2500 RWF'}
-
+                        {(() => {
+                          const cat = formData.insuranceCategory.toLowerCase();
+                          const isVehicle =
+                            cat.includes('car') ||
+                            cat.includes('motor') ||
+                            cat.includes('moto');
+                          if (!isVehicle) {
+                            return 'Calculated as 25% of 1,500 RWF for this category.';
+                          }
+                          return formData.isCOMESA
+                            ? 'Car / motor: 25% of 12,500 RWF (COMESA selected).'
+                            : 'Car / motor: 25% of 2,500 RWF (COMESA not selected).';
+                        })()}
                       </p>
 
                     </div>
