@@ -280,6 +280,12 @@ interface ApplicationFormData {
   // Agent Assignment
   wantsToAssignAgent: 'yes' | 'no' | '';
   assignToAgent: string;
+  /**
+   * When assigning an admin-created application to an agent: if "yes", backend deducts the
+   * standard assignment percentage from commission; if "no", agent receives full commission.
+   * Sent as deductAgentAssignmentCommission=true|false on the API.
+   */
+  deductAgentAssignmentCommission: 'yes' | 'no';
 }
 
 export default function AdminNewApplicationPage() {
@@ -613,7 +619,9 @@ export default function AdminNewApplicationPage() {
     
     // Agent Assignment
     wantsToAssignAgent: '',
-    assignToAgent: ''
+    assignToAgent: '',
+    // Default "yes" matches previous behaviour (charge when assigning to agent)
+    deductAgentAssignmentCommission: 'yes',
 
   });
 
@@ -1087,8 +1095,12 @@ export default function AdminNewApplicationPage() {
             return;
           }
 
-          // Skip assignToAgent and wantsToAssignAgent - we'll handle them separately to avoid duplicates
-          if (key === 'assignToAgent' || key === 'wantsToAssignAgent') {
+          // Skip assign fields — handled explicitly with assignToAgent payload
+          if (
+            key === 'assignToAgent' ||
+            key === 'wantsToAssignAgent' ||
+            key === 'deductAgentAssignmentCommission'
+          ) {
             return;
           }
 
@@ -1148,9 +1160,13 @@ export default function AdminNewApplicationPage() {
 
         }
 
-        // Add assignToAgent if selected and wantsToAssignAgent is yes
+        // Assign to agent + whether to deduct assignment charge from that agent's commission
         if (formData.wantsToAssignAgent === 'yes' && formData.assignToAgent) {
           formDataToSend.append('assignToAgent', formData.assignToAgent);
+          formDataToSend.append(
+            'deductAgentAssignmentCommission',
+            formData.deductAgentAssignmentCommission === 'yes' ? 'true' : 'false',
+          );
         }
 
         const response = await apiFetch('/applyAdmin', {
@@ -1240,6 +1256,7 @@ export default function AdminNewApplicationPage() {
     
     wantsToAssignAgent: '',
     assignToAgent: '',
+    deductAgentAssignmentCommission: 'yes',
 
             // Reset API response fields
 
@@ -1749,7 +1766,9 @@ export default function AdminNewApplicationPage() {
                             setFormData(prev => ({
                               ...prev,
                               wantsToAssignAgent: e.target.value as 'yes' | 'no',
-                              assignToAgent: e.target.value === 'no' ? '' : prev.assignToAgent
+                              assignToAgent: e.target.value === 'no' ? '' : prev.assignToAgent,
+                              deductAgentAssignmentCommission:
+                                e.target.value === 'no' ? 'yes' : prev.deductAgentAssignmentCommission,
                             }));
                           }}
                           className="w-4 h-4 text-[var(--main-blue)] focus:ring-[var(--main-blue)]"
@@ -1766,7 +1785,8 @@ export default function AdminNewApplicationPage() {
                             setFormData(prev => ({
                               ...prev,
                               wantsToAssignAgent: e.target.value as 'yes' | 'no',
-                              assignToAgent: ''
+                              assignToAgent: '',
+                              deductAgentAssignmentCommission: 'yes',
                             }));
                           }}
                           className="w-4 h-4 text-[var(--main-blue)] focus:ring-[var(--main-blue)]"
@@ -1778,34 +1798,77 @@ export default function AdminNewApplicationPage() {
 
                   {/* Agent selection - only show when Yes is selected */}
                   {formData.wantsToAssignAgent === 'yes' && (
-                    <div className="md:col-span-2">
-                      <SearchableSelect
-                        label="Assign to Agent"
-                        name="assignToAgent"
-                        placeholder="Type agent email to search..."
-                        value={formData.assignToAgent || null}
-                        onChange={(value) => {
-                          setFormData(prev => ({
-                            ...prev,
-                            assignToAgent: value || ''
-                          }));
-                          // Clear error when user selects an agent
-                          if (value && errors.assignToAgent) {
-                            setErrors(prev => {
-                              const newErrors = { ...prev };
-                              delete newErrors.assignToAgent;
-                              return newErrors;
-                            });
-                          }
-                        }}
-                        fetchOptions={fetchAgentsEmails}
-                        getDisplayValue={(option) => option.email as string}
-                        getSearchValue={(option) => option.email as string}
-                        error={errors.assignToAgent}
-                        required={true}
-                        className="w-full"
-                      />
-                    </div>
+                    <>
+                      <div className="md:col-span-2">
+                        <SearchableSelect
+                          label="Assign to Agent"
+                          name="assignToAgent"
+                          placeholder="Type agent email to search..."
+                          value={formData.assignToAgent || null}
+                          onChange={(value) => {
+                            setFormData(prev => ({
+                              ...prev,
+                              assignToAgent: value || '',
+                            }));
+                            if (value && errors.assignToAgent) {
+                              setErrors(prev => {
+                                const newErrors = { ...prev };
+                                delete newErrors.assignToAgent;
+                                return newErrors;
+                              });
+                            }
+                          }}
+                          fetchOptions={fetchAgentsEmails}
+                          getDisplayValue={(option) => option.email as string}
+                          getSearchValue={(option) => option.email as string}
+                          error={errors.assignToAgent}
+                          required={true}
+                          className="w-full"
+                        />
+                      </div>
+                      <div className="md:col-span-2">
+                        <label className="block text-sm font-medium text-gray-800 mb-2">
+                          Apply admin-assignment charge to this agent?
+                        </label>
+                        <p className="text-xs text-gray-500 mb-3">
+                          When the application was created by an admin and assigned to an agent who did not create it,
+                          you can charge the usual assignment deduction from their commission, or allow full commission.
+                        </p>
+                        <div className="flex flex-col sm:flex-row gap-4">
+                          <label className="flex items-start gap-2 cursor-pointer">
+                            <input
+                              type="radio"
+                              name="deductAgentAssignmentCommission"
+                              value="yes"
+                              checked={formData.deductAgentAssignmentCommission === 'yes'}
+                              onChange={() =>
+                                setFormData((prev) => ({ ...prev, deductAgentAssignmentCommission: 'yes' }))
+                              }
+                              className="w-4 h-4 mt-0.5 text-[var(--main-blue)] focus:ring-[var(--main-blue)]"
+                            />
+                            <span className="text-sm text-gray-700">
+                              <span className="font-medium">Yes</span> — apply charge (deduct assignment percentage from
+                              commission)
+                            </span>
+                          </label>
+                          <label className="flex items-start gap-2 cursor-pointer">
+                            <input
+                              type="radio"
+                              name="deductAgentAssignmentCommission"
+                              value="no"
+                              checked={formData.deductAgentAssignmentCommission === 'no'}
+                              onChange={() =>
+                                setFormData((prev) => ({ ...prev, deductAgentAssignmentCommission: 'no' }))
+                              }
+                              className="w-4 h-4 mt-0.5 text-[var(--main-blue)] focus:ring-[var(--main-blue)]"
+                            />
+                            <span className="text-sm text-gray-700">
+                              <span className="font-medium">No</span> — full commission (no assignment charge)
+                            </span>
+                          </label>
+                        </div>
+                      </div>
+                    </>
                   )}
                 </div>
               </fieldset>

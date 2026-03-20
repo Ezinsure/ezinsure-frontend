@@ -109,6 +109,8 @@ interface Application {
   isCOMESA?: boolean;
   vehicleUse?: string;
   otherVehicleUse?: string;
+  /** When false, agent gets full commission (no admin-assignment deduction). */
+  deductAgentAssignmentCommission?: boolean;
 }
 
 interface PaginationProps {
@@ -362,7 +364,13 @@ export default function ManageApplicationsPage() {
         if (value instanceof File) {
           formDataToSend.append(key, value);
         } else if (value !== null && value !== undefined) {
-          formDataToSend.append(key, value.toString());
+          if (key === 'deductAgentAssignmentCommission') {
+            const v = String(value).toLowerCase();
+            const deduct = v === 'yes' || v === 'true';
+            formDataToSend.append(key, deduct ? 'true' : 'false');
+          } else {
+            formDataToSend.append(key, value.toString());
+          }
         }
       });
 
@@ -907,6 +915,8 @@ const getActionButtons = (app: Application) => {
               : '',
             wantsToAssignAgent: app.agent?._id ? 'yes' : 'no',
             assignToAgent: app.agent?._id || '',
+            deductAgentAssignmentCommission:
+              app.deductAgentAssignmentCommission === false ? 'no' : 'yes',
             invoice: null as File | null,
             insuranceCertificate: null as File | null,
             contract: null as File | null,
@@ -1221,6 +1231,9 @@ const getActionButtons = (app: Application) => {
   
   const assignToAgentValue = editFormData ? getFormValue(editFormData.assignToAgent) : '';
   const wantsToAssignAgentValue = editFormData ? getFormValue(editFormData.wantsToAssignAgent) : '';
+  const deductAgentAssignmentCommissionValue = editFormData
+    ? getFormValue(editFormData.deductAgentAssignmentCommission) || 'yes'
+    : 'yes';
   // Always show agent assignment section in edit form
   const showAssignToAgentField = true;
 
@@ -2663,6 +2676,16 @@ const getActionButtons = (app: Application) => {
                 <p className="font-semibold">{selectedApp.agentCommission.toLocaleString()} RWF</p>
               </div>
             )}
+            {selectedApp.agent && selectedApp.deductAgentAssignmentCommission !== undefined && (
+              <div>
+                <p className="text-sm text-gray-500">Admin-assignment charge</p>
+                <p className="font-semibold">
+                  {selectedApp.deductAgentAssignmentCommission
+                    ? 'Applied (deduction from commission)'
+                    : 'Not applied (full commission)'}
+                </p>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -3111,6 +3134,10 @@ const getActionButtons = (app: Application) => {
                                   ...prev,
                                   wantsToAssignAgent: e.target.value,
                                   assignToAgent: e.target.value === 'no' ? '' : prev.assignToAgent || '',
+                                  deductAgentAssignmentCommission:
+                                    e.target.value === 'no'
+                                      ? 'yes'
+                                      : prev.deductAgentAssignmentCommission || 'yes',
                                 };
                               });
                             }}
@@ -3131,6 +3158,7 @@ const getActionButtons = (app: Application) => {
                                   ...prev,
                                   wantsToAssignAgent: e.target.value,
                                   assignToAgent: '',
+                                  deductAgentAssignmentCommission: 'yes',
                                 };
                               });
                             }}
@@ -3143,29 +3171,76 @@ const getActionButtons = (app: Application) => {
 
                     {/* Agent selection - only show when Yes is selected */}
                     {(wantsToAssignAgentValue === 'yes' || (!wantsToAssignAgentValue && assignToAgentValue)) && (
-                      <div className="md:col-span-2">
-                        <SearchableSelect
-                          label="Assign to Agent"
-                          name="assignToAgent"
-                          placeholder="Type agent email to search..."
-                          value={assignToAgentValue || null}
-                          onChange={(value) => {
-                            setEditFormData((prev) => {
-                              if (!prev) return prev;
-                              return {
-                                ...prev,
-                                assignToAgent: value || '',
-                                wantsToAssignAgent: value ? 'yes' : prev.wantsToAssignAgent,
-                              };
-                            });
-                          }}
-                          fetchOptions={fetchAgentsEmails}
-                          getDisplayValue={(option) => option.email as string}
-                          getSearchValue={(option) => option.email as string}
-                          required={true}
-                          className="w-full"
-                        />
-                      </div>
+                      <>
+                        <div className="md:col-span-2">
+                          <SearchableSelect
+                            label="Assign to Agent"
+                            name="assignToAgent"
+                            placeholder="Type agent email to search..."
+                            value={assignToAgentValue || null}
+                            onChange={(value) => {
+                              setEditFormData((prev) => {
+                                if (!prev) return prev;
+                                return {
+                                  ...prev,
+                                  assignToAgent: value || '',
+                                  wantsToAssignAgent: value ? 'yes' : prev.wantsToAssignAgent,
+                                };
+                              });
+                            }}
+                            fetchOptions={fetchAgentsEmails}
+                            getDisplayValue={(option) => option.email as string}
+                            getSearchValue={(option) => option.email as string}
+                            required={true}
+                            className="w-full"
+                          />
+                        </div>
+                        <div className="md:col-span-2">
+                          <label className="block text-xs font-medium text-gray-800 mb-1.5">
+                            Apply admin-assignment charge to this agent?
+                          </label>
+                          <p className="text-[11px] text-gray-500 mb-2">
+                            For admin-assigned applications: charge the usual assignment deduction from commission, or pay
+                            full commission.
+                          </p>
+                          <div className="flex flex-col gap-2">
+                            <label className="flex items-start gap-2 cursor-pointer">
+                              <input
+                                type="radio"
+                                name="deductAgentAssignmentCommission"
+                                value="yes"
+                                checked={deductAgentAssignmentCommissionValue === 'yes'}
+                                onChange={() =>
+                                  setEditFormData((prev) =>
+                                    prev ? { ...prev, deductAgentAssignmentCommission: 'yes' } : prev,
+                                  )
+                                }
+                                className="w-3.5 h-3.5 mt-0.5 text-[var(--main-blue)] focus:ring-[var(--main-blue)]"
+                              />
+                              <span className="text-xs text-gray-700">
+                                <span className="font-medium">Yes</span> — apply charge (deduct from commission)
+                              </span>
+                            </label>
+                            <label className="flex items-start gap-2 cursor-pointer">
+                              <input
+                                type="radio"
+                                name="deductAgentAssignmentCommission"
+                                value="no"
+                                checked={deductAgentAssignmentCommissionValue === 'no'}
+                                onChange={() =>
+                                  setEditFormData((prev) =>
+                                    prev ? { ...prev, deductAgentAssignmentCommission: 'no' } : prev,
+                                  )
+                                }
+                                className="w-3.5 h-3.5 mt-0.5 text-[var(--main-blue)] focus:ring-[var(--main-blue)]"
+                              />
+                              <span className="text-xs text-gray-700">
+                                <span className="font-medium">No</span> — full commission
+                              </span>
+                            </label>
+                          </div>
+                        </div>
+                      </>
                     )}
                   </div>
                 </fieldset>
