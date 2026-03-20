@@ -14,7 +14,8 @@ import { useAuth } from '@/context/AuthContext';
 import { useApiClient } from '@/utils/apiClient';
 import { rwandaProvinces } from '@/utils/rwanda-administrative';
 import { formatErrorMessage } from '@/utils/error-formatter';
-import { carTypes, motoTypes, carUses, motoUses } from '@/utils/vehicle-types';
+import { carUses, motoUses, carTypes, motoTypes } from '@/utils/vehicle-types';
+import { ComboboxField } from '@/components/ui/combobox-field';
 import {
   validateForm,
   ValidationRules,
@@ -1982,47 +1983,14 @@ export default function AdminNewApplicationPage() {
 
                       </label>
 
-                      <select
-
-                        name="vehicleType"
-
+                      <ComboboxField
                         value={formData.vehicleType}
-
-                        onChange={handleInputChange}
-
-                        className="w-full py-2 px-3 rounded-lg focus:outline-none border border-gray-300 focus:border-[var(--main-blue)]"
-
+                        onChange={(val) => setFormData(prev => ({ ...prev, vehicleType: val }))}
+                        options={/moto/i.test(formData.insuranceCategory) ? motoTypes : carTypes}
+                        placeholder={/moto/i.test(formData.insuranceCategory) ? 'Search moto type…' : 'Search vehicle type…'}
                         required
-
-                      >
-
-                        <option value="">Select Vehicle Type</option>
-
-                        {formData.insuranceCategory === 'Car Insurance' ? (
-
-                          carTypes.map(type => (
-
-                            <option key={type} value={type}>{type}</option>
-
-                          ))
-
-                        ) : (
-
-                          motoTypes.map(type => (
-
-                            <option key={type} value={type}>{type}</option>
-
-                          ))
-
-                        )}
-
-                      </select>
-
-                      {errors.vehicleType && (
-
-                        <p className="mt-1 text-sm text-[var(--error-red)]">{errors.vehicleType}</p>
-
-                      )}
+                        error={errors.vehicleType}
+                      />
 
                     </div>
 

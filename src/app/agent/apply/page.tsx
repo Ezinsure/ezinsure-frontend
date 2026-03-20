@@ -18,7 +18,8 @@ import {
 } from '@/components/ui/form-validation';
 import { rwandaProvinces } from '@/utils/rwanda-administrative';
 import { formatErrorMessage } from '@/utils/error-formatter';
-import { carTypes, motoTypes, carUses, motoUses } from '@/utils/vehicle-types';
+import { carUses, motoUses, carTypes, motoTypes } from '@/utils/vehicle-types';
+import { ComboboxField } from '@/components/ui/combobox-field';
 
 // Device tracking utility types and functions
 interface DeviceInfo {
@@ -1289,27 +1290,14 @@ export default function AgentApplyPage() {
                     <label className="block text-sm font-medium mb-1">
                       Vehicle Type <span className="text-[var(--error-red)]">*</span>
                     </label>
-                    <select
-                      name="vehicleType"
+                    <ComboboxField
                       value={formState.vehicleType}
-                      onChange={handleInputChange}
-                      className="w-full py-2 px-3 rounded-lg focus:outline-none border border-gray-300 focus:border-[var(--main-blue)]"
+                      onChange={(val) => setFormState(prev => ({ ...prev, vehicleType: val }))}
+                      options={/moto/i.test(formState.insuranceCategory) ? motoTypes : carTypes}
+                      placeholder={/moto/i.test(formState.insuranceCategory) ? 'Search moto type…' : 'Search vehicle type…'}
                       required
-                    >
-                      <option value="">Select Vehicle Type</option>
-                      {formState.insuranceCategory === 'car' ? (
-                        carTypes.map(type => (
-                          <option key={type} value={type}>{type}</option>
-                        ))
-                      ) : (
-                        motoTypes.map(type => (
-                          <option key={type} value={type}>{type}</option>
-                        ))
-                      )}
-                    </select>
-                    {errors.vehicleType && (
-                      <p className="mt-1 text-sm text-[var(--error-red)]">{errors.vehicleType}</p>
-                    )}
+                      error={errors.vehicleType}
+                    />
                   </div>
                 )}
 
