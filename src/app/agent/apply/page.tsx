@@ -224,7 +224,7 @@ export default function AgentApplyPage() {
     district: '',
     sector: '',
     insuranceCategory: 'car',
-    insuranceType: 'comprehensive',
+    insuranceType: 'thirdParty',
     insuranceDuration: '12',
     vehicleType: '',
     vehicleAge: '',
@@ -828,7 +828,7 @@ export default function AgentApplyPage() {
           district: '',
           sector: '',
           insuranceCategory: 'car',
-          insuranceType: 'comprehensive',
+          insuranceType: 'thirdParty',
           insuranceDuration: '12',
           vehicleType: '',
           vehicleAge: '',
@@ -1213,7 +1213,7 @@ export default function AgentApplyPage() {
                             ...prev, 
                             plateNumber: value,
                             // Clear insurance details on any edit to avoid stale data
-                            insuranceType: 'comprehensive',
+                            insuranceType: 'thirdParty',
                             insuranceDuration: '1',
                             insuranceProvider: 'SONARWA',
                             isCOMESA: false,
@@ -1404,8 +1404,8 @@ export default function AgentApplyPage() {
                     className="w-full py-2 px-3 rounded-lg focus:outline-none border border-gray-300 focus:border-[var(--main-blue)]"
                     required
                   >
-                    <option value="comprehensive">Comprehensive Insurance (covers everything)</option>
                     <option value="thirdParty">Third Party Insurance (covers partial)</option>
+                    <option value="comprehensive">Comprehensive Insurance (covers everything)</option>
                   </select>
                   {errors.insuranceType && (
                     <p className="mt-1 text-sm text-[var(--error-red)]">

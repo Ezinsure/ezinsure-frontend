@@ -535,7 +535,7 @@ export default function AdminNewApplicationPage() {
     // Insurance Information
 
     insuranceCategory: 'Car Insurance',
-    insuranceType: 'Comprehensive Insurance (covers everything)',
+    insuranceType: 'Third Party Insurance (covers partial)',
     insuranceDuration: '1 Month',
     insuranceProvider: 'SONARWA',
     isCOMESA: false,
@@ -1012,7 +1012,7 @@ export default function AdminNewApplicationPage() {
       vehicleChassisNumber: '',
       vehicleId: '',
       // Clear insurance details on any edit to avoid stale data
-      insuranceType: 'Comprehensive Insurance (covers everything)',
+      insuranceType: 'Third Party Insurance (covers partial)',
       insuranceDuration: '1 Month',
       insuranceProvider: 'SONARWA',
       isCOMESA: false,
@@ -1195,7 +1195,7 @@ export default function AdminNewApplicationPage() {
 
             insuranceCategory: 'Car Insurance',
 
-            insuranceType: 'Comprehensive Insurance (covers everything)',
+            insuranceType: 'Third Party Insurance (covers partial)',
 
             insuranceDuration: '1 Month',
 
@@ -2186,9 +2186,9 @@ export default function AdminNewApplicationPage() {
 
                     >
 
-                      <option value="Comprehensive Insurance (covers everything)">Comprehensive Insurance (covers everything)</option>
-
                       <option value="Third Party Insurance (covers partial)">Third Party Insurance (covers partial)</option>
+
+                      <option value="Comprehensive Insurance (covers everything)">Comprehensive Insurance (covers everything)</option>
 
                     </select>
 
