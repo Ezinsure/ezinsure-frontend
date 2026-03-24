@@ -23,6 +23,8 @@ import {
   validationPatterns,
   hasErrors,
 } from '@/components/ui/form-validation';
+import { validateInsuranceDuration, normalizeInsuranceDurationPayload } from '@/utils/insurance-duration';
+import { InsuranceDurationField } from '@/components/ui/insurance-duration-field';
 
 // Application statuses
 enum ApplicationStatus {
@@ -1051,6 +1053,11 @@ export default function AdminNewApplicationPage() {
     };
     const formErrors = validateForm(formDataForValidation, validationRules);
 
+    const durationErr = validateInsuranceDuration(formData.insuranceDuration);
+    if (durationErr) {
+      formErrors.insuranceDuration = durationErr;
+    }
+
     // Custom validation for assignToAgent - required when wantsToAssignAgent is 'yes'
     if (formData.wantsToAssignAgent === 'yes' && !formData.assignToAgent) {
       formErrors.assignToAgent = 'Please select an agent to assign this application to';
@@ -1115,6 +1122,11 @@ export default function AdminNewApplicationPage() {
           }
 
         });
+
+        formDataToSend.set(
+          'insuranceDuration',
+          normalizeInsuranceDurationPayload(formData.insuranceDuration),
+        );
 
         // Handle document URLs: use File if exists, otherwise use URL
         if (formData.nationalID instanceof File) {
@@ -2258,57 +2270,39 @@ export default function AdminNewApplicationPage() {
 
                   <div className="md:col-span-2">
 
-                    <label
-
-                      className="block text-sm font-medium mb-1"
-
-                      htmlFor="insuranceDuration"
-
-                    >
-
-                      Insurance Duration{' '}
-
-                      <span className="text-[var(--error-red)] ml-1">*</span>
-
-                    </label>
-
-                    <select
+                    <InsuranceDurationField
 
                       id="insuranceDuration"
 
-                      name="insuranceDuration"
+                      topLabel="Insurance duration"
 
                       value={formData.insuranceDuration}
 
-                      onChange={handleInputChange}
+                      onChange={(next) => {
 
-                      className="w-full py-2 px-3 rounded-lg focus:outline-none border border-gray-300 focus:border-[var(--main-blue)]"
+                        setFormData((prev) => ({ ...prev, insuranceDuration: next }));
+
+                        if (errors.insuranceDuration) {
+
+                          setErrors((prev) => {
+
+                            const nextErr = { ...prev };
+
+                            delete nextErr.insuranceDuration;
+
+                            return nextErr;
+
+                          });
+
+                        }
+
+                      }}
+
+                      error={errors.insuranceDuration}
 
                       required
 
-                    >
-
-                      <option value="1 Month">1 Month</option>
-
-                      <option value="2 Months">2 Months</option>
-
-                      <option value="3 Months">3 Months</option>
-
-                      <option value="6 Months">6 Months</option>
-
-                      <option value="9 Months">9 Months</option>
-
-                      <option value="11 Months">11 Months</option>
-
-                      <option value="12 Months">12 Months</option>
-
-                    </select>
-
-                    {errors.insuranceDuration && (
-
-                      <p className="mt-1 text-sm text-[var(--error-red)]">{errors.insuranceDuration}</p>
-
-                    )}
+                    />
 
                   </div>
 

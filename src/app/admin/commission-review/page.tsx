@@ -11,6 +11,8 @@ import { useAuth } from '@/context/AuthContext';
 import { useApiClient } from '@/utils/apiClient';
 import { DocumentViewer } from '@/components/ui/document-viewer';
 import { ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { validateInsuranceDuration, normalizeInsuranceDurationPayload } from '@/utils/insurance-duration';
+import { InsuranceDurationField } from '@/components/ui/insurance-duration-field';
 
 interface Application {
   _id: string;
@@ -832,7 +834,17 @@ const getActionButtons = (app: Application) => {
       }
     });
 
-    // Log changed fields
+    if (
+      'insuranceDuration' in editFormData &&
+      editFormData.insuranceDuration !== undefined &&
+      editFormData.insuranceDuration !== null
+    ) {
+      const durationErr = validateInsuranceDuration(String(editFormData.insuranceDuration ?? ''));
+      if (durationErr) {
+        showToast(durationErr, 'error');
+        return;
+      }
+    }
 
     if (Object.keys(changedFields).length === 0) {
       showToast('No changes detected', 'info');
@@ -848,7 +860,11 @@ const getActionButtons = (app: Application) => {
         if (value instanceof File) {
           formDataToSend.append(key, value);
         } else if (value !== null && value !== undefined) {
-          formDataToSend.append(key, value.toString());
+          if (key === 'insuranceDuration') {
+            formDataToSend.append(key, normalizeInsuranceDurationPayload(String(value)));
+          } else {
+            formDataToSend.append(key, value.toString());
+          }
         }
       });
 
@@ -2559,13 +2575,19 @@ const getActionButtons = (app: Application) => {
                       </div>
                     )}
                     {showInsuranceDuration && (
-                      <div>
-                        <label className="block text-xs font-medium mb-1">Insurance Duration</label>
-                        <input
-                          type="text"
+                      <div className="md:col-span-2">
+                        <InsuranceDurationField
+                          id="edit-insuranceDuration"
+                          topLabel="Insurance duration"
                           value={insuranceDurationValue}
-                          disabled
-                          className="w-full py-1.5 px-2 text-xs rounded-lg bg-gray-100 border border-gray-300 text-gray-600"
+                          size="compact"
+                          onChange={(next) => {
+                            setEditFormData((prev) => {
+                              if (!prev) return prev;
+                              return { ...prev, insuranceDuration: next };
+                            });
+                          }}
+                          required
                         />
                       </div>
                     )}

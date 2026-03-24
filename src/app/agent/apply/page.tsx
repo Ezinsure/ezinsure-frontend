@@ -21,6 +21,8 @@ import { formatErrorMessage } from '@/utils/error-formatter';
 import { carUses, motoUses, carTypes, motoTypes } from '@/utils/vehicle-types';
 import { ComboboxField } from '@/components/ui/combobox-field';
 import { calculateAdministrationFeesRwf } from '@/utils/administration-fees';
+import { validateInsuranceDuration, normalizeInsuranceDurationPayload } from '@/utils/insurance-duration';
+import { InsuranceDurationField } from '@/components/ui/insurance-duration-field';
 
 // Device tracking utility types and functions
 interface DeviceInfo {
@@ -226,7 +228,7 @@ export default function AgentApplyPage() {
     sector: '',
     insuranceCategory: 'car',
     insuranceType: 'thirdParty',
-    insuranceDuration: '12',
+    insuranceDuration: '12 Months',
     vehicleType: '',
     vehicleAge: '',
     vehicleUse: '',
@@ -628,19 +630,6 @@ export default function AgentApplyPage() {
   };
 
 
-  const formatInsuranceDuration = (duration: string) => {
-    switch (duration) {
-      case '1': return '1 Month';
-      case '2': return '2 Months';
-      case '3': return '3 Months';
-      case '6': return '6 Months';
-      case '9': return '9 Months';
-      case '11': return '11 Months';
-      case '12': return '12 Months';
-      default: return '12 Months';
-    }
-  };
-
   const formatInsuranceType = (type: string) => {
     switch (type) {
       case 'comprehensive': return 'Comprehensive Insurance (covers everything)';
@@ -698,6 +687,10 @@ export default function AgentApplyPage() {
       pastInsuranceCertificateUrl: formState.pastInsuranceCertificateUrl,
     };
     const formErrors = validateForm(formDataForValidation, validationRules);
+    const durationErr = validateInsuranceDuration(formState.insuranceDuration);
+    if (durationErr) {
+      formErrors.insuranceDuration = durationErr;
+    }
     setErrors(formErrors);
 
     // Business rule: require successful searches before submission
@@ -734,7 +727,10 @@ export default function AgentApplyPage() {
         formData.append('sector', formState.sector);
         formData.append('insuranceCategory', formatInsuranceCategory(formState.insuranceCategory));
         formData.append('insuranceType', formatInsuranceType(formState.insuranceType));
-        formData.append('insuranceDuration', formatInsuranceDuration(formState.insuranceDuration));
+        formData.append(
+          'insuranceDuration',
+          normalizeInsuranceDurationPayload(formState.insuranceDuration),
+        );
         formData.append('insuranceProvider', formState.insuranceProvider);
         
         // Append new fields for /newApply endpoint - match admin form order
@@ -834,7 +830,7 @@ export default function AgentApplyPage() {
           sector: '',
           insuranceCategory: 'car',
           insuranceType: 'thirdParty',
-          insuranceDuration: '12',
+          insuranceDuration: '12 Months',
           vehicleType: '',
           vehicleAge: '',
           vehicleUse: '',
@@ -1219,7 +1215,7 @@ export default function AgentApplyPage() {
                             plateNumber: value,
                             // Clear insurance details on any edit to avoid stale data
                             insuranceType: 'thirdParty',
-                            insuranceDuration: '1',
+                            insuranceDuration: '1 Month',
                             insuranceProvider: 'SONARWA',
                             isCOMESA: false,
                             vehicleType: '',
@@ -1495,34 +1491,23 @@ export default function AgentApplyPage() {
              
 
                 <div className="md:col-span-2">
-                  <label
-                    className="block text-sm font-medium mb-1"
-                    htmlFor="insuranceDuration"
-                  >
-                    Insurance Duration{' '}
-                    <span className="text-[var(--error-red)] ml-1">*</span>
-                  </label>
-                  <select
+                  <InsuranceDurationField
                     id="insuranceDuration"
-                    name="insuranceDuration"
+                    topLabel="Insurance duration"
                     value={formState.insuranceDuration}
-                    onChange={handleInputChange}
-                    className="w-full py-2 px-3 rounded-lg focus:outline-none border border-gray-300 focus:border-[var(--main-blue)]"
+                    onChange={(next) => {
+                      setFormState((prev) => ({ ...prev, insuranceDuration: next }));
+                      if (errors.insuranceDuration) {
+                        setErrors((prev) => {
+                          const nextErr = { ...prev };
+                          delete nextErr.insuranceDuration;
+                          return nextErr;
+                        });
+                      }
+                    }}
+                    error={errors.insuranceDuration}
                     required
-                  >
-                    <option value="1">1 Month</option>
-                    <option value="2">2 Months</option>
-                    <option value="3">3 Months</option>
-                    <option value="6">6 Months</option>
-                    <option value="9">9 Months</option>
-                  <option value="11">11 Months</option>
-                    <option value="12">12 Months</option>
-                  </select>
-                  {errors.insuranceDuration && (
-                    <p className="mt-1 text-sm text-[var(--error-red)]">
-                      {errors.insuranceDuration}
-                    </p>
-                  )}
+                  />
                 </div>
               </div>
               </fieldset>
