@@ -9,10 +9,14 @@ import { useToast } from '@/components/ui/toast';
 import { validateForm, ValidationRules, validationPatterns } from '@/components/ui/form-validation';
 import { useAuth } from '@/context/AuthContext';
 import { useApiClient } from '@/utils/apiClient';
-import { Trash2, FileText, Eye, EyeClosed, Settings, Users, Mail } from 'lucide-react';
+import { Trash2, FileText, Eye, EyeClosed, Settings, Users } from 'lucide-react';
 import { rwandaProvinces } from '@/utils/rwanda-administrative';
 import { MassClientCreation } from '@/components/admin/mass-client-creation';
 import { SendDueNotifications } from '@/components/admin/send-due-notifications';
+import {
+  SmsBroadcastPanel,
+  type SmsRecipientScope,
+} from '@/components/super-admin/sms-broadcast-panel';
 
 interface User {
   _id: string;
@@ -73,8 +77,16 @@ interface SystemSettings {
 
 interface ClientMessage {
   message: string;
+  recipientScope: SmsRecipientScope;
   recipientCount?: number;
 }
+
+const SMS_SCOPE_LABELS: Record<SmsRecipientScope, string> = {
+  CLIENTS: 'clients',
+  AGENTS: 'agents',
+  ADMINS: 'admins',
+  ALL: 'everyone (clients, agents & admins)',
+};
 
 export default function SuperAdminProfilePage() {
   const router = useRouter();
@@ -106,7 +118,8 @@ export default function SuperAdminProfilePage() {
   });
   const [isSavingSettings, setIsSavingSettings] = useState(false);
   const [clientMessage, setClientMessage] = useState<ClientMessage>({
-    message: ''
+    message: '',
+    recipientScope: 'CLIENTS',
   });
   const [isSendingMessage, setIsSendingMessage] = useState(false);
   const [messageErrors, setMessageErrors] = useState<{ [key: string]: string }>({});
@@ -449,20 +462,6 @@ export default function SuperAdminProfilePage() {
     }
   };
 
-  const handleMessageInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-    setClientMessage(prev => ({ ...prev, [name]: value }));
-    
-    // Clear error when typing
-    if (messageErrors[name]) {
-      setMessageErrors((prev) => {
-        const newErrors = { ...prev };
-        delete newErrors[name];
-        return newErrors;
-      });
-    }
-  };
-
   const sendClientMessage = async () => {
     // Validate message
     const errors: { [key: string]: string } = {};
@@ -480,15 +479,12 @@ export default function SuperAdminProfilePage() {
     setIsSendingMessage(true);
     
     try {
-      // Send as URL-encoded form data
-      const formData = new URLSearchParams();
-      formData.append('message', clientMessage.message);
-      
-      // Debug: Log the message being sent
-
       const response = await apiFetch('/sendSMSToAllclients', {
         method: 'POST',
-        body: formData,
+        body: JSON.stringify({
+          recipient: clientMessage.recipientScope,
+          message: clientMessage.message.trim(),
+        }),
       });
 
       if (!response.ok) {
@@ -503,8 +499,13 @@ export default function SuperAdminProfilePage() {
       }
 
       const result = await response.json();
-      showToast(`SMS sent successfully to ${result.recipientCount || 'all'} clients!`, 'success');
-      setClientMessage({ message: '' });
+      const scopeLabel = SMS_SCOPE_LABELS[clientMessage.recipientScope];
+      const count =
+        typeof result.recipientCount === 'number'
+          ? `${result.recipientCount} recipient${result.recipientCount === 1 ? '' : 's'}`
+          : 'recipients';
+      showToast(`SMS sent to ${count} (${scopeLabel}).`, 'success');
+      setClientMessage({ message: '', recipientScope: clientMessage.recipientScope });
       setMessageErrors({});
     } catch (error) {
       console.error('Full error details:', error);
@@ -981,42 +982,27 @@ export default function SuperAdminProfilePage() {
                     </div>
                   </div>
                   
-                  <div className="bg-gray-50 p-4 rounded-lg md:col-span-2">
-                    <div className="flex items-center gap-2 mb-4">
-                      <Mail className="text-[var(--main-blue)]" size={20} />
-                      <h3 className="font-medium text-gray-900">Client SMS Messaging</h3>
-                    </div>
-                    <p className="text-xs text-gray-500 mb-4">Draft and send SMS messages to all clients in the database</p>
-                    
-                    <div className="space-y-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          SMS Message <span className="text-red-500">*</span>
-                        </label>
-                        <textarea
-                          name="message"
-                          value={clientMessage.message}
-                          onChange={handleMessageInputChange}
-                          placeholder="Enter SMS message content..."
-                          rows={6}
-                          className={`w-full px-3 py-2 border ${messageErrors.message ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[var(--main-blue)] focus:border-transparent resize-none`}
-                        />
-                        {messageErrors.message && (
-                          <p className="text-xs text-red-500 mt-1">{messageErrors.message}</p>
-                        )}
-                        <p className="text-xs text-gray-500 mt-1">This message will be sent to all clients via SMS</p>
-                      </div>
-                      
-                      <div className="flex justify-end">
-                        <Button
-                          onClick={sendClientMessage}
-                          variant="primary"
-                          disabled={isSendingMessage || !clientMessage.message.trim()}
-                        >
-                          {isSendingMessage ? 'Sending SMS...' : 'Send SMS to All Clients'}
-                        </Button>
-                      </div>
-                    </div>
+                  <div className="md:col-span-2">
+                    <SmsBroadcastPanel
+                      message={clientMessage.message}
+                      onMessageChange={(plain) => {
+                        setClientMessage((prev) => ({ ...prev, message: plain }));
+                        if (messageErrors.message) {
+                          setMessageErrors((prev) => {
+                            const next = { ...prev };
+                            delete next.message;
+                            return next;
+                          });
+                        }
+                      }}
+                      recipientScope={clientMessage.recipientScope}
+                      onRecipientScopeChange={(scope) =>
+                        setClientMessage((prev) => ({ ...prev, recipientScope: scope }))
+                      }
+                      onSend={sendClientMessage}
+                      isSending={isSendingMessage}
+                      messageError={messageErrors.message}
+                    />
                   </div>
                   
                   {/* Mass Client Creation */}

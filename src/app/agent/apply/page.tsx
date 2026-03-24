@@ -18,7 +18,16 @@ import {
 } from '@/components/ui/form-validation';
 import { rwandaProvinces } from '@/utils/rwanda-administrative';
 import { formatErrorMessage } from '@/utils/error-formatter';
-import { carTypes, motoTypes, carUses, motoUses } from '@/utils/vehicle-types';
+import { carUses, motoUses, carTypes, motoTypes } from '@/utils/vehicle-types';
+import { ComboboxField } from '@/components/ui/combobox-field';
+import { calculateAdministrationFeesRwf } from '@/utils/administration-fees';
+import {
+  getVehicleManufactureYearBounds,
+  getVehicleManufactureYearValidationError,
+} from '@/utils/vehicle-year';
+import { NumericInputField } from '@/components/ui/numeric-input-field';
+import { validateInsuranceDuration, normalizeInsuranceDurationPayload } from '@/utils/insurance-duration';
+import { InsuranceDurationField } from '@/components/ui/insurance-duration-field';
 
 // Device tracking utility types and functions
 interface DeviceInfo {
@@ -203,6 +212,7 @@ const getTrackingData = async (): Promise<TrackingData> => {
 
 
 export default function AgentApplyPage() {
+  const vehicleYearBounds = useMemo(() => getVehicleManufactureYearBounds(), []);
   const { showToast, ToastContainer } = useToast();
   const { apiFetch } = useApiClient();
   const [formKey, setFormKey] = useState(Date.now());
@@ -223,8 +233,8 @@ export default function AgentApplyPage() {
     district: '',
     sector: '',
     insuranceCategory: 'car',
-    insuranceType: 'comprehensive',
-    insuranceDuration: '12',
+    insuranceType: 'thirdParty',
+    insuranceDuration: '12 Months',
     vehicleType: '',
     vehicleAge: '',
     vehicleUse: '',
@@ -296,7 +306,13 @@ export default function AgentApplyPage() {
     insuranceType: { required: true },
     insuranceDuration: { required: true },
     vehicleType: { required: formState.insuranceCategory === 'car' || formState.insuranceCategory === 'motorbike' },
-    vehicleAge: { required: formState.insuranceCategory === 'car' || formState.insuranceCategory === 'motorbike' },
+    vehicleAge: {
+      required: formState.insuranceCategory === 'car' || formState.insuranceCategory === 'motorbike',
+      validate: (v) => {
+        const err = getVehicleManufactureYearValidationError(v);
+        return err === null ? true : err;
+      },
+    },
     vehicleUse: { required: formState.insuranceCategory === 'car' || formState.insuranceCategory === 'motorbike' },
     otherVehicleUse: { required: formState.vehicleUse === 'Other' },
     isCOMESA: { required: true },
@@ -626,19 +642,6 @@ export default function AgentApplyPage() {
   };
 
 
-  const formatInsuranceDuration = (duration: string) => {
-    switch (duration) {
-      case '1': return '1 Month';
-      case '2': return '2 Months';
-      case '3': return '3 Months';
-      case '6': return '6 Months';
-      case '9': return '9 Months';
-      case '11': return '11 Months';
-      case '12': return '12 Months';
-      default: return '12 Months';
-    }
-  };
-
   const formatInsuranceType = (type: string) => {
     switch (type) {
       case 'comprehensive': return 'Comprehensive Insurance (covers everything)';
@@ -696,6 +699,10 @@ export default function AgentApplyPage() {
       pastInsuranceCertificateUrl: formState.pastInsuranceCertificateUrl,
     };
     const formErrors = validateForm(formDataForValidation, validationRules);
+    const durationErr = validateInsuranceDuration(formState.insuranceDuration);
+    if (durationErr) {
+      formErrors.insuranceDuration = durationErr;
+    }
     setErrors(formErrors);
 
     // Business rule: require successful searches before submission
@@ -732,7 +739,10 @@ export default function AgentApplyPage() {
         formData.append('sector', formState.sector);
         formData.append('insuranceCategory', formatInsuranceCategory(formState.insuranceCategory));
         formData.append('insuranceType', formatInsuranceType(formState.insuranceType));
-        formData.append('insuranceDuration', formatInsuranceDuration(formState.insuranceDuration));
+        formData.append(
+          'insuranceDuration',
+          normalizeInsuranceDurationPayload(formState.insuranceDuration),
+        );
         formData.append('insuranceProvider', formState.insuranceProvider);
         
         // Append new fields for /newApply endpoint - match admin form order
@@ -764,7 +774,11 @@ export default function AgentApplyPage() {
         
         // Append COMESA status
         formData.append('isCOMESA', formState.isCOMESA.toString());
-        
+        formData.append(
+          'administrationFees',
+          String(calculateAdministrationFeesRwf(formState.insuranceCategory, formState.isCOMESA)),
+        );
+
         // Append files that were directly uploaded
         if (formState.nationalID) {
           formData.append('nationalID', formState.nationalID);
@@ -827,8 +841,8 @@ export default function AgentApplyPage() {
           district: '',
           sector: '',
           insuranceCategory: 'car',
-          insuranceType: 'comprehensive',
-          insuranceDuration: '12',
+          insuranceType: 'thirdParty',
+          insuranceDuration: '12 Months',
           vehicleType: '',
           vehicleAge: '',
           vehicleUse: '',
@@ -1212,8 +1226,8 @@ export default function AgentApplyPage() {
                             ...prev, 
                             plateNumber: value,
                             // Clear insurance details on any edit to avoid stale data
-                            insuranceType: 'comprehensive',
-                            insuranceDuration: '1',
+                            insuranceType: 'thirdParty',
+                            insuranceDuration: '1 Month',
                             insuranceProvider: 'SONARWA',
                             isCOMESA: false,
                             vehicleType: '',
@@ -1289,42 +1303,39 @@ export default function AgentApplyPage() {
                     <label className="block text-sm font-medium mb-1">
                       Vehicle Type <span className="text-[var(--error-red)]">*</span>
                     </label>
-                    <select
-                      name="vehicleType"
+                    <ComboboxField
                       value={formState.vehicleType}
-                      onChange={handleInputChange}
-                      className="w-full py-2 px-3 rounded-lg focus:outline-none border border-gray-300 focus:border-[var(--main-blue)]"
+                      onChange={(val) => setFormState(prev => ({ ...prev, vehicleType: val }))}
+                      options={/moto/i.test(formState.insuranceCategory) ? motoTypes : carTypes}
+                      placeholder={/moto/i.test(formState.insuranceCategory) ? 'Search moto type…' : 'Search vehicle type…'}
                       required
-                    >
-                      <option value="">Select Vehicle Type</option>
-                      {formState.insuranceCategory === 'car' ? (
-                        carTypes.map(type => (
-                          <option key={type} value={type}>{type}</option>
-                        ))
-                      ) : (
-                        motoTypes.map(type => (
-                          <option key={type} value={type}>{type}</option>
-                        ))
-                      )}
-                    </select>
-                    {errors.vehicleType && (
-                      <p className="mt-1 text-sm text-[var(--error-red)]">{errors.vehicleType}</p>
-                    )}
+                      error={errors.vehicleType}
+                    />
                   </div>
                 )}
 
                 {/* Vehicle Age (only shown for car/motorbike insurance) */}
                 {(formState.insuranceCategory === 'car' || formState.insuranceCategory === 'motorbike') && (
                   <div>
-                    <Input
+                    <NumericInputField
                       label="Vehicle Age (Year of Manufacture)"
-                      type="number"
                       name="vehicleAge"
+                      size="form"
                       placeholder="e.g. 2015"
-                      min="1900"
-                      max={new Date().getFullYear().toString()}
                       value={formState.vehicleAge}
-                      onChange={handleInputChange}
+                      onChange={(v) => {
+                        setFormState((prev) => ({ ...prev, vehicleAge: v }));
+                        if (errors.vehicleAge) {
+                          setErrors((prev) => {
+                            const next = { ...prev };
+                            delete next.vehicleAge;
+                            return next;
+                          });
+                        }
+                      }}
+                      min={vehicleYearBounds.minYear}
+                      max={vehicleYearBounds.maxYear}
+                      maxDigits={4}
                       error={errors.vehicleAge}
                       required
                     />
@@ -1416,8 +1427,8 @@ export default function AgentApplyPage() {
                     className="w-full py-2 px-3 rounded-lg focus:outline-none border border-gray-300 focus:border-[var(--main-blue)]"
                     required
                   >
-                    <option value="comprehensive">Comprehensive Insurance (covers everything)</option>
                     <option value="thirdParty">Third Party Insurance (covers partial)</option>
+                    <option value="comprehensive">Comprehensive Insurance (covers everything)</option>
                   </select>
                   {errors.insuranceType && (
                     <p className="mt-1 text-sm text-[var(--error-red)]">
@@ -1502,34 +1513,23 @@ export default function AgentApplyPage() {
              
 
                 <div className="md:col-span-2">
-                  <label
-                    className="block text-sm font-medium mb-1"
-                    htmlFor="insuranceDuration"
-                  >
-                    Insurance Duration{' '}
-                    <span className="text-[var(--error-red)] ml-1">*</span>
-                  </label>
-                  <select
+                  <InsuranceDurationField
                     id="insuranceDuration"
-                    name="insuranceDuration"
+                    topLabel="Insurance duration"
                     value={formState.insuranceDuration}
-                    onChange={handleInputChange}
-                    className="w-full py-2 px-3 rounded-lg focus:outline-none border border-gray-300 focus:border-[var(--main-blue)]"
+                    onChange={(next) => {
+                      setFormState((prev) => ({ ...prev, insuranceDuration: next }));
+                      if (errors.insuranceDuration) {
+                        setErrors((prev) => {
+                          const nextErr = { ...prev };
+                          delete nextErr.insuranceDuration;
+                          return nextErr;
+                        });
+                      }
+                    }}
+                    error={errors.insuranceDuration}
                     required
-                  >
-                    <option value="1">1 Month</option>
-                    <option value="2">2 Months</option>
-                    <option value="3">3 Months</option>
-                    <option value="6">6 Months</option>
-                    <option value="9">9 Months</option>
-                  <option value="11">11 Months</option>
-                    <option value="12">12 Months</option>
-                  </select>
-                  {errors.insuranceDuration && (
-                    <p className="mt-1 text-sm text-[var(--error-red)]">
-                      {errors.insuranceDuration}
-                    </p>
-                  )}
+                  />
                 </div>
               </div>
               </fieldset>

@@ -117,6 +117,8 @@ interface Application {
   otp?: string;
   otpExpires?: string;
   rejectionReason?: string;
+  /** Present when API returns assignment commission rule for admin-assigned agents. */
+  deductAgentAssignmentCommission?: boolean;
 }
 
 export default function SuperAdminApplicationsPage() {
@@ -1140,6 +1142,14 @@ export default function SuperAdminApplicationsPage() {
                       <div>
                         <p className="text-sm text-gray-500 mb-1">Agent Commission</p>
                         <p className="font-medium text-gray-900">{selectedApp.agentCommission.toLocaleString()} RWF</p>
+                      </div>
+                    )}
+                    {selectedApp.agent && selectedApp.deductAgentAssignmentCommission !== undefined && (
+                      <div className="md:col-span-2">
+                        <p className="text-sm text-gray-500 mb-1">Admin-assignment charge applied</p>
+                        <p className="font-medium text-gray-900">
+                          {selectedApp.deductAgentAssignmentCommission ? 'Yes (deduction from commission)' : 'No (full commission)'}
+                        </p>
                       </div>
                     )}
                   </div>

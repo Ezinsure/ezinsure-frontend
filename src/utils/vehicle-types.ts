@@ -1,38 +1,67 @@
 /**
  * Centralized vehicle type definitions
- * 
+ *
  * This file contains all vehicle types, motorcycle types, and vehicle use options
  * used throughout the application. To add or modify vehicle types, edit this file only.
+ *
+ * Car types  → codes 001–805 (deduplicated)
+ * Moto types → codes 901–906
  */
 
 /**
- * Car/Vehicle types available for Car Insurance
- * Add new types here to make them available across the entire application
+ * Car / vehicle types available for Car Insurance.
+ * Alphabetically sorted; duplicates across code groups removed.
  */
 export const carTypes: readonly string[] = [
-  'Ambulance',
-  'Camionette',
-  'Coaster',
-  'Daihatsu',
-  'Hiace',
-  'Jeep',
-  'Mitsubishi Fuso',
-  'Pickup',
-  'Poid Lourds',
+  'Bus',
+  'Bus Private',
+  'Bus Taxi',
+  'Bus Transport',
+  'Camion',
+  'Camion FUSO, HOWO, SHACKMAN, FAW',
+  'Camionette (-4t)',
+  'Camionette (+=4t)',
+  'Camionnettes (d.cab)',
+  'Car-Voiture/Salon Driving School',
+  'Car-Voiture/Salon For Hire',
+  'Car-Voiture/Salon Private',
+  'Car-Voiture/Salon Taxi',
+  'Car-Voiture/Salon Transp. Goods',
+  'Fourgonnette',
+  'Jeep Driving School',
+  'Jeep For Hire',
+  'Jeep Private',
+  'Jeep Suzuki/Jimmy',
+  'Jeep Taxi',
+  'Jeep Transp. Goods',
+  'Minibus',
+  'Minibus For Hire',
+  'Minibus Private',
+  'Poids Lourds',
   'Remorque',
-  'Voiture',
-  'Other'
+  'Semi-remorque',
+  'Specific Engines (-4T)',
+  'Specific Engines (+4T)',
+  'Tracteur - Flamable',
+  'Tracteur Seul',
 ];
 
 /**
- * Motorcycle types available for MotorBike Insurance
+ * Motorcycle / velomoteur types available for MotorBike Insurance.
+ * Alphabetically sorted; duplicates removed.
  */
 export const motoTypes: readonly string[] = [
   'Electric',
   'Moped',
+  'Moto Transport',
+  'Moto/Velomoteur',
+  'Moto/Velomoteur Private',
   'Motorcycle',
+  'Other',
   'Scooter',
-  'Other'
+  'Sidecar',
+  'Velomoteur Location',
+  'Velomoteur Transport',
 ];
 
 /**

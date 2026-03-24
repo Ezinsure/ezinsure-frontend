@@ -11,6 +11,14 @@ import { DocumentViewer } from '@/components/ui/document-viewer';
 import { PencilLine, Eye } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { formatDateUTC } from '@/utils/date-formatter';
+import {
+  calculateAdministrationFeesRwf,
+  isMotorVehicleInsuranceCategory,
+} from '@/utils/administration-fees';
+import { validateInsuranceDuration, normalizeInsuranceDurationPayload } from '@/utils/insurance-duration';
+import { InsuranceDurationField } from '@/components/ui/insurance-duration-field';
+import { NumericInputField } from '@/components/ui/numeric-input-field';
+import { getVehicleManufactureYearValidationError } from '@/utils/vehicle-year';
 
 // Application statuses
 enum ApplicationStatus {
@@ -105,6 +113,8 @@ interface Application {
   isCOMESA?: boolean;
   vehicleUse?: string;
   otherVehicleUse?: string;
+  /** When false, agent gets full commission (no admin-assignment deduction). */
+  deductAgentAssignmentCommission?: boolean;
 }
 
 interface PaginationProps {
@@ -150,6 +160,21 @@ export default function ManageApplicationsPage() {
   const [showScrollHint, setShowScrollHint] = useState(true);
   const itemsPerPage = 10;
   const [fileErrors, setFileErrors] = useState<{ [key: string]: string }>({});
+
+  // Send-invoice modal: administration fees from application COMESA + category (car/motor rules)
+  useEffect(() => {
+    if (activeModal !== 'invoice' || !selectedApp) return;
+    const fees = calculateAdministrationFeesRwf(
+      selectedApp.insuranceCategory || '',
+      Boolean(selectedApp.isCOMESA),
+    );
+    setAdministrationFees(String(fees));
+  }, [
+    activeModal,
+    selectedApp?._id,
+    selectedApp?.insuranceCategory,
+    selectedApp?.isCOMESA,
+  ]);
   const [editingApp, setEditingApp] = useState<Application | null>(null);
   const [editFormData, setEditFormData] = useState<Record<string, string | number | boolean | File | null> | null>(null);
   const [originalEditFormData, setOriginalEditFormData] = useState<Record<string, string | number | boolean | File | null> | null>(null);
@@ -321,6 +346,34 @@ export default function ManageApplicationsPage() {
       }
     });
 
+    if (
+      'insuranceDuration' in editFormData &&
+      editFormData.insuranceDuration !== undefined &&
+      editFormData.insuranceDuration !== null
+    ) {
+      const durationErr = validateInsuranceDuration(String(editFormData.insuranceDuration ?? ''));
+      if (durationErr) {
+        showToast(durationErr, 'error');
+        return;
+      }
+    }
+
+    if (
+      isMotorVehicleInsuranceCategory(String(editFormData.insuranceCategory ?? '')) &&
+      'vehicleAge' in changedFields
+    ) {
+      const v = getFormValue(editFormData.vehicleAge);
+      if (!v.trim()) {
+        showToast('Vehicle year is required', 'error');
+        return;
+      }
+      const yearErr = getVehicleManufactureYearValidationError(v);
+      if (yearErr) {
+        showToast(yearErr, 'error');
+        return;
+      }
+    }
+
     if (Object.keys(changedFields).length === 0) {
       showToast('No changes detected', 'info');
       return;
@@ -343,7 +396,15 @@ export default function ManageApplicationsPage() {
         if (value instanceof File) {
           formDataToSend.append(key, value);
         } else if (value !== null && value !== undefined) {
-          formDataToSend.append(key, value.toString());
+          if (key === 'deductAgentAssignmentCommission') {
+            const v = String(value).toLowerCase();
+            const deduct = v === 'yes' || v === 'true';
+            formDataToSend.append(key, deduct ? 'true' : 'false');
+          } else if (key === 'insuranceDuration') {
+            formDataToSend.append(key, normalizeInsuranceDurationPayload(String(value)));
+          } else {
+            formDataToSend.append(key, value.toString());
+          }
         }
       });
 
@@ -399,29 +460,11 @@ export default function ManageApplicationsPage() {
     return new Date().toISOString().split('T')[0];
   };
 
-  // Calculate administration fees based on insurance category
-  const calculateAdministrationFees = (insuranceCategory: string) => {
-    const cat = insuranceCategory.toLowerCase();
-    const isCarOrMoto = cat.includes('car') || cat.includes('motor') || cat.includes('moto');
-    const baseAmount = isCarOrMoto ? 2500 : 1500;
-    return Math.round(baseAmount * 0.25);
-  };
-
   // Set default date range to current month
   useEffect(() => {
     setStartDate(getFirstDayOfMonth());
     setEndDate(getCurrentDate());
   }, []);
-
-  // Auto-calculate administration fees when selectedApp changes
-  useEffect(() => {
-    if (selectedApp && selectedApp.insuranceCategory) {
-      const calculatedFees = calculateAdministrationFees(selectedApp.insuranceCategory);
-      setAdministrationFees(calculatedFees.toString());
-    }
-  }, [selectedApp]);
-
-
 
   // Handle table scroll to show/hide fade indicators
   const handleTableScroll = (e: React.UIEvent<HTMLDivElement>) => {
@@ -888,6 +931,8 @@ const getActionButtons = (app: Application) => {
               : '',
             wantsToAssignAgent: app.agent?._id ? 'yes' : 'no',
             assignToAgent: app.agent?._id || '',
+            deductAgentAssignmentCommission:
+              app.deductAgentAssignmentCommission === false ? 'no' : 'yes',
             invoice: null as File | null,
             insuranceCertificate: null as File | null,
             contract: null as File | null,
@@ -1202,6 +1247,9 @@ const getActionButtons = (app: Application) => {
   
   const assignToAgentValue = editFormData ? getFormValue(editFormData.assignToAgent) : '';
   const wantsToAssignAgentValue = editFormData ? getFormValue(editFormData.wantsToAssignAgent) : '';
+  const deductAgentAssignmentCommissionValue = editFormData
+    ? getFormValue(editFormData.deductAgentAssignmentCommission) || 'yes'
+    : 'yes';
   // Always show agent assignment section in edit form
   const showAssignToAgentField = true;
 
@@ -2042,26 +2090,44 @@ const getActionButtons = (app: Application) => {
       
       {/* Amount field */}
      <div className="mt-4">
-        <label className="block text-sm font-medium text-gray-700 mb-1">Amount (RWF) *</label>
-        <input
-          type="number"
-          className="w-full px-3 py-2 border border-[var(--card-green)] rounded-md shadow-sm focus:outline-none focus:ring-[var(--card-green)] focus:border-[var(--card-green)] sm:text-sm"
-          value={invoiceAmount || selectedApp.amount || ''}
-          onChange={(e) => setInvoiceAmount(e.target.value)}
+        <NumericInputField
+          label="Amount (RWF)"
+          name="invoiceAmount"
+          accent="invoice"
+          className="mb-0"
+          labelClassName="text-sm font-medium text-gray-700 mb-1"
+          value={String(invoiceAmount || (selectedApp.amount != null ? selectedApp.amount : '') || '')}
+          onChange={setInvoiceAmount}
+          min={0}
+          maxDigits={12}
           placeholder="Enter amount"
           required
         />
+        {isMotorVehicleInsuranceCategory(selectedApp.insuranceCategory || '') && (
+          <p className="mt-2 text-xs text-gray-600 rounded-md bg-slate-50 border border-slate-100 px-3 py-2">
+            <span className="font-medium text-gray-700">COMESA on this application:</span>{' '}
+            {selectedApp.isCOMESA ? (
+              <span>Yes — administration fees use 25% of 12,500 RWF (see below).</span>
+            ) : (
+              <span>No — administration fees use 25% of 2,500 RWF (see below).</span>
+            )}
+          </p>
+        )}
       </div>
 
       {/* Agent Commission field - only show if application has an agent */}
       {selectedApp.agent && (
         <div className="mt-4">
-          <label className="block text-sm font-medium text-gray-700 mb-1">Agent Commission (RWF) *</label>
-          <input
-            type="number"
-            className="w-full px-3 py-2 border border-[var(--card-green)] rounded-md shadow-sm focus:outline-none focus:ring-[var(--card-green)] focus:border-[var(--card-green)] sm:text-sm"
+          <NumericInputField
+            label="Agent Commission (RWF)"
+            name="agentCommission"
+            accent="invoice"
+            className="mb-0"
+            labelClassName="text-sm font-medium text-gray-700 mb-1"
             value={agentCommission}
-            onChange={(e) => setAgentCommission(e.target.value)}
+            onChange={setAgentCommission}
+            min={0}
+            maxDigits={12}
             placeholder="Enter agent commission"
             required
           />
@@ -2070,12 +2136,16 @@ const getActionButtons = (app: Application) => {
 
       {/* Company Commission field */}
       <div className="mt-4">
-        <label className="block text-sm font-medium text-gray-700 mb-1">Company Commission (RWF) *</label>
-        <input
-          type="number"
-          className="w-full px-3 py-2 border border-[var(--card-green)] rounded-md shadow-sm focus:outline-none focus:ring-[var(--card-green)] focus:border-[var(--card-green)] sm:text-sm"
+        <NumericInputField
+          label="Company Commission (RWF)"
+          name="companyCommission"
+          accent="invoice"
+          className="mb-0"
+          labelClassName="text-sm font-medium text-gray-700 mb-1"
           value={companyCommission}
-          onChange={(e) => setCompanyCommission(e.target.value)}
+          onChange={setCompanyCommission}
+          min={0}
+          maxDigits={12}
           placeholder="Enter company commission"
           required
         />
@@ -2083,24 +2153,45 @@ const getActionButtons = (app: Application) => {
 
       {/* Administration Fees field */}
       <div className="mt-4">
-        <label className="block text-sm font-medium text-gray-700 mb-1">Administration Fees (RWF) *</label>
-        <input
-          type="number"
-          className="w-full px-3 py-2 border border-[var(--card-green)] rounded-md shadow-sm focus:outline-none focus:ring-[var(--card-green)] focus:border-[var(--card-green)] sm:text-sm"
+        <NumericInputField
+          label="Administration Fees (RWF)"
+          name="administrationFees"
+          accent="invoice"
+          className="mb-0"
+          labelClassName="text-sm font-medium text-gray-700 mb-1"
           value={administrationFees}
-          onChange={(e) => setAdministrationFees(e.target.value)}
-          placeholder="Administration fees (auto-calculated)"
+          onChange={setAdministrationFees}
+          min={0}
+          maxDigits={12}
+          placeholder="Administration fees (from application rules)"
           required
         />
-        <p className="text-xs text-gray-500 mt-1">
-          {(() => {
-            const cat = selectedApp.insuranceCategory.toLowerCase();
-            const isCarOrMoto = cat.includes('car') || cat.includes('motor') || cat.includes('moto');
-            return isCarOrMoto
-              ? 'Calculated as 25% of 2500 RWF for both motorbike and car insurance'
-              : 'Calculated as 25% of 2500 RWF for other insurance types (including fire and building)';
-          })()}
-        </p>
+        {isMotorVehicleInsuranceCategory(selectedApp.insuranceCategory || '') ? (
+          <div className="mt-2 text-sm text-gray-600 rounded-lg bg-gray-50 border border-gray-100 px-3 py-2">
+            Administration fees (amount above):{' '}
+            <strong className="text-gray-900">
+              {administrationFees
+                ? Number(administrationFees).toLocaleString()
+                : calculateAdministrationFeesRwf(
+                    selectedApp.insuranceCategory || '',
+                    Boolean(selectedApp.isCOMESA),
+                  ).toLocaleString()}{' '}
+              RWF
+            </strong>
+            <span className="text-gray-500">
+              {' '}
+              {selectedApp.isCOMESA ? (
+                <> — 25% of 12,500 RWF because COMESA was selected on this application.</>
+              ) : (
+                <> — 25% of 2,500 RWF (COMESA not selected on this application).</>
+              )}
+            </span>
+          </div>
+        ) : (
+          <p className="text-xs text-gray-500 mt-1">
+            Calculated as 25% of 1,500 RWF for this insurance category. You may adjust the field if needed.
+          </p>
+        )}
       </div>
       
       <div className="mt-4">
@@ -2617,6 +2708,16 @@ const getActionButtons = (app: Application) => {
                 <p className="font-semibold">{selectedApp.agentCommission.toLocaleString()} RWF</p>
               </div>
             )}
+            {selectedApp.agent && selectedApp.deductAgentAssignmentCommission !== undefined && (
+              <div>
+                <p className="text-sm text-gray-500">Admin-assignment charge</p>
+                <p className="font-semibold">
+                  {selectedApp.deductAgentAssignmentCommission
+                    ? 'Applied (deduction from commission)'
+                    : 'Not applied (full commission)'}
+                </p>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -3025,13 +3126,19 @@ const getActionButtons = (app: Application) => {
                       </div>
                     )}
                     {showInsuranceDuration && (
-                      <div>
-                        <label className="block text-xs font-medium mb-1">Insurance Duration</label>
-                        <input
-                          type="text"
+                      <div className="md:col-span-2">
+                        <InsuranceDurationField
+                          id="edit-insuranceDuration"
+                          topLabel="Insurance duration"
                           value={insuranceDurationValue}
-                          disabled
-                          className="w-full py-1.5 px-2 text-xs rounded-lg bg-gray-100 border border-gray-300 text-gray-600"
+                          size="compact"
+                          onChange={(next) => {
+                            setEditFormData((prev) => {
+                              if (!prev) return prev;
+                              return { ...prev, insuranceDuration: next };
+                            });
+                          }}
+                          required
                         />
                       </div>
                     )}
@@ -3065,6 +3172,10 @@ const getActionButtons = (app: Application) => {
                                   ...prev,
                                   wantsToAssignAgent: e.target.value,
                                   assignToAgent: e.target.value === 'no' ? '' : prev.assignToAgent || '',
+                                  deductAgentAssignmentCommission:
+                                    e.target.value === 'no'
+                                      ? 'yes'
+                                      : prev.deductAgentAssignmentCommission || 'yes',
                                 };
                               });
                             }}
@@ -3085,6 +3196,7 @@ const getActionButtons = (app: Application) => {
                                   ...prev,
                                   wantsToAssignAgent: e.target.value,
                                   assignToAgent: '',
+                                  deductAgentAssignmentCommission: 'yes',
                                 };
                               });
                             }}
@@ -3097,29 +3209,76 @@ const getActionButtons = (app: Application) => {
 
                     {/* Agent selection - only show when Yes is selected */}
                     {(wantsToAssignAgentValue === 'yes' || (!wantsToAssignAgentValue && assignToAgentValue)) && (
-                      <div className="md:col-span-2">
-                        <SearchableSelect
-                          label="Assign to Agent"
-                          name="assignToAgent"
-                          placeholder="Type agent email to search..."
-                          value={assignToAgentValue || null}
-                          onChange={(value) => {
-                            setEditFormData((prev) => {
-                              if (!prev) return prev;
-                              return {
-                                ...prev,
-                                assignToAgent: value || '',
-                                wantsToAssignAgent: value ? 'yes' : prev.wantsToAssignAgent,
-                              };
-                            });
-                          }}
-                          fetchOptions={fetchAgentsEmails}
-                          getDisplayValue={(option) => option.email as string}
-                          getSearchValue={(option) => option.email as string}
-                          required={true}
-                          className="w-full"
-                        />
-                      </div>
+                      <>
+                        <div className="md:col-span-2">
+                          <SearchableSelect
+                            label="Assign to Agent"
+                            name="assignToAgent"
+                            placeholder="Type agent email to search..."
+                            value={assignToAgentValue || null}
+                            onChange={(value) => {
+                              setEditFormData((prev) => {
+                                if (!prev) return prev;
+                                return {
+                                  ...prev,
+                                  assignToAgent: value || '',
+                                  wantsToAssignAgent: value ? 'yes' : prev.wantsToAssignAgent,
+                                };
+                              });
+                            }}
+                            fetchOptions={fetchAgentsEmails}
+                            getDisplayValue={(option) => option.email as string}
+                            getSearchValue={(option) => option.email as string}
+                            required={true}
+                            className="w-full"
+                          />
+                        </div>
+                        <div className="md:col-span-2">
+                          <label className="block text-xs font-medium text-gray-800 mb-1.5">
+                            Apply admin-assignment charge to this agent?
+                          </label>
+                          <p className="text-[11px] text-gray-500 mb-2">
+                            For admin-assigned applications: charge the usual assignment deduction from commission, or pay
+                            full commission.
+                          </p>
+                          <div className="flex flex-col gap-2">
+                            <label className="flex items-start gap-2 cursor-pointer">
+                              <input
+                                type="radio"
+                                name="deductAgentAssignmentCommission"
+                                value="yes"
+                                checked={deductAgentAssignmentCommissionValue === 'yes'}
+                                onChange={() =>
+                                  setEditFormData((prev) =>
+                                    prev ? { ...prev, deductAgentAssignmentCommission: 'yes' } : prev,
+                                  )
+                                }
+                                className="w-3.5 h-3.5 mt-0.5 text-[var(--main-blue)] focus:ring-[var(--main-blue)]"
+                              />
+                              <span className="text-xs text-gray-700">
+                                <span className="font-medium">Yes</span> — apply charge (deduct from commission)
+                              </span>
+                            </label>
+                            <label className="flex items-start gap-2 cursor-pointer">
+                              <input
+                                type="radio"
+                                name="deductAgentAssignmentCommission"
+                                value="no"
+                                checked={deductAgentAssignmentCommissionValue === 'no'}
+                                onChange={() =>
+                                  setEditFormData((prev) =>
+                                    prev ? { ...prev, deductAgentAssignmentCommission: 'no' } : prev,
+                                  )
+                                }
+                                className="w-3.5 h-3.5 mt-0.5 text-[var(--main-blue)] focus:ring-[var(--main-blue)]"
+                              />
+                              <span className="text-xs text-gray-700">
+                                <span className="font-medium">No</span> — full commission
+                              </span>
+                            </label>
+                          </div>
+                        </div>
+                      </>
                     )}
                   </div>
                 </fieldset>
@@ -3132,52 +3291,68 @@ const getActionButtons = (app: Application) => {
                   </legend>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     {showAmountField && (
-                      <div>
-                        <label className="block text-xs font-medium mb-1">Amount (RWF)</label>
-                        <input
-                          type="number"
-                          name="amount"
-                          value={amountValue}
-                          onChange={handleEditInputChange}
-                          className="w-full py-1.5 px-2 text-xs rounded-lg focus:outline-none border border-gray-300 focus:border-[var(--main-blue)]"
-                        />
-                      </div>
+                      <NumericInputField
+                        label="Amount (RWF)"
+                        name="amount"
+                        size="compact"
+                        accent="adminEdit"
+                        className="mb-0"
+                        labelClassName="!font-medium !text-gray-700"
+                        value={amountValue}
+                        onChange={(v) =>
+                          setEditFormData((prev) => (prev ? { ...prev, amount: v } : prev))
+                        }
+                        min={0}
+                        maxDigits={12}
+                      />
                     )}
                     {showAgentCommissionField && (
-                      <div>
-                        <label className="block text-xs font-medium mb-1">Agent Commission (RWF)</label>
-                        <input
-                          type="number"
-                          name="agentCommission"
-                          value={agentCommissionValue}
-                          onChange={handleEditInputChange}
-                          className="w-full py-1.5 px-2 text-xs rounded-lg focus:outline-none border border-gray-300 focus:border-[var(--main-blue)]"
-                        />
-                      </div>
+                      <NumericInputField
+                        label="Agent Commission (RWF)"
+                        name="agentCommission"
+                        size="compact"
+                        accent="adminEdit"
+                        className="mb-0"
+                        labelClassName="!font-medium !text-gray-700"
+                        value={agentCommissionValue}
+                        onChange={(v) =>
+                          setEditFormData((prev) => (prev ? { ...prev, agentCommission: v } : prev))
+                        }
+                        min={0}
+                        maxDigits={12}
+                      />
                     )}
                     {showCompanyCommissionField && (
-                      <div>
-                        <label className="block text-xs font-medium mb-1">Company Commission (RWF)</label>
-                        <input
-                          type="number"
-                          name="companyCommission"
-                          value={companyCommissionValue}
-                          onChange={handleEditInputChange}
-                          className="w-full py-1.5 px-2 text-xs rounded-lg focus:outline-none border border-gray-300 focus:border-[var(--main-blue)]"
-                        />
-                      </div>
+                      <NumericInputField
+                        label="Company Commission (RWF)"
+                        name="companyCommission"
+                        size="compact"
+                        accent="adminEdit"
+                        className="mb-0"
+                        labelClassName="!font-medium !text-gray-700"
+                        value={companyCommissionValue}
+                        onChange={(v) =>
+                          setEditFormData((prev) => (prev ? { ...prev, companyCommission: v } : prev))
+                        }
+                        min={0}
+                        maxDigits={12}
+                      />
                     )}
                     {showAdministrationFeesField && (
-                      <div>
-                        <label className="block text-xs font-medium mb-1">Administration Fees (RWF)</label>
-                        <input
-                          type="text"
-                          name="administrationFees"
-                          value={administrationFeesValue}
-                          onChange={handleEditInputChange}
-                          className="w-full py-1.5 px-2 text-xs rounded-lg focus:outline-none border border-gray-300 focus:border-[var(--main-blue)]"
-                        />
-                      </div>
+                      <NumericInputField
+                        label="Administration Fees (RWF)"
+                        name="administrationFees"
+                        size="compact"
+                        accent="adminEdit"
+                        className="mb-0"
+                        labelClassName="!font-medium !text-gray-700"
+                        value={administrationFeesValue}
+                        onChange={(v) =>
+                          setEditFormData((prev) => (prev ? { ...prev, administrationFees: v } : prev))
+                        }
+                        min={0}
+                        maxDigits={12}
+                      />
                     )}
                     {showTransactionIdField && (
                       <div>

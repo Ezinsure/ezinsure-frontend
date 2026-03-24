@@ -12,6 +12,14 @@ import { FileInput } from '@/components/ui/file-input';
 import { rwandaProvinces } from '@/utils/rwanda-administrative';
 import { formatDateUTC, formatDateForExcel as formatDateForExcelUtil, formatTime } from '@/utils/date-formatter';
 import { carTypes, motoTypes, carUses, motoUses } from '@/utils/vehicle-types';
+import { validateInsuranceDuration, normalizeInsuranceDurationPayload } from '@/utils/insurance-duration';
+import { InsuranceDurationField } from '@/components/ui/insurance-duration-field';
+import { NumericInputField } from '@/components/ui/numeric-input-field';
+import { isMotorVehicleInsuranceCategory } from '@/utils/administration-fees';
+import {
+  getVehicleManufactureYearBounds,
+  getVehicleManufactureYearValidationError,
+} from '@/utils/vehicle-year';
 
 interface Application {
   _id: string;
@@ -122,6 +130,7 @@ const EditApplicationModal = ({
   onSave: () => void;
   isLoading: boolean;
 }) => {
+  const vehicleYearBounds = useMemo(() => getVehicleManufactureYearBounds(), []);
   // Determine if this is a payment rejection case
   const isPaymentRejection = application.status === 'WAITING_FOR_USER_ACTION' && 
                            (application.reasonForPaymentRejection);
@@ -381,6 +390,28 @@ const [formState, setFormState] = useState<Partial<Application>>(() => {
           throw new Error(errorData.message || 'Failed to submit payment proof');
         }
       } else {
+        const durErr = validateInsuranceDuration(formState.insuranceDuration || '');
+        if (durErr) {
+          setErrors((prev) => ({ ...prev, insuranceDuration: durErr }));
+          setIsSubmitting(false);
+          return;
+        }
+
+        if (isMotorVehicleInsuranceCategory(formState.insuranceCategory || '')) {
+          const va = (formState.vehicleAge || '').trim();
+          if (!va) {
+            setErrors((prev) => ({ ...prev, vehicleAge: 'This field is required' }));
+            setIsSubmitting(false);
+            return;
+          }
+          const yearErr = getVehicleManufactureYearValidationError(va);
+          if (yearErr) {
+            setErrors((prev) => ({ ...prev, vehicleAge: yearErr }));
+            setIsSubmitting(false);
+            return;
+          }
+        }
+
         // Regular edit case - submit all changed fields
         const updatedData: Record<string, string | number | boolean | Date> = {};
         
@@ -406,10 +437,13 @@ const [formState, setFormState] = useState<Partial<Application>>(() => {
           }
           
           if (value !== undefined && value !== originalValue && value !== '') {
-            const formattedValue = key === 'dateOfBirth' && value 
-              ? new Date(value as string).toISOString().split('T')[0]
-              : value;
-            
+            let formattedValue: string | boolean | undefined = value as string | boolean | undefined;
+            if (key === 'dateOfBirth' && value) {
+              formattedValue = new Date(value as string).toISOString().split('T')[0];
+            } else if (key === 'insuranceDuration' && typeof value === 'string') {
+              formattedValue = normalizeInsuranceDurationPayload(value);
+            }
+
             formData.append(key, formattedValue as string);
             // Only assign if it's a primitive value
             if (typeof formattedValue === 'string' || typeof formattedValue === 'number' || typeof formattedValue === 'boolean') {
@@ -785,20 +819,29 @@ const [formState, setFormState] = useState<Partial<Application>>(() => {
                     {/* Vehicle Year (only shown for car/motorbike insurance) */}
                     {(formState.insuranceCategory === 'Car Insurance' || formState.insuranceCategory === 'Motorbike Insurance') && (
                       <div>
-                        <label className="block text-sm font-medium mb-1">
-                          Vehicle Year <span className="text-red-500">*</span>
-                        </label>
-                        <input
-                          type="text"
+                        <NumericInputField
+                          label="Vehicle Year"
                           name="vehicleAge"
+                          size="form"
+                          placeholder="e.g. 2020"
                           value={formState.vehicleAge || ''}
-                          onChange={handleInputChange}
-                          placeholder="e.g., 2020"
-                          className="w-full py-2 px-3 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none"
+                          onChange={(v) => {
+                            setFormState((prev) => ({ ...prev, vehicleAge: v }));
+                            if (errors.vehicleAge) {
+                              setErrors((prev) => {
+                                const next = { ...prev };
+                                delete next.vehicleAge;
+                                return next;
+                              });
+                            }
+                          }}
+                          min={vehicleYearBounds.minYear}
+                          max={vehicleYearBounds.maxYear}
+                          maxDigits={4}
+                          error={errors.vehicleAge}
+                          required
+                          className="mb-0"
                         />
-                        {errors.vehicleAge && (
-                          <p className="mt-1 text-sm text-red-600">{errors.vehicleAge}</p>
-                        )}
                       </div>
                     )}
 
@@ -821,26 +864,23 @@ const [formState, setFormState] = useState<Partial<Application>>(() => {
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium mb-1">
-                        Insurance Duration <span className="text-red-500">*</span>
-                      </label>
-                      <select
-                        name="insuranceDuration"
+                      <InsuranceDurationField
+                        id="insuranceDuration"
+                        topLabel="Insurance duration"
                         value={formState.insuranceDuration || ''}
-                        onChange={handleInputChange}
-                        className="w-full py-2 px-3 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none"
-                      >
-                        <option value="1 Month">1 Month</option>
-                        <option value="2 Months">2 Months</option>
-                        <option value="3 Months">3 Months</option>
-                        <option value="6 Months">6 Months</option>
-                        <option value="9 Months">9 Months</option>
-                        <option value="11 Months">11 Months</option>
-                        <option value="12 Months">12 Months</option>
-                      </select>
-                      {errors.insuranceDuration && (
-                        <p className="mt-1 text-sm text-red-600">{errors.insuranceDuration}</p>
-                      )}
+                        onChange={(next) => {
+                          setFormState((prev) => ({ ...prev, insuranceDuration: next }));
+                          if (errors.insuranceDuration) {
+                            setErrors((prev) => {
+                              const nextErr = { ...prev };
+                              delete nextErr.insuranceDuration;
+                              return nextErr;
+                            });
+                          }
+                        }}
+                        error={errors.insuranceDuration}
+                        required
+                      />
                     </div>
 
                     {/* Vehicle Use (only shown for car/motorbike insurance) */}

@@ -14,13 +14,22 @@ import { useAuth } from '@/context/AuthContext';
 import { useApiClient } from '@/utils/apiClient';
 import { rwandaProvinces } from '@/utils/rwanda-administrative';
 import { formatErrorMessage } from '@/utils/error-formatter';
-import { carTypes, motoTypes, carUses, motoUses } from '@/utils/vehicle-types';
+import { carUses, motoUses, carTypes, motoTypes } from '@/utils/vehicle-types';
+import { ComboboxField } from '@/components/ui/combobox-field';
+import { calculateAdministrationFeesRwf } from '@/utils/administration-fees';
 import {
   validateForm,
   ValidationRules,
   validationPatterns,
   hasErrors,
 } from '@/components/ui/form-validation';
+import { validateInsuranceDuration, normalizeInsuranceDurationPayload } from '@/utils/insurance-duration';
+import { InsuranceDurationField } from '@/components/ui/insurance-duration-field';
+import { NumericInputField } from '@/components/ui/numeric-input-field';
+import {
+  getVehicleManufactureYearBounds,
+  getVehicleManufactureYearValidationError,
+} from '@/utils/vehicle-year';
 
 // Application statuses
 enum ApplicationStatus {
@@ -278,9 +287,16 @@ interface ApplicationFormData {
   // Agent Assignment
   wantsToAssignAgent: 'yes' | 'no' | '';
   assignToAgent: string;
+  /**
+   * When assigning an admin-created application to an agent: if "yes", backend deducts the
+   * standard assignment percentage from commission; if "no", agent receives full commission.
+   * Sent as deductAgentAssignmentCommission=true|false on the API.
+   */
+  deductAgentAssignmentCommission: 'yes' | 'no';
 }
 
 export default function AdminNewApplicationPage() {
+  const vehicleYearBounds = useMemo(() => getVehicleManufactureYearBounds(), []);
   const { showToast, ToastContainer } = useToast();
   const [viewingDocument, setViewingDocument] = useState<{ url: string; name: string } | null>(null);
   const { user } = useAuth();
@@ -534,7 +550,7 @@ export default function AdminNewApplicationPage() {
     // Insurance Information
 
     insuranceCategory: 'Car Insurance',
-    insuranceType: 'Comprehensive Insurance (covers everything)',
+    insuranceType: 'Third Party Insurance (covers partial)',
     insuranceDuration: '1 Month',
     insuranceProvider: 'SONARWA',
     isCOMESA: false,
@@ -611,7 +627,9 @@ export default function AdminNewApplicationPage() {
     
     // Agent Assignment
     wantsToAssignAgent: '',
-    assignToAgent: ''
+    assignToAgent: '',
+    // Default "yes" matches previous behaviour (charge when assigning to agent)
+    deductAgentAssignmentCommission: 'yes',
 
   });
 
@@ -634,7 +652,13 @@ export default function AdminNewApplicationPage() {
     insuranceDuration: { required: true },
     insuranceProvider: { required: true },
     vehicleType: { required: formData.insuranceCategory === 'Car Insurance' || formData.insuranceCategory === 'MotorBike Insurance' },
-    vehicleAge: { required: formData.insuranceCategory === 'Car Insurance' || formData.insuranceCategory === 'MotorBike Insurance' },
+    vehicleAge: {
+      required: formData.insuranceCategory === 'Car Insurance' || formData.insuranceCategory === 'MotorBike Insurance',
+      validate: (v) => {
+        const err = getVehicleManufactureYearValidationError(v);
+        return err === null ? true : err;
+      },
+    },
     vehicleUse: { required: formData.insuranceCategory === 'Car Insurance' || formData.insuranceCategory === 'MotorBike Insurance' },
     otherVehicleUse: { required: formData.vehicleUse === 'Other' },
     nationalID: { required: true },
@@ -655,30 +679,19 @@ export default function AdminNewApplicationPage() {
     ebm: { required: false },
   };
 
-  // Calculate administration fees based on insurance category
-  const calculateAdministrationFees = (insuranceCategory: string) => {
-    const normalizedCategory = insuranceCategory.toLowerCase();
-    const isVehicleCategory =
-      normalizedCategory.includes('car') ||
-      normalizedCategory.includes('motor') ||
-      normalizedCategory.includes('moto');
-    const baseAmount = isVehicleCategory ? 2500 : 1500;
-    return Math.round(baseAmount * 0.25);
-  };
-
-  // Auto-calculate administration fees when insurance category changes
-
+  // Keep administration fees in sync with category + COMESA (read from `prev` to avoid stale values)
   useEffect(() => {
-
-    if (formData.insuranceCategory) {
-
-      const calculatedFees = calculateAdministrationFees(formData.insuranceCategory);
-
-      setFormData(prev => ({ ...prev, administrationFees: calculatedFees.toString() }));
-
-    }
-
-  }, [formData.insuranceCategory]);
+    setFormData((prev) => {
+      if (!prev.insuranceCategory) return prev;
+      const calculatedFees = calculateAdministrationFeesRwf(
+        prev.insuranceCategory,
+        Boolean(prev.isCOMESA),
+      );
+      const nextFees = calculatedFees.toString();
+      if (prev.administrationFees === nextFees) return prev;
+      return { ...prev, administrationFees: nextFees };
+    });
+  }, [formData.insuranceCategory, formData.isCOMESA]);
 
   // Update districts when province changes
 
@@ -864,30 +877,34 @@ export default function AdminNewApplicationPage() {
 
     else if (name === 'insuranceCategory') {
 
-      setFormData(prev => ({
-
-        ...prev,
-
-        [name]: value,
-
-        // Clear only vehicle-related fields (not client info)
-
-        plateNumber: '',
-
-        vehicleType: '',
-
-        vehicleAge: '',
-
-        vehicleUse: '',
-
-        otherVehicleUse: '',
-
-      }));
+      setFormData((prev) => {
+        const next = {
+          ...prev,
+          [name]: value,
+          plateNumber: '',
+          vehicleType: '',
+          vehicleAge: '',
+          vehicleUse: '',
+          otherVehicleUse: '',
+        };
+        const fees = calculateAdministrationFeesRwf(String(value), Boolean(next.isCOMESA));
+        return { ...next, administrationFees: fees.toString() };
+      });
 
       // Reset plate number search status
 
-      setPlateNumberResetTrigger(prev => prev + 1);
+      setPlateNumberResetTrigger((p) => p + 1);
 
+    } else if (name === 'isCOMESA' && type === 'checkbox') {
+      const nextComesa = Boolean((e.target as HTMLInputElement).checked);
+      setFormData((prev) => {
+        const fees = calculateAdministrationFeesRwf(prev.insuranceCategory, nextComesa);
+        return {
+          ...prev,
+          isCOMESA: nextComesa,
+          administrationFees: fees.toString(),
+        };
+      });
     } else {
 
       setFormData(prev => ({
@@ -996,35 +1013,34 @@ export default function AdminNewApplicationPage() {
       return;
     }
     
-    setFormData(prev => ({
-      ...prev,
-      plateNumber: value,
-      // Clear vehicle information fields on any edit to avoid stale data
-      vehicleType: '',
-      vehicleAge: '',
-      vehicleUse: '',
-      vehicleMake: '',
-      vehicleModel: '',
-      vehicleYear: '',
-      vehicleColor: '',
-      vehicleEngineNumber: '',
-      vehicleChassisNumber: '',
-      vehicleId: '',
-      // Clear insurance details on any edit to avoid stale data
-      insuranceType: 'Comprehensive Insurance (covers everything)',
-      insuranceDuration: '1 Month',
-      insuranceProvider: 'SONARWA',
-      isCOMESA: false,
-      // Clear document URLs when plate number is cleared or changed
-      identificationDocumentUrl: '',
-      yellowCardUrl: '',
-      pastInsuranceCertificateUrl: '',
-    }));
-    
-    // Reset isNewVehicle to false when plate number changes manually (sync formData and searchResults)
-    // (will be updated when user performs search - true if not found, false if found)
-    setSearchResults(prev => ({ ...prev, isNewVehicle: false }));
-    setFormData(prev => ({ ...prev, isNewVehicle: false }));
+    setFormData((prev) => {
+      const next = {
+        ...prev,
+        plateNumber: value,
+        vehicleType: '',
+        vehicleAge: '',
+        vehicleUse: '',
+        vehicleMake: '',
+        vehicleModel: '',
+        vehicleYear: '',
+        vehicleColor: '',
+        vehicleEngineNumber: '',
+        vehicleChassisNumber: '',
+        vehicleId: '',
+        insuranceType: 'Third Party Insurance (covers partial)',
+        insuranceDuration: '1 Month',
+        insuranceProvider: 'SONARWA',
+        isCOMESA: false,
+        isNewVehicle: false,
+        identificationDocumentUrl: '',
+        yellowCardUrl: '',
+        pastInsuranceCertificateUrl: '',
+      };
+      const fees = calculateAdministrationFeesRwf(next.insuranceCategory, false);
+      return { ...next, administrationFees: fees.toString() };
+    });
+
+    setSearchResults((p) => ({ ...p, isNewVehicle: false }));
     // Require a fresh plate search before submit
     setHasFetchedPlate(false);
   }, []);
@@ -1048,6 +1064,11 @@ export default function AdminNewApplicationPage() {
       pastInsuranceCertificateUrl: formData.pastInsuranceCertificateUrl,
     };
     const formErrors = validateForm(formDataForValidation, validationRules);
+
+    const durationErr = validateInsuranceDuration(formData.insuranceDuration);
+    if (durationErr) {
+      formErrors.insuranceDuration = durationErr;
+    }
 
     // Custom validation for assignToAgent - required when wantsToAssignAgent is 'yes'
     if (formData.wantsToAssignAgent === 'yes' && !formData.assignToAgent) {
@@ -1093,8 +1114,12 @@ export default function AdminNewApplicationPage() {
             return;
           }
 
-          // Skip assignToAgent and wantsToAssignAgent - we'll handle them separately to avoid duplicates
-          if (key === 'assignToAgent' || key === 'wantsToAssignAgent') {
+          // Skip assign fields — handled explicitly with assignToAgent payload
+          if (
+            key === 'assignToAgent' ||
+            key === 'wantsToAssignAgent' ||
+            key === 'deductAgentAssignmentCommission'
+          ) {
             return;
           }
 
@@ -1109,6 +1134,11 @@ export default function AdminNewApplicationPage() {
           }
 
         });
+
+        formDataToSend.set(
+          'insuranceDuration',
+          normalizeInsuranceDurationPayload(formData.insuranceDuration),
+        );
 
         // Handle document URLs: use File if exists, otherwise use URL
         if (formData.nationalID instanceof File) {
@@ -1154,9 +1184,13 @@ export default function AdminNewApplicationPage() {
 
         }
 
-        // Add assignToAgent if selected and wantsToAssignAgent is yes
+        // Assign to agent + whether to deduct assignment charge from that agent's commission
         if (formData.wantsToAssignAgent === 'yes' && formData.assignToAgent) {
           formDataToSend.append('assignToAgent', formData.assignToAgent);
+          formDataToSend.append(
+            'deductAgentAssignmentCommission',
+            formData.deductAgentAssignmentCommission === 'yes' ? 'true' : 'false',
+          );
         }
 
         const response = await apiFetch('/applyAdmin', {
@@ -1194,7 +1228,7 @@ export default function AdminNewApplicationPage() {
 
             insuranceCategory: 'Car Insurance',
 
-            insuranceType: 'Comprehensive Insurance (covers everything)',
+            insuranceType: 'Third Party Insurance (covers partial)',
 
             insuranceDuration: '1 Month',
 
@@ -1226,7 +1260,7 @@ export default function AdminNewApplicationPage() {
 
             companyCommission: '',
 
-            administrationFees: calculateAdministrationFees('Car Insurance').toString(),
+            administrationFees: calculateAdministrationFeesRwf('Car Insurance', false).toString(),
 
             proofOfPayment: null,
 
@@ -1246,6 +1280,7 @@ export default function AdminNewApplicationPage() {
     
     wantsToAssignAgent: '',
     assignToAgent: '',
+    deductAgentAssignmentCommission: 'yes',
 
             // Reset API response fields
 
@@ -1755,7 +1790,9 @@ export default function AdminNewApplicationPage() {
                             setFormData(prev => ({
                               ...prev,
                               wantsToAssignAgent: e.target.value as 'yes' | 'no',
-                              assignToAgent: e.target.value === 'no' ? '' : prev.assignToAgent
+                              assignToAgent: e.target.value === 'no' ? '' : prev.assignToAgent,
+                              deductAgentAssignmentCommission:
+                                e.target.value === 'no' ? 'yes' : prev.deductAgentAssignmentCommission,
                             }));
                           }}
                           className="w-4 h-4 text-[var(--main-blue)] focus:ring-[var(--main-blue)]"
@@ -1772,7 +1809,8 @@ export default function AdminNewApplicationPage() {
                             setFormData(prev => ({
                               ...prev,
                               wantsToAssignAgent: e.target.value as 'yes' | 'no',
-                              assignToAgent: ''
+                              assignToAgent: '',
+                              deductAgentAssignmentCommission: 'yes',
                             }));
                           }}
                           className="w-4 h-4 text-[var(--main-blue)] focus:ring-[var(--main-blue)]"
@@ -1784,34 +1822,77 @@ export default function AdminNewApplicationPage() {
 
                   {/* Agent selection - only show when Yes is selected */}
                   {formData.wantsToAssignAgent === 'yes' && (
-                    <div className="md:col-span-2">
-                      <SearchableSelect
-                        label="Assign to Agent"
-                        name="assignToAgent"
-                        placeholder="Type agent email to search..."
-                        value={formData.assignToAgent || null}
-                        onChange={(value) => {
-                          setFormData(prev => ({
-                            ...prev,
-                            assignToAgent: value || ''
-                          }));
-                          // Clear error when user selects an agent
-                          if (value && errors.assignToAgent) {
-                            setErrors(prev => {
-                              const newErrors = { ...prev };
-                              delete newErrors.assignToAgent;
-                              return newErrors;
-                            });
-                          }
-                        }}
-                        fetchOptions={fetchAgentsEmails}
-                        getDisplayValue={(option) => option.email as string}
-                        getSearchValue={(option) => option.email as string}
-                        error={errors.assignToAgent}
-                        required={true}
-                        className="w-full"
-                      />
-                    </div>
+                    <>
+                      <div className="md:col-span-2">
+                        <SearchableSelect
+                          label="Assign to Agent"
+                          name="assignToAgent"
+                          placeholder="Type agent email to search..."
+                          value={formData.assignToAgent || null}
+                          onChange={(value) => {
+                            setFormData(prev => ({
+                              ...prev,
+                              assignToAgent: value || '',
+                            }));
+                            if (value && errors.assignToAgent) {
+                              setErrors(prev => {
+                                const newErrors = { ...prev };
+                                delete newErrors.assignToAgent;
+                                return newErrors;
+                              });
+                            }
+                          }}
+                          fetchOptions={fetchAgentsEmails}
+                          getDisplayValue={(option) => option.email as string}
+                          getSearchValue={(option) => option.email as string}
+                          error={errors.assignToAgent}
+                          required={true}
+                          className="w-full"
+                        />
+                      </div>
+                      <div className="md:col-span-2">
+                        <label className="block text-sm font-medium text-gray-800 mb-2">
+                          Apply admin-assignment charge to this agent?
+                        </label>
+                        <p className="text-xs text-gray-500 mb-3">
+                          When the application was created by an admin and assigned to an agent who did not create it,
+                          you can charge the usual assignment deduction from their commission, or allow full commission.
+                        </p>
+                        <div className="flex flex-col sm:flex-row gap-4">
+                          <label className="flex items-start gap-2 cursor-pointer">
+                            <input
+                              type="radio"
+                              name="deductAgentAssignmentCommission"
+                              value="yes"
+                              checked={formData.deductAgentAssignmentCommission === 'yes'}
+                              onChange={() =>
+                                setFormData((prev) => ({ ...prev, deductAgentAssignmentCommission: 'yes' }))
+                              }
+                              className="w-4 h-4 mt-0.5 text-[var(--main-blue)] focus:ring-[var(--main-blue)]"
+                            />
+                            <span className="text-sm text-gray-700">
+                              <span className="font-medium">Yes</span> — apply charge (deduct assignment percentage from
+                              commission)
+                            </span>
+                          </label>
+                          <label className="flex items-start gap-2 cursor-pointer">
+                            <input
+                              type="radio"
+                              name="deductAgentAssignmentCommission"
+                              value="no"
+                              checked={formData.deductAgentAssignmentCommission === 'no'}
+                              onChange={() =>
+                                setFormData((prev) => ({ ...prev, deductAgentAssignmentCommission: 'no' }))
+                              }
+                              className="w-4 h-4 mt-0.5 text-[var(--main-blue)] focus:ring-[var(--main-blue)]"
+                            />
+                            <span className="text-sm text-gray-700">
+                              <span className="font-medium">No</span> — full commission (no assignment charge)
+                            </span>
+                          </label>
+                        </div>
+                      </div>
+                    </>
                   )}
                 </div>
               </fieldset>
@@ -1982,47 +2063,14 @@ export default function AdminNewApplicationPage() {
 
                       </label>
 
-                      <select
-
-                        name="vehicleType"
-
+                      <ComboboxField
                         value={formData.vehicleType}
-
-                        onChange={handleInputChange}
-
-                        className="w-full py-2 px-3 rounded-lg focus:outline-none border border-gray-300 focus:border-[var(--main-blue)]"
-
+                        onChange={(val) => setFormData(prev => ({ ...prev, vehicleType: val }))}
+                        options={/moto/i.test(formData.insuranceCategory) ? motoTypes : carTypes}
+                        placeholder={/moto/i.test(formData.insuranceCategory) ? 'Search moto type…' : 'Search vehicle type…'}
                         required
-
-                      >
-
-                        <option value="">Select Vehicle Type</option>
-
-                        {formData.insuranceCategory === 'Car Insurance' ? (
-
-                          carTypes.map(type => (
-
-                            <option key={type} value={type}>{type}</option>
-
-                          ))
-
-                        ) : (
-
-                          motoTypes.map(type => (
-
-                            <option key={type} value={type}>{type}</option>
-
-                          ))
-
-                        )}
-
-                      </select>
-
-                      {errors.vehicleType && (
-
-                        <p className="mt-1 text-sm text-[var(--error-red)]">{errors.vehicleType}</p>
-
-                      )}
+                        error={errors.vehicleType}
+                      />
 
                     </div>
 
@@ -2034,23 +2082,43 @@ export default function AdminNewApplicationPage() {
 
                     <div>
 
-                      <Input
+                      <NumericInputField
 
                         label="Vehicle Age (Year of Manufacture)"
 
-                        type="number"
-
                         name="vehicleAge"
+
+                        size="form"
 
                         placeholder="e.g. 2015"
 
-                        min="1900"
-
-                        max={new Date().getFullYear().toString()}
-
                         value={formData.vehicleAge}
 
-                        onChange={handleInputChange}
+                        onChange={(v) => {
+
+                          setFormData((prev) => ({ ...prev, vehicleAge: v }));
+
+                          if (errors.vehicleAge) {
+
+                            setErrors((prev) => {
+
+                              const next = { ...prev };
+
+                              delete next.vehicleAge;
+
+                              return next;
+
+                            });
+
+                          }
+
+                        }}
+
+                        min={vehicleYearBounds.minYear}
+
+                        max={vehicleYearBounds.maxYear}
+
+                        maxDigits={4}
 
                         error={errors.vehicleAge}
 
@@ -2218,9 +2286,9 @@ export default function AdminNewApplicationPage() {
 
                     >
 
-                      <option value="Comprehensive Insurance (covers everything)">Comprehensive Insurance (covers everything)</option>
-
                       <option value="Third Party Insurance (covers partial)">Third Party Insurance (covers partial)</option>
+
+                      <option value="Comprehensive Insurance (covers everything)">Comprehensive Insurance (covers everything)</option>
 
                     </select>
 
@@ -2234,57 +2302,39 @@ export default function AdminNewApplicationPage() {
 
                   <div className="md:col-span-2">
 
-                    <label
-
-                      className="block text-sm font-medium mb-1"
-
-                      htmlFor="insuranceDuration"
-
-                    >
-
-                      Insurance Duration{' '}
-
-                      <span className="text-[var(--error-red)] ml-1">*</span>
-
-                    </label>
-
-                    <select
+                    <InsuranceDurationField
 
                       id="insuranceDuration"
 
-                      name="insuranceDuration"
+                      topLabel="Insurance duration"
 
                       value={formData.insuranceDuration}
 
-                      onChange={handleInputChange}
+                      onChange={(next) => {
 
-                      className="w-full py-2 px-3 rounded-lg focus:outline-none border border-gray-300 focus:border-[var(--main-blue)]"
+                        setFormData((prev) => ({ ...prev, insuranceDuration: next }));
+
+                        if (errors.insuranceDuration) {
+
+                          setErrors((prev) => {
+
+                            const nextErr = { ...prev };
+
+                            delete nextErr.insuranceDuration;
+
+                            return nextErr;
+
+                          });
+
+                        }
+
+                      }}
+
+                      error={errors.insuranceDuration}
 
                       required
 
-                    >
-
-                      <option value="1 Month">1 Month</option>
-
-                      <option value="2 Months">2 Months</option>
-
-                      <option value="3 Months">3 Months</option>
-
-                      <option value="6 Months">6 Months</option>
-
-                      <option value="9 Months">9 Months</option>
-
-                      <option value="11 Months">11 Months</option>
-
-                      <option value="12 Months">12 Months</option>
-
-                    </select>
-
-                    {errors.insuranceDuration && (
-
-                      <p className="mt-1 text-sm text-[var(--error-red)]">{errors.insuranceDuration}</p>
-
-                    )}
+                    />
 
                   </div>
 
@@ -2400,23 +2450,41 @@ export default function AdminNewApplicationPage() {
 
                     <div>
 
-                      <Input
+                      <NumericInputField
 
                         label="Amount (RWF)"
-
-                        type="number"
 
                         name="amount"
 
                         value={formData.amount}
 
-                        onChange={handleInputChange}
+                        onChange={(v) => {
+
+                          setFormData((prev) => ({ ...prev, amount: v }));
+
+                          if (errors.amount) {
+
+                            setErrors((prev) => {
+
+                              const next = { ...prev };
+
+                              delete next.amount;
+
+                              return next;
+
+                            });
+
+                          }
+
+                        }}
 
                         placeholder="Enter amount"
 
                         error={errors.amount}
 
-                        min="0"
+                        min={0}
+
+                        maxDigits={12}
 
                         required
 
@@ -2426,23 +2494,41 @@ export default function AdminNewApplicationPage() {
 
                     <div>
 
-                      <Input
+                      <NumericInputField
 
                         label="Company Commission (RWF)"
-
-                        type="number"
 
                         name="companyCommission"
 
                         value={formData.companyCommission}
 
-                        onChange={handleInputChange}
+                        onChange={(v) => {
+
+                          setFormData((prev) => ({ ...prev, companyCommission: v }));
+
+                          if (errors.companyCommission) {
+
+                            setErrors((prev) => {
+
+                              const next = { ...prev };
+
+                              delete next.companyCommission;
+
+                              return next;
+
+                            });
+
+                          }
+
+                        }}
 
                         placeholder="Enter company commission"
 
                         error={errors.companyCommission}
 
-                        min="0"
+                        min={0}
+
+                        maxDigits={12}
 
                         required
 
@@ -2452,23 +2538,41 @@ export default function AdminNewApplicationPage() {
 
                     <div>
 
-                      <Input
+                      <NumericInputField
 
                         label="Administration Fees (RWF)"
-
-                        type="number"
 
                         name="administrationFees"
 
                         value={formData.administrationFees}
 
-                        onChange={handleInputChange}
+                        onChange={(v) => {
+
+                          setFormData((prev) => ({ ...prev, administrationFees: v }));
+
+                          if (errors.administrationFees) {
+
+                            setErrors((prev) => {
+
+                              const next = { ...prev };
+
+                              delete next.administrationFees;
+
+                              return next;
+
+                            });
+
+                          }
+
+                        }}
 
                         placeholder="Administration fees (auto-calculated)"
 
                         error={errors.administrationFees}
 
-                        min="0"
+                        min={0}
+
+                        maxDigits={12}
 
                         disabled
 
@@ -2477,13 +2581,19 @@ export default function AdminNewApplicationPage() {
                       />
 
                       <p className="text-xs text-gray-500 mt-1">
-
-                        {formData.insuranceCategory.toLowerCase().includes('motobike')
-
-                          ? 'Calculated as 25% of 2500 RWF for MOTO insurance'
-
-                          : 'Calculated as 25% of 2500 RWF'}
-
+                        {(() => {
+                          const cat = formData.insuranceCategory.toLowerCase();
+                          const isVehicle =
+                            cat.includes('car') ||
+                            cat.includes('motor') ||
+                            cat.includes('moto');
+                          if (!isVehicle) {
+                            return 'Calculated as 25% of 1,500 RWF for this category.';
+                          }
+                          return formData.isCOMESA
+                            ? 'Car / motor: 25% of 12,500 RWF (COMESA selected).'
+                            : 'Car / motor: 25% of 2,500 RWF (COMESA not selected).';
+                        })()}
                       </p>
 
                     </div>
