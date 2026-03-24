@@ -460,29 +460,11 @@ export default function ManageApplicationsPage() {
     return new Date().toISOString().split('T')[0];
   };
 
-  // Calculate administration fees based on insurance category
-  const calculateAdministrationFees = (insuranceCategory: string) => {
-    const cat = insuranceCategory.toLowerCase();
-    const isCarOrMoto = cat.includes('car') || cat.includes('motor') || cat.includes('moto');
-    const baseAmount = isCarOrMoto ? 2500 : 1500;
-    return Math.round(baseAmount * 0.25);
-  };
-
   // Set default date range to current month
   useEffect(() => {
     setStartDate(getFirstDayOfMonth());
     setEndDate(getCurrentDate());
   }, []);
-
-  // Auto-calculate administration fees when selectedApp changes
-  useEffect(() => {
-    if (selectedApp && selectedApp.insuranceCategory) {
-      const calculatedFees = calculateAdministrationFees(selectedApp.insuranceCategory);
-      setAdministrationFees(calculatedFees.toString());
-    }
-  }, [selectedApp]);
-
-
 
   // Handle table scroll to show/hide fade indicators
   const handleTableScroll = (e: React.UIEvent<HTMLDivElement>) => {
