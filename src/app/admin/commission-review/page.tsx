@@ -1432,7 +1432,7 @@ const getActionButtons = (app: Application) => {
               aria-selected={activeTab === 'pending_review'}
               id="tab-pending-review"
               className={[
-                'flex-1 sm:flex-none min-h-[44px] px-4 py-2.5 rounded-xl text-sm font-semibold transition-all border-2 text-left sm:text-center',
+                'cursor-pointer flex-1 sm:flex-none min-h-[44px] px-4 py-2.5 rounded-xl text-sm font-semibold transition-all border-2 text-left sm:text-center',
                 activeTab === 'pending_review'
                   ? 'bg-[var(--main-blue)] text-white border-[var(--main-blue)] shadow-md'
                   : 'bg-white text-gray-700 border-gray-200 hover:border-gray-300 hover:bg-gray-50',
@@ -1459,7 +1459,7 @@ const getActionButtons = (app: Application) => {
               aria-selected={activeTab === 'ready_to_be_paid'}
               id="tab-ready-paid"
               className={[
-                'flex-1 sm:flex-none min-h-[44px] px-4 py-2.5 rounded-xl text-sm font-semibold transition-all border-2 text-left sm:text-center',
+                'cursor-pointer flex-1 sm:flex-none min-h-[44px] px-4 py-2.5 rounded-xl text-sm font-semibold transition-all border-2 text-left sm:text-center',
                 activeTab === 'ready_to_be_paid'
                   ? 'bg-[var(--main-blue)] text-white border-[var(--main-blue)] shadow-md'
                   : 'bg-white text-gray-700 border-gray-200 hover:border-gray-300 hover:bg-gray-50',
