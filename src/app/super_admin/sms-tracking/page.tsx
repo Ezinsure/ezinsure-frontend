@@ -292,7 +292,7 @@ export default function SMSTrackingPage() {
     })();
 
     return () => controller.abort();
-  }, [token, startDate, endDate, showToast, apiFetch]);
+  }, [token, startDate, endDate]);
 
   // Filter SMS records
   const filteredRecords = useMemo(() => {
