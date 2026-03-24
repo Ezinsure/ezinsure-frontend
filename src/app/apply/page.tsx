@@ -21,10 +21,16 @@ import { getTrackingData, TrackingData } from '@/utils/tracking';
 import { carUses, motoUses, carTypes, motoTypes } from '@/utils/vehicle-types';
 import { ComboboxField } from '@/components/ui/combobox-field';
 import { calculateAdministrationFeesRwf } from '@/utils/administration-fees';
+import {
+  getVehicleManufactureYearBounds,
+  getVehicleManufactureYearValidationError,
+} from '@/utils/vehicle-year';
+import { NumericInputField } from '@/components/ui/numeric-input-field';
 import { validateInsuranceDuration, normalizeInsuranceDurationPayload } from '@/utils/insurance-duration';
 import { InsuranceDurationField } from '@/components/ui/insurance-duration-field';
 
 export default function ApplyPage() {
+  const vehicleYearBounds = useMemo(() => getVehicleManufactureYearBounds(), []);
   const { showToast, ToastContainer } = useToast();
   const [formKey, setFormKey] = useState(Date.now());
   const [trackingData, setTrackingData] = useState<TrackingData | null>(null);
@@ -149,7 +155,13 @@ export default function ApplyPage() {
     insuranceType: { required: true },
     insuranceDuration: { required: true },
     vehicleType: { required: formState.insuranceCategory === 'car' || formState.insuranceCategory === 'motorbike' },
-    vehicleAge: { required: formState.insuranceCategory === 'car' || formState.insuranceCategory === 'motorbike' },
+    vehicleAge: {
+      required: formState.insuranceCategory === 'car' || formState.insuranceCategory === 'motorbike',
+      validate: (v) => {
+        const err = getVehicleManufactureYearValidationError(v);
+        return err === null ? true : err;
+      },
+    },
     vehicleUse: { required: formState.insuranceCategory === 'car' || formState.insuranceCategory === 'motorbike' },
     otherVehicleUse: { required: formState.vehicleUse === 'other' },
     isCOMESA: { required: true },
@@ -1157,15 +1169,25 @@ export default function ApplyPage() {
                 {/* Vehicle Age (only shown for car/motorbike insurance) */}
                 {(formState.insuranceCategory === 'car' || formState.insuranceCategory === 'motorbike') && (
                   <div>
-                    <Input
+                    <NumericInputField
                       label="Vehicle Age (Year of Manufacture)"
-                      type="number"
                       name="vehicleAge"
+                      size="form"
                       placeholder="e.g. 2015"
-                      min="1900"
-                      max={new Date().getFullYear().toString()}
                       value={formState.vehicleAge}
-                      onChange={handleInputChange}
+                      onChange={(v) => {
+                        setFormState((prev) => ({ ...prev, vehicleAge: v }));
+                        if (errors.vehicleAge) {
+                          setErrors((prev) => {
+                            const next = { ...prev };
+                            delete next.vehicleAge;
+                            return next;
+                          });
+                        }
+                      }}
+                      min={vehicleYearBounds.minYear}
+                      max={vehicleYearBounds.maxYear}
+                      maxDigits={4}
                       error={errors.vehicleAge}
                       required
                     />

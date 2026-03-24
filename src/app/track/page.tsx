@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { MainLayout } from '@/components/ui/main-layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,6 +11,11 @@ import { DocumentViewer } from '@/components/ui/document-viewer';
 import { carTypes, motoTypes, carUses, motoUses } from '@/utils/vehicle-types';
 import { validateInsuranceDuration, normalizeInsuranceDurationPayload } from '@/utils/insurance-duration';
 import { InsuranceDurationField } from '@/components/ui/insurance-duration-field';
+import { NumericInputField } from '@/components/ui/numeric-input-field';
+import {
+  getVehicleManufactureYearBounds,
+  getVehicleManufactureYearValidationError,
+} from '@/utils/vehicle-year';
 
 export interface Application {
   _id: string;
@@ -230,6 +235,7 @@ interface EditApplicationModalProps {
 }
 
 const EditApplicationModal = ({ isOpen, onClose, onSave, application, isLoading }: EditApplicationModalProps) => {
+  const vehicleYearBounds = useMemo(() => getVehicleManufactureYearBounds(), []);
   const isInvoiceSent = application.status === 'INVOICE_SENT' || (application.status === 'WAITING_FOR_USER_ACTION' && application.reasonForPaymentRejection);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { showToast } = useToast();
@@ -412,6 +418,21 @@ const EditApplicationModal = ({ isOpen, onClose, onSave, application, isLoading 
       if (durErr) {
         setErrors((prev) => ({ ...prev, insuranceDuration: durErr }));
         return;
+      }
+      const isVehicle =
+        formState.insuranceCategory === 'Car Insurance' ||
+        formState.insuranceCategory === 'MotorBike Insurance';
+      if (isVehicle) {
+        const va = (formState.vehicleAge || '').trim();
+        if (!va) {
+          setErrors((prev) => ({ ...prev, vehicleAge: 'This field is required' }));
+          return;
+        }
+        const yearErr = getVehicleManufactureYearValidationError(va);
+        if (yearErr) {
+          setErrors((prev) => ({ ...prev, vehicleAge: yearErr }));
+          return;
+        }
       }
     }
 
@@ -843,21 +864,29 @@ const EditApplicationModal = ({ isOpen, onClose, onSave, application, isLoading 
       )}
     </div>
     <div>
-      <label className="block text-sm font-medium mb-1">
-        Vehicle Year <span className="text-red-500">*</span>
-      </label>
-      <input
-        type="number"
+      <NumericInputField
+        label="Vehicle Year"
         name="vehicleAge"
-        min="1900"
-        max={new Date().getFullYear()}
+        size="form"
+        placeholder="e.g. 2015"
         value={formState.vehicleAge || ''}
-        onChange={handleInputChange}
-        className="w-full py-2 px-3 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none"
+        onChange={(v) => {
+          setFormState((prev) => ({ ...prev, vehicleAge: v }));
+          if (errors.vehicleAge) {
+            setErrors((prev) => {
+              const next = { ...prev };
+              delete next.vehicleAge;
+              return next;
+            });
+          }
+        }}
+        min={vehicleYearBounds.minYear}
+        max={vehicleYearBounds.maxYear}
+        maxDigits={4}
+        error={errors.vehicleAge}
+        required
+        className="mb-0"
       />
-      {errors.vehicleAge && (
-        <p className="mt-1 text-sm text-red-600">{errors.vehicleAge}</p>
-      )}
     </div>
     <div>
       <label className="block text-sm font-medium mb-1">

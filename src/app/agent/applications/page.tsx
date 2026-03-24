@@ -14,6 +14,12 @@ import { formatDateUTC, formatDateForExcel as formatDateForExcelUtil, formatTime
 import { carTypes, motoTypes, carUses, motoUses } from '@/utils/vehicle-types';
 import { validateInsuranceDuration, normalizeInsuranceDurationPayload } from '@/utils/insurance-duration';
 import { InsuranceDurationField } from '@/components/ui/insurance-duration-field';
+import { NumericInputField } from '@/components/ui/numeric-input-field';
+import { isMotorVehicleInsuranceCategory } from '@/utils/administration-fees';
+import {
+  getVehicleManufactureYearBounds,
+  getVehicleManufactureYearValidationError,
+} from '@/utils/vehicle-year';
 
 interface Application {
   _id: string;
@@ -124,6 +130,7 @@ const EditApplicationModal = ({
   onSave: () => void;
   isLoading: boolean;
 }) => {
+  const vehicleYearBounds = useMemo(() => getVehicleManufactureYearBounds(), []);
   // Determine if this is a payment rejection case
   const isPaymentRejection = application.status === 'WAITING_FOR_USER_ACTION' && 
                            (application.reasonForPaymentRejection);
@@ -388,6 +395,21 @@ const [formState, setFormState] = useState<Partial<Application>>(() => {
           setErrors((prev) => ({ ...prev, insuranceDuration: durErr }));
           setIsSubmitting(false);
           return;
+        }
+
+        if (isMotorVehicleInsuranceCategory(formState.insuranceCategory || '')) {
+          const va = (formState.vehicleAge || '').trim();
+          if (!va) {
+            setErrors((prev) => ({ ...prev, vehicleAge: 'This field is required' }));
+            setIsSubmitting(false);
+            return;
+          }
+          const yearErr = getVehicleManufactureYearValidationError(va);
+          if (yearErr) {
+            setErrors((prev) => ({ ...prev, vehicleAge: yearErr }));
+            setIsSubmitting(false);
+            return;
+          }
         }
 
         // Regular edit case - submit all changed fields
@@ -797,20 +819,29 @@ const [formState, setFormState] = useState<Partial<Application>>(() => {
                     {/* Vehicle Year (only shown for car/motorbike insurance) */}
                     {(formState.insuranceCategory === 'Car Insurance' || formState.insuranceCategory === 'Motorbike Insurance') && (
                       <div>
-                        <label className="block text-sm font-medium mb-1">
-                          Vehicle Year <span className="text-red-500">*</span>
-                        </label>
-                        <input
-                          type="text"
+                        <NumericInputField
+                          label="Vehicle Year"
                           name="vehicleAge"
+                          size="form"
+                          placeholder="e.g. 2020"
                           value={formState.vehicleAge || ''}
-                          onChange={handleInputChange}
-                          placeholder="e.g., 2020"
-                          className="w-full py-2 px-3 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none"
+                          onChange={(v) => {
+                            setFormState((prev) => ({ ...prev, vehicleAge: v }));
+                            if (errors.vehicleAge) {
+                              setErrors((prev) => {
+                                const next = { ...prev };
+                                delete next.vehicleAge;
+                                return next;
+                              });
+                            }
+                          }}
+                          min={vehicleYearBounds.minYear}
+                          max={vehicleYearBounds.maxYear}
+                          maxDigits={4}
+                          error={errors.vehicleAge}
+                          required
+                          className="mb-0"
                         />
-                        {errors.vehicleAge && (
-                          <p className="mt-1 text-sm text-red-600">{errors.vehicleAge}</p>
-                        )}
                       </div>
                     )}
 

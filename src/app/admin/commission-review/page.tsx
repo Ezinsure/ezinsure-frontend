@@ -13,6 +13,11 @@ import { DocumentViewer } from '@/components/ui/document-viewer';
 import { ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { validateInsuranceDuration, normalizeInsuranceDurationPayload } from '@/utils/insurance-duration';
 import { InsuranceDurationField } from '@/components/ui/insurance-duration-field';
+import { NumericInputField } from '@/components/ui/numeric-input-field';
+import {
+  isMotorVehicleInsuranceCategory,
+} from '@/utils/administration-fees';
+import { getVehicleManufactureYearValidationError } from '@/utils/vehicle-year';
 
 interface Application {
   _id: string;
@@ -842,6 +847,22 @@ const getActionButtons = (app: Application) => {
       const durationErr = validateInsuranceDuration(String(editFormData.insuranceDuration ?? ''));
       if (durationErr) {
         showToast(durationErr, 'error');
+        return;
+      }
+    }
+
+    if (
+      isMotorVehicleInsuranceCategory(String(editFormData.insuranceCategory ?? '')) &&
+      'vehicleAge' in changedFields
+    ) {
+      const v = getFormValue(editFormData.vehicleAge);
+      if (!v.trim()) {
+        showToast('Vehicle year is required', 'error');
+        return;
+      }
+      const yearErr = getVehicleManufactureYearValidationError(v);
+      if (yearErr) {
+        showToast(yearErr, 'error');
         return;
       }
     }
@@ -2603,52 +2624,68 @@ const getActionButtons = (app: Application) => {
                   </legend>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     {showAmountField && (
-                      <div>
-                        <label className="block text-xs font-medium mb-1">Amount (RWF)</label>
-                        <input
-                          type="number"
-                          name="amount"
-                          value={amountValue}
-                          onChange={handleEditInputChange}
-                          className="w-full py-1.5 px-2 text-xs rounded-lg focus:outline-none border border-gray-300 focus:border-[var(--main-blue)]"
-                        />
-                      </div>
+                      <NumericInputField
+                        label="Amount (RWF)"
+                        name="amount"
+                        size="compact"
+                        accent="adminEdit"
+                        className="mb-0"
+                        labelClassName="!font-medium !text-gray-700"
+                        value={amountValue}
+                        onChange={(v) =>
+                          setEditFormData((prev) => (prev ? { ...prev, amount: v } : prev))
+                        }
+                        min={0}
+                        maxDigits={12}
+                      />
                     )}
                     {showAgentCommissionField && (
-                      <div>
-                        <label className="block text-xs font-medium mb-1">Agent Commission (RWF)</label>
-                        <input
-                          type="number"
-                          name="agentCommission"
-                          value={agentCommissionValue}
-                          onChange={handleEditInputChange}
-                          className="w-full py-1.5 px-2 text-xs rounded-lg focus:outline-none border border-gray-300 focus:border-[var(--main-blue)]"
-                        />
-                      </div>
+                      <NumericInputField
+                        label="Agent Commission (RWF)"
+                        name="agentCommission"
+                        size="compact"
+                        accent="adminEdit"
+                        className="mb-0"
+                        labelClassName="!font-medium !text-gray-700"
+                        value={agentCommissionValue}
+                        onChange={(v) =>
+                          setEditFormData((prev) => (prev ? { ...prev, agentCommission: v } : prev))
+                        }
+                        min={0}
+                        maxDigits={12}
+                      />
                     )}
                     {showCompanyCommissionField && (
-                      <div>
-                        <label className="block text-xs font-medium mb-1">Company Commission (RWF)</label>
-                        <input
-                          type="number"
-                          name="companyCommission"
-                          value={companyCommissionValue}
-                          onChange={handleEditInputChange}
-                          className="w-full py-1.5 px-2 text-xs rounded-lg focus:outline-none border border-gray-300 focus:border-[var(--main-blue)]"
-                        />
-                      </div>
+                      <NumericInputField
+                        label="Company Commission (RWF)"
+                        name="companyCommission"
+                        size="compact"
+                        accent="adminEdit"
+                        className="mb-0"
+                        labelClassName="!font-medium !text-gray-700"
+                        value={companyCommissionValue}
+                        onChange={(v) =>
+                          setEditFormData((prev) => (prev ? { ...prev, companyCommission: v } : prev))
+                        }
+                        min={0}
+                        maxDigits={12}
+                      />
                     )}
                     {showAdministrationFeesField && (
-                      <div>
-                        <label className="block text-xs font-medium mb-1">Administration Fees (RWF)</label>
-                        <input
-                          type="text"
-                          name="administrationFees"
-                          value={administrationFeesValue}
-                          onChange={handleEditInputChange}
-                          className="w-full py-1.5 px-2 text-xs rounded-lg focus:outline-none border border-gray-300 focus:border-[var(--main-blue)]"
-                        />
-                      </div>
+                      <NumericInputField
+                        label="Administration Fees (RWF)"
+                        name="administrationFees"
+                        size="compact"
+                        accent="adminEdit"
+                        className="mb-0"
+                        labelClassName="!font-medium !text-gray-700"
+                        value={administrationFeesValue}
+                        onChange={(v) =>
+                          setEditFormData((prev) => (prev ? { ...prev, administrationFees: v } : prev))
+                        }
+                        min={0}
+                        maxDigits={12}
+                      />
                     )}
                     {showTransactionIdField && (
                       <div>

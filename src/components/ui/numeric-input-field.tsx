@@ -1,10 +1,43 @@
 'use client';
 
-import React, { useCallback, useId, useState } from 'react';
+import React, { useCallback, useId, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { filterIntegerDigits } from '@/utils/numeric-input';
 
-type NumericFieldSize = 'default' | 'compact';
+type NumericFieldSize = 'default' | 'compact' | 'form';
+
+/** Inline range hint: no clamping while typing; blur or “full length” (maxDigits) surfaces errors. */
+function computeNumericRangeError(
+  value: string,
+  min: number | undefined,
+  max: number | undefined,
+  maxDigits: number | undefined,
+  focused: boolean,
+): string | null {
+  if (min == null && max == null) return null;
+  const trimmed = value.trim();
+  if (trimmed === '') return null;
+  const n = parseInt(trimmed, 10);
+  if (!Number.isFinite(n)) return null;
+  const below = min != null && n < min;
+  const above = max != null && n > max;
+  if (!below && !above) return null;
+
+  const msg =
+    min != null && max != null
+      ? `Must be between ${min.toLocaleString()} and ${max.toLocaleString()}`
+      : min != null
+        ? `Must be at least ${min.toLocaleString()}`
+        : `Must be at most ${max!.toLocaleString()}`;
+
+  if (maxDigits != null) {
+    if (trimmed.length === maxDigits) return msg;
+    if (!focused) return msg;
+    return null;
+  }
+  if (!focused) return msg;
+  return null;
+}
 
 export interface NumericInputFieldProps {
   /** Visible label (unless hideLabel) */
@@ -23,9 +56,15 @@ export interface NumericInputFieldProps {
   placeholder?: string;
   /** Hard cap on digit count (e.g. 3 for day counts up to 366) */
   maxDigits?: number;
+  /** When set with a non-empty value, parsed integer is clamped to [min, max]. */
+  min?: number;
+  max?: number;
+  /** `invoice` = send-invoice modal (green). `adminEdit` = admin grid inputs (gray + main blue). */
+  accent?: 'default' | 'invoice' | 'adminEdit';
   className?: string;
   inputClassName?: string;
   labelClassName?: string;
+  /** `form` = same label rhythm as apply-form selects, shorter input (py-2, text-sm). */
   size?: NumericFieldSize;
   hideLabel?: boolean;
   autoComplete?: string;
@@ -49,6 +88,12 @@ const sizeStyles: Record<
     border: 'rounded-md border',
     input: 'w-full py-2 px-2.5 rounded-md text-sm tabular-nums',
   },
+  form: {
+    wrapper: 'mb-0',
+    label: 'block text-sm font-medium text-gray-700 mb-1',
+    border: 'rounded-lg border-2',
+    input: 'w-full py-2 px-3 rounded-lg text-sm tabular-nums leading-normal',
+  },
 };
 
 export function NumericInputField({
@@ -63,6 +108,9 @@ export function NumericInputField({
   helperText,
   placeholder = '0',
   maxDigits,
+  min,
+  max,
+  accent = 'default',
   className = '',
   inputClassName = '',
   labelClassName = '',
@@ -76,8 +124,7 @@ export function NumericInputField({
   const [focused, setFocused] = useState(false);
   const commit = useCallback(
     (digits: string) => {
-      const next = filterIntegerDigits(digits, maxDigits);
-      onChange(next);
+      onChange(filterIntegerDigits(digits, maxDigits));
     },
     [maxDigits, onChange],
   );
@@ -118,6 +165,35 @@ export function NumericInputField({
 
   const { wrapper, label: labelBase, border, input: inputBase } = sizeStyles[size];
 
+  const rangeError = useMemo(
+    () => computeNumericRangeError(value, min, max, maxDigits, focused),
+    [value, min, max, maxDigits, focused],
+  );
+  const displayError = error || rangeError;
+
+  const isInvoice = accent === 'invoice';
+  const isAdminEdit = accent === 'adminEdit';
+  const borderShell =
+    isInvoice ? 'rounded-md border shadow-sm' : isAdminEdit ? 'rounded-lg border' : border;
+  const borderState = displayError
+    ? 'border-red-300 bg-red-50'
+    : isInvoice
+      ? focused
+        ? 'border-[var(--card-green)] ring-2 ring-[var(--card-green)] ring-offset-0 bg-white'
+        : 'border-[var(--card-green)] bg-white'
+      : isAdminEdit
+        ? focused
+          ? 'border-[var(--main-blue)] ring-2 ring-[var(--main-blue)]/25 bg-white'
+          : 'border-gray-300 bg-white hover:border-gray-400'
+        : focused
+          ? 'border-blue-500 bg-blue-50/30'
+          : 'border-gray-200 bg-white hover:border-gray-300';
+  const inputPadding = isInvoice
+    ? 'w-full py-2 px-3 rounded-md text-sm tabular-nums'
+    : isAdminEdit
+      ? 'w-full py-1.5 px-2 rounded-lg text-xs tabular-nums'
+      : inputBase;
+
   return (
     <div className={`${wrapper} ${className}`.trim()}>
       {!hideLabel && (
@@ -127,13 +203,9 @@ export function NumericInputField({
         </label>
       )}
       <div
-        className={`relative ${border} transition-all duration-200 ${
-          error
-            ? 'border-red-300 bg-red-50'
-            : focused
-              ? 'border-blue-500 bg-blue-50/30'
-              : 'border-gray-200 bg-white hover:border-gray-300'
-        } ${disabled ? 'bg-gray-50 border-gray-200' : ''}`}
+        className={`relative ${borderShell} transition-all duration-200 ${borderState} ${
+          disabled ? 'bg-gray-50 border-gray-200 opacity-90' : ''
+        }`}
       >
         <input
           type="text"
@@ -142,10 +214,10 @@ export function NumericInputField({
           autoComplete={autoComplete}
           id={fieldId}
           name={name}
-          aria-invalid={Boolean(error)}
+          aria-invalid={Boolean(displayError)}
           aria-required={required}
           aria-label={hideLabel ? ariaLabel ?? label : undefined}
-          className={`${inputBase} ${inputClassName} focus:outline-none transition-colors duration-200 ${
+          className={`${inputPadding} ${inputClassName} focus:outline-none transition-colors duration-200 ${
             disabled ? 'bg-gray-50 text-gray-500 cursor-not-allowed' : 'text-gray-900 placeholder-gray-400'
           }`}
           placeholder={placeholder}
@@ -158,7 +230,7 @@ export function NumericInputField({
           onBlur={() => setFocused(false)}
         />
       </div>
-      {error ? (
+      {displayError ? (
         <motion.p
           initial={{ opacity: 0, y: -6 }}
           animate={{ opacity: 1, y: 0 }}
@@ -172,7 +244,7 @@ export function NumericInputField({
               clipRule="evenodd"
             />
           </svg>
-          {error}
+          {displayError}
         </motion.p>
       ) : helperText ? (
         <p className="mt-1.5 text-xs text-gray-500">{helperText}</p>

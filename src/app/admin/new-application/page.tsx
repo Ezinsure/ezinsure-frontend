@@ -25,6 +25,11 @@ import {
 } from '@/components/ui/form-validation';
 import { validateInsuranceDuration, normalizeInsuranceDurationPayload } from '@/utils/insurance-duration';
 import { InsuranceDurationField } from '@/components/ui/insurance-duration-field';
+import { NumericInputField } from '@/components/ui/numeric-input-field';
+import {
+  getVehicleManufactureYearBounds,
+  getVehicleManufactureYearValidationError,
+} from '@/utils/vehicle-year';
 
 // Application statuses
 enum ApplicationStatus {
@@ -291,6 +296,7 @@ interface ApplicationFormData {
 }
 
 export default function AdminNewApplicationPage() {
+  const vehicleYearBounds = useMemo(() => getVehicleManufactureYearBounds(), []);
   const { showToast, ToastContainer } = useToast();
   const [viewingDocument, setViewingDocument] = useState<{ url: string; name: string } | null>(null);
   const { user } = useAuth();
@@ -646,7 +652,13 @@ export default function AdminNewApplicationPage() {
     insuranceDuration: { required: true },
     insuranceProvider: { required: true },
     vehicleType: { required: formData.insuranceCategory === 'Car Insurance' || formData.insuranceCategory === 'MotorBike Insurance' },
-    vehicleAge: { required: formData.insuranceCategory === 'Car Insurance' || formData.insuranceCategory === 'MotorBike Insurance' },
+    vehicleAge: {
+      required: formData.insuranceCategory === 'Car Insurance' || formData.insuranceCategory === 'MotorBike Insurance',
+      validate: (v) => {
+        const err = getVehicleManufactureYearValidationError(v);
+        return err === null ? true : err;
+      },
+    },
     vehicleUse: { required: formData.insuranceCategory === 'Car Insurance' || formData.insuranceCategory === 'MotorBike Insurance' },
     otherVehicleUse: { required: formData.vehicleUse === 'Other' },
     nationalID: { required: true },
@@ -2070,23 +2082,43 @@ export default function AdminNewApplicationPage() {
 
                     <div>
 
-                      <Input
+                      <NumericInputField
 
                         label="Vehicle Age (Year of Manufacture)"
 
-                        type="number"
-
                         name="vehicleAge"
+
+                        size="form"
 
                         placeholder="e.g. 2015"
 
-                        min="1900"
-
-                        max={new Date().getFullYear().toString()}
-
                         value={formData.vehicleAge}
 
-                        onChange={handleInputChange}
+                        onChange={(v) => {
+
+                          setFormData((prev) => ({ ...prev, vehicleAge: v }));
+
+                          if (errors.vehicleAge) {
+
+                            setErrors((prev) => {
+
+                              const next = { ...prev };
+
+                              delete next.vehicleAge;
+
+                              return next;
+
+                            });
+
+                          }
+
+                        }}
+
+                        min={vehicleYearBounds.minYear}
+
+                        max={vehicleYearBounds.maxYear}
+
+                        maxDigits={4}
 
                         error={errors.vehicleAge}
 
@@ -2418,23 +2450,41 @@ export default function AdminNewApplicationPage() {
 
                     <div>
 
-                      <Input
+                      <NumericInputField
 
                         label="Amount (RWF)"
-
-                        type="number"
 
                         name="amount"
 
                         value={formData.amount}
 
-                        onChange={handleInputChange}
+                        onChange={(v) => {
+
+                          setFormData((prev) => ({ ...prev, amount: v }));
+
+                          if (errors.amount) {
+
+                            setErrors((prev) => {
+
+                              const next = { ...prev };
+
+                              delete next.amount;
+
+                              return next;
+
+                            });
+
+                          }
+
+                        }}
 
                         placeholder="Enter amount"
 
                         error={errors.amount}
 
-                        min="0"
+                        min={0}
+
+                        maxDigits={12}
 
                         required
 
@@ -2444,23 +2494,41 @@ export default function AdminNewApplicationPage() {
 
                     <div>
 
-                      <Input
+                      <NumericInputField
 
                         label="Company Commission (RWF)"
-
-                        type="number"
 
                         name="companyCommission"
 
                         value={formData.companyCommission}
 
-                        onChange={handleInputChange}
+                        onChange={(v) => {
+
+                          setFormData((prev) => ({ ...prev, companyCommission: v }));
+
+                          if (errors.companyCommission) {
+
+                            setErrors((prev) => {
+
+                              const next = { ...prev };
+
+                              delete next.companyCommission;
+
+                              return next;
+
+                            });
+
+                          }
+
+                        }}
 
                         placeholder="Enter company commission"
 
                         error={errors.companyCommission}
 
-                        min="0"
+                        min={0}
+
+                        maxDigits={12}
 
                         required
 
@@ -2470,23 +2538,41 @@ export default function AdminNewApplicationPage() {
 
                     <div>
 
-                      <Input
+                      <NumericInputField
 
                         label="Administration Fees (RWF)"
-
-                        type="number"
 
                         name="administrationFees"
 
                         value={formData.administrationFees}
 
-                        onChange={handleInputChange}
+                        onChange={(v) => {
+
+                          setFormData((prev) => ({ ...prev, administrationFees: v }));
+
+                          if (errors.administrationFees) {
+
+                            setErrors((prev) => {
+
+                              const next = { ...prev };
+
+                              delete next.administrationFees;
+
+                              return next;
+
+                            });
+
+                          }
+
+                        }}
 
                         placeholder="Administration fees (auto-calculated)"
 
                         error={errors.administrationFees}
 
-                        min="0"
+                        min={0}
+
+                        maxDigits={12}
 
                         disabled
 
