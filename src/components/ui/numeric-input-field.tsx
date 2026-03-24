@@ -56,7 +56,7 @@ export interface NumericInputFieldProps {
   placeholder?: string;
   /** Hard cap on digit count (e.g. 3 for day counts up to 366) */
   maxDigits?: number;
-  /** When set with a non-empty value, parsed integer is clamped to [min, max]. */
+  /** Inclusive min/max for inline range messages (no auto-clamp while typing). */
   min?: number;
   max?: number;
   /** `invoice` = send-invoice modal (green). `adminEdit` = admin grid inputs (gray + main blue). */
@@ -64,7 +64,7 @@ export interface NumericInputFieldProps {
   className?: string;
   inputClassName?: string;
   labelClassName?: string;
-  /** `form` = same label rhythm as apply-form selects, shorter input (py-2, text-sm). */
+  /** `form` = match apply-form selects / combobox: single border, fixed control height. */
   size?: NumericFieldSize;
   hideLabel?: boolean;
   autoComplete?: string;
@@ -91,8 +91,10 @@ const sizeStyles: Record<
   form: {
     wrapper: 'mb-0',
     label: 'block text-sm font-medium text-gray-700 mb-1',
-    border: 'rounded-lg border-2',
-    input: 'w-full py-2 px-3 rounded-lg text-sm tabular-nums leading-normal',
+    border: 'rounded-lg border border-gray-300',
+    /** Shell uses min-h + flex; input is borderless so total height matches ComboboxField (42px). */
+    input:
+      'w-full flex-1 min-w-0 min-h-0 border-0 bg-transparent px-3 text-sm tabular-nums shadow-none focus:ring-0 h-9 py-0 rounded-lg',
   },
 };
 
@@ -205,7 +207,7 @@ export function NumericInputField({
       <div
         className={`relative ${borderShell} transition-all duration-200 ${borderState} ${
           disabled ? 'bg-gray-50 border-gray-200 opacity-90' : ''
-        }`}
+        } ${size === 'form' ? 'flex min-h-[42px] items-center box-border' : ''}`}
       >
         <input
           type="text"

@@ -11,7 +11,6 @@ import {
   Users,
   Briefcase,
   Shield,
-  UserCog,
   Globe2,
   Send,
   Smartphone,
@@ -19,12 +18,8 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
-export type SmsRecipientScope =
-  | 'clients'
-  | 'agents'
-  | 'admins'
-  | 'agents_admins'
-  | 'all';
+/** Values sent as JSON `recipient` to the bulk SMS API. */
+export type SmsRecipientScope = 'CLIENTS' | 'AGENTS' | 'ADMINS' | 'ALL';
 
 const AUDIENCE_OPTIONS: {
   id: SmsRecipientScope;
@@ -34,35 +29,28 @@ const AUDIENCE_OPTIONS: {
   accent: string;
 }[] = [
   {
-    id: 'clients',
+    id: 'CLIENTS',
     title: 'Clients',
     subtitle: 'Policyholders & applicants',
     icon: Users,
     accent: 'from-emerald-500/20 to-teal-500/10 border-emerald-200/80',
   },
   {
-    id: 'agents',
+    id: 'AGENTS',
     title: 'Agents',
     subtitle: 'Sales agents only',
     icon: Briefcase,
     accent: 'from-amber-500/20 to-orange-500/10 border-amber-200/80',
   },
   {
-    id: 'admins',
+    id: 'ADMINS',
     title: 'Admins',
     subtitle: 'Operations administrators',
     icon: Shield,
     accent: 'from-violet-500/20 to-purple-500/10 border-violet-200/80',
   },
   {
-    id: 'agents_admins',
-    title: 'Agents & admins',
-    subtitle: 'Staff only (no clients)',
-    icon: UserCog,
-    accent: 'from-sky-500/20 to-blue-500/10 border-sky-200/80',
-  },
-  {
-    id: 'all',
+    id: 'ALL',
     title: 'Everyone',
     subtitle: 'Clients, agents & admins',
     icon: Globe2,
@@ -175,13 +163,17 @@ export function SmsBroadcastPanel({
             <span className="text-red-500">*</span>
           </label>
           <p className="text-xs text-slate-500 mb-4">
-            Choose who receives this message. The API receives{' '}
+            Choose who receives this message. The request body is{' '}
             <code className="px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-700 text-[11px] font-mono">
-              recipientScope
+              {'{ recipient, message }'}
             </code>{' '}
-            alongside the message (your backend routes each scope).
+            where <code className="text-[11px] font-mono">recipient</code> is{' '}
+            <span className="font-mono text-[11px]">CLIENTS</span>,{' '}
+            <span className="font-mono text-[11px]">AGENTS</span>,{' '}
+            <span className="font-mono text-[11px]">ADMINS</span>, or{' '}
+            <span className="font-mono text-[11px]">ALL</span>.
           </p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             {AUDIENCE_OPTIONS.map((opt) => {
               const Icon = opt.icon;
               const selected = recipientScope === opt.id;

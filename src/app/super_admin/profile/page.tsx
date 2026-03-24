@@ -82,11 +82,10 @@ interface ClientMessage {
 }
 
 const SMS_SCOPE_LABELS: Record<SmsRecipientScope, string> = {
-  clients: 'clients',
-  agents: 'agents',
-  admins: 'admins',
-  agents_admins: 'agents & admins',
-  all: 'everyone (clients, agents & admins)',
+  CLIENTS: 'clients',
+  AGENTS: 'agents',
+  ADMINS: 'admins',
+  ALL: 'everyone (clients, agents & admins)',
 };
 
 export default function SuperAdminProfilePage() {
@@ -120,7 +119,7 @@ export default function SuperAdminProfilePage() {
   const [isSavingSettings, setIsSavingSettings] = useState(false);
   const [clientMessage, setClientMessage] = useState<ClientMessage>({
     message: '',
-    recipientScope: 'clients',
+    recipientScope: 'CLIENTS',
   });
   const [isSendingMessage, setIsSendingMessage] = useState(false);
   const [messageErrors, setMessageErrors] = useState<{ [key: string]: string }>({});
@@ -480,16 +479,12 @@ export default function SuperAdminProfilePage() {
     setIsSendingMessage(true);
     
     try {
-      // Send as URL-encoded form data
-      const formData = new URLSearchParams();
-      formData.append('message', clientMessage.message);
-      formData.append('recipientScope', clientMessage.recipientScope);
-      
-      // Debug: Log the message being sent
-
       const response = await apiFetch('/sendSMSToAllclients', {
         method: 'POST',
-        body: formData,
+        body: JSON.stringify({
+          recipient: clientMessage.recipientScope,
+          message: clientMessage.message.trim(),
+        }),
       });
 
       if (!response.ok) {
