@@ -106,21 +106,21 @@ const getDeviceInfo = (): DeviceInfo => {
   const getOperatingSystem = () => {
     // Prioritize navigator.platform as it's more reliable than userAgent
     const platform = navigator.platform.toLowerCase();
-    
+
     // Check platform first (most reliable)
     if (platform.includes('win')) return 'Windows';
     if (platform.includes('mac')) return 'macOS';
     if (platform.includes('linux')) return 'Linux';
     if (platform.includes('iphone') || platform.includes('ipad') || platform.includes('ipod')) return 'iOS';
     if (platform.includes('android')) return 'Android';
-    
+
     // Fallback to userAgent parsing if platform doesn't help
     if (ua.includes('Windows')) return 'Windows';
     if (ua.includes('Android')) return 'Android';
     if (ua.includes('iPhone') || ua.includes('iPad')) return 'iOS';
     if (ua.includes('Mac OS X') && !ua.includes('iPhone') && !ua.includes('iPad')) return 'macOS';
     if (ua.includes('Linux')) return 'Linux';
-    
+
     return 'Unknown';
   };
 
@@ -304,17 +304,17 @@ export default function AdminNewApplicationPage() {
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [trackingData, setTrackingData] = useState<TrackingData | null>(null);
   const { apiFetch } = useApiClient();
-  
+
   // Fetch agents emails function
   const fetchAgentsEmails = useCallback(async () => {
     const response = await apiFetch('/getAgentsEmails', {
       method: 'GET',
     });
-    
+
     if (!response.ok) {
       throw new Error('Failed to fetch agents emails');
     }
-    
+
     return await response.json();
   }, [apiFetch]);
   // State for administrative divisions
@@ -447,20 +447,20 @@ export default function AdminNewApplicationPage() {
       ...prev,
       ...(usePlateAsClientId
         ? {
-            fullName: (data.fullName as string) || prev.fullName,
-            email: (data.email as string) || prev.email,
-            phoneNumber: (data.phoneNumber as string) || prev.phoneNumber,
-            address: (data.address as string) || prev.address,
-            dateOfBirth: (data.dateOfBirth as string) || prev.dateOfBirth,
-            province: (data.province as string) || prev.province,
-            district: (data.district as string) || prev.district,
-            sector: (data.sector as string) || prev.sector,
-            identificationNumber: (data.identificationNumber as string) || prev.identificationNumber,
-            identificationDocumentType: (data.identificationDocumentType as string) || prev.identificationDocumentType,
-            clientId: (data.clientId as string) || prev.clientId,
-            identificationDocumentUrl: (data.identificationDocumentUrl as string) || '',
-            isNewClient: !!(data.clientId as string) ? false : prev.isNewClient,
-          }
+          fullName: (data.fullName as string) || prev.fullName,
+          email: (data.email as string) || prev.email,
+          phoneNumber: (data.phoneNumber as string) || prev.phoneNumber,
+          address: (data.address as string) || prev.address,
+          dateOfBirth: (data.dateOfBirth as string) || prev.dateOfBirth,
+          province: (data.province as string) || prev.province,
+          district: (data.district as string) || prev.district,
+          sector: (data.sector as string) || prev.sector,
+          identificationNumber: (data.identificationNumber as string) || prev.identificationNumber,
+          identificationDocumentType: (data.identificationDocumentType as string) || prev.identificationDocumentType,
+          clientId: (data.clientId as string) || prev.clientId,
+          identificationDocumentUrl: (data.identificationDocumentUrl as string) || '',
+          isNewClient: !!(data.clientId as string) ? false : prev.isNewClient,
+        }
         : {}),
       vehicleType: (data.vehicleType as string) || prev.vehicleType,
       vehicleAge: (data.vehicleAge as string) || prev.vehicleAge,
@@ -624,7 +624,7 @@ export default function AdminNewApplicationPage() {
     status: ApplicationStatus.PENDING,
 
     insuranceEndAt: '',
-    
+
     // Agent Assignment
     wantsToAssignAgent: '',
     assignToAgent: '',
@@ -990,7 +990,7 @@ export default function AdminNewApplicationPage() {
     // Reset dependent selects
     setAvailableDistricts([]);
     setAvailableSectors([]);
-    
+
     // Reset phone number input whenever identification number changes
     setPhoneNumberResetTrigger(prev => prev + 1);
     // Reset plate number input whenever identification number changes
@@ -1012,7 +1012,7 @@ export default function AdminNewApplicationPage() {
       setFormData(prev => ({ ...prev, plateNumber: value }));
       return;
     }
-    
+
     setFormData((prev) => {
       const next = {
         ...prev,
@@ -1193,6 +1193,18 @@ export default function AdminNewApplicationPage() {
           );
         }
 
+        if (process.env.NEXT_PUBLIC_DEBUG_PAYLOAD === 'true') {
+          const assignmentEntries = Array.from(formDataToSend.entries()).filter(
+            ([k]) => k === 'assignToAgent' || k === 'deductAgentAssignmentCommission',
+          );
+          console.debug('applyAdmin assignment payload preview', {
+            wantsToAssignAgent: formData.wantsToAssignAgent,
+            assignToAgent: formData.assignToAgent,
+            deductAgentAssignmentCommission: formData.deductAgentAssignmentCommission,
+            assignmentEntries,
+          });
+        }
+
         const response = await apiFetch('/applyAdmin', {
           method: 'POST',
           body: formDataToSend,
@@ -1205,103 +1217,56 @@ export default function AdminNewApplicationPage() {
           // Reset form
 
           setFormData({
-
             fullName: '',
-
             email: '',
-
             phoneNumber: '',
-
             dateOfBirth: '',
-
             address: '',
-
             province: '',
-
             district: '',
-
             sector: '',
-
             identificationDocumentType: 'nationalID',
-
             identificationNumber: '',
-
             insuranceCategory: 'Car Insurance',
-
             insuranceType: 'Third Party Insurance (covers partial)',
-
             insuranceDuration: '1 Month',
-
             insuranceProvider: 'SONARWA',
-
             isCOMESA: false,
-
             plateNumber: '',
-
             vehicleType: '',
-
             vehicleAge: '',
-
             vehicleUse: '',
-
             otherVehicleUse: '',
-
             nationalID: null,
-
             yellowCard: null,
-
             pastInsuranceCertificate: null,
-
             amount: '',
-
             paymentInstructions: 'Please make your payment to one of the following:\nBank of Kigali: 100000129075 (SONARWA)\nOr via Momo Account: 051499 (SONARWA) \nOr Agency at Kimihurura (KBC) under SOLEKTRA',
-
             invoice: null,
-
             companyCommission: '',
-
             administrationFees: calculateAdministrationFeesRwf('Car Insurance', false).toString(),
-
             proofOfPayment: null,
-
             transactionId: '',
-
             insuranceCertificate: null,
-
             contract: null,
-
             receipt: null,
-
             ebm: null,
-
             status: ApplicationStatus.PENDING,
-
             insuranceEndAt: '',
-    
-    wantsToAssignAgent: '',
-    assignToAgent: '',
-    deductAgentAssignmentCommission: 'yes',
+            wantsToAssignAgent: '',
+            assignToAgent: '',
+            deductAgentAssignmentCommission: 'yes',
 
             // Reset API response fields
-
             vehicleId: '',
-
             clientId: '',
-
             // Reset document URLs
-
             identificationDocumentUrl: '',
-
             yellowCardUrl: '',
-
             pastInsuranceCertificateUrl: '',
-
             // Reset new fields for /newApply endpoint
-
             isNewClient: true,
-
             isNewVehicle: false, // Default to false - only true if search confirms vehicle doesn't exist
-
           });
 
           setAvailableDistricts([]);
@@ -1772,7 +1737,7 @@ export default function AdminNewApplicationPage() {
                 <legend className="text-lg font-semibold text-[var(--main-blue)] px-3 bg-white border border-[var(--main-blue)] rounded-md">
                   Agent Assignment
                 </legend>
-                
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {/* Radio button question */}
                   <div className="md:col-span-2">

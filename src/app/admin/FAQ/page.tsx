@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { MainLayout } from '@/components/ui/main-layout';
+import { getFaqYoutubeEmbedUrl } from '@/utils/faq-youtube-embed';
 
 // General FAQ for public users and clients
 const generalFaqItems = [
@@ -21,7 +22,7 @@ const generalFaqItems = [
       'Fill in the required form and submit.',
       'You will receive a confirmation with a tracking number via email/SMS.'
     ],
-    videoLink: ''
+    videoLink: 'https://youtu.be/W9nUWiCnOE8?t=197'
   },
   {
     question: 'How do I track my insurance application?',
@@ -94,7 +95,7 @@ const agentFaqItems = [
       'Click on "New Application" and fill in the application on behalf of your client.',
       'Submit to initiate the review process.'
     ],
-    videoLink: 'https://www.youtube.com/watch?v=W9nUWiCnOE8'
+    videoLink: 'https://youtu.be/W9nUWiCnOE8?t=197'
   },
   {
     question: 'How can I edit a client\'s application in Action Required?',
@@ -174,15 +175,6 @@ const adminFaqItems = [
 // Combine general, agent, and admin FAQ items
 const allAdminFaqItems = [...generalFaqItems, ...agentFaqItems, ...adminFaqItems];
 
-const getEmbedUrl = (url: string) => {
-  if (!url?.trim()) return '';
-  const youtuBe = url.match(/(?:https?:\/\/)?(?:www\.)?youtu\.be\/([^/?&]+)/);
-  if (youtuBe && youtuBe[1]) return `https://www.youtube.com/embed/${youtuBe[1]}`;
-  const watch = url.match(/(?:https?:\/\/)?(?:www\.)?youtube\.com\/watch\?v=([^&]+)/);
-  if (watch && watch[1]) return `https://www.youtube.com/embed/${watch[1]}`;
-  return url;
-};
-
 export default function AdminFAQPage() {
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
 
@@ -228,14 +220,14 @@ export default function AdminFAQPage() {
                     <li key={idx} className="text-sm leading-relaxed">{step}</li>
                   ))}
                 </ol>
-                {item.videoLink && getEmbedUrl(item.videoLink) && (
+                {item.videoLink && getFaqYoutubeEmbedUrl(item.videoLink) && (
                   <div className="mt-4">
                     <p className="text-sm font-medium text-gray-700 mb-2">Watch tutorial</p>
                     <div className="aspect-video max-w-2xl rounded-lg overflow-hidden bg-black">
                       <iframe
                         width="100%"
                         height="100%"
-                        src={getEmbedUrl(item.videoLink)}
+                        src={getFaqYoutubeEmbedUrl(item.videoLink)}
                         title={`Video tutorial: ${item.question}`}
                         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                         allowFullScreen
