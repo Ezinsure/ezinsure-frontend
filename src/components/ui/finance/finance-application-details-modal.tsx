@@ -24,6 +24,12 @@ function formatUtcDate(iso?: string) {
   return d.toLocaleDateString();
 }
 
+function renderText(value: unknown) {
+  if (typeof value === 'string') return value.trim().length ? value : '—';
+  if (typeof value === 'number' && Number.isFinite(value)) return value.toLocaleString();
+  return '—';
+}
+
 export default function FinanceApplicationDetailsModal({
   isOpen,
   onClose,
@@ -195,13 +201,21 @@ export default function FinanceApplicationDetailsModal({
                     <div className="rounded-xl border border-gray-100 p-4">
                       <h4 className="text-sm font-semibold text-gray-800 mb-3">Insurance</h4>
                       <p className="text-sm text-gray-600">Category</p>
-                      <p className="font-semibold text-gray-900">{details?.insuranceCategory ?? fallbackApplication?.insuranceCategory ?? '—'}</p>
+                      <p className="font-semibold text-gray-900">
+                        {renderText(details?.['insuranceCategory'] ?? fallbackApplication?.['insuranceCategory'])}
+                      </p>
                       <p className="text-sm text-gray-600 mt-3">Type</p>
-                      <p className="text-sm font-medium text-gray-900">{details?.insuranceType ?? fallbackApplication?.insuranceType ?? '—'}</p>
+                      <p className="text-sm font-medium text-gray-900">
+                        {renderText(details?.['insuranceType'] ?? fallbackApplication?.['insuranceType'])}
+                      </p>
                       <p className="text-sm text-gray-600 mt-3">Duration</p>
-                      <p className="text-sm font-medium text-gray-900">{details?.insuranceDuration ?? fallbackApplication?.insuranceDuration ?? '—'}</p>
+                      <p className="text-sm font-medium text-gray-900">
+                        {renderText(details?.['insuranceDuration'] ?? fallbackApplication?.['insuranceDuration'])}
+                      </p>
                       <p className="text-sm text-gray-600 mt-3">Provider</p>
-                      <p className="text-sm font-medium text-gray-900">{details?.insuranceProvider ?? fallbackApplication?.insuranceProvider ?? '—'}</p>
+                      <p className="text-sm font-medium text-gray-900">
+                        {renderText(details?.['insuranceProvider'] ?? fallbackApplication?.['insuranceProvider'])}
+                      </p>
                     </div>
                   </div>
 
@@ -225,13 +239,19 @@ export default function FinanceApplicationDetailsModal({
                     <div className="rounded-xl border border-gray-100 p-4">
                       <h4 className="text-sm font-semibold text-gray-800 mb-3">Status & Dates</h4>
                       <p className="text-sm text-gray-600">Status</p>
-                      <p className="font-semibold text-gray-900">{details?.status ?? fallbackApplication?.status ?? '—'}</p>
+                      <p className="font-semibold text-gray-900">{renderText(details?.['status'] ?? fallbackApplication?.['status'])}</p>
                       <p className="text-sm text-gray-600 mt-3">Submitted</p>
-                      <p className="text-sm font-medium text-gray-900">{formatUtcDate(details?.submittedAt ?? fallbackApplication?.submittedAt)}</p>
-                      {details?.insuranceEndAt ? (
+                      <p className="text-sm font-medium text-gray-900">
+                        {formatUtcDate(
+                          (details?.['submittedAt'] as string | undefined) ?? (fallbackApplication?.['submittedAt'] as string | undefined),
+                        )}
+                      </p>
+                      {details?.['insuranceEndAt'] ? (
                         <>
                           <p className="text-sm text-gray-600 mt-3">Insurance End</p>
-                          <p className="text-sm font-medium text-gray-900">{formatUtcDate(details?.insuranceEndAt)}</p>
+                          <p className="text-sm font-medium text-gray-900">
+                            {formatUtcDate(details?.['insuranceEndAt'] as string | undefined)}
+                          </p>
                         </>
                       ) : null}
                     </div>
