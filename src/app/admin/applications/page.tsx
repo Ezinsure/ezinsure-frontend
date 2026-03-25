@@ -380,8 +380,11 @@ export default function ManageApplicationsPage() {
     }
 
     // Validate assignToAgent if wantsToAssignAgent is 'yes'
-    const wantsToAssignAgent = editFormData.wantsToAssignAgent as string;
-    const assignToAgent = editFormData.assignToAgent as string;
+    const wantsToAssignAgent = String(editFormData.wantsToAssignAgent ?? '');
+    const assignToAgent = String(editFormData.assignToAgent ?? '');
+    const deductAgentAssignmentCommission = String(
+      editFormData.deductAgentAssignmentCommission ?? 'yes',
+    );
     if (wantsToAssignAgent === 'yes' && !assignToAgent) {
       showToast('Please select an agent to assign this application to', 'error');
       setIsSubmittingEdit(false);
@@ -392,21 +395,113 @@ export default function ManageApplicationsPage() {
     try {
       const formDataToSend = new FormData();
 
+      // Only include assignment fields when the admin is actively (re)assigning.
+      // This ensures the payload matches what `/admin/new-application` sends.
+      const assignmentFieldsChanged = (['wantsToAssignAgent', 'assignToAgent', 'deductAgentAssignmentCommission'] as const).some(
+        (k) => Object.prototype.hasOwnProperty.call(changedFields, k),
+      );
+
       Object.entries(changedFields).forEach(([key, value]) => {
+        // Backend for `editApplicationAdmin` expects only the "assignment" payload keys.
+        // `wantsToAssignAgent` is a UI helper and is not sent by `/admin/new-application`.
+        if (key === 'wantsToAssignAgent') return;
+
+        // We'll append assignment keys explicitly below to ensure correct shape.
+        if (key === 'assignToAgent' || key === 'deductAgentAssignmentCommission') return;
+
         if (value instanceof File) {
           formDataToSend.append(key, value);
         } else if (value !== null && value !== undefined) {
-          if (key === 'deductAgentAssignmentCommission') {
-            const v = String(value).toLowerCase();
-            const deduct = v === 'yes' || v === 'true';
-            formDataToSend.append(key, deduct ? 'true' : 'false');
-          } else if (key === 'insuranceDuration') {
+          if (key === 'insuranceDuration') {
             formDataToSend.append(key, normalizeInsuranceDurationPayload(String(value)));
+          } else if (key === 'agentCommission') {
+            // Ensure we never send NaN to the backend (Mongoose cast will throw).
+            const raw = String(value).trim();
+            const n = Number(raw);
+            formDataToSend.append(key, Number.isFinite(n) ? n.toString() : '0');
           } else {
             formDataToSend.append(key, value.toString());
           }
         }
       });
+
+      const agentCommissionChanged = Object.prototype.hasOwnProperty.call(changedFields, 'agentCommission');
+
+      // Append assignment keys in the exact same shape as `/admin/new-application`.
+      if (assignmentFieldsChanged) {
+        if (wantsToAssignAgent === 'yes') {
+          formDataToSend.set('assignToAgent', assignToAgent);
+
+          const v = deductAgentAssignmentCommission.toLowerCase();
+          const deduct = v === 'yes' || v === 'true';
+          formDataToSend.set(
+            'deductAgentAssignmentCommission',
+            deduct ? 'true' : 'false',
+          );
+
+          // Professional fix for backend cast error:
+          // `/editApplicationAdmin` currently expects `agentCommission` to be a valid number.
+          // When the admin hasn't edited the field, our diff logic might omit it entirely.
+          // Sending `0` keeps the backend happy while it calculates the commission.
+          const existingAgentCommission = formDataToSend.get('agentCommission');
+          if (existingAgentCommission == null) {
+            const rawAgentCommission = editFormData.agentCommission;
+            const raw = String(rawAgentCommission ?? '').trim();
+            const n = Number(raw);
+            const safe = Number.isFinite(n) ? n.toString() : '0';
+            formDataToSend.set('agentCommission', safe);
+          }
+
+          // Critical: some backend implementations recompute commission during assignment using request body fields.
+          // Our edit modal normally sends a diff-only payload, so these may be missing and cause NaN math server-side.
+          // Ensure they are present (sanitized) during agent assignment.
+          const ensureFiniteNumberField = (key: 'amount' | 'companyCommission' | 'administrationFees') => {
+            if (formDataToSend.get(key) != null) return;
+            const raw = String(editFormData[key] ?? '').trim();
+            const n = Number(raw);
+            // Keep empty -> "0" rather than omitting, to avoid NaN math on the server.
+            formDataToSend.set(key, Number.isFinite(n) ? n.toString() : '0');
+          };
+          ensureFiniteNumberField('amount');
+          ensureFiniteNumberField('companyCommission');
+          ensureFiniteNumberField('administrationFees');
+        } else {
+          // If admin switched to "No" and cleared the agent, send the cleared `assignToAgent`.
+          // Don't send `deductAgentAssignmentCommission` (same as create flow).
+          if (Object.prototype.hasOwnProperty.call(changedFields, 'assignToAgent')) {
+            formDataToSend.set('assignToAgent', assignToAgent);
+          }
+        }
+      }
+
+      // If admin manually overrides agent commission, include the base numeric fields too.
+      // This prevents backend recalculation paths (if any) from producing NaN or overwriting values.
+      if (agentCommissionChanged) {
+        const ensureFiniteNumberField = (key: 'amount' | 'companyCommission' | 'administrationFees') => {
+          if (formDataToSend.get(key) != null) return;
+          const raw = String(editFormData[key] ?? '').trim();
+          const n = Number(raw);
+          formDataToSend.set(key, Number.isFinite(n) ? n.toString() : '0');
+        };
+        ensureFiniteNumberField('amount');
+        ensureFiniteNumberField('companyCommission');
+        ensureFiniteNumberField('administrationFees');
+      }
+
+      // Optional: verify what we are sending.
+      // Enable via `NEXT_PUBLIC_DEBUG_PAYLOAD=true`.
+      if (process.env.NEXT_PUBLIC_DEBUG_PAYLOAD === 'true') {
+        const assignmentEntries = Array.from(formDataToSend.entries()).filter(([k]) =>
+          k === 'assignToAgent' || k === 'deductAgentAssignmentCommission',
+        );
+        console.debug('editApplicationAdmin assignment payload preview', {
+          applicationId: editingApp._id,
+          wantsToAssignAgent,
+          assignToAgent,
+          deductAgentAssignmentCommission,
+          assignmentEntries,
+        });
+      }
 
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_BASE_URL}/editApplicationAdmin/${editingApp._id}`,
