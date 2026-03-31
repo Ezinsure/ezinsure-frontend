@@ -566,6 +566,7 @@ export default function FinanceDashboardView() {
         context="accrual"
         agent={selectedAgent}
         range={range}
+        applicationStatus={applicationStatus}
       />
     </MainLayout>
   );

@@ -9,6 +9,17 @@ import { DocumentViewer } from '@/components/ui/document-viewer';
 
 type FinanceDetailsContext = 'accrual' | 'initiated' | 'paid';
 
+enum ApplicationStatus {
+  PENDING = 'pending',
+  APPLICATION_APPROVED = 'application_approved',
+  WAITING_FOR_USER_ACTION = 'waiting_for_user_action',
+  INVOICE_SENT = 'invoice_sent',
+  REVIEW_PAYMENT = 'review_payment',
+  PAYMENT_VERIFIED = 'payment_verified',
+  INSURANCE_ISSUED = 'insurance_issued',
+  CANCELLED = 'cancelled',
+}
+
 interface FinanceApplicationDetailsModalUIProps {
   isOpen: boolean;
   onClose: () => void;
@@ -16,6 +27,7 @@ interface FinanceApplicationDetailsModalUIProps {
   context: FinanceDetailsContext;
   month?: number;
   year?: number;
+  applicationData?: FinanceApplication | null;
 }
 
 function formatUtcDate(iso?: string) {
@@ -32,7 +44,41 @@ export default function FinanceApplicationDetailsModalUI({
   context,
   month,
   year,
+  applicationData,
 }: FinanceApplicationDetailsModalUIProps) {
+  const getStatusBadge = (status?: string) => {
+    if (!status) {
+      return <span className="px-2 py-1 rounded-full bg-gray-100 text-gray-700 text-sm font-medium">Unknown</span>;
+    }
+    switch (status.toLowerCase()) {
+      case ApplicationStatus.PENDING:
+        return <span className="px-2 py-1 rounded-full bg-blue-100 text-blue-700 text-sm font-medium">Pending</span>;
+      case ApplicationStatus.APPLICATION_APPROVED:
+        return (
+          <span className="px-2 py-1 rounded-full bg-green-100 text-green-700 text-sm font-medium">
+            Application Approved
+          </span>
+        );
+      case ApplicationStatus.WAITING_FOR_USER_ACTION:
+        return (
+          <span className="px-2 py-1 rounded-full bg-orange-100 text-orange-700 text-sm font-medium">
+            Waiting for User Action
+          </span>
+        );
+      case ApplicationStatus.INVOICE_SENT:
+        return <span className="px-2 py-1 rounded-full bg-indigo-100 text-indigo-700 text-sm font-medium">Invoice Sent</span>;
+      case ApplicationStatus.REVIEW_PAYMENT:
+        return <span className="px-2 py-1 rounded-full bg-purple-100 text-purple-700 text-sm font-medium">Review Payment</span>;
+      case ApplicationStatus.PAYMENT_VERIFIED:
+        return <span className="px-2 py-1 rounded-full bg-green-100 text-green-700 text-sm font-medium">Payment Verified</span>;
+      case ApplicationStatus.INSURANCE_ISSUED:
+        return <span className="px-2 py-1 rounded-full bg-emerald-100 text-emerald-700 text-sm font-medium">Insurance Issued</span>;
+      case ApplicationStatus.CANCELLED:
+        return <span className="px-2 py-1 rounded-full bg-slate-100 text-slate-700 text-sm font-medium">Cancelled</span>;
+      default:
+        return <span className="px-2 py-1 rounded-full bg-gray-100 text-gray-700 text-sm font-medium">{status.replace(/_/g, ' ')}</span>;
+    }
+  };
   const api = useFinanceApi();
   const [isLoading, setIsLoading] = useState(false);
   const [app, setApp] = useState<FinanceApplication | null>(null);
@@ -41,6 +87,11 @@ export default function FinanceApplicationDetailsModalUI({
 
   useEffect(() => {
     if (!isOpen || !applicationId) return;
+    if (applicationData) {
+      setApp(applicationData);
+      setIsLoading(false);
+      return;
+    }
     let cancelled = false;
 
     const run = async () => {
@@ -58,7 +109,7 @@ export default function FinanceApplicationDetailsModalUI({
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [applicationId, context, isOpen, month, year]);
+  }, [applicationData, applicationId, context, isOpen, month, year]);
 
   const docs = useMemo(() => {
     const d = app?.documents ?? {};
@@ -85,24 +136,24 @@ export default function FinanceApplicationDetailsModalUI({
     <>
       {isOpen && (
         <div className="fixed inset-0 bg-gray-600/50 flex items-center justify-center z-[60] p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-6xl w-full max-h-[92vh] overflow-hidden flex flex-col">
-            <div className="p-5 border-b border-gray-100 flex items-start justify-between gap-4">
+          <div className="max-h-[90vh] overflow-y-auto bg-white rounded-lg shadow-xl p-6 w-full max-w-3xl mx-4">
+            <div className="flex justify-between items-center mb-4">
               <div>
-                <h3 className="text-2xl font-bold text-gray-900">{title}</h3>
+                <h3 className="text-lg font-semibold">{title}</h3>
                 <p className="text-sm text-gray-600">
                   Context: <span className="font-semibold">{context}</span>
                 </p>
               </div>
               <button onClick={onClose} className="text-gray-400 hover:text-gray-600 cursor-pointer" aria-label="Close">
-                <svg className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
             </div>
 
-            <div className="p-5 overflow-y-auto">
+            <div>
               {isLoading ? (
-                <div className="flex flex-col items-center justify-center py-16">
+                <div className="flex flex-col items-center justify-center py-10">
                   <Loader2 className="w-10 h-10 text-indigo-600 animate-spin mb-4" />
                   <p className="text-gray-600">Loading application details…</p>
                 </div>
@@ -112,137 +163,125 @@ export default function FinanceApplicationDetailsModalUI({
                 </div>
               ) : (
                 <>
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                    <div className="rounded-xl border border-gray-100 p-4">
-                      <h4 className="text-sm font-semibold text-gray-800 mb-3">Client</h4>
-                      <p className="text-sm text-gray-600">Full name</p>
-                      <p className="font-semibold text-gray-900">{app.client?.fullName ?? '—'}</p>
-                      <p className="text-sm text-gray-600 mt-3">Email</p>
-                      <p className="font-semibold text-gray-900">{app.client?.email ?? '—'}</p>
-                      <p className="text-sm text-gray-600 mt-3">Phone</p>
-                      <p className="font-semibold text-gray-900">{app.client?.phoneNumber ?? '—'}</p>
-                      <p className="text-sm text-gray-600 mt-3">National ID</p>
-                      <p className="font-semibold text-gray-900">{app.client?.nationalID ?? '—'}</p>
-                    </div>
-
-                    <div className="rounded-xl border border-gray-100 p-4">
-                      <h4 className="text-sm font-semibold text-gray-800 mb-3">Insurance</h4>
-                      <p className="text-sm text-gray-600">Category</p>
-                      <p className="font-semibold text-gray-900">{app.insuranceCategory ?? '—'}</p>
-                      <p className="text-sm text-gray-600 mt-3">Type</p>
-                      <p className="font-semibold text-gray-900">{app.insuranceType ?? '—'}</p>
-                      <p className="text-sm text-gray-600 mt-3">Duration</p>
-                      <p className="font-semibold text-gray-900">{app.insuranceDuration ?? '—'}</p>
-                      <p className="text-sm text-gray-600 mt-3">Provider</p>
-                      <p className="font-semibold text-gray-900">{app.insuranceProvider ?? '—'}</p>
+                  <div className="bg-[var(--light-gray)] p-4 rounded-lg mb-4">
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <p className="text-sm text-gray-500">Application ID</p>
+                        <p className="font-semibold">#{app.applicationNumber || 'N/A'}</p>
+                      </div>
+                      <div>{getStatusBadge(app.status)}</div>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
-                    <div className="rounded-xl border border-gray-100 p-4">
-                      <h4 className="text-sm font-semibold text-gray-800 mb-3">Vehicle</h4>
-                      <p className="text-sm text-gray-600">Plate number</p>
-                      <p className="font-semibold text-gray-900">{app.vehicle?.plateNumber ?? '—'}</p>
-                      <p className="text-sm text-gray-600 mt-3">Vehicle type</p>
-                      <p className="font-semibold text-gray-900">{app.vehicle?.vehicleType ?? '—'}</p>
-                      <p className="text-sm text-gray-600 mt-3">Vehicle age</p>
-                      <p className="font-semibold text-gray-900">{app.vehicle?.vehicleAge ?? '—'}</p>
-                      <p className="text-sm text-gray-600 mt-3">Vehicle use</p>
-                      <p className="font-semibold text-gray-900">{app.vehicle?.vehicleUse ?? '—'}</p>
-                    </div>
-
-                    <div className="rounded-xl border border-gray-100 p-4">
-                      <h4 className="text-sm font-semibold text-gray-800 mb-3">Status & Dates</h4>
-                      <p className="text-sm text-gray-600">Status</p>
-                      <p className="font-semibold text-gray-900">{app.status ?? '—'}</p>
-                      <p className="text-sm text-gray-600 mt-3">Submitted</p>
-                      <p className="font-semibold text-gray-900">{formatUtcDate(app.submittedAt)}</p>
-                      <p className="text-sm text-gray-600 mt-3">Insurance end</p>
-                      <p className="font-semibold text-gray-900">{formatUtcDate(app.insuranceEndAt)}</p>
-                    </div>
-                  </div>
-
-                  <div className="rounded-xl border border-gray-100 p-4 mt-4">
-                    <h4 className="text-sm font-semibold text-gray-800 mb-3">Commission Breakdown</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <div className="space-y-2">
                       <div>
-                        <p className="text-sm text-gray-600">Amount</p>
-                        <p className="font-semibold text-gray-900">{Number(app.amount ?? 0).toLocaleString()} RWF</p>
+                        <p className="text-sm text-gray-500">Full Name</p>
+                        <p className="font-semibold">{app.client?.fullName || app.agentFullName || 'N/A'}</p>
                       </div>
                       <div>
-                        <p className="text-sm text-gray-600">Company commission</p>
-                        <p className="font-semibold text-gray-900">
-                          {Number(context === 'initiated' || context === 'paid' ? app.companyCommissionSnapshot ?? 0 : app.companyCommission ?? 0).toLocaleString()} RWF
-                        </p>
+                        <p className="text-sm text-gray-500">Email</p>
+                        <p className="font-semibold">{app.client?.email || 'N/A'}</p>
                       </div>
                       <div>
-                        <p className="text-sm text-gray-600">Administration fees</p>
-                        <p className="font-semibold text-gray-900">
-                          {Number(
-                            context === 'initiated' || context === 'paid'
-                              ? app.administrationFeesSnapshot ?? 0
-                              : app.administrationFees ?? 0,
-                          ).toLocaleString()} RWF
+                        <p className="text-sm text-gray-500">Phone</p>
+                        <p className="font-semibold">{app.client?.phoneNumber || 'N/A'}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-500">Date of Birth</p>
+                        <p className="font-semibold">
+                          {((app.client as Record<string, unknown> | undefined)?.dateOfBirth as string | undefined)
+                            ? new Date((app.client as Record<string, unknown>).dateOfBirth as string).toLocaleDateString()
+                            : 'N/A'}
                         </p>
                       </div>
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
+
+                    <div className="space-y-2">
                       <div>
-                        <p className="text-sm text-gray-600">Agent commission</p>
-                        <p className="font-semibold text-gray-900">
-                          {Number(
-                            context === 'initiated' || context === 'paid'
-                              ? app.agentCommissionSnapshot ?? 0
-                              : app.agentCommission ?? 0,
-                          ).toLocaleString()} RWF
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-600">Agent</p>
-                        <p className="font-semibold text-gray-900">{app.agentFullName ?? app.agentId ?? '—'}</p>
+                        <p className="text-sm text-gray-500">Address</p>
+                        <p className="font-semibold">{app.client?.address || 'N/A'}</p>
                       </div>
                     </div>
-                  </div>
+                    <div className="space-y-2">
+                      <div>
+                        <p className="text-sm text-gray-500">Insurance Category</p>
+                        <p className="font-semibold">{app.insuranceCategory || 'N/A'}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-500">Insurance Type</p>
+                        <p className="font-semibold">{app.insuranceType || 'N/A'}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-500">Duration</p>
+                        <p className="font-semibold">{app.insuranceDuration || 'N/A'}</p>
+                      </div>
+                      {app.insuranceEndAt && (
+                        <div>
+                          <p className="text-sm text-gray-500">Insurance End Date</p>
+                          <p className="font-semibold">{formatUtcDate(app.insuranceEndAt)}</p>
+                        </div>
+                      )}
+                      <div>
+                        <p className="text-sm text-gray-500">Amount</p>
+                        <p className="font-semibold">{Number(app.amount ?? 0).toLocaleString()} RWF</p>
+                      </div>
+                      {app.insuranceProvider && (
+                        <div>
+                          <p className="text-sm text-gray-500">Insurance Provider</p>
+                          <p className="font-semibold">{app.insuranceProvider}</p>
+                        </div>
+                      )}
+                    </div>
 
-                  <div className="rounded-xl border border-gray-100 p-4 mt-4">
-                    <h4 className="text-sm font-semibold text-gray-800 mb-3">Documents</h4>
-                    {docs.length === 0 ? (
-                      <p className="text-sm text-gray-600">No documents included in this payload.</p>
-                    ) : (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                        {docs.map((doc) => (
-                          <div key={doc.key} className="border border-gray-100 rounded-lg p-3">
-                            <p className="text-sm font-medium text-gray-800 mb-2">{doc.label}</p>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="gap-2"
-                              onClick={() => setViewingDocument({ name: doc.label, path: doc.path! })}
-                            >
-                              <Eye className="h-4 w-4" />
-                              View
-                            </Button>
+                    {(app.insuranceCategory === 'Car Insurance' || app.insuranceCategory === 'MotorBike Insurance') && (
+                      <div>
+                        {(app.vehicle?.vehicleType || app.vehicle?.vehicleAge || app.vehicle?.vehicleUse || app.vehicle?.plateNumber) && (
+                          <div className="space-y-2">
+                            <div>
+                              <p className="text-sm text-gray-500">Vehicle Type</p>
+                              <p className="font-semibold">{app.vehicle?.vehicleType || 'N/A'}</p>
+                            </div>
+                            <div>
+                              <p className="text-sm text-gray-500">Vehicle Year</p>
+                              <p className="font-semibold">{app.vehicle?.vehicleAge || 'N/A'}</p>
+                            </div>
+                            <div>
+                              <p className="text-sm text-gray-500">Vehicle Use</p>
+                              <p className="font-semibold">{app.vehicle?.vehicleUse || 'N/A'}</p>
+                            </div>
+                            <div>
+                              <p className="text-sm text-gray-500">Plate Number</p>
+                              <p className="font-semibold">{app.vehicle?.plateNumber || 'N/A'}</p>
+                            </div>
                           </div>
-                        ))}
+                        )}
                       </div>
                     )}
                   </div>
 
-                  {/* Debug aid for backend contract verification */}
-                  <details className="mt-4 p-4 rounded-xl bg-gray-50 border border-gray-100">
-                    <summary className="cursor-pointer text-sm font-semibold text-gray-800">
-                      Backend payload preview (JSON)
-                    </summary>
-                    <pre className="text-[11px] text-gray-700 overflow-auto mt-3">
-                      {JSON.stringify(app, null, 2)}
-                    </pre>
-                  </details>
+                  <div className="bg-[var(--light-gray)] p-4 rounded-lg mb-4 mt-6">
+                    <h4 className="font-medium mb-2">Documents</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {docs.map((doc) => (
+                        <button
+                          key={doc.key}
+                          className="bg-white p-3 rounded border text-left hover:bg-gray-50"
+                          onClick={() => setViewingDocument({ name: doc.label, path: doc.path! })}
+                          type="button"
+                        >
+                          <p className="text-sm font-medium">{doc.label}</p>
+                          <p className="text-xs text-gray-500">View Document</p>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 </>
               )}
             </div>
 
-            <div className="p-5 border-t border-gray-100 flex justify-end">
-              <Button variant="outline" onClick={onClose}>
+            <div className="flex justify-end mt-4">
+              <Button variant="text" onClick={onClose}>
                 Close
               </Button>
             </div>

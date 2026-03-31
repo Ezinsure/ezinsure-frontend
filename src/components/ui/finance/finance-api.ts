@@ -316,6 +316,98 @@ export function useFinanceApi() {
     [apiFetch],
   );
 
+  const getApplicationsByAnAgentFinance = useCallback(
+    async (
+      agentId: string,
+      range: FinanceDateRange,
+      applicationStatus: 'PAID' | 'READY_TO_BE_PAID' | 'ALL' = 'READY_TO_BE_PAID',
+    ) => {
+      const params = new URLSearchParams({
+        agentId,
+        startDate: range.startDate,
+        endDate: range.endDate,
+        applicationStatus,
+      });
+
+      const response = await apiFetch(`/getApplicationsByAnAgentFinance?${params.toString()}`, {
+        method: 'GET',
+      });
+
+      const payload = (await response.json()) as {
+        data?: Array<Record<string, unknown>>;
+        totalApplications?: number;
+        totalCommission?: number;
+      };
+
+      const applicationsMapped: FinanceApplication[] = (payload.data ?? []).map((raw) => {
+        const client = (raw.client as Record<string, unknown> | undefined) ?? {};
+        const vehicle = (raw.vehicle as Record<string, unknown> | undefined) ?? {};
+        return {
+          _id: String(raw._id ?? ''),
+          applicationNumber: String(raw.applicationNumber ?? ''),
+          status: String(raw.status ?? ''),
+          submittedAt: typeof raw.submittedAt === 'string' ? raw.submittedAt : undefined,
+          insuranceCategory: typeof raw.insuranceCategory === 'string' ? raw.insuranceCategory : undefined,
+          insuranceType: typeof raw.insuranceType === 'string' ? raw.insuranceType : undefined,
+          insuranceDuration: typeof raw.insuranceDuration === 'string' ? raw.insuranceDuration : undefined,
+          insuranceEndAt: typeof raw.insuranceEndAt === 'string' ? raw.insuranceEndAt : undefined,
+          insuranceProvider: typeof raw.insuranceProvider === 'string' ? raw.insuranceProvider : undefined,
+          amount: Number(raw.amount ?? 0),
+          companyCommission: Number(raw.companyCommission ?? 0),
+          administrationFees: Number(raw.administrationFees ?? 0),
+          agentCommission: Number(raw.agentCommission ?? 0),
+          agentId: typeof raw.agentId === 'string' ? raw.agentId : undefined,
+          agentFullName: typeof raw.fullName === 'string' ? raw.fullName : undefined,
+          client: {
+            fullName: typeof client.fullName === 'string' ? client.fullName : undefined,
+            email: typeof client.email === 'string' ? client.email : undefined,
+            phoneNumber: typeof client.phoneNumber === 'string' ? client.phoneNumber : undefined,
+            nationalID: typeof client.nationalID === 'string' ? client.nationalID : undefined,
+            identificationDocumentType:
+              typeof client.identificationDocumentType === 'string' ? client.identificationDocumentType : undefined,
+            identificationNumber: typeof client.identificationNumber === 'string' ? client.identificationNumber : undefined,
+            province: typeof client.province === 'string' ? client.province : undefined,
+            district: typeof client.district === 'string' ? client.district : undefined,
+            sector: typeof client.sector === 'string' ? client.sector : undefined,
+            address: typeof client.address === 'string' ? client.address : undefined,
+          },
+          vehicle: {
+            plateNumber: typeof vehicle.plateNumber === 'string' ? vehicle.plateNumber : undefined,
+            vehicleType: typeof vehicle.vehicleType === 'string' ? vehicle.vehicleType : undefined,
+            vehicleAge: typeof vehicle.vehicleAge === 'string' ? vehicle.vehicleAge : undefined,
+            vehicleUse: typeof vehicle.vehicleUse === 'string' ? vehicle.vehicleUse : undefined,
+            otherVehicleUse: typeof vehicle.otherVehicleUse === 'string' ? vehicle.otherVehicleUse : undefined,
+          },
+          documents: {
+            nationalID:
+              typeof client.nationalID === 'string'
+                ? client.nationalID
+                : typeof raw.nationalID === 'string'
+                ? (raw.nationalID as string)
+                : undefined,
+            yellowCard: typeof raw.yellowCard === 'string' ? (raw.yellowCard as string) : undefined,
+            pastInsuranceCertificate:
+              typeof raw.pastInsuranceCertificate === 'string' ? (raw.pastInsuranceCertificate as string) : undefined,
+            invoice: typeof raw.invoice === 'string' ? (raw.invoice as string) : undefined,
+            insuranceCertificate:
+              typeof raw.insuranceCertificate === 'string' ? (raw.insuranceCertificate as string) : undefined,
+            contract: typeof raw.contract === 'string' ? (raw.contract as string) : undefined,
+            receipt: typeof raw.receipt === 'string' ? (raw.receipt as string) : undefined,
+            ebm: typeof raw.ebm === 'string' ? (raw.ebm as string) : undefined,
+            proofOfPayment: typeof raw.proofOfPayment === 'string' ? (raw.proofOfPayment as string) : undefined,
+          },
+        };
+      });
+
+      return {
+        data: applicationsMapped,
+        totalApplications: Number(payload.totalApplications ?? applicationsMapped.length),
+        totalCommission: Number(payload.totalCommission ?? 0),
+      };
+    },
+    [apiFetch],
+  );
+
   return useMemo(
     () => ({
       isPending,
@@ -329,6 +421,7 @@ export function useFinanceApi() {
       markBatchPaid,
       getFinanceAgentStats,
       getAgentsCommissionBreakdown,
+      getApplicationsByAnAgentFinance,
     }),
     [
       getAccrualAgentTotals,
@@ -342,6 +435,7 @@ export function useFinanceApi() {
       markBatchPaid,
       getFinanceAgentStats,
       getAgentsCommissionBreakdown,
+      getApplicationsByAnAgentFinance,
     ],
   );
 }
