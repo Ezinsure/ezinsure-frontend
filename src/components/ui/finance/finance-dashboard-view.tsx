@@ -2,7 +2,20 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Calendar, FileSpreadsheet, Send, Search, Users, DollarSign, Loader2, Eye, Filter } from 'lucide-react';
+import {
+  Calendar,
+  FileSpreadsheet,
+  Send,
+  Search,
+  Users,
+  DollarSign,
+  Loader2,
+  Eye,
+  Filter,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
+} from 'lucide-react';
 import { MainLayout } from '@/components/ui/main-layout';
 import { useToast } from '@/components/ui/toast';
 import { Button } from '@/components/ui/button';
@@ -33,7 +46,7 @@ function toCsv(rows: string[][]) {
 export default function FinanceDashboardView() {
   const router = useRouter();
   const api = useFinanceApi();
-  const { getAccrualAgentTotals, getFinanceAgentStats, initiatePaymentForRange } = api;
+  const { getFinanceAgentStats, getAgentsCommissionBreakdown, initiatePaymentForRange } = api;
   const { showToast } = useToast();
 
   const today = useMemo(() => new Date(), []);
@@ -50,6 +63,7 @@ export default function FinanceDashboardView() {
 
   const [agents, setAgents] = useState<FinanceAgentTotals[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isInitiatingPayment, setIsInitiatingPayment] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [applicationStatus, setApplicationStatus] = useState<'PAID' | 'READY_TO_BE_PAID' | 'ALL'>('READY_TO_BE_PAID');
   const [financeStats, setFinanceStats] = useState({
@@ -59,6 +73,10 @@ export default function FinanceDashboardView() {
   });
 
   const [selectedAgent, setSelectedAgent] = useState<FinanceAgent | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [sortField, setSortField] = useState<'name' | 'bankName' | 'applicationsCount' | 'totalCommission'>('totalCommission');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
 
   const statusOptions: { label: string; value: 'PAID' | 'READY_TO_BE_PAID' | 'ALL' }[] = [
     { label: 'Ready to be paid', value: 'READY_TO_BE_PAID' },
@@ -81,7 +99,7 @@ export default function FinanceDashboardView() {
           });
         }
 
-        const totals = await getAccrualAgentTotals(range, applicationStatus);
+        const totals = await getAgentsCommissionBreakdown(range, applicationStatus);
         if (!cancelled) setAgents(totals);
       } catch {
         if (!cancelled) {
@@ -96,20 +114,79 @@ export default function FinanceDashboardView() {
     return () => {
       cancelled = true;
     };
-  }, [applicationStatus, getAccrualAgentTotals, getFinanceAgentStats, range]);
+  }, [applicationStatus, getAgentsCommissionBreakdown, getFinanceAgentStats, range]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, applicationStatus, range, itemsPerPage]);
 
   const filteredAgents = useMemo(() => {
     const q = searchTerm.trim().toLowerCase();
     if (!q) return agents;
     return agents.filter((a) => {
+      const name = String(a.name ?? '').toLowerCase();
+      const email = String(a.email ?? '').toLowerCase();
+      const agentId = String(a.agentId ?? '').toLowerCase();
+      const phoneNumber = String(a.phoneNumber ?? '').toLowerCase();
+      const bankName = String(a.bankName ?? '').toLowerCase();
+      const bankAccountNumber = String(a.bankAccountNumber ?? '').toLowerCase();
       return (
-        a.name.toLowerCase().includes(q) ||
-        (a.email ?? '').toLowerCase().includes(q) ||
-        a.agentId.toLowerCase().includes(q) ||
-        (a.phoneNumber ?? '').toLowerCase().includes(q)
+        name.includes(q) ||
+        email.includes(q) ||
+        agentId.includes(q) ||
+        phoneNumber.includes(q) ||
+        bankName.includes(q) ||
+        bankAccountNumber.includes(q)
       );
     });
   }, [agents, searchTerm]);
+
+  const sortedAgents = useMemo(() => {
+    const rows = [...filteredAgents];
+    rows.sort((a, b) => {
+      const aVal =
+        sortField === 'totalCommission' || sortField === 'applicationsCount'
+          ? Number(a[sortField] ?? 0)
+          : String(a[sortField] ?? '').toLowerCase();
+      const bVal =
+        sortField === 'totalCommission' || sortField === 'applicationsCount'
+          ? Number(b[sortField] ?? 0)
+          : String(b[sortField] ?? '').toLowerCase();
+      if (aVal < bVal) return sortDirection === 'asc' ? -1 : 1;
+      if (aVal > bVal) return sortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
+    return rows;
+  }, [filteredAgents, sortDirection, sortField]);
+
+  const totalPages = Math.max(1, Math.ceil(sortedAgents.length / itemsPerPage));
+  const pagedAgents = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return sortedAgents.slice(start, start + itemsPerPage);
+  }, [currentPage, itemsPerPage, sortedAgents]);
+
+  useEffect(() => {
+    if (currentPage > totalPages) setCurrentPage(totalPages);
+  }, [currentPage, totalPages]);
+
+  const handleSort = (field: 'name' | 'bankName' | 'applicationsCount' | 'totalCommission') => {
+    if (sortField === field) {
+      setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortField(field);
+      setSortDirection(field === 'name' || field === 'bankName' ? 'asc' : 'desc');
+    }
+    setCurrentPage(1);
+  };
+
+  const SortIcon = ({ field }: { field: 'name' | 'bankName' | 'applicationsCount' | 'totalCommission' }) => {
+    if (sortField !== field) return <ArrowUpDown className="h-3.5 w-3.5 text-gray-400" />;
+    return sortDirection === 'asc' ? (
+      <ArrowUp className="h-3.5 w-3.5 text-indigo-600" />
+    ) : (
+      <ArrowDown className="h-3.5 w-3.5 text-indigo-600" />
+    );
+  };
 
   const downloadPayoutSheet = () => {
     if (!agents.length) {
@@ -150,12 +227,15 @@ export default function FinanceDashboardView() {
   };
 
   const initiatePayment = async () => {
+    setIsInitiatingPayment(true);
     try {
       await initiatePaymentForRange(range);
       showToast('Payment initiated. Review your payout snapshots in Payment Initiated.', 'success');
       router.push('/finance/payment-initiated');
     } catch {
       showToast('Failed to initiate payment.', 'error');
+    } finally {
+      setIsInitiatingPayment(false);
     }
   };
 
@@ -191,9 +271,9 @@ export default function FinanceDashboardView() {
                   variant="primary"
                   size="sm"
                   className="bg-cyan-500 hover:bg-cyan-400 text-slate-950 gap-2 rounded-xl shadow-lg shadow-cyan-500/40"
-                  disabled={isLoading}
+                  disabled={isInitiatingPayment}
                 >
-                  {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                  {isInitiatingPayment ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                   <span className="text-sm font-semibold">Initiate payment</span>
                 </Button>
               </div>
@@ -348,56 +428,133 @@ export default function FinanceDashboardView() {
                 <Loader2 className="w-10 h-10 text-indigo-600 animate-spin mb-4" />
                 <p className="text-gray-600">Loading agents and commission…</p>
               </div>
-            ) : filteredAgents.length === 0 ? (
+            ) : sortedAgents.length === 0 ? (
               <div className="py-14 text-center">
                 <p className="text-gray-600">No eligible agents for the selected range.</p>
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200 text-xs">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-4 py-3 text-left font-medium text-gray-500 uppercase tracking-wider">Agent</th>
-                      <th className="px-4 py-3 text-left font-medium text-gray-500 uppercase tracking-wider">Bank</th>
-                      <th className="px-4 py-3 text-left font-medium text-gray-500 uppercase tracking-wider">Contact</th>
-                      <th className="px-4 py-3 text-right font-medium text-gray-500 uppercase tracking-wider">Commission</th>
-                      <th className="px-4 py-3 text-right font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100 bg-white">
-                    {filteredAgents.map((a) => (
-                      <tr key={a.agentId} className="hover:bg-gray-50">
-                        <td className="px-4 py-3">
-                          <div className="font-semibold text-gray-900">{a.name}</div>
-                        </td>
-                        <td className="px-4 py-3 text-gray-700">
-                          <div className="font-medium">{a.bankName ?? '—'}</div>
-                          <div className="text-[11px] text-gray-500">{a.bankAccountNumber ?? '—'}</div>
-                        </td>
-                        <td className="px-4 py-3 text-gray-700">
-                          <div className="font-medium">{a.email ?? '—'}</div>
-                          <div className="text-[11px] text-gray-500">{a.phoneNumber ?? '—'}</div>
-                        </td>
-                        <td className="px-4 py-3 text-right font-semibold text-gray-900">{formatCurrency(a.totalCommission)}</td>
-                        <td className="px-4 py-3 text-right whitespace-nowrap">
-                          <div className="flex items-center justify-end">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="gap-2"
-                              onClick={() => setSelectedAgent(a)}
-                            >
-                              <Eye className="h-4 w-4" />
-                              <span className="hidden sm:inline">View details</span>
-                              <span className="sm:hidden">View</span>
-                            </Button>
-                          </div>
-                        </td>
+              <>
+                <div className="overflow-x-auto rounded-xl border border-gray-100">
+                  <table className="min-w-full divide-y divide-gray-200 text-xs">
+                    <thead className="bg-slate-50">
+                      <tr>
+                        <th className="px-4 py-3 text-left font-semibold text-gray-600 uppercase tracking-wider">
+                          <button
+                            type="button"
+                            onClick={() => handleSort('name')}
+                            className="inline-flex items-center gap-1.5 hover:text-indigo-700"
+                          >
+                            Agent
+                            <SortIcon field="name" />
+                          </button>
+                        </th>
+                        <th className="px-4 py-3 text-left font-semibold text-gray-600 uppercase tracking-wider">
+                          <button
+                            type="button"
+                            onClick={() => handleSort('bankName')}
+                            className="inline-flex items-center gap-1.5 hover:text-indigo-700"
+                          >
+                            Bank
+                            <SortIcon field="bankName" />
+                          </button>
+                        </th>
+                        <th className="px-4 py-3 text-left font-semibold text-gray-600 uppercase tracking-wider">Contact</th>
+                        <th className="px-4 py-3 text-right font-semibold text-gray-600 uppercase tracking-wider">
+                          <button
+                            type="button"
+                            onClick={() => handleSort('applicationsCount')}
+                            className="ml-auto inline-flex items-center gap-1.5 hover:text-indigo-700"
+                          >
+                            Applications
+                            <SortIcon field="applicationsCount" />
+                          </button>
+                        </th>
+                        <th className="px-4 py-3 text-right font-semibold text-gray-600 uppercase tracking-wider">
+                          <button
+                            type="button"
+                            onClick={() => handleSort('totalCommission')}
+                            className="ml-auto inline-flex items-center gap-1.5 hover:text-indigo-700"
+                          >
+                            Commission
+                            <SortIcon field="totalCommission" />
+                          </button>
+                        </th>
+                        <th className="px-4 py-3 text-right font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100 bg-white">
+                      {pagedAgents.map((a) => (
+                        <tr key={a.agentId} className="hover:bg-indigo-50/40 transition-colors">
+                          <td className="px-4 py-3">
+                            <div className="font-semibold text-gray-900">{a.name}</div>
+                          </td>
+                          <td className="px-4 py-3 text-gray-700">
+                            <div className="font-medium">{a.bankName ?? '—'}</div>
+                            <div className="text-[11px] text-gray-500">{a.bankAccountNumber ?? '—'}</div>
+                          </td>
+                          <td className="px-4 py-3 text-gray-700">
+                            <div className="font-medium">{a.email ?? '—'}</div>
+                            <div className="text-[11px] text-gray-500">{a.phoneNumber ?? '—'}</div>
+                          </td>
+                          <td className="px-4 py-3 text-right font-medium text-gray-700">{a.applicationsCount}</td>
+                          <td className="px-4 py-3 text-right font-semibold text-gray-900">{formatCurrency(a.totalCommission)}</td>
+                          <td className="px-4 py-3 text-right whitespace-nowrap">
+                            <div className="flex items-center justify-end">
+                              <Button variant="outline" size="sm" className="gap-2" onClick={() => setSelectedAgent(a)}>
+                                <Eye className="h-4 w-4" />
+                                <span className="hidden sm:inline">View details</span>
+                                <span className="sm:hidden">View</span>
+                              </Button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="mt-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <div className="flex items-center gap-2 text-xs text-gray-600">
+                    <span>Items per page</span>
+                    <select
+                      value={itemsPerPage}
+                      onChange={(e) => setItemsPerPage(Number(e.target.value))}
+                      className="rounded-lg border border-gray-200 px-2 py-1 text-xs"
+                    >
+                      {[5, 10, 20, 50].map((size) => (
+                        <option key={size} value={size}>
+                          {size}
+                        </option>
+                      ))}
+                    </select>
+                    <span>
+                      Showing {sortedAgents.length === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1}-
+                      {Math.min(currentPage * itemsPerPage, sortedAgents.length)} of {sortedAgents.length}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                      disabled={currentPage === 1}
+                    >
+                      Previous
+                    </Button>
+                    <span className="text-xs text-gray-600">
+                      Page {currentPage} of {totalPages}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                      disabled={currentPage === totalPages}
+                    >
+                      Next
+                    </Button>
+                  </div>
+                </div>
+              </>
             )}
           </div>
         </div>

@@ -279,6 +279,43 @@ export function useFinanceApi() {
     [apiFetch],
   );
 
+  const getAgentsCommissionBreakdown = useCallback(
+    async (range: FinanceDateRange, applicationStatus: 'PAID' | 'READY_TO_BE_PAID' | 'ALL' = 'READY_TO_BE_PAID') => {
+      const params = new URLSearchParams({
+        startDate: range.startDate,
+        endDate: range.endDate,
+        applicationStatus,
+      });
+
+      const response = await apiFetch(`/getAgentsCommissionBreakdown?${params.toString()}`, {
+        method: 'GET',
+      });
+
+      const rows = (await response.json()) as Array<{
+        totalCommission?: number;
+        totalApplications?: number;
+        fullName?: string;
+        phoneNumber?: string;
+        email?: string;
+        bankName?: string;
+        bankAccountNumber?: string;
+        agentId?: string;
+      }>;
+
+      return rows.map((row) => ({
+        agentId: String(row.agentId ?? ''),
+        name: String(row.fullName ?? '—'),
+        email: row.email,
+        phoneNumber: row.phoneNumber,
+        bankName: row.bankName,
+        bankAccountNumber: row.bankAccountNumber,
+        totalCommission: Number(row.totalCommission ?? 0),
+        applicationsCount: Number(row.totalApplications ?? 0),
+      }));
+    },
+    [apiFetch],
+  );
+
   return useMemo(
     () => ({
       isPending,
@@ -291,6 +328,7 @@ export function useFinanceApi() {
       initiatePaymentForRange,
       markBatchPaid,
       getFinanceAgentStats,
+      getAgentsCommissionBreakdown,
     }),
     [
       getAccrualAgentTotals,
@@ -303,6 +341,7 @@ export function useFinanceApi() {
       isPending,
       markBatchPaid,
       getFinanceAgentStats,
+      getAgentsCommissionBreakdown,
     ],
   );
 }
