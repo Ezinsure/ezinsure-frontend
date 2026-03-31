@@ -4,6 +4,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { useFinanceMock } from './finance-mock-provider';
 import type { FinanceAgentTotals, FinanceApplication, FinanceDateRange, FinanceMonthYear } from './finance-domain';
 import { toMonthYear } from './finance-dummy-data';
+import { useApiClient } from '@/utils/apiClient';
 
 // This file is the "API contract layer" for the finance UI.
 //
@@ -39,6 +40,7 @@ import { toMonthYear } from './finance-dummy-data';
 
 export function useFinanceApi() {
   const { agents, applications, state, actions } = useFinanceMock();
+  const { apiFetch } = useApiClient();
   const [isPending, setIsPending] = useState(false);
 
   const monthRange = useCallback((startDate: string, endDate: string): FinanceMonthYear[] => {
@@ -63,14 +65,17 @@ export function useFinanceApi() {
   }, []);
 
   const getAccrualAgentTotals = useCallback(
-    async (range: FinanceDateRange): Promise<FinanceAgentTotals[]> => {
+    async (
+      range: FinanceDateRange,
+      applicationStatus: 'PAID' | 'READY_TO_BE_PAID' | 'ALL' = 'READY_TO_BE_PAID',
+    ): Promise<FinanceAgentTotals[]> => {
       setIsPending(true);
       try {
         const months = monthRange(range.startDate, range.endDate);
         const eligibleApps = applications.filter((a) => {
           const d = a.submittedAt ? new Date(a.submittedAt) : null;
           if (!d || Number.isNaN(d.getTime())) return false;
-          if (a.status?.toUpperCase() !== 'READY_TO_BE_PAID') return false;
+          if (applicationStatus !== 'ALL' && a.status?.toUpperCase() !== applicationStatus) return false;
           return months.some((m) => m.month === d.getUTCMonth() + 1 && m.year === d.getUTCFullYear());
         });
 
@@ -257,6 +262,23 @@ export function useFinanceApi() {
     [actions],
   );
 
+  const getFinanceAgentStats = useCallback(
+    async (range: FinanceDateRange, applicationStatus: 'PAID' | 'READY_TO_BE_PAID' | 'ALL' = 'READY_TO_BE_PAID') => {
+      const params = new URLSearchParams({
+        startDate: range.startDate,
+        endDate: range.endDate,
+        applicationStatus,
+      });
+
+      const response = await apiFetch(`/getFinanceAgentStats?${params.toString()}`, {
+        method: 'GET',
+      });
+
+      return response.json();
+    },
+    [apiFetch],
+  );
+
   return useMemo(
     () => ({
       isPending,
@@ -268,6 +290,7 @@ export function useFinanceApi() {
       getApplicationDetails,
       initiatePaymentForRange,
       markBatchPaid,
+      getFinanceAgentStats,
     }),
     [
       getAccrualAgentTotals,
@@ -279,6 +302,7 @@ export function useFinanceApi() {
       initiatePaymentForRange,
       isPending,
       markBatchPaid,
+      getFinanceAgentStats,
     ],
   );
 }

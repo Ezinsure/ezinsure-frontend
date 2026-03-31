@@ -2,9 +2,8 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Calendar, FileSpreadsheet, Send, Search, Users, DollarSign, Loader2, Eye } from 'lucide-react';
+import { Calendar, FileSpreadsheet, Send, Search, Users, DollarSign, Loader2, Eye, Filter } from 'lucide-react';
 import { MainLayout } from '@/components/ui/main-layout';
-import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { useToast } from '@/components/ui/toast';
 import { Button } from '@/components/ui/button';
 import { useFinanceApi } from './finance-api';
@@ -34,6 +33,7 @@ function toCsv(rows: string[][]) {
 export default function FinanceDashboardView() {
   const router = useRouter();
   const api = useFinanceApi();
+  const { getAccrualAgentTotals, getFinanceAgentStats, initiatePaymentForRange } = api;
   const { showToast } = useToast();
 
   const today = useMemo(() => new Date(), []);
@@ -51,18 +51,43 @@ export default function FinanceDashboardView() {
   const [agents, setAgents] = useState<FinanceAgentTotals[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [applicationStatus, setApplicationStatus] = useState<'PAID' | 'READY_TO_BE_PAID' | 'ALL'>('READY_TO_BE_PAID');
+  const [financeStats, setFinanceStats] = useState({
+    totalCommission: 0,
+    totalApplications: 0,
+    totalAgents: 0,
+  });
 
   const [selectedAgent, setSelectedAgent] = useState<FinanceAgent | null>(null);
+
+  const statusOptions: { label: string; value: 'PAID' | 'READY_TO_BE_PAID' | 'ALL' }[] = [
+    { label: 'Ready to be paid', value: 'READY_TO_BE_PAID' },
+    { label: 'Paid', value: 'PAID' },
+    { label: 'All applications', value: 'ALL' },
+  ];
 
   useEffect(() => {
     let cancelled = false;
     const run = async () => {
       setIsLoading(true);
       try {
-        const totals = await api.getAccrualAgentTotals(range);
+        const financeAgentStatsResponse = await getFinanceAgentStats(range, applicationStatus);
+        console.log('getFinanceAgentStats response:', financeAgentStatsResponse);
+        if (!cancelled) {
+          setFinanceStats({
+            totalCommission: Number(financeAgentStatsResponse?.totalCommission ?? 0),
+            totalApplications: Number(financeAgentStatsResponse?.totalApplications ?? 0),
+            totalAgents: Number(financeAgentStatsResponse?.totalAgents ?? 0),
+          });
+        }
+
+        const totals = await getAccrualAgentTotals(range, applicationStatus);
         if (!cancelled) setAgents(totals);
       } catch {
-        if (!cancelled) setAgents([]);
+        if (!cancelled) {
+          setAgents([]);
+          setFinanceStats({ totalCommission: 0, totalApplications: 0, totalAgents: 0 });
+        }
       } finally {
         if (!cancelled) setIsLoading(false);
       }
@@ -71,7 +96,7 @@ export default function FinanceDashboardView() {
     return () => {
       cancelled = true;
     };
-  }, [api, range]);
+  }, [applicationStatus, getAccrualAgentTotals, getFinanceAgentStats, range]);
 
   const filteredAgents = useMemo(() => {
     const q = searchTerm.trim().toLowerCase();
@@ -85,13 +110,6 @@ export default function FinanceDashboardView() {
       );
     });
   }, [agents, searchTerm]);
-
-  const totals = useMemo(() => {
-    const totalCommission = agents.reduce((s, a) => s + Number(a.totalCommission ?? 0), 0);
-    const totalAgents = agents.length;
-    const totalApplications = agents.reduce((s, a) => s + Number(a.applicationsCount ?? 0), 0);
-    return { totalCommission, totalAgents, totalApplications };
-  }, [agents]);
 
   const downloadPayoutSheet = () => {
     if (!agents.length) {
@@ -133,7 +151,7 @@ export default function FinanceDashboardView() {
 
   const initiatePayment = async () => {
     try {
-      await api.initiatePaymentForRange(range);
+      await initiatePaymentForRange(range);
       showToast('Payment initiated. Review your payout snapshots in Payment Initiated.', 'success');
       router.push('/finance/payment-initiated');
     } catch {
@@ -146,76 +164,164 @@ export default function FinanceDashboardView() {
       <div className="container mx-auto px-4 py-8">
         <div className="absolute top-0 left-0 w-full h-[10vh] overflow-hidden z-0 bg-gradient-to-br from-[#0A2540] to-[#126BB3]" />
 
-        <div className="relative mt-10 bg-gradient-to-r from-blue-900 via-blue-800 to-indigo-900 shadow-xl rounded-2xl">
-          <div className="max-w-7xl mx-auto px-4 py-6 sm:px-6">
-            <div className="flex flex-col lg:flex-row justify-between gap-4">
-              <div className="text-white">
-                <h1 className="text-3xl sm:text-4xl font-bold mb-1">Finance Settlement Explorer</h1>
-                <p className="text-blue-100 text-sm">Review agent commissions, verify applications, and initiate bank payouts.</p>
+        <div className="relative mt-10 bg-gradient-to-r from-blue-900 via-blue-800 to-indigo-900 shadow-xl rounded-3xl">
+          <div className="max-w-7xl mx-auto px-4 py-8 sm:px-8">
+            <div className="flex flex-col lg:flex-row justify-between gap-8 lg:items-center">
+              <div className="text-white space-y-2">
+                <p className="text-[11px] uppercase tracking-[0.25em] text-blue-200/80">Finance dashboard</p>
+                <h1 className="text-3xl sm:text-4xl font-semibold leading-tight">Finance Settlement Explorer</h1>
+                <p className="text-blue-100 text-sm max-w-xl">
+                  Monitor settlement performance, review agent commissions, and confidently initiate payouts across any
+                  date window.
+                </p>
               </div>
 
-              <div className="flex flex-col sm:flex-row gap-2 sm:items-start">
+              <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
                 <Button
                   onClick={downloadPayoutSheet}
                   variant="outline"
                   size="sm"
-                  className="border-white/40 bg-transparent text-white hover:bg-white/10 gap-2"
+                  className="border-white/40 bg-white/5 text-white hover:bg-white/15 gap-2 rounded-xl"
                 >
                   <FileSpreadsheet className="w-4 h-4" />
-                  Download Payout Sheet
+                  <span className="text-sm font-medium">Download payout sheet</span>
                 </Button>
                 <Button
                   onClick={initiatePayment}
                   variant="primary"
                   size="sm"
-                  className="bg-cyan-600 hover:bg-cyan-700 text-white gap-2"
+                  className="bg-cyan-500 hover:bg-cyan-400 text-slate-950 gap-2 rounded-xl shadow-lg shadow-cyan-500/40"
                   disabled={isLoading}
                 >
                   {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                  Initiate Payment
+                  <span className="text-sm font-semibold">Initiate payment</span>
                 </Button>
               </div>
             </div>
           </div>
         </div>
 
-        <div className="mt-6 grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <DateRangePicker
-            startDate={range.startDate}
-            endDate={range.endDate}
-            onStartDateChange={(d) => setRange((prev) => ({ ...prev, startDate: d }))}
-            onEndDateChange={(d) => setRange((prev) => ({ ...prev, endDate: d }))}
-            minStartDate={'2020-01-01'}
-            maxEndDate={'2100-01-01'}
-            className="lg:col-span-1"
-          />
-
-          <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
-              <div className="flex items-center gap-2 text-gray-600">
-                <DollarSign className="w-4 h-4" />
-                Total Commission
-              </div>
-              <div className="text-2xl font-bold text-gray-900 mt-2">{formatCurrency(totals.totalCommission)}</div>
-              <div className="text-sm text-gray-500 mt-1">Across selected date range</div>
+        <div className="mt-6 bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2 text-gray-700">
+              <Filter className="w-4 h-4" />
+              <h2 className="text-sm font-semibold uppercase tracking-wide">Filters</h2>
             </div>
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
-              <div className="flex items-center gap-2 text-gray-600">
-                <Users className="w-4 h-4" />
-                Agents
-              </div>
-              <div className="text-2xl font-bold text-gray-900 mt-2">{totals.totalAgents}</div>
-              <div className="text-sm text-gray-500 mt-1">Eligible to receive</div>
+            <span className="rounded-full bg-gray-50 px-2.5 py-1 text-[11px] font-medium text-gray-500">
+              {applicationStatus === 'ALL'
+                ? 'All applications'
+                : applicationStatus === 'PAID'
+                ? 'Paid only'
+                : 'Ready to be paid'}
+            </span>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Start date</label>
+              <input
+                type="date"
+                value={range.startDate}
+                max={range.endDate || '2100-01-01'}
+                min="2020-01-01"
+                onChange={(e) => setRange((prev) => ({ ...prev, startDate: e.target.value }))}
+                className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              />
             </div>
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
-              <div className="flex items-center gap-2 text-gray-600">
-                <Calendar className="w-4 h-4" />
-                Applications
-              </div>
-              <div className="text-2xl font-bold text-gray-900 mt-2">{totals.totalApplications}</div>
-              <div className="text-sm text-gray-500 mt-1">In agent totals</div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">End date</label>
+              <input
+                type="date"
+                value={range.endDate}
+                min={range.startDate || '2020-01-01'}
+                max="2100-01-01"
+                onChange={(e) => setRange((prev) => ({ ...prev, endDate: e.target.value }))}
+                className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Application status</label>
+              <select
+                value={applicationStatus}
+                onChange={(e) =>
+                  setApplicationStatus(e.target.value as 'PAID' | 'READY_TO_BE_PAID' | 'ALL')
+                }
+                className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white"
+              >
+                {statusOptions.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
+        </div>
+
+        <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {isLoading ? (
+            <>
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 animate-pulse">
+                <div className="h-4 w-24 bg-gray-200 rounded" />
+                <div className="h-8 w-40 bg-gray-200 rounded mt-3" />
+                <div className="h-3 w-44 bg-gray-100 rounded mt-3" />
+              </div>
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 animate-pulse">
+                <div className="h-4 w-16 bg-gray-200 rounded" />
+                <div className="h-8 w-12 bg-gray-200 rounded mt-3" />
+                <div className="h-3 w-36 bg-gray-100 rounded mt-3" />
+              </div>
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 animate-pulse">
+                <div className="h-4 w-24 bg-gray-200 rounded" />
+                <div className="h-8 w-12 bg-gray-200 rounded mt-3" />
+                <div className="h-3 w-32 bg-gray-100 rounded mt-3" />
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 relative overflow-hidden">
+                <div className="absolute right-4 -top-4 h-16 w-16 rounded-full bg-emerald-100/70 blur-2xl" />
+                <div className="relative flex items-center justify-between gap-2 text-gray-600">
+                  <div className="flex items-center gap-2">
+                    <span className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
+                      <DollarSign className="w-4 h-4" />
+                    </span>
+                    <div>
+                      <p className="text-xs font-medium text-gray-500">Total commission</p>
+                      <p className="mt-1 text-2xl font-semibold text-gray-900">
+                        {formatCurrency(financeStats.totalCommission)}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                <p className="mt-2 text-xs text-gray-500">Across selected period and status filter.</p>
+              </div>
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 relative overflow-hidden">
+                <div className="absolute right-0 top-0 h-10 w-24 bg-indigo-50 rounded-bl-full" />
+                <div className="relative flex items-center gap-2 text-gray-600">
+                  <span className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
+                    <Users className="w-4 h-4" />
+                  </span>
+                  <div>
+                    <p className="text-xs font-medium text-gray-500">Agents</p>
+                    <p className="mt-1 text-2xl font-semibold text-gray-900">{financeStats.totalAgents}</p>
+                    <p className="mt-1 text-xs text-gray-500">Eligible in current selection.</p>
+                  </div>
+                </div>
+              </div>
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+                <div className="flex items-center gap-2 text-gray-600">
+                  <span className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
+                    <Calendar className="w-4 h-4" />
+                  </span>
+                  <div>
+                    <p className="text-xs font-medium text-gray-500">Applications</p>
+                    <p className="mt-1 text-2xl font-semibold text-gray-900">{financeStats.totalApplications}</p>
+                    <p className="mt-1 text-xs text-gray-500">Included in agent totals.</p>
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
         </div>
 
         <div className="mt-6 bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
