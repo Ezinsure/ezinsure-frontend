@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
-import { ArrowDown, ArrowUp, ArrowUpDown, Eye, Loader2, Search, X } from 'lucide-react';
+import { ArrowDown, ArrowUp, ArrowUpDown, Eye, Search, X } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import type { FinanceApplication, FinanceAgent, FinanceDateRange } from './finance-domain';
 import { useFinanceApi } from './finance-api';

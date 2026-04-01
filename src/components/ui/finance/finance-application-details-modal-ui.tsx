@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
-import { Eye, Loader2 } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import type { FinanceApplication } from './finance-domain';
 import { useFinanceApi } from './finance-api';
 import { Button } from '@/components/ui/button';
