@@ -2,7 +2,14 @@
 
 import { useCallback, useMemo, useState } from 'react';
 import { useFinanceMock } from './finance-mock-provider';
-import type { FinanceAgentTotals, FinanceApplication, FinanceDateRange, FinanceMonthYear } from './finance-domain';
+import type {
+  FinanceAgentTotals,
+  FinanceApplication,
+  FinanceDateRange,
+  FinanceMonthYear,
+  PaidHistoryAgentRow,
+  PaidHistoryMonthBlock,
+} from './finance-domain';
 import { toMonthYear } from './finance-dummy-data';
 import { useApiClient } from '@/utils/apiClient';
 
@@ -28,8 +35,8 @@ type FinanceApplicationStatusFilter = 'PAID' | 'READY_TO_BE_PAID' | 'PAYMENT_INI
 //   - GET /finance/payment-initiated/application-details?id
 //     -> FinanceApplication (must be snapshot-frozen)
 //
-// 3) Payment history (paid snapshots)
-//   - GET /finance/payment-history/batches?year=YYYY
+// 3) Payment history
+//   - GET /getPaidBatchesByYear?year=YYYY
 //   - GET /finance/payment-history/agent-totals?month&year
 //   - GET /finance/payment-history/applications-by-agent?agentId&month&year
 //   - GET /finance/payment-history/application-details?id
@@ -478,6 +485,100 @@ export function useFinanceApi() {
     [apiFetch],
   );
 
+  const PAID_HISTORY_MONTH_NAMES = useMemo(
+    () =>
+      [
+        'January',
+        'February',
+        'March',
+        'April',
+        'May',
+        'June',
+        'July',
+        'August',
+        'September',
+        'October',
+        'November',
+        'December',
+      ] as const,
+    [],
+  );
+
+  const getPaidBatchesByYear = useCallback(
+    async (year: number): Promise<PaidHistoryMonthBlock[]> => {
+      const params = new URLSearchParams({ year: String(year) });
+      const response = await apiFetch(`/getPaidBatchesByYear?${params.toString()}`, {
+        method: 'GET',
+      });
+
+      if (!response.ok) {
+        let message = `Failed to load paid batches (${response.status})`;
+        try {
+          const body = (await response.json()) as { error?: string; message?: string };
+          if (typeof body?.error === 'string') message = body.error;
+          else if (typeof body?.message === 'string') message = body.message;
+        } catch {
+          // ignore
+        }
+        throw new Error(message);
+      }
+
+      const payload = (await response.json()) as
+        | Array<{
+            month?: string;
+            totalMonthPaid?: number;
+            agents?: Array<{ agent?: Record<string, unknown>; totalPaid?: number }>;
+          }>
+        | { data?: Array<{
+            month?: string;
+            totalMonthPaid?: number;
+            agents?: Array<{ agent?: Record<string, unknown>; totalPaid?: number }>;
+          }> };
+
+      const rawRows = Array.isArray(payload) ? payload : payload?.data ?? [];
+
+      const byMonthName = new Map<string, { totalMonthPaid: number; agents: PaidHistoryAgentRow[] }>();
+
+      for (const item of rawRows) {
+        const rawMonth = String(item?.month ?? '').trim();
+        if (!rawMonth) continue;
+        const monthName =
+          PAID_HISTORY_MONTH_NAMES.find((m) => m.toLowerCase() === rawMonth.toLowerCase()) ?? rawMonth;
+        if (!PAID_HISTORY_MONTH_NAMES.includes(monthName as (typeof PAID_HISTORY_MONTH_NAMES)[number])) continue;
+
+        const agentEntries = Array.isArray(item.agents) ? item.agents : [];
+        const agents: PaidHistoryAgentRow[] = agentEntries.map((entry) => {
+          const a = (entry?.agent ?? {}) as Record<string, unknown>;
+          return {
+            agentId: String(a._id ?? ''),
+            name: String(a.fullName ?? ''),
+            email: String(a.email ?? ''),
+            phoneNumber: typeof a.phoneNumber === 'string' ? a.phoneNumber : undefined,
+            bankName: typeof a.bankName === 'string' ? a.bankName : undefined,
+            bankAccountNumber: typeof a.bankAccountNumber === 'string' ? a.bankAccountNumber : undefined,
+            totalPaid: Number(entry?.totalPaid ?? 0),
+          };
+        });
+
+        byMonthName.set(monthName, {
+          totalMonthPaid: Number(item?.totalMonthPaid ?? 0),
+          agents,
+        });
+      }
+
+      return PAID_HISTORY_MONTH_NAMES.map((monthName, idx) => {
+        const block = byMonthName.get(monthName);
+        return {
+          monthIndex: idx + 1,
+          monthName,
+          totalMonthPaid: block?.totalMonthPaid ?? 0,
+          agents: block?.agents ?? [],
+        };
+      });
+    },
+    [PAID_HISTORY_MONTH_NAMES, apiFetch],
+  );
+
   return useMemo(
     () => ({
       isPending,
@@ -492,6 +593,7 @@ export function useFinanceApi() {
       getFinanceAgentStats,
       getAgentsCommissionBreakdown,
       getApplicationsByAnAgentFinance,
+      getPaidBatchesByYear,
     }),
     [
       getAccrualAgentTotals,
@@ -506,6 +608,7 @@ export function useFinanceApi() {
       getFinanceAgentStats,
       getAgentsCommissionBreakdown,
       getApplicationsByAnAgentFinance,
+      getPaidBatchesByYear,
     ],
   );
 }

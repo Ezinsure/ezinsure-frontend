@@ -1,62 +1,72 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
-import { Download, Eye, Loader2, AlertCircle } from 'lucide-react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { ArrowDown, ArrowUp, ArrowUpDown, Eye, Loader2, Calendar } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { MainLayout } from '@/components/ui/main-layout';
 import { useToast } from '@/components/ui/toast';
-import type { FinanceAgent, FinanceAgentTotals, FinanceBatch } from './finance-domain';
+import { useAuth } from '@/context/AuthContext';
+import type { PaidHistoryAgentRow, PaidHistoryMonthBlock } from './finance-domain';
 import { useFinanceApi } from './finance-api';
-import FinanceApplicationsByAgentModalUI from './finance-applications-by-agent-modal-ui';
+import AgentDetailModal from '@/components/ui/admin/agent-detail-modal';
 
 function formatCurrency(value: number) {
   return `${value.toLocaleString()} RWF`;
 }
 
-function toCsv(rows: string[][]) {
-  return rows
-    .map((r) =>
-      r
-        .map((cell) => {
-          const v = cell ?? '';
-          const needsQuotes = /[",\n]/.test(v);
-          const escaped = v.replace(/"/g, '""');
-          return needsQuotes ? `"${escaped}"` : escaped;
-        })
-        .join(','),
-    )
-    .join('\n');
+function isoEndOfMonth(year: number, monthIndex1to12: number): string {
+  const d = new Date(year, monthIndex1to12, 0);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
 }
 
+const MIN_HISTORY_YEAR = 2000;
+
 export default function FinanceHistoryView() {
-  const api = useFinanceApi();
+  const { getPaidBatchesByYear } = useFinanceApi();
   const { showToast } = useToast();
+  const { token } = useAuth();
 
-  const [batches, setBatches] = useState<FinanceBatch[]>([]);
-  const [year, setYear] = useState<number>(new Date().getFullYear());
+  const currentYear = useMemo(() => new Date().getFullYear(), []);
+  const yearOptions = useMemo(() => {
+    const out: number[] = [];
+    for (let y = currentYear; y >= MIN_HISTORY_YEAR; y -= 1) out.push(y);
+    return out;
+  }, [currentYear]);
 
+  const [year, setYear] = useState<number>(currentYear);
+  const [months, setMonths] = useState<PaidHistoryMonthBlock[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  const paidBatches = useMemo(() => batches.filter((b) => b.status === 'PAID' && b.monthYear.year === year), [batches, year]);
+  const [agentsModalMonth, setAgentsModalMonth] = useState<PaidHistoryMonthBlock | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [sortField, setSortField] = useState<'name' | 'email' | 'bankName' | 'totalPaid'>('name');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
-  const [agentsByBatchKey, setAgentsByBatchKey] = useState<Record<string, FinanceAgentTotals[]>>({});
-
-  const [agentsModalBatch, setAgentsModalBatch] = useState<FinanceBatch | null>(null);
-  const [agentModalAgent, setAgentModalAgent] = useState<FinanceAgent | null>(null);
-
-  const batchKey = (b: FinanceBatch) => `${b.monthYear.year}-${b.monthYear.month}`;
+  const [agentDetail, setAgentDetail] = useState<{
+    agentId: string;
+    name: string;
+    email: string;
+    monthIndex: number;
+  } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     const run = async () => {
       setIsLoading(true);
       try {
-        const data = await api.getInitiatedBatches();
-        if (cancelled) return;
-        setBatches(data);
-      } catch {
-        if (cancelled) return;
-        setBatches([]);
+        const data = await getPaidBatchesByYear(year);
+        if (!cancelled) setMonths(data);
+      } catch (err) {
+        if (!cancelled) {
+          setMonths([]);
+          const message = err instanceof Error ? err.message : 'Failed to load payment history.';
+          showToast(message, 'error');
+        }
       } finally {
         if (!cancelled) setIsLoading(false);
       }
@@ -65,75 +75,97 @@ export default function FinanceHistoryView() {
     return () => {
       cancelled = true;
     };
-  }, [api]);
+  }, [getPaidBatchesByYear, showToast, year]);
 
   useEffect(() => {
-    let cancelled = false;
-    const loadAgentTotalsForPaidBatches = async () => {
-      if (!paidBatches.length) {
-        setAgentsByBatchKey({});
-        return;
+    setSearchTerm('');
+    setCurrentPage(1);
+    setSortField('name');
+    setSortDirection('asc');
+  }, [agentsModalMonth]);
+
+  const handleSort = useCallback(
+    (field: 'name' | 'email' | 'bankName' | 'totalPaid') => {
+      if (sortField === field) {
+        setSortDirection((d) => (d === 'asc' ? 'desc' : 'asc'));
+      } else {
+        setSortField(field);
+        setSortDirection(field === 'totalPaid' ? 'desc' : 'asc');
       }
-      const entries = await Promise.all(
-        paidBatches.map(async (b) => {
-          const rows = await api.getInitiatedAgentTotals(b.monthYear.month, b.monthYear.year);
-          return [batchKey(b), rows] as const;
-        }),
-      );
-      if (cancelled) return;
-      const next: Record<string, FinanceAgentTotals[]> = {};
-      for (const [k, v] of entries) next[k] = v;
-      setAgentsByBatchKey(next);
-    };
-    loadAgentTotalsForPaidBatches();
-    return () => {
-      cancelled = true;
-    };
-  }, [api, paidBatches]);
+      setCurrentPage(1);
+    },
+    [sortField],
+  );
 
-  const years = useMemo(() => {
-    const ys = Array.from(new Set(batches.map((b) => b.monthYear.year))).sort((a, b) => b - a);
-    return ys.length ? ys : [new Date().getFullYear()];
-  }, [batches]);
+  const SortIcon = ({ field }: { field: 'name' | 'email' | 'bankName' | 'totalPaid' }) => {
+    if (sortField !== field) return <ArrowUpDown className="h-3.5 w-3.5 text-gray-400" />;
+    return sortDirection === 'asc' ? (
+      <ArrowUp className="h-3.5 w-3.5 text-indigo-600" />
+    ) : (
+      <ArrowDown className="h-3.5 w-3.5 text-indigo-600" />
+    );
+  };
 
-  const downloadBatchSheet = (batch: FinanceBatch) => {
-    const rows = agentsByBatchKey[batchKey(batch)] ?? [];
-    if (!rows.length) {
-      showToast('No agent totals to export for this batch.', 'info');
+  const modalAgentsFilteredSorted = useMemo(() => {
+    if (!agentsModalMonth) return [];
+    const q = searchTerm.trim().toLowerCase();
+    let rows = agentsModalMonth.agents;
+    if (q) {
+      rows = rows.filter((a) => {
+        const hay = [a.name, a.email, a.phoneNumber, a.bankName, a.bankAccountNumber]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase();
+        return hay.includes(q);
+      });
+    }
+    const copy = [...rows];
+    copy.sort((a, b) => {
+      let aVal: string | number;
+      let bVal: string | number;
+      if (sortField === 'totalPaid') {
+        aVal = Number(a.totalPaid ?? 0);
+        bVal = Number(b.totalPaid ?? 0);
+      } else {
+        aVal = String(a[sortField] ?? '').toLowerCase();
+        bVal = String(b[sortField] ?? '').toLowerCase();
+      }
+      if (aVal < bVal) return sortDirection === 'asc' ? -1 : 1;
+      if (aVal > bVal) return sortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
+    return copy;
+  }, [agentsModalMonth, searchTerm, sortDirection, sortField]);
+
+  const totalPages = Math.max(1, Math.ceil(modalAgentsFilteredSorted.length / itemsPerPage));
+  const pagedModalAgents = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return modalAgentsFilteredSorted.slice(start, start + itemsPerPage);
+  }, [currentPage, itemsPerPage, modalAgentsFilteredSorted]);
+
+  useEffect(() => {
+    if (currentPage > totalPages) setCurrentPage(totalPages);
+  }, [currentPage, totalPages]);
+
+  const openAgentDashboard = (row: PaidHistoryAgentRow, monthIndex: number) => {
+    if (!row.agentId) {
+      showToast('Missing agent id for this record.', 'error');
       return;
     }
-
-    const headers = [
-      'Agent Name',
-      'Email',
-      'Phone Number',
-      'Bank Name',
-      'Account Number',
-      'Applications Count',
-      'Commission To Receive (RWF)',
-    ];
-
-    const csvRows = rows.map((a) => [
-      a.name,
-      a.email ?? '',
-      a.phoneNumber ?? '',
-      a.bankName ?? '',
-      a.bankAccountNumber ?? '',
-      String(a.applicationsCount ?? 0),
-      String(a.totalCommission ?? 0),
-    ]);
-
-    const csv = toCsv([headers, ...csvRows]);
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `finance_paid_${batch.monthYear.label.replace(' ', '_')}_payouts.csv`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+    setAgentDetail({
+      agentId: row.agentId,
+      name: row.name || 'Agent',
+      email: row.email || '',
+      monthIndex,
+    });
   };
+
+  const closeAgentsModal = () => {
+    setAgentsModalMonth(null);
+    setAgentDetail(null);
+  };
+
+  const monthShort = (full: string) => full.slice(0, 3);
 
   return (
     <MainLayout containerClass="p-0" fullWidth>
@@ -145,16 +177,22 @@ export default function FinanceHistoryView() {
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
               <div>
                 <h1 className="text-3xl font-bold mb-1">Payment History</h1>
-                <p className="text-blue-100 text-sm">Paid snapshots by month. Drill into agents and applications for verification.</p>
+                <p className="text-blue-100 text-sm">
+                  Paid commission totals by month. Open a month to see agents, then open an agent for full profile and analytics.
+                </p>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex flex-col gap-1 w-full sm:w-auto">
+                <label className="text-[11px] uppercase tracking-wide text-blue-200/90 flex items-center gap-1.5">
+                  <Calendar className="w-3.5 h-3.5" />
+                  Year
+                </label>
                 <select
                   value={year}
                   onChange={(e) => setYear(Number(e.target.value))}
-                  className="px-3 py-2 border border-white/30 bg-white/10 text-white rounded-xl text-sm"
+                  className="px-3 py-2.5 border border-white/30 bg-white/10 text-white rounded-xl text-sm min-w-[140px] focus:outline-none focus:ring-2 focus:ring-cyan-400/50"
                 >
-                  {years.map((y) => (
-                    <option key={y} value={y}>
+                  {yearOptions.map((y) => (
+                    <option key={y} value={y} className="text-gray-900">
                       {y}
                     </option>
                   ))}
@@ -165,173 +203,239 @@ export default function FinanceHistoryView() {
         </div>
 
         <div className="mt-6 bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-          <div className="p-6 border-b border-gray-100 flex items-start justify-between gap-4">
-            <div>
-              <h2 className="text-xl font-semibold text-gray-900">Paid Batches</h2>
-              <p className="text-sm text-gray-500">Select a month to view agents and application lines.</p>
-            </div>
+          <div className="p-6 border-b border-gray-100">
+            <h2 className="text-xl font-semibold text-gray-900">Paid totals by month</h2>
+            <p className="text-sm text-gray-500 mt-1">Twelve months for {year}. Data from the finance paid-batches API.</p>
           </div>
 
           {isLoading ? (
             <div className="py-16 flex flex-col items-center justify-center">
               <Loader2 className="w-10 h-10 text-indigo-600 animate-spin mb-4" />
-              <p className="text-gray-600">Loading history…</p>
-            </div>
-          ) : paidBatches.length === 0 ? (
-            <div className="py-16 text-center">
-              <AlertCircle className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-              <p className="font-semibold text-gray-900">No paid batches for {year}</p>
-              <p className="text-sm text-gray-600 mt-1">When finance marks a batch as paid, it appears here.</p>
+              <p className="text-gray-600">Loading {year}…</p>
             </div>
           ) : (
-            <div className="overflow-x-auto p-5">
-              <table className="min-w-full divide-y divide-gray-200 text-xs">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-4 py-3 text-left font-medium text-gray-500 uppercase tracking-wider">Month</th>
-                    <th className="px-4 py-3 text-left font-medium text-gray-500 uppercase tracking-wider">Agents</th>
-                    <th className="px-4 py-3 text-right font-medium text-gray-500 uppercase tracking-wider">Total Paid</th>
-                    <th className="px-4 py-3 text-right font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100 bg-white">
-                  {paidBatches
-                    .slice()
-                    .sort((a, b) => (a.monthYear.month - b.monthYear.month))
-                    .map((b) => {
-                      const agentRows = agentsByBatchKey[batchKey(b)] ?? [];
-                      const total = agentRows.reduce((s, a) => s + Number(a.totalCommission ?? 0), 0);
-                      return (
-                        <tr key={b.id} className="hover:bg-gray-50">
-                          <td className="px-4 py-3 font-semibold text-gray-900">{b.monthYear.label}</td>
-                          <td className="px-4 py-3 text-gray-700">{agentRows.length}</td>
-                          <td className="px-4 py-3 text-right font-semibold text-gray-900">{formatCurrency(total)}</td>
-                          <td className="px-4 py-3 text-right">
-                            <div className="flex items-center justify-end gap-2">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="gap-2"
-                                onClick={() => setAgentsModalBatch(b)}
-                              >
-                                <Eye className="h-4 w-4" />
-                                View agents
-                              </Button>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="gap-2"
-                                onClick={() => downloadBatchSheet(b)}
-                              >
-                                <Download className="h-4 w-4" />
-                                Export
-                              </Button>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                </tbody>
-              </table>
+            <div className="p-5">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                {months.map((block) => {
+                  const agentCount = block.agents.length;
+                  const hasActivity = agentCount > 0 || block.totalMonthPaid > 0;
+                  return (
+                    <div
+                      key={block.monthName}
+                      className={`rounded-2xl border p-4 flex flex-col gap-3 min-h-[140px] ${
+                        hasActivity ? 'border-indigo-200 bg-indigo-50/40' : 'border-gray-100 bg-gray-50/50'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <div className="text-xs font-semibold uppercase tracking-wide text-indigo-600/90">
+                            {monthShort(block.monthName)}
+                          </div>
+                          <div className="text-base font-bold text-gray-900 leading-tight">{block.monthName}</div>
+                        </div>
+                      </div>
+                      <div className="space-y-1 text-sm">
+                        <div className="text-gray-600">
+                          <span className="font-medium text-gray-900">{agentCount}</span> agent{agentCount === 1 ? '' : 's'}
+                        </div>
+                        <div className="font-semibold text-gray-900">{formatCurrency(block.totalMonthPaid)}</div>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="mt-auto w-full gap-2"
+                        onClick={() => setAgentsModalMonth(block)}
+                      >
+                        <Eye className="h-4 w-4" />
+                        View details
+                      </Button>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           )}
         </div>
       </div>
 
-      <FinanceApplicationsByAgentModalUI
-        isOpen={Boolean(agentModalAgent && agentsModalBatch)}
-        onClose={() => setAgentModalAgent(null)}
-        context="paid"
-        agent={agentModalAgent}
-        month={agentsModalBatch?.monthYear.month}
-        year={agentsModalBatch?.monthYear.year}
-      />
-
-      {/* Agents modal */}
-      {agentsModalBatch && (
-        <div className="fixed inset-0 bg-gray-600/50 flex items-center justify-center z-[60] p-4">
+      {/* Agents for selected month — sortable, paginated */}
+      {agentsModalMonth && (
+        <div className="fixed inset-0 bg-gray-600/50 flex items-center justify-center z-40 p-4">
           <div className="bg-white rounded-2xl shadow-2xl max-w-5xl w-full max-h-[92vh] overflow-hidden flex flex-col">
             <div className="p-5 border-b border-gray-100 flex items-start justify-between gap-4">
               <div>
-                <h3 className="text-2xl font-bold text-gray-900">Agents • {agentsModalBatch.monthYear.label}</h3>
-                <p className="text-sm text-gray-600">Click View to verify applications that built the snapshot total.</p>
+                <h3 className="text-2xl font-bold text-gray-900">
+                  Agents paid • {agentsModalMonth.monthName} {year}
+                </h3>
+                <p className="text-sm text-gray-600 mt-1">
+                  Total {formatCurrency(agentsModalMonth.totalMonthPaid)} · {agentsModalMonth.agents.length} agent
+                  {agentsModalMonth.agents.length === 1 ? '' : 's'}
+                </p>
               </div>
-              <button onClick={() => setAgentsModalBatch(null)} className="text-gray-400 hover:text-gray-600 cursor-pointer">
+              <button
+                type="button"
+                onClick={closeAgentsModal}
+                className="text-gray-400 hover:text-gray-600 cursor-pointer shrink-0"
+                aria-label="Close"
+              >
                 <svg className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
             </div>
 
-            <div className="p-5 overflow-y-auto">
-              {(() => {
-                const agentRows = agentsByBatchKey[batchKey(agentsModalBatch)] ?? [];
-                if (!agentRows.length) {
-                  return <p className="text-sm text-gray-600">No agents found.</p>;
-                }
-                return (
-                  <div className="overflow-x-auto">
+            <div className="p-5 overflow-y-auto flex-1 min-h-0">
+              <div className="mb-4 flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
+                <input
+                  value={searchTerm}
+                  onChange={(e) => {
+                    setSearchTerm(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                  placeholder="Search name, email, bank, phone…"
+                  className="w-full sm:max-w-xs px-3 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              {modalAgentsFilteredSorted.length === 0 ? (
+                <p className="text-sm text-gray-600 py-6 text-center">No agents match this filter for this month.</p>
+              ) : (
+                <>
+                  <div className="overflow-x-auto rounded-xl border border-gray-100">
                     <table className="min-w-full divide-y divide-gray-200 text-xs">
-                      <thead className="bg-gray-50">
+                      <thead className="bg-slate-50">
                         <tr>
-                          <th className="px-4 py-3 text-left font-medium text-gray-500 uppercase tracking-wider">Agent</th>
-                          <th className="px-4 py-3 text-left font-medium text-gray-500 uppercase tracking-wider">Bank</th>
-                          <th className="px-4 py-3 text-right font-medium text-gray-500 uppercase tracking-wider">Commission</th>
-                          <th className="px-4 py-3 text-right font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                          <th className="px-4 py-3 text-left font-semibold text-gray-600 uppercase tracking-wider">
+                            <button type="button" onClick={() => handleSort('name')} className="inline-flex items-center gap-1.5">
+                              Agent
+                              <SortIcon field="name" />
+                            </button>
+                          </th>
+                          <th className="px-4 py-3 text-left font-semibold text-gray-600 uppercase tracking-wider">
+                            <button type="button" onClick={() => handleSort('email')} className="inline-flex items-center gap-1.5">
+                              Email
+                              <SortIcon field="email" />
+                            </button>
+                          </th>
+                          <th className="px-4 py-3 text-left font-semibold text-gray-600 uppercase tracking-wider">
+                            <button type="button" onClick={() => handleSort('bankName')} className="inline-flex items-center gap-1.5">
+                              Bank
+                              <SortIcon field="bankName" />
+                            </button>
+                          </th>
+                          <th className="px-4 py-3 text-right font-semibold text-gray-600 uppercase tracking-wider">
+                            <button
+                              type="button"
+                              onClick={() => handleSort('totalPaid')}
+                              className="ml-auto inline-flex items-center gap-1.5"
+                            >
+                              Total paid
+                              <SortIcon field="totalPaid" />
+                            </button>
+                          </th>
+                          <th className="px-4 py-3 text-right font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-100 bg-white">
-                        {agentRows.map((a) => (
-                          <tr key={a.agentId} className="hover:bg-gray-50">
-                            <td className="px-4 py-3">
-                              <div className="font-semibold text-gray-900">{a.name}</div>
-                            </td>
+                        {pagedModalAgents.map((a, idx) => (
+                          <tr
+                            key={a.agentId || `agent-${(currentPage - 1) * itemsPerPage + idx}`}
+                            className="hover:bg-indigo-50/40"
+                          >
+                            <td className="px-4 py-3 font-semibold text-gray-900">{a.name || '—'}</td>
+                            <td className="px-4 py-3 text-gray-700">{a.email || '—'}</td>
                             <td className="px-4 py-3 text-gray-700">
                               <div className="font-medium">{a.bankName ?? '—'}</div>
                               <div className="text-[11px] text-gray-500">{a.bankAccountNumber ?? '—'}</div>
                             </td>
-                            <td className="px-4 py-3 text-right font-semibold text-gray-900">{formatCurrency(a.totalCommission)}</td>
+                            <td className="px-4 py-3 text-right font-semibold text-gray-900">{formatCurrency(a.totalPaid)}</td>
                             <td className="px-4 py-3 text-right whitespace-nowrap">
-                              <div className="flex items-center justify-end">
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="gap-2"
-                                  onClick={() =>
-                                    setAgentModalAgent({
-                                      agentId: a.agentId,
-                                      name: a.name,
-                                      email: a.email,
-                                      phoneNumber: a.phoneNumber,
-                                      bankName: a.bankName,
-                                      bankAccountNumber: a.bankAccountNumber,
-                                    })
-                                  }
-                                >
-                                  <Eye className="h-4 w-4" />
-                                  <span className="hidden sm:inline">View details</span>
-                                  <span className="sm:hidden">View</span>
-                                </Button>
-                              </div>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="gap-2"
+                                onClick={() => openAgentDashboard(a, agentsModalMonth.monthIndex)}
+                              >
+                                <Eye className="h-4 w-4" />
+                                <span className="hidden sm:inline">View</span>
+                              </Button>
                             </td>
                           </tr>
                         ))}
                       </tbody>
                     </table>
                   </div>
-                );
-              })()}
+
+                  <div className="mt-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <div className="flex items-center gap-2 text-xs text-gray-600">
+                      <span>Items per page</span>
+                      <select
+                        value={itemsPerPage}
+                        onChange={(e) => {
+                          setItemsPerPage(Number(e.target.value));
+                          setCurrentPage(1);
+                        }}
+                        className="rounded-lg border border-gray-200 px-2 py-1 text-xs"
+                      >
+                        {[5, 10, 20, 50].map((size) => (
+                          <option key={size} value={size}>
+                            {size}
+                          </option>
+                        ))}
+                      </select>
+                      <span>
+                        Showing {modalAgentsFilteredSorted.length === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1}–
+                        {Math.min(currentPage * itemsPerPage, modalAgentsFilteredSorted.length)} of{' '}
+                        {modalAgentsFilteredSorted.length}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                        disabled={currentPage === 1}
+                      >
+                        Previous
+                      </Button>
+                      <span className="text-xs text-gray-600">
+                        Page {currentPage} of {totalPages}
+                      </span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                        disabled={currentPage === totalPages}
+                      >
+                        Next
+                      </Button>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
 
-            <div className="p-5 border-t border-gray-100 flex justify-end">
-              <Button variant="outline" onClick={() => setAgentsModalBatch(null)}>
+            <div className="p-5 border-t border-gray-100 flex justify-end shrink-0">
+              <Button variant="outline" onClick={closeAgentsModal}>
                 Close
               </Button>
             </div>
           </div>
         </div>
       )}
+
+      {agentDetail && (
+        <AgentDetailModal
+          isOpen
+          onClose={() => setAgentDetail(null)}
+          agentId={agentDetail.agentId}
+          agentName={agentDetail.name}
+          agentEmail={agentDetail.email}
+          token={token ?? ''}
+          initialStartDate={`${year}-${String(agentDetail.monthIndex).padStart(2, '0')}-01`}
+          initialEndDate={isoEndOfMonth(year, agentDetail.monthIndex)}
+        />
+      )}
     </MainLayout>
   );
 }
-

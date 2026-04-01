@@ -112,3 +112,22 @@ export type FinancePaymentSheet = {
   agents: FinanceAgentTotals[];
 };
 
+/** One agent row inside GET /getPaidBatchesByYear month block */
+export type PaidHistoryAgentRow = {
+  agentId: string;
+  name: string;
+  email: string;
+  phoneNumber?: string;
+  bankName?: string;
+  bankAccountNumber?: string;
+  totalPaid: number;
+};
+
+/** Normalized month block (always 1–12) for payment history UI */
+export type PaidHistoryMonthBlock = {
+  monthIndex: number; // 1–12
+  monthName: string;
+  totalMonthPaid: number;
+  agents: PaidHistoryAgentRow[];
+};
+
