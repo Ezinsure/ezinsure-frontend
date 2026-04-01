@@ -2,7 +2,17 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowDown, ArrowUp, ArrowUpDown, ChevronLeft, Eye, FileSpreadsheet, Loader2, Search } from 'lucide-react';
+import {
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
+  CheckCircle2,
+  ChevronLeft,
+  Eye,
+  FileSpreadsheet,
+  Loader2,
+  Search,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { MainLayout } from '@/components/ui/main-layout';
 import { useToast } from '@/components/ui/toast';
@@ -31,11 +41,12 @@ function toCsv(rows: string[][]) {
 
 export default function FinancePaymentInitiatedView() {
   const router = useRouter();
-  const api = useFinanceApi();
+  const { getAgentsCommissionBreakdown, markAsPaidForRange } = useFinanceApi();
   const { showToast } = useToast();
 
   const [agents, setAgents] = useState<FinanceAgentTotals[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isMarkingPaid, setIsMarkingPaid] = useState(false);
   const [agentModalOpenFor, setAgentModalOpenFor] = useState<FinanceAgent | null>(null);
   const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
@@ -67,7 +78,7 @@ export default function FinancePaymentInitiatedView() {
     const run = async () => {
       setIsLoading(true);
       try {
-        const rows = await api.getAgentsCommissionBreakdown(selectedRange, 'PAYMENT_INITIATED');
+        const rows = await getAgentsCommissionBreakdown(selectedRange, 'PAYMENT_INITIATED');
         if (!cancelled) setAgents(rows);
       } catch {
         if (!cancelled) setAgents([]);
@@ -79,7 +90,7 @@ export default function FinancePaymentInitiatedView() {
     return () => {
       cancelled = true;
     };
-  }, [api, selectedRange]);
+  }, [getAgentsCommissionBreakdown, selectedRange]);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -192,6 +203,25 @@ export default function FinancePaymentInitiatedView() {
     URL.revokeObjectURL(url);
   };
 
+  const markSelectedMonthPaid = async () => {
+    if (!hasInitiatedRows) {
+      showToast('No payment-initiated applications in this month to mark as paid.', 'info');
+      return;
+    }
+    setIsMarkingPaid(true);
+    try {
+      await markAsPaidForRange(selectedRange);
+      showToast('Applications marked as paid for the selected month.', 'success');
+      const rows = await getAgentsCommissionBreakdown(selectedRange, 'PAYMENT_INITIATED');
+      setAgents(rows);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to mark as paid.';
+      showToast(message, 'error');
+    } finally {
+      setIsMarkingPaid(false);
+    }
+  };
+
   return (
     <MainLayout containerClass="p-0" fullWidth>
       <div className="container mx-auto px-4 py-8">
@@ -295,14 +325,26 @@ export default function FinancePaymentInitiatedView() {
               </div>
 
               <div className="p-5">
-                <div className="mb-4 relative w-full sm:w-80">
-                  <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                  <input
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    placeholder="Search agent, bank, contact..."
-                    className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  />
+                <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="relative w-full sm:flex-1 sm:min-w-0 sm:max-w-md">
+                    <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <input
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      placeholder="Search agent, bank, contact..."
+                      className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    className="w-full shrink-0 bg-emerald-600 hover:bg-emerald-500 text-white gap-2 sm:w-auto shadow-sm"
+                    onClick={markSelectedMonthPaid}
+                    disabled={isMarkingPaid || isLoading || !hasInitiatedRows}
+                  >
+                    {isMarkingPaid ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                    Mark as paid
+                  </Button>
                 </div>
 
                 {isLoading ? (

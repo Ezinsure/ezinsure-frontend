@@ -34,14 +34,14 @@ type FinanceApplicationStatusFilter = 'PAID' | 'READY_TO_BE_PAID' | 'PAYMENT_INI
 //   - GET /finance/payment-history/applications-by-agent?agentId&month&year
 //   - GET /finance/payment-history/application-details?id
 //
-// 4) Actions
-//   - PUT /finance/initiate-payment?startMonth&startYear&endMonth&endYear
-//   - PUT /finance/mark-batch-paid?batchId
+// 4) Actions (backend)
+//   - PUT /initiatePayment?startDate&endDate
+//   - PUT /markAsPaid?startDate&endDate
 //
-// For now, this module uses a local dummy store.
+// Accrual/initiated detail paths still use the local dummy store where noted.
 
 export function useFinanceApi() {
-  const { agents, applications, state, actions } = useFinanceMock();
+  const { agents, applications, state } = useFinanceMock();
   const { apiFetch } = useApiClient();
   const [isPending, setIsPending] = useState(false);
 
@@ -251,17 +251,50 @@ export function useFinanceApi() {
 
   const initiatePaymentForRange = useCallback(
     async (range: FinanceDateRange) => {
-      const months = monthRange(range.startDate, range.endDate);
-      await actions.initiatePaymentForMonths(months);
+      const params = new URLSearchParams({
+        startDate: range.startDate,
+        endDate: range.endDate,
+      });
+      const response = await apiFetch(`/initiatePayment?${params.toString()}`, {
+        method: 'PUT',
+      });
+      if (!response.ok) {
+        let message = `Initiate payment failed (${response.status})`;
+        try {
+          const body = (await response.json()) as { error?: string; message?: string };
+          if (typeof body?.error === 'string') message = body.error;
+          else if (typeof body?.message === 'string') message = body.message;
+        } catch {
+          // ignore
+        }
+        throw new Error(message);
+      }
     },
-    [actions, monthRange],
+    [apiFetch],
   );
 
-  const markBatchPaid = useCallback(
-    async (batchId: string) => {
-      await actions.markBatchAsPaid(batchId);
+  const markAsPaidForRange = useCallback(
+    async (range: FinanceDateRange) => {
+      const params = new URLSearchParams({
+        startDate: range.startDate,
+        endDate: range.endDate,
+      });
+      const response = await apiFetch(`/markAsPaid?${params.toString()}`, {
+        method: 'PUT',
+      });
+      if (!response.ok) {
+        let message = `Mark as paid failed (${response.status})`;
+        try {
+          const body = (await response.json()) as { error?: string; message?: string };
+          if (typeof body?.error === 'string') message = body.error;
+          else if (typeof body?.message === 'string') message = body.message;
+        } catch {
+          // ignore
+        }
+        throw new Error(message);
+      }
     },
-    [actions],
+    [apiFetch],
   );
 
   const getFinanceAgentStats = useCallback(
@@ -455,7 +488,7 @@ export function useFinanceApi() {
       getInitiatedApplicationsByAgent,
       getApplicationDetails,
       initiatePaymentForRange,
-      markBatchPaid,
+      markAsPaidForRange,
       getFinanceAgentStats,
       getAgentsCommissionBreakdown,
       getApplicationsByAnAgentFinance,
@@ -469,7 +502,7 @@ export function useFinanceApi() {
       getInitiatedBatches,
       initiatePaymentForRange,
       isPending,
-      markBatchPaid,
+      markAsPaidForRange,
       getFinanceAgentStats,
       getAgentsCommissionBreakdown,
       getApplicationsByAnAgentFinance,
