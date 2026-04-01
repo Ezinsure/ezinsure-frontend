@@ -2,11 +2,11 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { AlertCircle, CheckCircle2, ChevronLeft, Eye, FileSpreadsheet, Loader2 } from 'lucide-react';
+import { ArrowDown, ArrowUp, ArrowUpDown, ChevronLeft, Eye, FileSpreadsheet, Loader2, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { MainLayout } from '@/components/ui/main-layout';
 import { useToast } from '@/components/ui/toast';
-import type { FinanceAgent, FinanceAgentTotals, FinanceBatch } from './finance-domain';
+import type { FinanceAgent, FinanceAgentTotals, FinanceDateRange } from './finance-domain';
 import { useFinanceApi } from './finance-api';
 import FinanceApplicationsByAgentModalUI from './finance-applications-by-agent-modal-ui';
 
@@ -34,30 +34,43 @@ export default function FinancePaymentInitiatedView() {
   const api = useFinanceApi();
   const { showToast } = useToast();
 
-  const [batches, setBatches] = useState<FinanceBatch[]>([]);
-  const [selectedBatchId, setSelectedBatchId] = useState<string | null>(null);
   const [agents, setAgents] = useState<FinanceAgentTotals[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [agentModalOpenFor, setAgentModalOpenFor] = useState<FinanceAgent | null>(null);
-  const [markingBatchId, setMarkingBatchId] = useState<string | null>(null);
+  const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth() + 1);
+  const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
+  const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [sortField, setSortField] = useState<'name' | 'bankName' | 'applicationsCount' | 'totalCommission'>('totalCommission');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
 
-  const selectedBatch = useMemo(() => batches.find((b) => b.id === selectedBatchId) ?? null, [batches, selectedBatchId]);
+  const currentYear = useMemo(() => new Date().getFullYear(), []);
+  const currentMonth = useMemo(() => new Date().getMonth() + 1, []);
+  const availableYears = useMemo(() => Array.from({ length: 6 }, (_, idx) => currentYear - idx), [currentYear]);
+  const monthNames = useMemo(
+    () => ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+    [],
+  );
+  const selectedMonthLabel = useMemo(() => monthNames[selectedMonth - 1], [monthNames, selectedMonth]);
+  const selectedRange = useMemo<FinanceDateRange>(() => {
+    const start = new Date(Date.UTC(selectedYear, selectedMonth - 1, 1));
+    const end = new Date(Date.UTC(selectedYear, selectedMonth, 0));
+    return {
+      startDate: start.toISOString().slice(0, 10),
+      endDate: end.toISOString().slice(0, 10),
+    };
+  }, [selectedMonth, selectedYear]);
 
   useEffect(() => {
     let cancelled = false;
     const run = async () => {
       setIsLoading(true);
       try {
-        const data = await api.getInitiatedBatches();
-        if (cancelled) return;
-        setBatches(data);
-        // default select first INITIATED batch, else first batch
-        const firstInitiated = data.find((b) => b.status === 'INITIATED');
-        setSelectedBatchId((firstInitiated ?? data[0] ?? null)?.id ?? null);
+        const rows = await api.getAgentsCommissionBreakdown(selectedRange, 'PAYMENT_INITIATED');
+        if (!cancelled) setAgents(rows);
       } catch {
-        if (cancelled) return;
-        setBatches([]);
-        setSelectedBatchId(null);
+        if (!cancelled) setAgents([]);
       } finally {
         if (!cancelled) setIsLoading(false);
       }
@@ -66,30 +79,84 @@ export default function FinancePaymentInitiatedView() {
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [api, selectedRange]);
 
   useEffect(() => {
-    if (!selectedBatch) {
-      setAgents([]);
-      return;
+    setCurrentPage(1);
+  }, [searchTerm, selectedMonth, selectedYear, itemsPerPage]);
+
+  useEffect(() => {
+    if (selectedYear === currentYear && selectedMonth > currentMonth) {
+      setSelectedMonth(currentMonth);
     }
-    let cancelled = false;
-    const run = async () => {
-      const rows = await api.getInitiatedAgentTotals(selectedBatch.monthYear.month, selectedBatch.monthYear.year);
-      if (!cancelled) setAgents(rows);
-    };
-    run();
-    return () => {
-      cancelled = true;
-    };
-  }, [api, selectedBatch]);
+  }, [currentMonth, currentYear, selectedMonth, selectedYear]);
 
   const totalBatchAmount = useMemo(() => agents.reduce((s, a) => s + Number(a.totalCommission ?? 0), 0), [agents]);
+  const hasInitiatedRows = useMemo(() => agents.some((a) => Number(a.applicationsCount ?? 0) > 0), [agents]);
+
+  const filteredAgents = useMemo(() => {
+    const q = searchTerm.trim().toLowerCase();
+    if (!q) return agents;
+    return agents.filter((a) => {
+      const name = String(a.name ?? '').toLowerCase();
+      const email = String(a.email ?? '').toLowerCase();
+      const phone = String(a.phoneNumber ?? '').toLowerCase();
+      const bank = String(a.bankName ?? '').toLowerCase();
+      const account = String(a.bankAccountNumber ?? '').toLowerCase();
+      return name.includes(q) || email.includes(q) || phone.includes(q) || bank.includes(q) || account.includes(q);
+    });
+  }, [agents, searchTerm]);
+
+  const sortedAgents = useMemo(() => {
+    const rows = [...filteredAgents];
+    rows.sort((a, b) => {
+      const aVal =
+        sortField === 'applicationsCount' || sortField === 'totalCommission'
+          ? Number(a[sortField] ?? 0)
+          : String(a[sortField] ?? '').toLowerCase();
+      const bVal =
+        sortField === 'applicationsCount' || sortField === 'totalCommission'
+          ? Number(b[sortField] ?? 0)
+          : String(b[sortField] ?? '').toLowerCase();
+      if (aVal < bVal) return sortDirection === 'asc' ? -1 : 1;
+      if (aVal > bVal) return sortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
+    return rows;
+  }, [filteredAgents, sortDirection, sortField]);
+
+  const totalPages = Math.max(1, Math.ceil(sortedAgents.length / itemsPerPage));
+  const pagedAgents = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return sortedAgents.slice(start, start + itemsPerPage);
+  }, [currentPage, itemsPerPage, sortedAgents]);
+
+  useEffect(() => {
+    if (currentPage > totalPages) setCurrentPage(totalPages);
+  }, [currentPage, totalPages]);
+
+  const handleSort = (field: 'name' | 'bankName' | 'applicationsCount' | 'totalCommission') => {
+    if (sortField === field) {
+      setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortField(field);
+      setSortDirection(field === 'name' || field === 'bankName' ? 'asc' : 'desc');
+    }
+    setCurrentPage(1);
+  };
+
+  const SortIcon = ({ field }: { field: 'name' | 'bankName' | 'applicationsCount' | 'totalCommission' }) => {
+    if (sortField !== field) return <ArrowUpDown className="h-3.5 w-3.5 text-gray-400" />;
+    return sortDirection === 'asc' ? (
+      <ArrowUp className="h-3.5 w-3.5 text-indigo-600" />
+    ) : (
+      <ArrowDown className="h-3.5 w-3.5 text-indigo-600" />
+    );
+  };
 
   const downloadBatchSheet = () => {
-    if (!selectedBatch || agents.length === 0) {
-      showToast('No agents to export for the selected batch.', 'info');
+    if (agents.length === 0) {
+      showToast('No agents to export for the selected month.', 'info');
       return;
     }
 
@@ -103,7 +170,7 @@ export default function FinancePaymentInitiatedView() {
       'Commission To Receive (RWF)',
     ];
 
-    const rows = agents.map((a) => [
+    const rows = sortedAgents.map((a) => [
       a.name,
       a.email ?? '',
       a.phoneNumber ?? '',
@@ -118,29 +185,11 @@ export default function FinancePaymentInitiatedView() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `finance_batch_${selectedBatch.monthYear.label.replace(' ', '_')}_payouts.csv`;
+    link.download = `finance_batch_${selectedMonthLabel}_${selectedYear}_payouts.csv`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
-  };
-
-  const markBatchAsPaid = async (batch: FinanceBatch) => {
-    if (batch.status !== 'INITIATED') return;
-    try {
-      setMarkingBatchId(batch.id);
-      await api.markBatchPaid(batch.id);
-      showToast(`Batch marked as paid: ${batch.monthYear.label}`, 'success');
-      // refresh
-      const data = await api.getInitiatedBatches();
-      setBatches(data);
-      // keep selection by id
-      setSelectedBatchId((prev) => prev ?? data[0]?.id ?? null);
-    } catch {
-      showToast('Failed to mark batch as paid.', 'error');
-    } finally {
-      setMarkingBatchId(null);
-    }
   };
 
   return (
@@ -164,7 +213,7 @@ export default function FinancePaymentInitiatedView() {
                   size="sm"
                   className="border-white/40 bg-transparent text-white hover:bg-white/10 gap-2"
                   onClick={downloadBatchSheet}
-                  disabled={!selectedBatch}
+                  disabled={agents.length === 0}
                 >
                   <FileSpreadsheet className="w-4 h-4" />
                   Download Sheet
@@ -187,51 +236,46 @@ export default function FinancePaymentInitiatedView() {
           <div className="xl:col-span-1 bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
             <div className="p-5 border-b border-gray-100">
               <h2 className="text-lg font-semibold text-gray-900">Monthly Batches</h2>
-              <p className="text-sm text-gray-500">Mark as paid once transfers are confirmed.</p>
+              <p className="text-sm text-gray-500">Select a month to load payout list for {currentYear}.</p>
             </div>
 
-            <div className="p-3 max-h-[60vh] overflow-y-auto">
-              {isLoading ? (
-                <div className="py-12 flex flex-col items-center justify-center">
-                  <Loader2 className="w-10 h-10 text-indigo-600 animate-spin mb-3" />
-                  <p className="text-gray-600">Loading batches…</p>
-                </div>
-              ) : batches.length === 0 ? (
-                <div className="py-12 text-center">
-                  <AlertCircle className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                  <p className="font-semibold text-gray-900">No initiated batches</p>
-                  <p className="text-sm text-gray-600 mt-1">Initiate a range from the dashboard.</p>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {batches.map((b) => {
-                    const isActive = b.id === selectedBatchId;
-                    return (
-                      <button
-                        key={b.id}
-                        onClick={() => setSelectedBatchId(b.id)}
-                        className={`w-full text-left px-4 py-3 rounded-xl border transition ${
-                          isActive
-                            ? 'border-indigo-200 bg-indigo-50'
-                            : 'border-gray-100 hover:border-gray-200 bg-white'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between gap-3">
-                          <div>
-                            <div className="font-semibold text-gray-900">{b.monthYear.label}</div>
-                            <div className="text-[11px] text-gray-500">{b.status}</div>
-                          </div>
-                          <div className={`text-[11px] font-semibold px-2 py-1 rounded-full ${
-                            b.status === 'PAID' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'
-                          }`}>
-                            {b.status === 'PAID' ? 'Paid' : 'Initiated'}
-                          </div>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
+            <div className="p-4">
+              <div className="mb-3">
+                <label className="block text-xs font-medium text-gray-600 mb-1">Year</label>
+                <select
+                  value={selectedYear}
+                  onChange={(e) => setSelectedYear(Number(e.target.value))}
+                  className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm bg-white"
+                >
+                  {availableYears.map((year) => (
+                    <option key={year} value={year}>
+                      {year}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                {monthNames.map((month, idx) => {
+                  const monthNumber = idx + 1;
+                  const isActive = monthNumber === selectedMonth;
+                  const isFutureMonth = selectedYear === currentYear && monthNumber > currentMonth;
+                  return (
+                    <button
+                      key={month}
+                      type="button"
+                      onClick={() => setSelectedMonth(monthNumber)}
+                      disabled={isFutureMonth}
+                      className={`h-16 rounded-xl border text-sm font-semibold transition ${
+                        isActive
+                          ? 'border-indigo-300 bg-indigo-50 text-indigo-700 shadow-sm'
+                          : 'border-gray-200 bg-white text-gray-700 hover:border-indigo-200 hover:bg-indigo-50/40'
+                      } ${isFutureMonth ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}
+                    >
+                      {month}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </div>
 
@@ -241,91 +285,162 @@ export default function FinancePaymentInitiatedView() {
                 <div>
                   <h2 className="text-xl font-semibold text-gray-900">Agent Payout List</h2>
                   <p className="text-sm text-gray-500">
-                    {selectedBatch ? `Snapshot for ${selectedBatch.monthYear.label}` : 'Select a batch to view snapshot details.'}
+                    {`Ready-to-be-paid applications for ${selectedMonthLabel} ${selectedYear}`}
                   </p>
                 </div>
-                {selectedBatch && (
-                  <div className="text-right">
-                    <div className="text-xs text-gray-500 uppercase tracking-wider">Total</div>
-                    <div className="text-2xl font-bold text-gray-900 mt-1">{formatCurrency(totalBatchAmount)}</div>
-                  </div>
-                )}
+                <div className="text-right">
+                  <div className="text-xs text-gray-500 uppercase tracking-wider">Total</div>
+                  <div className="text-2xl font-bold text-gray-900 mt-1">{formatCurrency(totalBatchAmount)}</div>
+                </div>
               </div>
 
               <div className="p-5">
-                {selectedBatch && agents.length > 0 ? (
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200 text-xs">
-                      <thead className="bg-gray-50">
-                        <tr>
-                          <th className="px-4 py-3 text-left font-medium text-gray-500 uppercase tracking-wider">Agent</th>
-                          <th className="px-4 py-3 text-left font-medium text-gray-500 uppercase tracking-wider">Bank</th>
-                          <th className="px-4 py-3 text-left font-medium text-gray-500 uppercase tracking-wider">Contact</th>
-                          <th className="px-4 py-3 text-right font-medium text-gray-500 uppercase tracking-wider">Commission</th>
-                          <th className="px-4 py-3 text-right font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-100 bg-white">
-                        {agents.map((a) => (
-                          <tr key={a.agentId} className="hover:bg-gray-50">
-                            <td className="px-4 py-3">
-                              <div className="font-semibold text-gray-900">{a.name}</div>
-                            </td>
-                            <td className="px-4 py-3">
-                              <div className="font-medium text-gray-800">{a.bankName ?? '—'}</div>
-                              <div className="text-[11px] text-gray-500">{a.bankAccountNumber ?? '—'}</div>
-                            </td>
-                            <td className="px-4 py-3">
-                              <div className="font-medium text-gray-800">{a.email ?? '—'}</div>
-                              <div className="text-[11px] text-gray-500">{a.phoneNumber ?? '—'}</div>
-                            </td>
-                            <td className="px-4 py-3 text-right font-semibold text-gray-900">{formatCurrency(a.totalCommission)}</td>
-                          <td className="px-4 py-3 text-right whitespace-nowrap">
-                            <div className="flex items-center justify-end">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="gap-2"
-                                onClick={() =>
-                                  setAgentModalOpenFor({
-                                    agentId: a.agentId,
-                                    name: a.name,
-                                    email: a.email,
-                                    phoneNumber: a.phoneNumber,
-                                    bankName: a.bankName,
-                                    bankAccountNumber: a.bankAccountNumber,
-                                  })
-                                }
-                              >
-                                <Eye className="h-4 w-4" />
-                                <span className="hidden sm:inline">View details</span>
-                                <span className="sm:hidden">View</span>
-                              </Button>
-                            </div>
-                            </td>
+                <div className="mb-4 relative w-full sm:w-80">
+                  <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <input
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    placeholder="Search agent, bank, contact..."
+                    className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+
+                {isLoading ? (
+                  <div className="py-10 flex flex-col items-center justify-center">
+                    <Loader2 className="w-10 h-10 text-indigo-600 animate-spin mb-3" />
+                    <p className="text-gray-600">Loading agents…</p>
+                  </div>
+                ) : sortedAgents.length > 0 ? (
+                  <>
+                    <div className="overflow-x-auto rounded-xl border border-gray-100">
+                      <table className="min-w-full divide-y divide-gray-200 text-xs">
+                        <thead className="bg-slate-50">
+                          <tr>
+                            <th className="px-4 py-3 text-left font-semibold text-gray-600 uppercase tracking-wider">
+                              <button type="button" onClick={() => handleSort('name')} className="inline-flex items-center gap-1.5">
+                                Agent
+                                <SortIcon field="name" />
+                              </button>
+                            </th>
+                            <th className="px-4 py-3 text-left font-semibold text-gray-600 uppercase tracking-wider">
+                              <button type="button" onClick={() => handleSort('bankName')} className="inline-flex items-center gap-1.5">
+                                Bank
+                                <SortIcon field="bankName" />
+                              </button>
+                            </th>
+                            <th className="px-4 py-3 text-left font-semibold text-gray-600 uppercase tracking-wider">Contact</th>
+                            <th className="px-4 py-3 text-right font-semibold text-gray-600 uppercase tracking-wider">
+                              <button type="button" onClick={() => handleSort('applicationsCount')} className="ml-auto inline-flex items-center gap-1.5">
+                                Applications
+                                <SortIcon field="applicationsCount" />
+                              </button>
+                            </th>
+                            <th className="px-4 py-3 text-right font-semibold text-gray-600 uppercase tracking-wider">
+                              <button type="button" onClick={() => handleSort('totalCommission')} className="ml-auto inline-flex items-center gap-1.5">
+                                Commission
+                                <SortIcon field="totalCommission" />
+                              </button>
+                            </th>
+                            <th className="px-4 py-3 text-right font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                ) : selectedBatch ? (
-                  <div className="py-10 text-center">
-                    <p className="text-gray-600">No applications in this snapshot.</p>
-                  </div>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100 bg-white">
+                          {pagedAgents.map((a) => (
+                            <tr key={a.agentId} className="hover:bg-indigo-50/40 transition-colors">
+                              <td className="px-4 py-3">
+                                <div className="font-semibold text-gray-900">{a.name}</div>
+                              </td>
+                              <td className="px-4 py-3">
+                                <div className="font-medium text-gray-800">{a.bankName ?? '—'}</div>
+                                <div className="text-[11px] text-gray-500">{a.bankAccountNumber ?? '—'}</div>
+                              </td>
+                              <td className="px-4 py-3">
+                                <div className="font-medium text-gray-800">{a.email ?? '—'}</div>
+                                <div className="text-[11px] text-gray-500">{a.phoneNumber ?? '—'}</div>
+                              </td>
+                              <td className="px-4 py-3 text-right font-medium text-gray-700">{a.applicationsCount}</td>
+                              <td className="px-4 py-3 text-right font-semibold text-gray-900">{formatCurrency(a.totalCommission)}</td>
+                              <td className="px-4 py-3 text-right whitespace-nowrap">
+                                <div className="flex items-center justify-end">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="gap-2"
+                                    onClick={() =>
+                                      setAgentModalOpenFor({
+                                        agentId: a.agentId,
+                                        name: a.name,
+                                        email: a.email,
+                                        phoneNumber: a.phoneNumber,
+                                        bankName: a.bankName,
+                                        bankAccountNumber: a.bankAccountNumber,
+                                      })
+                                    }
+                                  >
+                                    <Eye className="h-4 w-4" />
+                                    <span className="hidden sm:inline">View details</span>
+                                    <span className="sm:hidden">View</span>
+                                  </Button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    <div className="mt-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                      <div className="flex items-center gap-2 text-xs text-gray-600">
+                        <span>Items per page</span>
+                        <select
+                          value={itemsPerPage}
+                          onChange={(e) => setItemsPerPage(Number(e.target.value))}
+                          className="rounded-lg border border-gray-200 px-2 py-1 text-xs"
+                        >
+                          {[5, 10, 20, 50].map((size) => (
+                            <option key={size} value={size}>
+                              {size}
+                            </option>
+                          ))}
+                        </select>
+                        <span>
+                          Showing {sortedAgents.length === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1}-
+                          {Math.min(currentPage * itemsPerPage, sortedAgents.length)} of {sortedAgents.length}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button variant="outline" size="sm" onClick={() => setCurrentPage((p) => Math.max(1, p - 1))} disabled={currentPage === 1}>
+                          Previous
+                        </Button>
+                        <span className="text-xs text-gray-600">
+                          Page {currentPage} of {totalPages}
+                        </span>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                          disabled={currentPage === totalPages}
+                        >
+                          Next
+                        </Button>
+                      </div>
+                    </div>
+                  </>
                 ) : (
                   <div className="py-10 text-center">
-                    <p className="text-gray-600">Select a batch to view snapshot totals.</p>
+                    <p className="text-gray-600">
+                      No payment was initiated for any applications in {selectedMonthLabel} {selectedYear}.
+                    </p>
                   </div>
                 )}
               </div>
             </div>
 
-            {selectedBatch && (
-              <div className="flex items-center justify-between gap-3 bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+            <div className="flex items-center justify-between gap-3 bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
                 <div>
-                  <div className="text-sm text-gray-600">Batch status</div>
+                  <div className="text-sm text-gray-600">Month status</div>
                   <div className="font-semibold text-gray-900 text-lg">
-                    {selectedBatch.status === 'PAID' ? 'Paid' : 'Payment initiated (snapshot frozen)'}
+                    {hasInitiatedRows ? 'Payment initiated (awaiting payment)' : 'No initiated payout'}
                   </div>
                 </div>
                 <div className="flex gap-2">
@@ -339,23 +454,8 @@ export default function FinancePaymentInitiatedView() {
                     <FileSpreadsheet className="w-4 h-4" />
                     Export
                   </Button>
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2"
-                    onClick={() => markBatchAsPaid(selectedBatch)}
-                    disabled={selectedBatch.status !== 'INITIATED' || markingBatchId === selectedBatch.id}
-                  >
-                    {markingBatchId === selectedBatch.id ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <CheckCircle2 className="w-4 h-4" />
-                    )}
-                    Mark as paid
-                  </Button>
                 </div>
               </div>
-            )}
           </div>
         </div>
       </div>
@@ -363,10 +463,11 @@ export default function FinancePaymentInitiatedView() {
       <FinanceApplicationsByAgentModalUI
         isOpen={Boolean(agentModalOpenFor)}
         onClose={() => setAgentModalOpenFor(null)}
-        context="initiated"
+        context="accrual"
         agent={agentModalOpenFor}
-        month={selectedBatch?.monthYear.month}
-        year={selectedBatch?.monthYear.year}
+        range={selectedRange}
+        applicationStatus="PAYMENT_INITIATED"
+        lockApplicationStatus
       />
     </MainLayout>
   );

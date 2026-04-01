@@ -29,7 +29,8 @@ interface FinanceApplicationsByAgentModalUIProps {
 
   // For accrual: date range. For initiated/paid: month/year.
   range?: FinanceDateRange;
-  applicationStatus?: 'PAID' | 'READY_TO_BE_PAID' | 'ALL';
+  applicationStatus?: 'PAID' | 'READY_TO_BE_PAID' | 'PAYMENT_INITIATED' | 'ALL';
+  lockApplicationStatus?: boolean;
   month?: number;
   year?: number;
 }
@@ -41,6 +42,7 @@ export default function FinanceApplicationsByAgentModalUI({
   agent,
   range,
   applicationStatus = 'READY_TO_BE_PAID',
+  lockApplicationStatus = false,
   month,
   year,
 }: FinanceApplicationsByAgentModalUIProps) {
@@ -91,7 +93,7 @@ export default function FinanceApplicationsByAgentModalUI({
     startDate: range?.startDate ?? '',
     endDate: range?.endDate ?? '',
   });
-  const [localStatus, setLocalStatus] = useState<'PAID' | 'READY_TO_BE_PAID' | 'ALL'>(applicationStatus);
+  const [localStatus, setLocalStatus] = useState<'PAID' | 'READY_TO_BE_PAID' | 'PAYMENT_INITIATED' | 'ALL'>(applicationStatus);
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
@@ -113,8 +115,9 @@ export default function FinanceApplicationsByAgentModalUI({
     return `${agent.name} • Applications`;
   }, [agent, context, localRange.endDate, localRange.startDate, month, year]);
 
-  const statusOptions: { label: string; value: 'PAID' | 'READY_TO_BE_PAID' | 'ALL' }[] = [
+  const statusOptions: { label: string; value: 'PAID' | 'READY_TO_BE_PAID' | 'PAYMENT_INITIATED' | 'ALL' }[] = [
     { label: 'Ready to be paid', value: 'READY_TO_BE_PAID' },
+    { label: 'Payment initiated', value: 'PAYMENT_INITIATED' },
     { label: 'Paid', value: 'PAID' },
     { label: 'All applications', value: 'ALL' },
   ];
@@ -355,7 +358,10 @@ export default function FinanceApplicationsByAgentModalUI({
                       <label className="text-xs font-medium text-gray-600 mb-1 block">Application status</label>
                       <select
                         value={localStatus}
-                        onChange={(e) => setLocalStatus(e.target.value as 'PAID' | 'READY_TO_BE_PAID' | 'ALL')}
+                        onChange={(e) =>
+                          setLocalStatus(e.target.value as 'PAID' | 'READY_TO_BE_PAID' | 'PAYMENT_INITIATED' | 'ALL')
+                        }
+                        disabled={lockApplicationStatus}
                         className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm bg-white"
                       >
                         {statusOptions.map((option) => (

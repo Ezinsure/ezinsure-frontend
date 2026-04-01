@@ -65,7 +65,9 @@ export default function FinanceDashboardView() {
   const [isLoading, setIsLoading] = useState(true);
   const [isInitiatingPayment, setIsInitiatingPayment] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [applicationStatus, setApplicationStatus] = useState<'PAID' | 'READY_TO_BE_PAID' | 'ALL'>('READY_TO_BE_PAID');
+  const [applicationStatus, setApplicationStatus] = useState<'PAID' | 'READY_TO_BE_PAID' | 'PAYMENT_INITIATED' | 'ALL'>(
+    'READY_TO_BE_PAID',
+  );
   const [financeStats, setFinanceStats] = useState({
     totalCommission: 0,
     totalApplications: 0,
@@ -78,7 +80,7 @@ export default function FinanceDashboardView() {
   const [sortField, setSortField] = useState<'name' | 'bankName' | 'applicationsCount' | 'totalCommission'>('totalCommission');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
 
-  const statusOptions: { label: string; value: 'PAID' | 'READY_TO_BE_PAID' | 'ALL' }[] = [
+  const statusOptions: { label: string; value: 'PAID' | 'READY_TO_BE_PAID' | 'PAYMENT_INITIATED' | 'ALL' }[] = [
     { label: 'Ready to be paid', value: 'READY_TO_BE_PAID' },
     { label: 'Paid', value: 'PAID' },
     { label: 'All applications', value: 'ALL' },
@@ -90,7 +92,6 @@ export default function FinanceDashboardView() {
       setIsLoading(true);
       try {
         const financeAgentStatsResponse = await getFinanceAgentStats(range, applicationStatus);
-        console.log('getFinanceAgentStats response:', financeAgentStatsResponse);
         if (!cancelled) {
           setFinanceStats({
             totalCommission: Number(financeAgentStatsResponse?.totalCommission ?? 0),
@@ -323,7 +324,7 @@ export default function FinanceDashboardView() {
               <select
                 value={applicationStatus}
                 onChange={(e) =>
-                  setApplicationStatus(e.target.value as 'PAID' | 'READY_TO_BE_PAID' | 'ALL')
+                    setApplicationStatus(e.target.value as 'PAID' | 'READY_TO_BE_PAID' | 'PAYMENT_INITIATED' | 'ALL')
                 }
                 className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white"
               >
