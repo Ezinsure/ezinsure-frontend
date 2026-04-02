@@ -30,6 +30,7 @@ export default function FinanceHistoryView() {
   const { token } = useAuth();
 
   const currentYear = useMemo(() => new Date().getFullYear(), []);
+  const currentMonth = useMemo(() => new Date().getMonth() + 1, []);
   const yearOptions = useMemo(() => {
     const out: number[] = [];
     for (let y = currentYear; y >= MIN_HISTORY_YEAR; y -= 1) out.push(y);
@@ -166,6 +167,7 @@ export default function FinanceHistoryView() {
   };
 
   const monthShort = (full: string) => full.slice(0, 3);
+  const isFutureMonthForSelectedYear = (monthIndex: number) => year === currentYear && monthIndex > currentMonth;
 
   return (
     <MainLayout containerClass="p-0" fullWidth>
@@ -215,39 +217,72 @@ export default function FinanceHistoryView() {
             </div>
           ) : (
             <div className="p-5">
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+              <div className="mb-4 rounded-2xl border border-indigo-100 bg-indigo-50/50 px-4 py-3 text-sm text-indigo-900">
+                {year === currentYear
+                  ? `Showing January to ${months[currentMonth - 1]?.monthName ?? 'current month'} (${currentMonth} of 12). Upcoming months are disabled.`
+                  : `Showing all 12 months for ${year}.`}
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
                 {months.map((block) => {
                   const agentCount = block.agents.length;
                   const hasActivity = agentCount > 0 || block.totalMonthPaid > 0;
+                  const isFuture = isFutureMonthForSelectedYear(block.monthIndex);
                   return (
                     <div
                       key={block.monthName}
-                      className={`rounded-2xl border p-4 flex flex-col gap-3 min-h-[140px] ${
-                        hasActivity ? 'border-indigo-200 bg-indigo-50/40' : 'border-gray-100 bg-gray-50/50'
+                      className={`group relative overflow-hidden rounded-2xl border p-5 flex flex-col gap-4 min-h-[170px] transition-all duration-200 ${
+                        isFuture
+                          ? 'border-gray-100 bg-gray-50/80 opacity-70'
+                          : hasActivity
+                          ? 'border-indigo-200 bg-white shadow-sm hover:shadow-md hover:border-indigo-300'
+                          : 'border-gray-100 bg-white/90 hover:border-gray-200'
                       }`}
                     >
-                      <div className="flex items-start justify-between gap-2">
-                        <div>
-                          <div className="text-xs font-semibold uppercase tracking-wide text-indigo-600/90">
+                      <div
+                        className={`pointer-events-none absolute -top-14 -right-14 h-32 w-32 rounded-full blur-2xl ${
+                          isFuture ? 'bg-gray-200/60' : hasActivity ? 'bg-indigo-200/50' : 'bg-slate-200/40'
+                        }`}
+                      />
+                      <div className="relative flex items-start justify-between gap-2">
+                        <div className="space-y-1">
+                          <div className={`text-xs font-semibold uppercase tracking-wide ${isFuture ? 'text-gray-500' : 'text-indigo-600'}`}>
                             {monthShort(block.monthName)}
                           </div>
-                          <div className="text-base font-bold text-gray-900 leading-tight">{block.monthName}</div>
+                          <div className="text-lg font-bold text-gray-900 leading-tight">{block.monthName}</div>
+                        </div>
+                        <div
+                          className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${
+                            isFuture
+                              ? 'bg-gray-200 text-gray-600'
+                              : hasActivity
+                              ? 'bg-emerald-100 text-emerald-700'
+                              : 'bg-slate-100 text-slate-600'
+                          }`}
+                        >
+                          {isFuture ? 'Upcoming' : hasActivity ? 'Paid' : 'No payout'}
                         </div>
                       </div>
-                      <div className="space-y-1 text-sm">
-                        <div className="text-gray-600">
-                          <span className="font-medium text-gray-900">{agentCount}</span> agent{agentCount === 1 ? '' : 's'}
+                      <div className="relative grid grid-cols-2 gap-2 text-sm">
+                        <div className="rounded-xl bg-slate-50 border border-slate-100 px-3 py-2">
+                          <div className="text-[11px] uppercase tracking-wide text-gray-500">Agents</div>
+                          <div className="font-semibold text-gray-900 mt-0.5">
+                            {agentCount} agent{agentCount === 1 ? '' : 's'}
+                          </div>
                         </div>
-                        <div className="font-semibold text-gray-900">{formatCurrency(block.totalMonthPaid)}</div>
+                        <div className="rounded-xl bg-slate-50 border border-slate-100 px-3 py-2">
+                          <div className="text-[11px] uppercase tracking-wide text-gray-500">Total paid</div>
+                          <div className="font-semibold text-gray-900 mt-0.5">{formatCurrency(block.totalMonthPaid)}</div>
+                        </div>
                       </div>
                       <Button
                         variant="outline"
                         size="sm"
-                        className="mt-auto w-full gap-2"
+                        className="relative mt-auto w-full gap-2 rounded-xl"
+                        disabled={isFuture}
                         onClick={() => setAgentsModalMonth(block)}
                       >
                         <Eye className="h-4 w-4" />
-                        View details
+                        {isFuture ? 'Not available yet' : 'View details'}
                       </Button>
                     </div>
                   );
