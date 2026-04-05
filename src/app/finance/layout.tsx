@@ -1,6 +1,7 @@
 'use client';
 
 import { ProtectedRoute } from '@/components/ProtectedRoute';
+import { FinanceMockProvider } from '@/components/ui/finance/finance-mock-provider';
 
 export default function FinanceLayout({
   children,
@@ -9,7 +10,7 @@ export default function FinanceLayout({
 }) {
   return (
     <ProtectedRoute allowedRoles={['FINANCE']}>
-     {children}
+      <FinanceMockProvider>{children}</FinanceMockProvider>
     </ProtectedRoute>
   );
 } 
