@@ -11,6 +11,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useApiClient } from '@/utils/apiClient';
 import { Trash2, FileText, Eye, EyeClosed, Settings, Users } from 'lucide-react';
 import { rwandaProvinces } from '@/utils/rwanda-administrative';
+import { rwandaBanks } from '@/utils/rwanda-banks';
 import { MassClientCreation } from '@/components/admin/mass-client-creation';
 import { SendDueNotifications } from '@/components/admin/send-due-notifications';
 import {
@@ -768,16 +769,7 @@ export default function SuperAdminProfilePage() {
                             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[var(--main-blue)] focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
                           >
                             <option value="">Select Bank</option>
-                            {[
-                              "Bank of Kigali",
-                              "Equity Bank Rwanda",
-                              "I&M Bank Rwanda",
-                              "BPR Bank",
-                              "GT Bank Rwanda",
-                              "Zigama",
-                              "Unguka bank",
-                              "VisionFund Rwanda"
-                            ].map(bank => (
+                            {rwandaBanks.map(bank => (
                               <option key={bank} value={bank}>{bank}</option>
                             ))}
                           </select>

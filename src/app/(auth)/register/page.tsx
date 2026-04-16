@@ -10,6 +10,7 @@ import { validateForm, ValidationRules, validationPatterns } from '@/components/
 import { MainLayout } from '@/components/ui/main-layout';
 import { DocumentViewer } from '@/components/ui/document-viewer';
 import { rwandaProvinces } from '@/utils/rwanda-administrative';
+import { rwandaBanks } from '@/utils/rwanda-banks';
 import { FileInput } from '@/components/ui/file-input'; 
 import { Application, EditUserOnTrackingPage } from '@/components/ui/admin/EditUserOnTrackingPage';
 import { formatDateText, formatDateTime } from '@/utils/date-formatter';
@@ -931,18 +932,6 @@ const resetApplicationState = () => {
   setTrackingEmail('');
   setErrors({});
 };
-
-  const rwandaBanks = [
-  "Bank of Kigali",
-  "Equity Bank Rwanda",
-  "I&M Bank Rwanda",
-  "BPR Bank",
-  "GT Bank Rwanda",
-  "Zigama",
-  "Unguka bank",
-  "VisionFund Rwanda",
-];
-
 
   return (
     <MainLayout>
