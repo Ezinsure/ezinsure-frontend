@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ValidationRules, validateForm } from "@/components/ui/form-validation";
 import { AdministrativeDivision, rwandaProvinces } from '@/utils/rwanda-administrative';
+import { rwandaBanks } from '@/utils/rwanda-banks';
 import { useEffect, useState } from "react";
 // import { useState } from "react";
 
@@ -28,17 +29,6 @@ interface FormData {
   bankAccountNumber: string;
   [key: string]: string | File | null;
 }
-
-const rwandaBanks = [
-  "Bank of Kigali",
-  "Equity Bank Rwanda",
-  "I&M Bank Rwanda",
-  "BPR Bank",
-  "GT Bank Rwanda",
-  "Zigama",
-  "Unguka bank",
-  "VisionFund Rwanda",
-];
 
 interface Errors {
   [key: string]: string;
