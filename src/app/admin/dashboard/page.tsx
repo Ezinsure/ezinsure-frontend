@@ -1631,7 +1631,7 @@ const CustomTooltip: React.FC<TooltipProps<number, string>> = ({ active, payload
               <button className="rounded-xl border border-white/30 bg-white text-slate-900 font-semibold py-3 hover:bg-slate-50 transition-colors">
                 Add New Agent
               </button>
-              <Link href="/admin/agents/analytics">
+              <Link href="/finance/dashboard">
                 <button className="w-full rounded-xl border border-white/30 bg-transparent text-white font-semibold py-3 hover:bg-white/10 transition-colors">
                 View All Agents
               </button>

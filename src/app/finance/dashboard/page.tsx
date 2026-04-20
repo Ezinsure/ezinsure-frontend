@@ -1,8 +1,8 @@
 "use client";
 
-import FinanceDashboardView from '@/components/ui/finance/finance-dashboard-view';
+import AdminDashboard from '@/app/admin/dashboard/page';
 
 export default function FinanceDashboardPage() {
-  return <FinanceDashboardView />;
+  return <AdminDashboard />;
 }
 
