@@ -39,9 +39,7 @@ export const Navigation = () => {
     // Update navigation links based on user role
     if (user) {
       const rolePrefix = `/${user.role.toLowerCase()}`;
-      const newLinks = [
-        { href: `${rolePrefix}/dashboard`, label: 'Dashboard' },
-      ];
+      const newLinks: NavLink[] = [{ href: `${rolePrefix}/dashboard`, label: 'Dashboard' }];
 
       if (user.role === 'ADMIN') {
         newLinks.push(
@@ -67,6 +65,7 @@ export const Navigation = () => {
         );
       } else if (user.role === 'FINANCE') {
         newLinks.push(
+          { href: `${rolePrefix}/payments`, label: 'Payments' },
           { href: `${rolePrefix}/payment-initiated`, label: 'Initiated Payments' },
           { href: `${rolePrefix}/history`, label: 'Payment History' }
         );

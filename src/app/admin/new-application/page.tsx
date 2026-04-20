@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { FileInput } from '@/components/ui/file-input';
 import { SearchInput } from '@/components/ui/search-input';
 import { RwandaPhoneInput } from '@/components/ui/rwanda-phone-input';
-import { SearchableSelect } from '@/components/ui/searchable-select';
+import { SearchableSelect, type SearchableSelectOption } from '@/components/ui/searchable-select';
 import { DocumentViewer } from '@/components/ui/document-viewer';
 import { useToast } from '@/components/ui/toast';
 import { useAuth } from '@/context/AuthContext';
@@ -30,6 +30,17 @@ import {
   getVehicleManufactureYearBounds,
   getVehicleManufactureYearValidationError,
 } from '@/utils/vehicle-year';
+
+interface AgentEmailRecord extends SearchableSelectOption {
+  email: string;
+}
+
+interface MassApplicationsUploadResponse {
+  message: string;
+  created: number;
+  skipped: number;
+  errors: unknown[];
+}
 
 // Application statuses
 enum ApplicationStatus {
@@ -317,6 +328,98 @@ export default function AdminNewApplicationPage() {
 
     return await response.json();
   }, [apiFetch]);
+
+  type ApplicationEntryMode = 'single' | 'mass';
+  const [entryMode, setEntryMode] = useState<ApplicationEntryMode>('single');
+  const [massAgentId, setMassAgentId] = useState<string | null>(null);
+  const [massExcelFile, setMassExcelFile] = useState<File | null>(null);
+  const [massFileResetTrigger, setMassFileResetTrigger] = useState(0);
+  const [massFieldErrors, setMassFieldErrors] = useState<{ agent?: string; file?: string }>({});
+  const [isMassUploading, setIsMassUploading] = useState(false);
+  const [massUploadResult, setMassUploadResult] = useState<MassApplicationsUploadResponse | null>(null);
+
+  const resetMassUploadForm = useCallback(() => {
+    setMassAgentId(null);
+    setMassExcelFile(null);
+    setMassFieldErrors({});
+    setMassUploadResult(null);
+    setMassFileResetTrigger((n) => n + 1);
+  }, []);
+
+  const handleEntryModeChange = useCallback(
+    (mode: ApplicationEntryMode) => {
+      if (mode === 'single') {
+        resetMassUploadForm();
+      } else {
+        setMassFieldErrors({});
+        setMassUploadResult(null);
+      }
+      setEntryMode(mode);
+    },
+    [resetMassUploadForm],
+  );
+
+  const handleMassUploadSubmit = useCallback(
+    async (e: React.FormEvent) => {
+      e.preventDefault();
+      setMassUploadResult(null);
+
+      const nextErrors: { agent?: string; file?: string } = {};
+      if (!massAgentId) {
+        nextErrors.agent = 'Select the agent these applications will be credited to.';
+      }
+      if (!massExcelFile) {
+        nextErrors.file = 'Choose an Excel spreadsheet (.xlsx or .xls).';
+      } else if (!/\.(xlsx|xls)$/i.test(massExcelFile.name)) {
+        nextErrors.file = 'Only .xlsx or .xls files are accepted.';
+      }
+
+      if (Object.keys(nextErrors).length > 0) {
+        setMassFieldErrors(nextErrors);
+        return;
+      }
+
+      setMassFieldErrors({});
+      setIsMassUploading(true);
+
+      try {
+        const body = new FormData();
+        body.append('file', massExcelFile as File);
+
+        const response = await apiFetch(
+          `/massApplicationsUpload?agentId=${encodeURIComponent(massAgentId as string)}`,
+          { method: 'POST', body },
+        );
+
+        let payload: unknown = {};
+        try {
+          payload = await response.json();
+        } catch {
+          payload = {};
+        }
+
+        if (!response.ok) {
+          const p = payload as { message?: string; error?: string };
+          const msg = p.message || p.error || `Upload failed (${response.status})`;
+          showToast(formatErrorMessage(msg), 'error');
+          return;
+        }
+
+        const data = payload as MassApplicationsUploadResponse;
+        setMassUploadResult(data);
+        showToast(data.message || 'Mass upload complete', 'success');
+        setMassExcelFile(null);
+        setMassFileResetTrigger((n) => n + 1);
+      } catch (err) {
+        console.error('Mass upload error:', err);
+        showToast(formatErrorMessage(err), 'error');
+      } finally {
+        setIsMassUploading(false);
+      }
+    },
+    [apiFetch, massAgentId, massExcelFile, showToast],
+  );
+
   // State for administrative divisions
   const [availableDistricts, setAvailableDistricts] = useState<{ name: string, sectors?: string[] }[]>([]);
   const [availableSectors, setAvailableSectors] = useState<string[]>([]);
@@ -1357,17 +1460,63 @@ export default function AdminNewApplicationPage() {
 
             </h1>
 
-            <p className="text-gray-600">
+            <p className="text-gray-600 max-w-2xl mx-auto leading-relaxed">
 
-              Fill out the form below to create a new insurance application.
+              {entryMode === 'single'
+                ? 'Fill out the form below to create a new insurance application.'
+                : 'Upload a prepared Excel file to create multiple applications and assign them to one agent.'}
 
             </p>
 
           </div>
 
-          <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+          <div className="bg-white rounded-xl shadow-lg overflow-hidden border border-gray-100">
 
-            <form onSubmit={handleSubmit} className="p-6">
+            <div
+              className="flex border-b border-gray-200 bg-gray-50/80"
+              role="tablist"
+              aria-label="Choose how to create applications"
+            >
+              <button
+                type="button"
+                role="tab"
+                aria-selected={entryMode === 'single'}
+                id="tab-single-application"
+                aria-controls="panel-single-application"
+                onClick={() => handleEntryModeChange('single')}
+                className={`flex-1 px-4 py-3.5 text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--main-blue)] ${
+                  entryMode === 'single'
+                    ? 'bg-white text-[var(--main-blue)] border-b-2 border-[var(--main-blue)] shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100/80'
+                }`}
+              >
+                Single application
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={entryMode === 'mass'}
+                id="tab-mass-upload"
+                aria-controls="panel-mass-upload"
+                onClick={() => handleEntryModeChange('mass')}
+                className={`flex-1 px-4 py-3.5 text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--main-blue)] ${
+                  entryMode === 'mass'
+                    ? 'bg-white text-[var(--main-blue)] border-b-2 border-[var(--main-blue)] shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100/80'
+                }`}
+              >
+                Mass upload (Excel)
+              </button>
+            </div>
+
+            {entryMode === 'single' ? (
+            <form
+              onSubmit={handleSubmit}
+              className="p-6"
+              id="panel-single-application"
+              role="tabpanel"
+              aria-labelledby="tab-single-application"
+            >
 
               {/* Personal Information Section - EXACT COPY FROM APPLY PAGE */}
 
@@ -2806,6 +2955,121 @@ export default function AdminNewApplicationPage() {
               </div>
 
             </form>
+            ) : (
+            <form
+              onSubmit={handleMassUploadSubmit}
+              className="p-6 space-y-8"
+              id="panel-mass-upload"
+              role="tabpanel"
+              aria-labelledby="tab-mass-upload"
+            >
+              <div className="rounded-lg border border-blue-100 bg-blue-50/60 px-4 py-3 text-sm text-blue-900">
+                <p className="font-medium text-blue-950">Mass applications via spreadsheet</p>
+                <p className="mt-1 text-blue-900/80 leading-relaxed">
+                  Select the receiving agent, then upload the Excel file your back office has prepared.
+                  All rows in the file will be created as applications under that agent&apos;s account.
+                </p>
+              </div>
+
+              <div className="space-y-6 max-w-xl">
+                <SearchableSelect<AgentEmailRecord>
+                  label="Assign to agent"
+                  name="massUploadAgentId"
+                  placeholder="Search by agent email..."
+                  value={massAgentId}
+                  onChange={(value) => {
+                    setMassAgentId(value);
+                    if (value && massFieldErrors.agent) {
+                      setMassFieldErrors((prev) => {
+                        const next = { ...prev };
+                        delete next.agent;
+                        return next;
+                      });
+                    }
+                  }}
+                  fetchOptions={fetchAgentsEmails}
+                  getDisplayValue={(option) => option.email}
+                  getSearchValue={(option) => option.email}
+                  error={massFieldErrors.agent}
+                  required
+                  className="w-full"
+                />
+                <p className="text-xs text-gray-500 -mt-2">
+                  Agents are loaded from the same endpoint as single-application assignment: each entry is the
+                  agent&apos;s user ID with their email (
+                  <code className="rounded bg-gray-100 px-1 py-0.5 text-[11px]">GET /getAgentsEmails</code>
+                  ).
+                </p>
+
+                <FileInput
+                  label="Excel file"
+                  name="massApplicationsFile"
+                  accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
+                  onChange={(file) => {
+                    setMassExcelFile(file);
+                    if (file && massFieldErrors.file) {
+                      setMassFieldErrors((prev) => {
+                        const next = { ...prev };
+                        delete next.file;
+                        return next;
+                      });
+                    }
+                  }}
+                  error={massFieldErrors.file}
+                  required
+                  resetTrigger={massFileResetTrigger}
+                />
+              </div>
+
+              {massUploadResult && (
+                <div
+                  className="rounded-lg border border-gray-200 bg-gray-50 p-4 text-sm"
+                  role="status"
+                  aria-live="polite"
+                >
+                  <p className="font-semibold text-gray-900">{massUploadResult.message}</p>
+                  <dl className="mt-3 grid grid-cols-2 gap-3 text-gray-700 sm:max-w-md">
+                    <div>
+                      <dt className="text-xs font-medium uppercase tracking-wide text-gray-500">Created</dt>
+                      <dd className="text-lg font-semibold text-gray-900">{massUploadResult.created}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-xs font-medium uppercase tracking-wide text-gray-500">Skipped</dt>
+                      <dd className="text-lg font-semibold text-gray-900">{massUploadResult.skipped}</dd>
+                    </div>
+                  </dl>
+                  {Array.isArray(massUploadResult.errors) && massUploadResult.errors.length > 0 && (
+                    <div className="mt-4">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-amber-800">Issues reported</p>
+                      <ul className="mt-2 max-h-48 overflow-y-auto rounded border border-amber-200 bg-amber-50/50 p-2 text-xs text-amber-950 space-y-1.5 list-disc pl-4">
+                        {massUploadResult.errors.map((item, idx) => (
+                          <li key={idx}>
+                            {typeof item === 'string'
+                              ? item
+                              : JSON.stringify(item)}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div className="flex flex-wrap items-center gap-3 pt-2">
+                <Button type="submit" variant="primary" size="lg" disabled={isMassUploading} className="min-w-[180px]">
+                  {isMassUploading ? 'Uploading…' : 'Run mass upload'}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={resetMassUploadForm}
+                  disabled={isMassUploading}
+                >
+                  Reset form
+                </Button>
+              </div>
+            </form>
+            )}
 
           </div>
 

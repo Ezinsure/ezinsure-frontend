@@ -50,6 +50,7 @@ export const Footer = () => {
         );
       } else if (user.role === 'FINANCE') {
         newLinks.push(
+          { href: `${rolePrefix}/payments`, label: 'Payments' },
           { href: `${rolePrefix}/history`, label: 'Payment History' }
         );
       }
