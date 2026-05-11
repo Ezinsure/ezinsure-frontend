@@ -45,6 +45,7 @@ interface Application {
   paymentInstructions?: string;
   transactionId?: string;
   amount?: number;
+  netPremium?: number;
   companyCommission?: number;
   agentCommission?: number;
   administrationFees?: string;
@@ -147,6 +148,7 @@ export default function ManageApplicationsPage() {
   const [isRejectingPayment, setIsRejectingPayment] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [invoiceAmount, setInvoiceAmount] = useState('');
+  const [netPremium, setNetPremium] = useState('');
   const [agentCommission, setAgentCommission] = useState('');
   const [companyCommission, setCompanyCommission] = useState('');
   const [administrationFees, setAdministrationFees] = useState('');
@@ -175,6 +177,15 @@ export default function ManageApplicationsPage() {
     selectedApp?.insuranceCategory,
     selectedApp?.isCOMESA,
   ]);
+
+  useEffect(() => {
+    const premium = Number(netPremium || 0);
+    const splitCommission = Number.isFinite(premium)
+      ? Math.round(premium * 0.05).toString()
+      : '';
+    setAgentCommission(splitCommission);
+    setCompanyCommission(splitCommission);
+  }, [netPremium]);
   const [editingApp, setEditingApp] = useState<Application | null>(null);
   const [editFormData, setEditFormData] = useState<Record<string, string | number | boolean | File | null> | null>(null);
   const [originalEditFormData, setOriginalEditFormData] = useState<Record<string, string | number | boolean | File | null> | null>(null);
@@ -717,7 +728,7 @@ export default function ManageApplicationsPage() {
   // Send invoice to client
  const handleSendInvoice = async () => {
   const hasAgent = selectedApp?.agent !== null && selectedApp?.agent !== undefined;
-  const requiredFields = [!selectedApp, !invoiceMessage, !invoiceAmount, !companyCommission, !administrationFees];
+  const requiredFields = [!selectedApp, !invoiceMessage, !invoiceAmount, !netPremium, !companyCommission, !administrationFees];
   
   // Only require agent commission if there's an agent
   if (hasAgent) {
@@ -734,6 +745,7 @@ export default function ManageApplicationsPage() {
     const formData = new FormData();
     formData.append('paymentInstructions', invoiceMessage);
     formData.append('amount', invoiceAmount);
+    formData.append('netPremium', netPremium);
     formData.append('companyCommission', companyCommission);
     formData.append('administrationFees', administrationFees);
     
@@ -765,6 +777,7 @@ export default function ManageApplicationsPage() {
     showToast(`Invoice sent to ${selectedApp?.client?.fullName || selectedApp?.fullName || 'client'}`, 'success');
     setInvoiceMessage('');
     setInvoiceAmount('');
+    setNetPremium('');
     setAgentCommission('');
     setCompanyCommission('');
     setAdministrationFees('');
@@ -1080,6 +1093,8 @@ const getActionButtons = (app: Application) => {
           onClick={() => {
             setSelectedApp(app);
             setActiveModal('invoice');
+            setInvoiceAmount(app.amount != null ? String(app.amount) : '');
+            setNetPremium(app.netPremium != null ? String(app.netPremium) : '');
             setInvoiceMessage(
               `Please make your payment to one of the following:\nBank of Kigali: 100000129075 (SONARWA)\nOr via Momo Account: 051499 (SONARWA) \nOr Agency at Kimihurura (KBC) under SOLEKTRA`
             );
@@ -2210,6 +2225,22 @@ const getActionButtons = (app: Application) => {
         )}
       </div>
 
+      <div className="mt-4">
+        <NumericInputField
+          label="Net Premium (RWF)"
+          name="netPremium"
+          accent="invoice"
+          className="mb-0"
+          labelClassName="text-sm font-medium text-gray-700 mb-1"
+          value={netPremium}
+          onChange={setNetPremium}
+          min={0}
+          maxDigits={12}
+          placeholder="Enter net premium"
+          required
+        />
+      </div>
+
       {/* Agent Commission field - only show if application has an agent */}
       {selectedApp.agent && (
         <div className="mt-4">
@@ -2220,10 +2251,11 @@ const getActionButtons = (app: Application) => {
             className="mb-0"
             labelClassName="text-sm font-medium text-gray-700 mb-1"
             value={agentCommission}
-            onChange={setAgentCommission}
+            onChange={() => {}}
             min={0}
             maxDigits={12}
-            placeholder="Enter agent commission"
+            placeholder="Auto-calculated from net premium"
+            disabled
             required
           />
         </div>
@@ -2238,10 +2270,11 @@ const getActionButtons = (app: Application) => {
           className="mb-0"
           labelClassName="text-sm font-medium text-gray-700 mb-1"
           value={companyCommission}
-          onChange={setCompanyCommission}
+          onChange={() => {}}
           min={0}
           maxDigits={12}
-          placeholder="Enter company commission"
+          placeholder="Auto-calculated from net premium"
+          disabled
           required
         />
       </div>
