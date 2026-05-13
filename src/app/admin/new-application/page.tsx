@@ -2659,7 +2659,7 @@ export default function AdminNewApplicationPage() {
 
                       <NumericInputField
 
-                        label="Total Commission (RWF)"
+                        label="Company Commission (RWF)"
 
                         name="companyCommission"
 
