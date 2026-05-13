@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Eye, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { DocumentViewer } from '@/components/ui/document-viewer';
+import { formatDateUTC } from '@/utils/date-formatter';
 
 // Keep this type loose so the UI can render as backend fields evolve.
 type PaymentInitiatedApplicationDetails = Record<string, unknown>;
@@ -15,13 +16,6 @@ interface FinanceApplicationDetailsModalProps {
   apiBaseUrl: string;
   applicationId: string;
   fallbackApplication?: Record<string, unknown> | null;
-}
-
-function formatUtcDate(iso?: string) {
-  if (!iso) return '—';
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '—';
-  return d.toLocaleDateString();
 }
 
 function renderText(value: unknown) {
@@ -242,7 +236,7 @@ export default function FinanceApplicationDetailsModal({
                       <p className="font-semibold text-gray-900">{renderText(details?.['status'] ?? fallbackApplication?.['status'])}</p>
                       <p className="text-sm text-gray-600 mt-3">Submitted</p>
                       <p className="text-sm font-medium text-gray-900">
-                        {formatUtcDate(
+                        {formatDateUTC(
                           (details?.['submittedAt'] as string | undefined) ?? (fallbackApplication?.['submittedAt'] as string | undefined),
                         )}
                       </p>
@@ -250,7 +244,7 @@ export default function FinanceApplicationDetailsModal({
                         <>
                           <p className="text-sm text-gray-600 mt-3">Insurance End</p>
                           <p className="text-sm font-medium text-gray-900">
-                            {formatUtcDate(details?.['insuranceEndAt'] as string | undefined)}
+                            {formatDateUTC(details?.['insuranceEndAt'] as string | undefined)}
                           </p>
                         </>
                       ) : null}

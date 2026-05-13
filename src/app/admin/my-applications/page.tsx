@@ -948,7 +948,7 @@ export default function AdminMyApplicationsPage() {
         {app.companyCommission ? `${app.companyCommission.toLocaleString()} RWF` : '0 RWF'}
       </div>
     </td>
-    <td className="px-4 py-4 text-sm whitespace-nowrap text-gray-500">{app.submittedAt ? new Date(app.submittedAt).toLocaleDateString() : 'N/A'}</td>
+    <td className="px-4 py-4 text-sm whitespace-nowrap text-gray-500">{formatDateUTC(app.submittedAt)}</td>
     <td className="px-4 py-4 text-sm whitespace-nowrap">
       {getStatusBadge(app.status)}
     </td>

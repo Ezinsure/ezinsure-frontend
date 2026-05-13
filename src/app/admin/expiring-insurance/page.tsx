@@ -388,17 +388,6 @@ export default function ExpiringInsurancePage() {
       : <ArrowDown className="h-4 w-4 text-blue-600" />;
   };
 
-  // Format date
-  const formatDate = (dateString: string) => {
-    if (!dateString) return 'N/A';
-    try {
-      const date = new Date(dateString);
-      return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
-    } catch {
-      return 'N/A';
-    }
-  };
-
   // Get days until expiration
   const getDaysUntilExpiration = (endDateString: string) => {
     if (!endDateString) return null;
@@ -428,7 +417,7 @@ export default function ExpiringInsurancePage() {
         app.vehicle?.vehicleType || 'N/A',
         app.vehicle?.plateNumber || 'N/A',
         app.insuranceCategory,
-        formatDate(app.insuranceEndAt),
+        formatDateUTC(app.insuranceEndAt),
         daysUntil !== null ? daysUntil.toString() : 'N/A',
         (app.amount || 0).toLocaleString()
       ];
@@ -709,7 +698,7 @@ export default function ExpiringInsurancePage() {
                                   <div className="text-sm text-gray-900">{app.insuranceCategory || 'N/A'}</div>
                                 </td>
                                 <td className="px-4 py-4 whitespace-nowrap">
-                                  <div className="text-sm text-gray-900">{formatDate(app.insuranceEndAt)}</div>
+                                  <div className="text-sm text-gray-900">{formatDateUTC(app.insuranceEndAt)}</div>
                                 </td>
                                 <td className="px-4 py-4 whitespace-nowrap">
                                   {daysUntil !== null ? (

@@ -5,6 +5,7 @@ import { Eye, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 import FinanceApplicationDetailsModal from './finance-application-details-modal';
+import { formatDateUTC } from '@/utils/date-formatter';
 
 type AgentRow = {
   agentId: string;
@@ -73,13 +74,6 @@ function resolveMonthNumber(month: string | number): number | null {
   if (!Number.isNaN(parsed)) return parsed >= 1 && parsed <= 12 ? parsed : null;
   const index = MONTH_NAMES.findIndex((item) => item.toLowerCase() === month.toLowerCase());
   return index === -1 ? null : index + 1;
-}
-
-function formatUtcDate(iso?: string) {
-  if (!iso) return '—';
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '—';
-  return d.toLocaleDateString();
 }
 
 export default function FinanceAgentApplicationsModal({
@@ -247,7 +241,7 @@ export default function FinanceAgentApplicationsModal({
                           <td className="px-4 py-3 text-right font-semibold text-gray-900">
                             {(app.agentCommission ?? 0).toLocaleString()} RWF
                           </td>
-                          <td className="px-4 py-3 text-right text-gray-600">{formatUtcDate(app.submittedAt)}</td>
+                          <td className="px-4 py-3 text-right text-gray-600">{formatDateUTC(app.submittedAt)}</td>
                           <td className="px-4 py-3 text-right">
                             <Button
                               variant="outline"
