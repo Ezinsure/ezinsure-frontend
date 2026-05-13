@@ -34,6 +34,7 @@ interface Application {
   paymentInstructions?: string;
   transactionId?: string;
   amount?: number;
+  netPremium?: number;
   companyCommission?: number;
   agentCommission?: number;
   agentCommissionPaymentStatus?: 'PENDING' | 'PENDING_ADMIN_REVIEW' | 'READY_TO_BE_PAID' | 'PAID' | 'ON_HOLD' | 'PAYMENT_INITIATED';
@@ -2304,6 +2305,12 @@ const getActionButtons = (app: Application) => {
                   <div>
                     <p className="text-sm text-gray-500">Amount</p>
                     <p className="font-semibold">{selectedApp.amount.toLocaleString()} RWF</p>
+                  </div>
+                )}
+                {selectedApp.netPremium !== undefined && selectedApp.netPremium !== null && (
+                  <div>
+                    <p className="text-sm text-gray-500">Net Premium</p>
+                    <p className="font-semibold">{selectedApp.netPremium.toLocaleString()} RWF</p>
                   </div>
                 )}
                 <div>

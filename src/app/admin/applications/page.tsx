@@ -292,6 +292,7 @@ export default function ManageApplicationsPage() {
     insuranceType: hasExistingValue(formData.insuranceType),
     insuranceDuration: hasExistingValue(formData.insuranceDuration),
     amountField: hasExistingValue(formData.amount),
+    netPremiumField: hasExistingValue(formData.netPremium),
     agentCommissionField: hasExistingValue(formData.agentCommission),
     companyCommissionField: hasExistingValue(formData.companyCommission),
     administrationFeesField: hasExistingValue(formData.administrationFees),
@@ -1025,6 +1026,7 @@ const getActionButtons = (app: Application) => {
             otherVehicleUse: app.vehicle?.otherVehicleUse || app.otherVehicleUse || '',
             isCOMESA: Boolean(app.isCOMESA),
             amount: app.amount?.toString() || '',
+            netPremium: app.netPremium?.toString() || '',
             paymentInstructions: app.paymentInstructions || '',
             transactionId: app.transactionId || '',
             companyCommission: app.companyCommission?.toString() || '',
@@ -1274,6 +1276,7 @@ const getActionButtons = (app: Application) => {
   const insuranceDurationValue = editFormData ? getFormValue(editFormData.insuranceDuration) : '';
 
   const amountValue = editFormData ? getFormValue(editFormData.amount) : '';
+  const netPremiumValue = editFormData ? getFormValue(editFormData.netPremium) : '';
   const agentCommissionValue = editFormData ? getFormValue(editFormData.agentCommission) : '';
   const companyCommissionValue = editFormData ? getFormValue(editFormData.companyCommission) : '';
   const administrationFeesValue = editFormData ? getFormValue(editFormData.administrationFees) : '';
@@ -1344,6 +1347,8 @@ const getActionButtons = (app: Application) => {
     showInsuranceDuration;
 
   const showAmountField = isPersistentlyVisible('amountField') || hasExistingValue(amountValue);
+  const showNetPremiumField =
+    isPersistentlyVisible('netPremiumField') || hasExistingValue(netPremiumValue);
   const showAgentCommissionField =
     isPersistentlyVisible('agentCommissionField') || hasExistingValue(agentCommissionValue);
   const showCompanyCommissionField =
@@ -1365,6 +1370,7 @@ const getActionButtons = (app: Application) => {
 
   const showPaymentSection =
     showAmountField ||
+    showNetPremiumField ||
     showAgentCommissionField ||
     showCompanyCommissionField ||
     showAdministrationFeesField ||
@@ -2044,6 +2050,12 @@ const getActionButtons = (app: Application) => {
             <div>
               <p className="text-sm text-gray-500">Amount</p>
               <p className="font-semibold">{selectedApp.amount.toLocaleString()} RWF</p>
+            </div>
+          )}
+          {selectedApp.netPremium !== undefined && selectedApp.netPremium !== null && (
+            <div>
+              <p className="text-sm text-gray-500">Net Premium</p>
+              <p className="font-semibold">{selectedApp.netPremium.toLocaleString()} RWF</p>
             </div>
           )}
           {selectedApp.insuranceProvider && (
@@ -2773,6 +2785,12 @@ const getActionButtons = (app: Application) => {
               <p className="font-semibold">{selectedApp.amount.toLocaleString()} RWF</p>
             </div>
           )}
+          {selectedApp.netPremium !== undefined && selectedApp.netPremium !== null && (
+            <div>
+              <p className="text-sm text-gray-500">Net Premium</p>
+              <p className="font-semibold">{selectedApp.netPremium.toLocaleString()} RWF</p>
+            </div>
+          )}
           {selectedApp.insuranceProvider && (
             <div>
               <p className="text-sm text-gray-500">Insurance Provider</p>
@@ -3429,6 +3447,22 @@ const getActionButtons = (app: Application) => {
                         value={amountValue}
                         onChange={(v) =>
                           setEditFormData((prev) => (prev ? { ...prev, amount: v } : prev))
+                        }
+                        min={0}
+                        maxDigits={12}
+                      />
+                    )}
+                    {showNetPremiumField && (
+                      <NumericInputField
+                        label="Net Premium (RWF)"
+                        name="netPremium"
+                        size="compact"
+                        accent="adminEdit"
+                        className="mb-0"
+                        labelClassName="!font-medium !text-gray-700"
+                        value={netPremiumValue}
+                        onChange={(v) =>
+                          setEditFormData((prev) => (prev ? { ...prev, netPremium: v } : prev))
                         }
                         min={0}
                         maxDigits={12}
