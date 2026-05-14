@@ -7,6 +7,7 @@ import type { FinanceApplication, FinanceAgent, FinanceDateRange } from './finan
 import { useFinanceApi } from './finance-api';
 import { Button } from '@/components/ui/button';
 import FinanceApplicationDetailsModalUI from './finance-application-details-modal-ui';
+import { formatDateUTC } from '@/utils/date-formatter';
 
 type ModalContext = 'accrual' | 'initiated' | 'paid';
 
@@ -439,7 +440,6 @@ export default function FinanceApplicationsByAgentModalUI({
                         </thead>
                         <tbody className="divide-y divide-gray-100 bg-white">
                           {pagedApplications.map((app) => {
-                            const submittedAt = app.submittedAt ? new Date(app.submittedAt) : null;
                             const commission =
                               context === 'initiated' || context === 'paid'
                                 ? Number(app.agentCommissionSnapshot ?? app.agentCommission ?? 0)
@@ -455,7 +455,7 @@ export default function FinanceApplicationsByAgentModalUI({
                                   <div className="font-medium text-gray-800">{app.insuranceCategory ?? '—'}</div>
                                   <div className="text-[11px] text-gray-500">{app.insuranceType ?? ''}</div>
                                 </td>
-                                <td className="px-4 py-3 text-gray-600">{submittedAt ? submittedAt.toLocaleDateString() : '—'}</td>
+                                <td className="px-4 py-3 text-gray-600">{app.submittedAt ? formatDateUTC(app.submittedAt) : '—'}</td>
                                 <td className="px-4 py-3 text-gray-700">{getStatusBadge(app.status)}</td>
                                 <td className="px-4 py-3 text-right font-semibold text-gray-900">{commission.toLocaleString()} RWF</td>
                                 <td className="px-4 py-3 text-right whitespace-nowrap">

@@ -18,6 +18,7 @@ import {
   isMotorVehicleInsuranceCategory,
 } from '@/utils/administration-fees';
 import { getVehicleManufactureYearValidationError } from '@/utils/vehicle-year';
+import { formatDateUTC } from '@/utils/date-formatter';
 
 interface Application {
   _id: string;
@@ -32,6 +33,7 @@ interface Application {
   paymentInstructions?: string;
   transactionId?: string;
   amount?: number;
+  netPremium?: number;
   companyCommission?: number;
   agentCommission?: number;
   agentCommissionPaymentStatus?: 'PENDING' | 'PENDING_ADMIN_REVIEW' | 'READY_TO_BE_PAID' | 'PAID' | 'ON_HOLD';
@@ -279,24 +281,6 @@ const AdminCommissionReviewPage = () => {
       return { success: false, data: [] };
     }
   }, [applications]);
-
-  // Helper to format dates
-  const formatDate = (dateString: string | undefined) => {
-    if (!dateString) return 'N/A';
-    try {
-      const date = new Date(dateString);
-      if (isNaN(date.getTime())) return 'Invalid Date';
-      
-      // Use UTC methods to avoid timezone conversion
-      const year = date.getUTCFullYear();
-      const month = String(date.getUTCMonth() + 1).padStart(2, '0');
-      const day = String(date.getUTCDate()).padStart(2, '0');
-      
-      return `${month}/${day}/${year}`;
-    } catch {
-      return 'Date Error';
-    }
-  };
 
   const loadCommissionQueues = useCallback(
     async (options?: { withSpinner?: boolean }) => {
@@ -566,6 +550,7 @@ const buildInitialVisibility = (app: Application, formData: Record<string, strin
   insuranceType: hasExistingValue(formData.insuranceType),
   insuranceDuration: hasExistingValue(formData.insuranceDuration),
   amountField: hasExistingValue(formData.amount),
+  netPremiumField: hasExistingValue(formData.netPremium),
   agentCommissionField: hasExistingValue(formData.agentCommission),
   companyCommissionField: hasExistingValue(formData.companyCommission),
   administrationFeesField: hasExistingValue(formData.administrationFees),
@@ -607,6 +592,7 @@ const getActionButtons = (app: Application) => {
               isCOMESA: false, 
               // Payment Information (Editable)
               amount: app.amount?.toString() || '',
+              netPremium: app.netPremium?.toString() || '',
               paymentInstructions: app.paymentInstructions || '',
               transactionId: app.transactionId || '',
               // Commission Information (Editable)
@@ -1217,6 +1203,7 @@ const getActionButtons = (app: Application) => {
     showInsuranceDuration;
 
   const amountValue = editFormData ? getFormValue(editFormData.amount) : '';
+  const netPremiumValue = editFormData ? getFormValue(editFormData.netPremium) : '';
   const agentCommissionValue = editFormData ? getFormValue(editFormData.agentCommission) : '';
   const companyCommissionValue = editFormData ? getFormValue(editFormData.companyCommission) : '';
   const administrationFeesValue = editFormData ? getFormValue(editFormData.administrationFees) : '';
@@ -1224,6 +1211,7 @@ const getActionButtons = (app: Application) => {
   const paymentInstructionsValue = editFormData ? getFormValue(editFormData.paymentInstructions) : '';
 
   const showAmountField = isPersistentlyVisible('amountField') || hasExistingValue(amountValue);
+  const showNetPremiumField = isPersistentlyVisible('netPremiumField') || hasExistingValue(netPremiumValue);
   const showAgentCommissionField = isPersistentlyVisible('agentCommissionField') || hasExistingValue(agentCommissionValue);
   const showCompanyCommissionField = isPersistentlyVisible('companyCommissionField') || hasExistingValue(companyCommissionValue);
   const showAdministrationFeesField = isPersistentlyVisible('administrationFeesField') || hasExistingValue(administrationFeesValue);
@@ -1232,6 +1220,7 @@ const getActionButtons = (app: Application) => {
 
   const showPaymentSection =
     showAmountField ||
+    showNetPremiumField ||
     showAgentCommissionField ||
     showCompanyCommissionField ||
     showAdministrationFeesField ||
@@ -1281,19 +1270,6 @@ const getActionButtons = (app: Application) => {
     return cat.includes('car') || cat.includes('vehicle') || cat.includes('motor') || cat.includes('auto');
   };
 
-  const formatDateForExport = (dateString: string | undefined) => {
-    if (!dateString) return 'N/A';
-    try {
-      const date = new Date(dateString);
-      if (isNaN(date.getTime())) return 'N/A';
-      const day = String(date.getDate()).padStart(2, '0');
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      return `${day}/${month}/${date.getFullYear()}`;
-    } catch {
-      return 'N/A';
-    }
-  };
-
   const buildExportRow = (app: Application) => ({
     id: app.applicationNumber || 'N/A',
     clientPhone: app.client?.phoneNumber || app.phoneNumber || 'N/A',
@@ -1301,7 +1277,7 @@ const getActionButtons = (app: Application) => {
     agentEmail: app.agent?.email || 'N/A',
     agentName: app.agent?.fullName || 'N/A',
     category: app.insuranceCategory || 'N/A',
-    insuranceEndDate: formatDateForExport(app.insuranceEndAt),
+    insuranceEndDate: formatDateUTC(app.insuranceEndAt),
     commission: app.agentCommission ?? 0,
     plateNumber: isVehicleCategory(app.insuranceCategory) ? (app.vehicle?.plateNumber || 'N/A') : '',
   });
@@ -1859,11 +1835,11 @@ const getActionButtons = (app: Application) => {
                         </td>
                         <td className="px-4 py-4 whitespace-nowrap">
                           <div className="text-sm text-gray-900">
-                            {formatDate(app.insuranceEndAt)}
+                            {formatDateUTC(app.insuranceEndAt)}
                           </div>
                         </td>
                         <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {formatDate(app.submittedAt)}
+                          {formatDateUTC(app.submittedAt)}
                         </td>
                         <td className="px-4 py-4 whitespace-nowrap">
                           <div className="text-sm font-semibold text-[var(--accent-orange)]">
@@ -1976,7 +1952,7 @@ const getActionButtons = (app: Application) => {
                 <div>
                   <p className="text-sm text-gray-500">Date of Birth</p>
                   <p className="font-semibold">
-                    {formatDate(selectedApp.client?.dateOfBirth)}
+                    {formatDateUTC(selectedApp.client?.dateOfBirth)}
                   </p>
                 </div>
               </div>
@@ -2021,7 +1997,7 @@ const getActionButtons = (app: Application) => {
                   <div>
                     <p className="text-sm text-gray-500">Insurance End Date</p>
                     <p className="font-semibold">
-                      {formatDate(selectedApp.insuranceEndAt)}
+                      {formatDateUTC(selectedApp.insuranceEndAt)}
                     </p>
                   </div>
                 )}
@@ -2055,6 +2031,12 @@ const getActionButtons = (app: Application) => {
                   <div>
                     <p className="text-sm text-gray-500">Amount</p>
                     <p className="font-semibold">{selectedApp.amount.toLocaleString()} RWF</p>
+                  </div>
+                )}
+                {selectedApp.netPremium !== undefined && selectedApp.netPremium !== null && (
+                  <div>
+                    <p className="text-sm text-gray-500">Net Premium</p>
+                    <p className="font-semibold">{selectedApp.netPremium.toLocaleString()} RWF</p>
                   </div>
                 )}
                 {selectedApp.insuranceProvider && (
@@ -2634,6 +2616,22 @@ const getActionButtons = (app: Application) => {
                         value={amountValue}
                         onChange={(v) =>
                           setEditFormData((prev) => (prev ? { ...prev, amount: v } : prev))
+                        }
+                        min={0}
+                        maxDigits={12}
+                      />
+                    )}
+                    {showNetPremiumField && (
+                      <NumericInputField
+                        label="Net Premium (RWF)"
+                        name="netPremium"
+                        size="compact"
+                        accent="adminEdit"
+                        className="mb-0"
+                        labelClassName="!font-medium !text-gray-700"
+                        value={netPremiumValue}
+                        onChange={(v) =>
+                          setEditFormData((prev) => (prev ? { ...prev, netPremium: v } : prev))
                         }
                         min={0}
                         maxDigits={12}

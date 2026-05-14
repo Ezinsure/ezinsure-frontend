@@ -9,7 +9,7 @@
  * Extracts the date part in UTC to avoid timezone-related date shifts
  * 
  * @param dateString - ISO date string from database (e.g., "2026-04-11T23:59:59.999+00:00")
- * @returns Formatted date string (MM/DD/YYYY) or fallback value
+ * @returns Formatted date string (DD/MM/YYYY) or fallback value
  */
 export const formatDateUTC = (dateString: string | undefined | null): string => {
   if (!dateString) return 'N/A';
@@ -23,7 +23,7 @@ export const formatDateUTC = (dateString: string | undefined | null): string => 
     const month = String(date.getUTCMonth() + 1).padStart(2, '0');
     const day = String(date.getUTCDate()).padStart(2, '0');
 
-    return `${month}/${day}/${year}`;
+    return `${day}/${month}/${year}`;
   } catch {
     return 'Date Error';
   }

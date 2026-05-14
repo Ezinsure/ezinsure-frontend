@@ -278,6 +278,7 @@ interface ApplicationFormData {
   isNewVehicle: boolean;
   // Payment Information
   amount: string;
+  netPremium: string;
   paymentInstructions: string;
   invoice: File | null;
   // Commission Information
@@ -695,6 +696,7 @@ export default function AdminNewApplicationPage() {
     // Payment Information
 
     amount: '',
+    netPremium: '',
 
     paymentInstructions: 'Please make your payment to one of the following:\nBank of Kigali: 100000129075 (SONARWA)\nOr via Momo Account: 051499 (SONARWA) \nOr Agency at Kimihurura (KBC) under SOLEKTRA',
 
@@ -771,6 +773,7 @@ export default function AdminNewApplicationPage() {
     identificationNumber: { required: true },
     // Admin-specific required fields
     amount: { required: true },
+    netPremium: { required: true },
     companyCommission: { required: true },
     administrationFees: { required: true },
     paymentInstructions: { required: true },
@@ -795,6 +798,19 @@ export default function AdminNewApplicationPage() {
       return { ...prev, administrationFees: nextFees };
     });
   }, [formData.insuranceCategory, formData.isCOMESA]);
+
+  useEffect(() => {
+    setFormData((prev) => {
+      const netPremium = Number(prev.netPremium || 0);
+      const computedCommission = Number.isFinite(netPremium)
+        ? Math.round(netPremium * 0.1).toString()
+        : '';
+      if (prev.companyCommission === computedCommission) {
+        return prev;
+      }
+      return { ...prev, companyCommission: computedCommission };
+    });
+  }, [formData.netPremium]);
 
   // Update districts when province changes
 
@@ -1344,6 +1360,7 @@ export default function AdminNewApplicationPage() {
             yellowCard: null,
             pastInsuranceCertificate: null,
             amount: '',
+            netPremium: '',
             paymentInstructions: 'Please make your payment to one of the following:\nBank of Kigali: 100000129075 (SONARWA)\nOr via Momo Account: 051499 (SONARWA) \nOr Agency at Kimihurura (KBC) under SOLEKTRA',
             invoice: null,
             companyCommission: '',
@@ -2607,6 +2624,38 @@ export default function AdminNewApplicationPage() {
                     </div>
 
                     <div>
+                      <NumericInputField
+
+                        label="Net Premium (RWF)"
+
+                        name="netPremium"
+
+                        value={formData.netPremium}
+
+                        onChange={(v) => {
+                          setFormData((prev) => ({ ...prev, netPremium: v }));
+                          setErrors((prev) => {
+                            const next = { ...prev };
+                            delete next.netPremium;
+                            delete next.companyCommission;
+                            return next;
+                          });
+                        }}
+
+                        placeholder="Enter net premium"
+
+                        error={errors.netPremium}
+
+                        min={0}
+
+                        maxDigits={12}
+
+                        required
+
+                      />
+                    </div>
+
+                    <div>
 
                       <NumericInputField
 
@@ -2616,33 +2665,17 @@ export default function AdminNewApplicationPage() {
 
                         value={formData.companyCommission}
 
-                        onChange={(v) => {
+                        onChange={() => {}}
 
-                          setFormData((prev) => ({ ...prev, companyCommission: v }));
-
-                          if (errors.companyCommission) {
-
-                            setErrors((prev) => {
-
-                              const next = { ...prev };
-
-                              delete next.companyCommission;
-
-                              return next;
-
-                            });
-
-                          }
-
-                        }}
-
-                        placeholder="Enter company commission"
+                        placeholder="Auto-calculated from net premium"
 
                         error={errors.companyCommission}
 
                         min={0}
 
                         maxDigits={12}
+
+                        disabled
 
                         required
 

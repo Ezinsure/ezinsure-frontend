@@ -6,6 +6,7 @@ import type { FinanceApplication } from './finance-domain';
 import { useFinanceApi } from './finance-api';
 import { Button } from '@/components/ui/button';
 import { DocumentViewer } from '@/components/ui/document-viewer';
+import { formatDateUTC } from '@/utils/date-formatter';
 
 type FinanceDetailsContext = 'accrual' | 'initiated' | 'paid';
 
@@ -28,13 +29,6 @@ interface FinanceApplicationDetailsModalUIProps {
   month?: number;
   year?: number;
   applicationData?: FinanceApplication | null;
-}
-
-function formatUtcDate(iso?: string) {
-  if (!iso) return '—';
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '—';
-  return d.toLocaleDateString();
 }
 
 export default function FinanceApplicationDetailsModalUI({
@@ -191,7 +185,7 @@ export default function FinanceApplicationDetailsModalUI({
                         <p className="text-sm text-gray-500">Date of Birth</p>
                         <p className="font-semibold">
                           {((app.client as Record<string, unknown> | undefined)?.dateOfBirth as string | undefined)
-                            ? new Date((app.client as Record<string, unknown>).dateOfBirth as string).toLocaleDateString()
+                            ? formatDateUTC((app.client as Record<string, unknown>).dateOfBirth as string)
                             : 'N/A'}
                         </p>
                       </div>
@@ -219,7 +213,7 @@ export default function FinanceApplicationDetailsModalUI({
                       {app.insuranceEndAt && (
                         <div>
                           <p className="text-sm text-gray-500">Insurance End Date</p>
-                          <p className="font-semibold">{formatUtcDate(app.insuranceEndAt)}</p>
+                          <p className="font-semibold">{formatDateUTC(app.insuranceEndAt)}</p>
                         </div>
                       )}
                       <div>

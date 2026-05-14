@@ -33,6 +33,7 @@ interface Application {
   paymentInstructions?: string;
   transactionId?: string;
   amount?: number;
+  netPremium?: number;
   companyCommission?: number;
   agentCommission?: number;
   administrationFees?: string;
@@ -1073,6 +1074,12 @@ export default function SuperAdminApplicationsPage() {
                     <div>
                       <p className="text-sm text-gray-500 mb-1">Amount</p>
                       <p className="font-medium text-gray-900">{selectedApp.amount.toLocaleString()} RWF</p>
+                    </div>
+                  )}
+                  {selectedApp.netPremium !== undefined && selectedApp.netPremium !== null && (
+                    <div>
+                      <p className="text-sm text-gray-500 mb-1">Net Premium</p>
+                      <p className="font-medium text-gray-900">{selectedApp.netPremium.toLocaleString()} RWF</p>
                     </div>
                   )}
                   {selectedApp.insuranceProvider && (

@@ -45,6 +45,7 @@ interface Application {
   paymentInstructions?: string;
   transactionId?: string;
   amount?: number;
+  netPremium?: number;
   companyCommission?: number;
   agentCommission?: number;
   administrationFees?: string;
@@ -147,6 +148,7 @@ export default function ManageApplicationsPage() {
   const [isRejectingPayment, setIsRejectingPayment] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [invoiceAmount, setInvoiceAmount] = useState('');
+  const [netPremium, setNetPremium] = useState('');
   const [agentCommission, setAgentCommission] = useState('');
   const [companyCommission, setCompanyCommission] = useState('');
   const [administrationFees, setAdministrationFees] = useState('');
@@ -175,6 +177,15 @@ export default function ManageApplicationsPage() {
     selectedApp?.insuranceCategory,
     selectedApp?.isCOMESA,
   ]);
+
+  useEffect(() => {
+    const premium = Number(netPremium || 0);
+    const splitCommission = Number.isFinite(premium)
+      ? Math.round(premium * 0.05).toString()
+      : '';
+    setAgentCommission(splitCommission);
+    setCompanyCommission(splitCommission);
+  }, [netPremium]);
   const [editingApp, setEditingApp] = useState<Application | null>(null);
   const [editFormData, setEditFormData] = useState<Record<string, string | number | boolean | File | null> | null>(null);
   const [originalEditFormData, setOriginalEditFormData] = useState<Record<string, string | number | boolean | File | null> | null>(null);
@@ -281,6 +292,7 @@ export default function ManageApplicationsPage() {
     insuranceType: hasExistingValue(formData.insuranceType),
     insuranceDuration: hasExistingValue(formData.insuranceDuration),
     amountField: hasExistingValue(formData.amount),
+    netPremiumField: hasExistingValue(formData.netPremium),
     agentCommissionField: hasExistingValue(formData.agentCommission),
     companyCommissionField: hasExistingValue(formData.companyCommission),
     administrationFeesField: hasExistingValue(formData.administrationFees),
@@ -717,7 +729,7 @@ export default function ManageApplicationsPage() {
   // Send invoice to client
  const handleSendInvoice = async () => {
   const hasAgent = selectedApp?.agent !== null && selectedApp?.agent !== undefined;
-  const requiredFields = [!selectedApp, !invoiceMessage, !invoiceAmount, !companyCommission, !administrationFees];
+  const requiredFields = [!selectedApp, !invoiceMessage, !invoiceAmount, !netPremium, !companyCommission, !administrationFees];
   
   // Only require agent commission if there's an agent
   if (hasAgent) {
@@ -734,6 +746,7 @@ export default function ManageApplicationsPage() {
     const formData = new FormData();
     formData.append('paymentInstructions', invoiceMessage);
     formData.append('amount', invoiceAmount);
+    formData.append('netPremium', netPremium);
     formData.append('companyCommission', companyCommission);
     formData.append('administrationFees', administrationFees);
     
@@ -765,6 +778,7 @@ export default function ManageApplicationsPage() {
     showToast(`Invoice sent to ${selectedApp?.client?.fullName || selectedApp?.fullName || 'client'}`, 'success');
     setInvoiceMessage('');
     setInvoiceAmount('');
+    setNetPremium('');
     setAgentCommission('');
     setCompanyCommission('');
     setAdministrationFees('');
@@ -1012,6 +1026,7 @@ const getActionButtons = (app: Application) => {
             otherVehicleUse: app.vehicle?.otherVehicleUse || app.otherVehicleUse || '',
             isCOMESA: Boolean(app.isCOMESA),
             amount: app.amount?.toString() || '',
+            netPremium: app.netPremium?.toString() || '',
             paymentInstructions: app.paymentInstructions || '',
             transactionId: app.transactionId || '',
             companyCommission: app.companyCommission?.toString() || '',
@@ -1080,6 +1095,8 @@ const getActionButtons = (app: Application) => {
           onClick={() => {
             setSelectedApp(app);
             setActiveModal('invoice');
+            setInvoiceAmount(app.amount != null ? String(app.amount) : '');
+            setNetPremium(app.netPremium != null ? String(app.netPremium) : '');
             setInvoiceMessage(
               `Please make your payment to one of the following:\nBank of Kigali: 100000129075 (SONARWA)\nOr via Momo Account: 051499 (SONARWA) \nOr Agency at Kimihurura (KBC) under SOLEKTRA`
             );
@@ -1259,6 +1276,7 @@ const getActionButtons = (app: Application) => {
   const insuranceDurationValue = editFormData ? getFormValue(editFormData.insuranceDuration) : '';
 
   const amountValue = editFormData ? getFormValue(editFormData.amount) : '';
+  const netPremiumValue = editFormData ? getFormValue(editFormData.netPremium) : '';
   const agentCommissionValue = editFormData ? getFormValue(editFormData.agentCommission) : '';
   const companyCommissionValue = editFormData ? getFormValue(editFormData.companyCommission) : '';
   const administrationFeesValue = editFormData ? getFormValue(editFormData.administrationFees) : '';
@@ -1329,6 +1347,8 @@ const getActionButtons = (app: Application) => {
     showInsuranceDuration;
 
   const showAmountField = isPersistentlyVisible('amountField') || hasExistingValue(amountValue);
+  const showNetPremiumField =
+    isPersistentlyVisible('netPremiumField') || hasExistingValue(netPremiumValue);
   const showAgentCommissionField =
     isPersistentlyVisible('agentCommissionField') || hasExistingValue(agentCommissionValue);
   const showCompanyCommissionField =
@@ -1350,6 +1370,7 @@ const getActionButtons = (app: Application) => {
 
   const showPaymentSection =
     showAmountField ||
+    showNetPremiumField ||
     showAgentCommissionField ||
     showCompanyCommissionField ||
     showAdministrationFeesField ||
@@ -1919,7 +1940,7 @@ const getActionButtons = (app: Application) => {
         {app.agentCommission ? `${app.agentCommission.toLocaleString()} RWF` : '0 RWF'}
       </div>
     </td>
-    <td className="px-4 py-4 text-sm whitespace-nowrap text-gray-500">{app.submittedAt ? new Date(app.submittedAt).toLocaleDateString() : 'N/A'}</td>
+    <td className="px-4 py-4 text-sm whitespace-nowrap text-gray-500">{formatDateUTC(app.submittedAt)}</td>
     <td className="px-4 py-4 text-sm whitespace-nowrap">
       {getStatusBadge(app.status)}
     </td>
@@ -2029,6 +2050,12 @@ const getActionButtons = (app: Application) => {
             <div>
               <p className="text-sm text-gray-500">Amount</p>
               <p className="font-semibold">{selectedApp.amount.toLocaleString()} RWF</p>
+            </div>
+          )}
+          {selectedApp.netPremium !== undefined && selectedApp.netPremium !== null && (
+            <div>
+              <p className="text-sm text-gray-500">Net Premium</p>
+              <p className="font-semibold">{selectedApp.netPremium.toLocaleString()} RWF</p>
             </div>
           )}
           {selectedApp.insuranceProvider && (
@@ -2210,6 +2237,22 @@ const getActionButtons = (app: Application) => {
         )}
       </div>
 
+      <div className="mt-4">
+        <NumericInputField
+          label="Net Premium (RWF)"
+          name="netPremium"
+          accent="invoice"
+          className="mb-0"
+          labelClassName="text-sm font-medium text-gray-700 mb-1"
+          value={netPremium}
+          onChange={setNetPremium}
+          min={0}
+          maxDigits={12}
+          placeholder="Enter net premium"
+          required
+        />
+      </div>
+
       {/* Agent Commission field - only show if application has an agent */}
       {selectedApp.agent && (
         <div className="mt-4">
@@ -2220,10 +2263,11 @@ const getActionButtons = (app: Application) => {
             className="mb-0"
             labelClassName="text-sm font-medium text-gray-700 mb-1"
             value={agentCommission}
-            onChange={setAgentCommission}
+            onChange={() => {}}
             min={0}
             maxDigits={12}
-            placeholder="Enter agent commission"
+            placeholder="Auto-calculated from net premium"
+            disabled
             required
           />
         </div>
@@ -2238,10 +2282,11 @@ const getActionButtons = (app: Application) => {
           className="mb-0"
           labelClassName="text-sm font-medium text-gray-700 mb-1"
           value={companyCommission}
-          onChange={setCompanyCommission}
+          onChange={() => {}}
           min={0}
           maxDigits={12}
-          placeholder="Enter company commission"
+          placeholder="Auto-calculated from net premium"
+          disabled
           required
         />
       </div>
@@ -2738,6 +2783,12 @@ const getActionButtons = (app: Application) => {
             <div>
               <p className="text-sm text-gray-500">Amount</p>
               <p className="font-semibold">{selectedApp.amount.toLocaleString()} RWF</p>
+            </div>
+          )}
+          {selectedApp.netPremium !== undefined && selectedApp.netPremium !== null && (
+            <div>
+              <p className="text-sm text-gray-500">Net Premium</p>
+              <p className="font-semibold">{selectedApp.netPremium.toLocaleString()} RWF</p>
             </div>
           )}
           {selectedApp.insuranceProvider && (
@@ -3396,6 +3447,22 @@ const getActionButtons = (app: Application) => {
                         value={amountValue}
                         onChange={(v) =>
                           setEditFormData((prev) => (prev ? { ...prev, amount: v } : prev))
+                        }
+                        min={0}
+                        maxDigits={12}
+                      />
+                    )}
+                    {showNetPremiumField && (
+                      <NumericInputField
+                        label="Net Premium (RWF)"
+                        name="netPremium"
+                        size="compact"
+                        accent="adminEdit"
+                        className="mb-0"
+                        labelClassName="!font-medium !text-gray-700"
+                        value={netPremiumValue}
+                        onChange={(v) =>
+                          setEditFormData((prev) => (prev ? { ...prev, netPremium: v } : prev))
                         }
                         min={0}
                         maxDigits={12}

@@ -35,6 +35,7 @@ interface Application {
   paymentInstructions?: string;
   transactionId?: string;
   amount?: number;
+  netPremium?: number;
   companyCommission?: number;
   agentCommission?: number;
   administrationFees?: string;
@@ -947,7 +948,7 @@ export default function AdminMyApplicationsPage() {
         {app.companyCommission ? `${app.companyCommission.toLocaleString()} RWF` : '0 RWF'}
       </div>
     </td>
-    <td className="px-4 py-4 text-sm whitespace-nowrap text-gray-500">{app.submittedAt ? new Date(app.submittedAt).toLocaleDateString() : 'N/A'}</td>
+    <td className="px-4 py-4 text-sm whitespace-nowrap text-gray-500">{formatDateUTC(app.submittedAt)}</td>
     <td className="px-4 py-4 text-sm whitespace-nowrap">
       {getStatusBadge(app.status)}
     </td>
@@ -1072,6 +1073,12 @@ export default function AdminMyApplicationsPage() {
                     <div>
                       <p className="text-sm text-gray-500 mb-1">Amount</p>
                       <p className="font-medium text-gray-900">{selectedApp.amount.toLocaleString()} RWF</p>
+                    </div>
+                  )}
+                  {selectedApp.netPremium !== undefined && selectedApp.netPremium !== null && (
+                    <div>
+                      <p className="text-sm text-gray-500 mb-1">Net Premium</p>
+                      <p className="font-medium text-gray-900">{selectedApp.netPremium.toLocaleString()} RWF</p>
                     </div>
                   )}
                   {selectedApp.insuranceProvider && (
