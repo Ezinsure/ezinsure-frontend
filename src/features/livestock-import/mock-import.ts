@@ -6,43 +6,64 @@ import type {
 
 const MOCK_DELAY_MS = 1400;
 
-function pickStatus(index: number): LivestockImportRowResult['status'] {
-  const mod = index % 10;
-  if (mod === 7) return 'skipped';
-  if (mod === 9) return 'failed';
-  return 'created';
+function trimPolicyNumber(value: string): string {
+  return value.trim();
+}
+
+function hasVetContact(row: ParsedImportRow): boolean {
+  const phone = (row.values.vetPhone ?? '').trim();
+  const email = (row.values.vetEmail ?? '').trim();
+  return Boolean(phone && email);
 }
 
 function buildRowResult(row: ParsedImportRow, index: number): LivestockImportRowResult {
-  const tekanaTagId = row.values.tekanaTagId || `ROW-${row.rowNumber}`;
-  const ownerFullName = row.values.ownerFullName || 'Unknown owner';
-  const status = pickStatus(index);
+  const chip = (row.values.chip ?? '').trim() || `ROW-${row.rowNumber}`;
+  const policyNumber = trimPolicyNumber(row.values.policyNumber ?? '');
+  const ownerName = (row.values.ownerName ?? '').trim() || 'Unknown owner';
+  const vetPhone = (row.values.vetPhone ?? '').trim();
+  const vetEmail = (row.values.vetEmail ?? '').trim();
 
-  if (status === 'skipped') {
+  const base = {
+    rowNumber: row.rowNumber,
+    chip,
+    policyNumber,
+    ownerName,
+    vetPhone,
+    vetEmail,
+  };
+
+  if (!chip || chip.startsWith('ROW-')) {
+    return { ...base, status: 'failed', reason: 'Missing Chip (Tekana tag ID).' };
+  }
+
+  if (!hasVetContact(row)) {
     return {
-      rowNumber: row.rowNumber,
-      tekanaTagId,
-      ownerFullName,
-      status,
-      reason: 'Tekana tag already linked to an active application.',
+      ...base,
+      status: 'failed',
+      reason: 'Vet Phone and Vet Email are required (add columns after Tekana export).',
     };
   }
 
-  if (status === 'failed') {
+  const mod = index % 10;
+  if (mod === 7) {
     return {
-      rowNumber: row.rowNumber,
-      tekanaTagId,
-      ownerFullName,
-      status,
-      reason: 'Invalid insured value or missing required field.',
+      ...base,
+      status: 'skipped',
+      reason: 'Chip already linked to an active livestock application.',
+    };
+  }
+
+  if (mod === 9) {
+    return {
+      ...base,
+      status: 'failed',
+      reason: 'Invalid Sum Assured or policy dates.',
     };
   }
 
   return {
-    rowNumber: row.rowNumber,
-    tekanaTagId,
-    ownerFullName,
-    status,
+    ...base,
+    status: 'created',
     applicationNumber: `LS-${new Date().getFullYear()}-${String(10000 + index).slice(1)}`,
   };
 }
@@ -51,30 +72,52 @@ function buildSyntheticRows(count: number): ParsedImportRow[] {
   return Array.from({ length: count }, (_, i) => ({
     rowNumber: i + 2,
     values: {
-      tekanaTagId: `RW-TK-SIM-${String(i + 1).padStart(4, '0')}`,
-      ownerFullName: `Sample Farmer ${i + 1}`,
-      ownerNationalId: '1199887766554433',
-      ownerPhone: '+250788000000',
-      province: 'Southern',
-      district: 'Huye',
-      sector: 'Ngoma',
-      species: 'Cattle',
-      breed: 'Ankole',
+      chip: `956000007478${String(647 + i).padStart(3, '0')}`,
+      policyNumber: `RY001MICD28${7000 + i}`,
+      insuranceType: 'Renewal',
+      sumAssured: '700000',
+      species: 'Cow',
+      breed: 'Fresian',
       sex: 'Female',
-      ageMonths: '24',
-      insuredValueRwf: '750000',
-      coverageStartDate: '2026-06-01',
-      coverageDurationMonths: '12',
-      transactionReference: `MOMO-SIM-${i + 1}`,
+      ownerName: `Sample Farmer ${i + 1}`,
+      ownerPhone: '788810914',
+      district: 'Nyagatare',
+      sector: 'GATUNDA',
+      insurer: 'Radiant Insurance Company',
+      tekanaStatus: 'Approved for Subsidy',
+      vetPhone: '+250788123456',
+      vetEmail: `vet${i + 1}@example.rw`,
     },
+    raw: {},
   }));
 }
 
 export async function simulateTekanaImport(
   file: File,
   parsedRows: ParsedImportRow[],
+  options?: { missingEzinsureHeaders?: string[] },
 ): Promise<LivestockImportResult> {
   await new Promise((resolve) => setTimeout(resolve, MOCK_DELAY_MS));
+
+  if (options?.missingEzinsureHeaders?.length) {
+    return {
+      importBatchId: `batch_sim_${Date.now().toString(36)}`,
+      message: 'Import blocked: Vet Phone and Vet Email columns are missing.',
+      simulated: true,
+      summary: {
+        totalRows: 0,
+        created: 0,
+        skipped: 0,
+        failed: 0,
+        missingVetContact: 0,
+      },
+      rows: [],
+      errors: [
+        'Add these columns to your Tekana export before uploading:',
+        ...options.missingEzinsureHeaders.map((h) => `• ${h}`),
+      ],
+    };
+  }
 
   const isSpreadsheet = /\.(xlsx|xls)$/i.test(file.name);
   const rows =
@@ -84,37 +127,36 @@ export async function simulateTekanaImport(
 
   const results = rows.map((row, index) => buildRowResult(row, index));
 
+  const missingVetContact = results.filter(
+    (r) => r.status === 'failed' && r.reason?.includes('Vet Phone'),
+  ).length;
+
   const summary = {
     totalRows: results.length,
     created: results.filter((r) => r.status === 'created').length,
     skipped: results.filter((r) => r.status === 'skipped').length,
     failed: results.filter((r) => r.status === 'failed').length,
-    duplicateTransactionRefs: results.filter(
-      (r) => r.status === 'skipped' && r.reason?.includes('transaction'),
-    ).length,
+    missingVetContact,
   };
-
-  const duplicateRefNote =
-    summary.duplicateTransactionRefs > 0
-      ? `${summary.duplicateTransactionRefs} duplicate transaction reference(s) detected.`
-      : null;
 
   return {
     importBatchId: `batch_sim_${Date.now().toString(36)}`,
     message: isSpreadsheet
-      ? 'Excel import simulated successfully. Backend will parse .xlsx when the API is connected.'
-      : 'CSV import simulated successfully.',
+      ? 'Excel import simulated. Backend will parse .xlsx when the API is connected.'
+      : 'Tekana CSV import simulated successfully.',
     simulated: true,
     summary,
     rows: results,
     errors: [
       ...(summary.failed > 0
-        ? [`${summary.failed} row(s) failed validation and were not created.`]
+        ? [`${summary.failed} row(s) failed validation.`]
+        : []),
+      ...(missingVetContact > 0
+        ? [`${missingVetContact} row(s) missing Vet Phone or Vet Email.`]
         : []),
       ...(summary.skipped > 0
-        ? [`${summary.skipped} row(s) skipped (duplicate Tekana tag or existing policy).`]
+        ? [`${summary.skipped} row(s) skipped (duplicate chip).`]
         : []),
-      ...(duplicateRefNote ? [duplicateRefNote] : []),
     ],
   };
 }

@@ -1,5 +1,8 @@
-import { TEKANA_IMPORT_COLUMNS } from '@/features/livestock-import/template';
-import type { ParsedImportRow } from '@/features/livestock-import/types';
+import {
+  EZINSURE_ADDED_COLUMNS,
+  TEKANA_IMPORT_COLUMNS,
+} from '@/features/livestock-import/template';
+import type { ParseTekanaCsvResult, ParsedImportRow } from '@/features/livestock-import/types';
 
 function parseCsvLine(line: string): string[] {
   const cells: string[] = [];
@@ -27,7 +30,26 @@ function parseCsvLine(line: string): string[] {
   return cells;
 }
 
-export function parseTekanaCsv(text: string): ParsedImportRow[] {
+export function normalizeCsvHeader(header: string): string {
+  return header.trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+function buildHeaderToKeyMap(): Map<string, string> {
+  const map = new Map<string, string>();
+
+  for (const column of TEKANA_IMPORT_COLUMNS) {
+    map.set(normalizeCsvHeader(column.header), column.key);
+    column.aliases?.forEach((alias) => {
+      map.set(normalizeCsvHeader(alias), column.key);
+    });
+  }
+
+  return map;
+}
+
+const HEADER_TO_KEY = buildHeaderToKeyMap();
+
+export function parseTekanaCsv(text: string): ParseTekanaCsvResult {
   const lines = text
     .replace(/^\uFEFF/, '')
     .split(/\r?\n/)
@@ -35,15 +57,24 @@ export function parseTekanaCsv(text: string): ParsedImportRow[] {
     .filter(Boolean);
 
   if (lines.length < 2) {
-    return [];
+    return {
+      rows: [],
+      missingEzinsureHeaders: EZINSURE_ADDED_COLUMNS.filter((c) => c.required).map((c) => c.header),
+    };
   }
 
-  const headers = parseCsvLine(lines[0]).map((h) => h.toLowerCase());
-  const headerToKey = new Map<string, string>();
+  const rawHeaders = parseCsvLine(lines[0]);
+  const normalizedHeaders = rawHeaders.map(normalizeCsvHeader);
 
-  for (const column of TEKANA_IMPORT_COLUMNS) {
-    headerToKey.set(column.header.toLowerCase(), column.key);
-  }
+  const missingEzinsureHeaders = EZINSURE_ADDED_COLUMNS.filter((col) => col.required).filter(
+    (col) => {
+      const norm = normalizeCsvHeader(col.header);
+      const aliasNorms = (col.aliases ?? []).map(normalizeCsvHeader);
+      return !normalizedHeaders.some(
+        (h) => h === norm || aliasNorms.includes(h),
+      );
+    },
+  ).map((c) => c.header);
 
   const rows: ParsedImportRow[] = [];
 
@@ -52,15 +83,20 @@ export function parseTekanaCsv(text: string): ParsedImportRow[] {
     if (cells.every((cell) => !cell)) continue;
 
     const values: Record<string, string> = {};
-    headers.forEach((header, index) => {
-      const key = headerToKey.get(header);
+    const raw: Record<string, string> = {};
+
+    rawHeaders.forEach((header, index) => {
+      const cell = (cells[index] ?? '').trim();
+      raw[header] = cell;
+
+      const key = HEADER_TO_KEY.get(normalizeCsvHeader(header));
       if (key) {
-        values[key] = cells[index] ?? '';
+        values[key] = cell;
       }
     });
 
-    rows.push({ rowNumber: i + 1, values });
+    rows.push({ rowNumber: i + 1, values, raw });
   }
 
-  return rows;
+  return { rows, missingEzinsureHeaders };
 }
