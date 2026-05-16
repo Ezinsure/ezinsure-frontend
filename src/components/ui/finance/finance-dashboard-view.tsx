@@ -232,7 +232,7 @@ export default function FinanceDashboardView() {
     try {
       await initiatePaymentForRange(range);
       showToast('Payment initiated. Review your payout snapshots in Payment Initiated.', 'success');
-      router.push('/finance/payment-initiated');
+      router.push('/finance/motor/payment-initiated');
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to initiate payment.';
       showToast(message, 'error');

@@ -26,13 +26,13 @@ type FinanceApplicationStatusFilter = 'PAID' | 'READY_TO_BE_PAID' | 'PAYMENT_INI
 //     -> FinanceApplication[]
 //
 // 2) Payment initiated (snapshot)
-//   - GET /finance/payment-initiated/batches
+//   - GET /finance/motor/payment-initiated/batches
 //     -> { batches: FinanceBatchSummary[] }
-//   - GET /finance/payment-initiated/agent-totals?month&year
+//   - GET /finance/motor/payment-initiated/agent-totals?month&year
 //     -> FinanceAgentTotals[]
-//   - GET /finance/payment-initiated/applications-by-agent?agentId&month&year
+//   - GET /finance/motor/payment-initiated/applications-by-agent?agentId&month&year
 //     -> FinanceApplication[] (must include snapshot commission fields)
-//   - GET /finance/payment-initiated/application-details?id
+//   - GET /finance/motor/payment-initiated/application-details?id
 //     -> FinanceApplication (must be snapshot-frozen)
 //
 // 3) Payment history
@@ -229,7 +229,7 @@ export function useFinanceApi() {
     async (applicationId: string, context: 'accrual' | 'initiated' | 'paid', month?: number, year?: number) => {
       // Backend endpoint contract:
       // - accrual: GET /finance/accruals/application-details?id=...
-      // - initiated: GET /finance/payment-initiated/application-details?id=...
+      // - initiated: GET /finance/motor/payment-initiated/application-details?id=...
       // - paid: GET /finance/payment-history/application-details?id=...
       setIsPending(true);
       try {

@@ -6,6 +6,7 @@ import { useCallback } from 'react';
 import type { AppUser } from '@/shared/types/auth';
 import { getDashboardPath, getRolePathPrefix } from '@/shared/routing/paths';
 import { resolveUserDefaultProductLine } from '@/shared/utils/product-line-access';
+import { enrichUserWithProductLines } from '@/shared/utils/product-line-dev-overrides';
 
 type User = AppUser;
 
@@ -147,7 +148,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       // Update state immediately
       setToken(token);
-      setUser(data);
+      setUser(enrichUserWithProductLines(data as AppUser));
       
       // Notify other tabs about login
       localStorage.setItem('auth_event', JSON.stringify({
@@ -237,7 +238,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           
           if (event.type === 'login') {
             setToken(event.token);
-            setUser(event.user);
+            setUser(enrichUserWithProductLines(event.user as AppUser));
             // Update sessionStorage in this tab
             sessionStorage.setItem('ezinsure_token', event.token);
             sessionStorage.setItem('ezinsure_user', JSON.stringify(event.user));
@@ -297,7 +298,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
             if (response.ok) {
               const userData: User = await response.json();
-              setUser(userData);
+              setUser(enrichUserWithProductLines(userData));
             } else {
               // Invalid/expired token – clear it
               setToken(null);

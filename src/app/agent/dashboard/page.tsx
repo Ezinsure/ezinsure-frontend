@@ -424,13 +424,13 @@ const CustomTooltip = ({ active, payload, label }: TooltipProps<number, string>)
                 </div>
                 <div className="flex flex-wrap gap-3">
                   <Link
-                    href="/agent/apply"
+                    href="/agent/motor/apply"
                     className="px-5 py-2.5 rounded-full border border-slate-200 bg-white text-sm font-semibold text-slate-700 hover:border-slate-300"
                   >
                     New Application
                   </Link>
                   <Link
-                    href="/agent/applications"
+                    href="/agent/motor/applications"
                     className="px-5 py-2.5 rounded-full bg-blue-600 text-sm font-semibold text-white shadow-sm hover:bg-blue-500"
                   >
                     View Pipeline
@@ -822,13 +822,13 @@ const CustomTooltip = ({ active, payload, label }: TooltipProps<number, string>)
                 </div>
                 <div className="flex flex-wrap gap-4">
                   <Link
-                    href="/agent/apply"
+                    href="/agent/motor/apply"
                     className="flex-1 min-w-[140px] rounded-xl bg-white px-5 py-3 text-center font-semibold text-blue-700 hover:bg-blue-50"
                   >
                     Start Application
                   </Link>
                   <Link
-                    href="/agent/applications"
+                    href="/agent/motor/applications"
                     className="flex-1 min-w-[140px] rounded-xl border border-white/40 px-5 py-3 text-center font-semibold text-white hover:bg-white/10"
                   >
                     Manage Pipeline
@@ -847,13 +847,13 @@ const CustomTooltip = ({ active, payload, label }: TooltipProps<number, string>)
                 </div>
                 <div className="flex flex-wrap gap-4">
                   <Link
-                    href="/agent/apply"
+                    href="/agent/motor/apply"
                     className="flex-1 min-w-[140px] rounded-xl bg-white px-5 py-3 text-center font-semibold text-emerald-600 hover:bg-emerald-50"
                   >
                     Invite Client
                   </Link>
                   <Link
-                    href="/agent/profile"
+                    href="/agent/motor/profile"
                     className="flex-1 min-w-[140px] rounded-xl border border-white/40 px-5 py-3 text-center font-semibold text-white hover:bg-white/10"
                   >
                     View Profile

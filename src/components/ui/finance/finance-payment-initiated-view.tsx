@@ -251,7 +251,7 @@ export default function FinancePaymentInitiatedView() {
                   variant="outline"
                   size="sm"
                   className="border-white/40 bg-transparent text-white hover:bg-white/10 gap-2"
-                  onClick={() => router.push('/finance/payments')}
+                  onClick={() => router.push('/finance/motor/payments')}
                 >
                   <ChevronLeft className="w-4 h-4" />
                   Back to Payments
