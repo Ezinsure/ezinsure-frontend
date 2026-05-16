@@ -464,7 +464,6 @@ export default function AdminNewApplicationPage() {
 
   }, []);
 
-
   // Helper functions for document types
   const getIdentificationDocumentLabel = (type: string) => {
     switch (type) {
@@ -1168,7 +1167,6 @@ export default function AdminNewApplicationPage() {
 
     e.preventDefault();
 
-
     // Validate form
 
     // Validate form - include document URLs for file validation
@@ -1464,8 +1462,6 @@ export default function AdminNewApplicationPage() {
     <MainLayout containerClass="p-0" fullWidth>
 
       <div className="container mx-auto px-4 py-8 max-w-full">
-
-        <div className="absolute top-0 left-0 w-full h-[10vh] overflow-hidden z-0 bg-gradient-to-br from-[#0A2540] to-[#126BB3]"></div>
 
         <div className="max-w-4xl mx-auto mt-16">
 

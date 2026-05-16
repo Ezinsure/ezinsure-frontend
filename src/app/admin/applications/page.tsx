@@ -696,8 +696,6 @@ export default function ManageApplicationsPage() {
     }
   }, [isLoading]);
 
-
-
   // Handle filter changes
   const handleFilterChange = (filterType: string, value: string) => {
     switch (filterType) {
@@ -1677,7 +1675,7 @@ const getActionButtons = (app: Application) => {
   return (
     <MainLayout containerClass="p-0" fullWidth>
       <div className="container mx-auto px-4 py-8">
-         <div className="absolute top-0 left-0 w-full h-[10vh] overflow-hidden z-0  bg-gradient-to-br from-[#0A2540] to-[#126BB3]"></div>
+
         <div className="mb-8 mt-16">
           <h1 className="text-3xl font-bold mb-2 fade-in">Manage Insurance Applications</h1>
           <p className="text-gray-600 slide-up">Review and process client insurance applications</p>

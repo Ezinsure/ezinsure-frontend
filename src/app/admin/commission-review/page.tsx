@@ -511,7 +511,6 @@ const AdminCommissionReviewPage = () => {
     }
   };
 
-
 const getFormValue = (value: string | number | boolean | File | null | undefined): string => {
   if (value === null || value === undefined) return '';
   if (typeof value === 'boolean') return value.toString();
@@ -648,7 +647,6 @@ const getActionButtons = (app: Application) => {
         },
         body: formData,
       });
-
 
       if (!response.ok) {
         let errorMessage = 'Failed to put application on hold';
@@ -1425,7 +1423,6 @@ const getActionButtons = (app: Application) => {
   return (
     <MainLayout containerClass="p-0" fullWidth>
       <div className="container mx-auto px-4 py-8">
-        <div className="absolute top-0 left-0 w-full h-[10vh] overflow-hidden z-0 bg-gradient-to-br from-[#0A2540] to-[#126BB3]" />
 
         <div className="mb-8 mt-16">
           <h1 className="text-2xl sm:text-3xl font-bold mb-1">Commission review</h1>
@@ -2883,5 +2880,4 @@ const getActionButtons = (app: Application) => {
 };
 
 export default AdminCommissionReviewPage;
-
 

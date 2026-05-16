@@ -551,7 +551,7 @@ export default function SuperAdminProfilePage() {
   return (
     <MainLayout containerClass="p-0" fullWidth>
       <div className="min-h-screen bg-gray-50 pt-20 pb-10 px-4">
-        <div className="absolute top-0 left-0 w-full h-[10vh] overflow-hidden z-0 bg-gradient-to-br from-[#0A2540] to-[#126BB3]"></div>
+
         <div className="max-w-6xl mx-auto mt-12">
           {/* Tab Navigation */}
           <div className="flex border-b border-gray-200 mb-6">

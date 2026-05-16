@@ -3,16 +3,11 @@
 import { createContext, useContext, ReactNode, useState, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useCallback } from 'react';
+import type { AppUser } from '@/shared/types/auth';
+import { getDashboardPath, getRolePathPrefix } from '@/shared/routing/paths';
+import { resolveUserDefaultProductLine } from '@/shared/utils/product-line-access';
 
-interface User {
-  _id: string;
-  fullName: string;
-  email: string;
-  phoneNumber: string;
-  role: string;
-  agentCode?: string;
-  status: string;
-}
+type User = AppUser;
 
 interface AuthContextType {
   user: User | null;
@@ -55,7 +50,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   
     // **1. If logged in (has token & user)**
     if (token && user) {
-      const userDashboard = `/${user.role.toLowerCase()}/dashboard`;
+      const defaultLine = resolveUserDefaultProductLine(user);
+      const userDashboard = getDashboardPath(user.role, defaultLine);
+      const rolePrefix = `/${getRolePathPrefix(user.role)}`;
 
       // Allow access to verification page even if authenticated (user might be verifying email change)
       if (cleanPathname === '/verify-email-change') {
@@ -69,7 +66,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
   
       // Ensure they stay in their role's routes
-      if (!cleanPathname.startsWith(`/${user.role.toLowerCase()}`)) {
+      if (!cleanPathname.startsWith(rolePrefix)) {
         router.push(userDashboard);
         return;
       }
@@ -82,7 +79,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
   
       // For protected routes, redirect to login
-      const protectedRoutePatterns = ['/admin', '/agent', '/super_admin', '/finance'];
+      const protectedRoutePatterns = ['/admin', '/agent', '/super_admin', '/finance', '/vet'];
       const isProtectedRoute = protectedRoutePatterns.some(pattern => cleanPathname.startsWith(pattern));
   
       if (isProtectedRoute) {
@@ -161,7 +158,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }));
       
       // Use window.location.href for more reliable redirect
-      const dashboardUrl = `/${data.role.toLowerCase()}/dashboard`;
+      const loginUser = data as AppUser;
+      const dashboardUrl = getDashboardPath(
+        loginUser.role,
+        resolveUserDefaultProductLine(loginUser),
+      );
       window.location.href = dashboardUrl;
       return { success: true, data, token };
     } catch (error) {

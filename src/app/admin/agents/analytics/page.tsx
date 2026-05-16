@@ -857,7 +857,7 @@ export default function AgentAnalyticsPage() {
   return (
     <MainLayout>
       <div className="min-h-screen bg-gray-50 py-8">
-      <div className="absolute top-0 left-0 w-full h-[11vh] overflow-hidden z-0  bg-gradient-to-br from-[#0A2540] to-[#126BB3]"></div>
+
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Header */}
           <div className="mb-6">
@@ -1387,5 +1387,4 @@ export default function AgentAnalyticsPage() {
     </MainLayout>
   );
 }
-
 

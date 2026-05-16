@@ -3,6 +3,8 @@
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { useEffect } from 'react';
+import { getDashboardPath } from '@/shared/routing/paths';
+import { resolveUserDefaultProductLine } from '@/shared/utils/product-line-access';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -18,11 +20,10 @@ export const ProtectedRoute = ({ children, allowedRoles }: ProtectedRouteProps) 
       if (!isAuthenticated) {
         router.push('/login');
       } else if (allowedRoles && !allowedRoles.includes(user?.role || '')) {
-        // Special handling for finance role
-        if (user?.role === 'FINANCE') {
-          router.push('/finance/dashboard');
-        } else {
-          router.push(`/${user?.role.toLowerCase()}/dashboard`);
+        if (user?.role) {
+          router.push(
+            getDashboardPath(user.role, resolveUserDefaultProductLine(user)),
+          );
         }
       }
     }

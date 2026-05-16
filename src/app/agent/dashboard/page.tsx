@@ -374,7 +374,6 @@ const Dashboard = () => {
     return matchesSearch && matchesType;
   });
 
-
 const CustomTooltip = ({ active, payload, label }: TooltipProps<number, string>) => {
   if (active && payload && payload.length) {
     return (
@@ -415,10 +414,8 @@ const CustomTooltip = ({ active, payload, label }: TooltipProps<number, string>)
   return (
     <MainLayout containerClass="p-0" fullWidth>
       <div className="min-h-screen bg-slate-50">
-        <div className="relative isolate">
-          <div className="absolute inset-x-0 top-0 h-64 bg-gradient-to-br from-slate-900 via-blue-900 to-blue-700" />
-          <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-16 pb-12">
-            <div className="bg-white/90 backdrop-blur rounded-3xl border border-white/50 shadow-xl p-8 mb-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-8">
+            <div className="rounded-3xl border border-slate-200 bg-white shadow-sm p-8 mb-8">
               <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
                 <div>
                   <p className="text-xs uppercase tracking-[0.35em] text-slate-400">Agent Intelligence</p>
@@ -864,7 +861,6 @@ const CustomTooltip = ({ active, payload, label }: TooltipProps<number, string>)
                 </div>
               </div>
             </div>
-          </div>
         </div>
       </div>
     </MainLayout>

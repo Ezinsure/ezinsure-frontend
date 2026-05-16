@@ -172,9 +172,8 @@ export default function FinanceHistoryView() {
   return (
     <MainLayout containerClass="p-0" fullWidth>
       <div className="container mx-auto px-4 py-8">
-        <div className="absolute top-0 left-0 w-full h-[10vh] overflow-hidden z-0 bg-gradient-to-br from-[#0A2540] to-[#126BB3]" />
 
-        <div className="mt-10 bg-gradient-to-r from-blue-900 via-blue-800 to-indigo-900 shadow-xl rounded-2xl text-white">
+        <div className="mt-4 bg-gradient-to-r from-blue-900 via-blue-800 to-indigo-900 shadow-xl rounded-2xl text-white lg:mt-6">
           <div className="max-w-7xl mx-auto px-4 py-6 sm:px-6">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
               <div>
