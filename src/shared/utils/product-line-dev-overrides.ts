@@ -4,6 +4,7 @@ import {
   getAllowedProductLinesForRole,
   getDefaultProductLineForRole,
 } from '@/shared/utils/product-line-access';
+import { normalizeRole } from '@/shared/utils/role';
 
 /** localStorage keys for dev/testing before /auth/me returns product lines. */
 export const ALLOWED_PRODUCT_LINES_STORAGE_KEY = 'ezinsure_allowed_product_lines';
@@ -59,19 +60,21 @@ export function readProductLineDevOverrides(): {
  */
 export function enrichUserWithProductLines(user: AppUser): AppUser {
   const overrides = readProductLineDevOverrides();
+  const role = normalizeRole(user.role);
 
   const allowedProductLines =
     user.allowedProductLines?.length
       ? user.allowedProductLines
-      : overrides.allowedProductLines ?? getAllowedProductLinesForRole(user.role);
+      : overrides.allowedProductLines ?? getAllowedProductLinesForRole(role);
 
   const defaultProductLine =
     user.defaultProductLine ??
     overrides.defaultProductLine ??
-    getDefaultProductLineForRole(user.role);
+    getDefaultProductLineForRole(role);
 
   return {
     ...user,
+    role,
     allowedProductLines,
     defaultProductLine,
   };

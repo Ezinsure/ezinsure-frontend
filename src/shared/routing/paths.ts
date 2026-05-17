@@ -5,7 +5,7 @@ const ROLE_SEGMENTS: Record<string, string> = {
   AGENT: 'agent',
   SUPER_ADMIN: 'super_admin',
   FINANCE: 'finance',
-  VET: 'vet',
+  VETERINARY: 'vet',
 };
 
 export function getRolePathPrefix(role: string): string {
@@ -16,7 +16,7 @@ export function getRolePathPrefix(role: string): string {
 export function getDashboardPath(role: string, productLine: ProductLine = 'motor'): string {
   const prefix = getRolePathPrefix(role);
 
-  if (role === 'VET') {
+  if (role === 'VETERINARY') {
     return `/${prefix}/livestock/dashboard`;
   }
 

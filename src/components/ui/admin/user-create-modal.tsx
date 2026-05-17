@@ -3,7 +3,8 @@ import { Input } from "@/components/ui/input";
 import { ValidationRules, validateForm } from "@/components/ui/form-validation";
 import { AdministrativeDivision, rwandaProvinces } from '@/utils/rwanda-administrative';
 import { rwandaBanks } from '@/utils/rwanda-banks';
-import { useEffect, useState } from "react";
+import { useEffect, useState } from 'react';
+import { VETERINARY_ROLE } from '@/shared/utils/role';
 import { useToast } from "../toast";
 
 // import { useState } from "react";
@@ -17,7 +18,7 @@ interface FormData {
   province: string;
   district: string;
   sector: string;
-  role: 'ADMIN' | 'AGENT';
+  role: 'ADMIN' | 'AGENT' | 'VETERINARY';
   emergencyContact1Name: string;
   emergencyContact1PhoneNumber: string;
   emergencyContact1Relationship: string;
@@ -155,6 +156,10 @@ interface UserCreateModalProps {
   formData: FormData;
   setFormData: React.Dispatch<React.SetStateAction<FormData>>;
   setErrors: React.Dispatch<React.SetStateAction<Errors>>;
+  /** When set, role select is hidden and documents are required (agent / vet onboarding) */
+  fixedRole?: 'AGENT' | 'VETERINARY';
+  title?: string;
+  submitLabel?: string;
 }
 
 export const UserCreateModal = ({
@@ -165,7 +170,10 @@ export const UserCreateModal = ({
   errors,
   formData,
   setFormData,
-  setErrors
+  setErrors,
+  fixedRole,
+  title = 'Create New User',
+  submitLabel = 'Create User',
 }: UserCreateModalProps) => {
   const { showToast, ToastContainer } = useToast();
   const [districts, setDistricts] = useState<AdministrativeDivision[]>([]);
@@ -230,7 +238,13 @@ export const UserCreateModal = ({
   const validateFiles = () => {
     const fileErrors: Errors = {};
 
-    if (formData.role === 'AGENT') {
+    const requiresDocuments =
+      formData.role === 'AGENT' ||
+      formData.role === 'VETERINARY' ||
+      fixedRole === 'AGENT' ||
+      fixedRole === 'VETERINARY';
+
+    if (requiresDocuments) {
       if (!formData.nationalIdDocument) {
         fileErrors.nationalIdDocument = 'National ID document is required';
       }
@@ -287,6 +301,11 @@ export const UserCreateModal = ({
   };
 
   useEffect(() => {
+    if (!isOpen || !fixedRole) return;
+    setFormData((prev) => ({ ...prev, role: fixedRole }));
+  }, [isOpen, fixedRole, setFormData]);
+
+  useEffect(() => {
     if (formData.province) {
       const selectedProvince = rwandaProvinces.find(p => p.name === formData.province);
       setDistricts(selectedProvince?.districts || []);
@@ -329,7 +348,7 @@ export const UserCreateModal = ({
     <div className="fixed inset-0 bg-gray-600/50 flex items-center justify-center z-50">
       <div className="max-h-[90vh] overflow-y-auto bg-white rounded-lg shadow-xl p-6 w-full max-w-2xl mx-4">
         <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-semibold mb-4">Create New User</h3>
+          <h3 className="text-lg font-semibold mb-4">{title}</h3>
           <button
             onClick={onClose}
             className="text-gray-400 hover:text-gray-600 cursor-pointer"
@@ -485,20 +504,28 @@ export const UserCreateModal = ({
               placeholder="Enter account number (10-16 digits)"
             />
           </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">
-              Role <span className="text-red-500">*</span>
-            </label>
-            <select
-              name="role"
-              value={formData.role}
-              onChange={handleInputChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[var(--main-blue)] focus:border-[var(--main-blue)]"
-            >
-              <option value="AGENT">Agent</option>
-              {/* <option value="ADMIN">Admin</option> */}
-            </select>
-          </div>
+          {fixedRole ? (
+            <div>
+              <label className="block text-sm font-medium mb-1">Role</label>
+              <p className="rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700">
+                {fixedRole === VETERINARY_ROLE ? 'Veterinarian' : 'Agent'}
+              </p>
+            </div>
+          ) : (
+            <div>
+              <label className="block text-sm font-medium mb-1">
+                Role <span className="text-red-500">*</span>
+              </label>
+              <select
+                name="role"
+                value={formData.role}
+                onChange={handleInputChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[var(--main-blue)] focus:border-[var(--main-blue)]"
+              >
+                <option value="AGENT">Agent</option>
+              </select>
+            </div>
+          )}
 
           <div className="bg-gray-50 p-4 rounded-lg">
             <h4 className="font-medium mb-3">Required Documents</h4>
@@ -641,7 +668,7 @@ export const UserCreateModal = ({
                   </svg>
                   Creating...
                 </>
-              ) : 'Create User'}
+              ) : submitLabel}
             </Button>
           </div>
         </div>

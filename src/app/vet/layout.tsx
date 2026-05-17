@@ -5,7 +5,7 @@ import { AuthenticatedLayout } from '@/shared/layouts/AuthenticatedLayout';
 
 export default function VetLayout({ children }: { children: React.ReactNode }) {
   return (
-    <ProtectedRoute allowedRoles={['VET']}>
+    <ProtectedRoute allowedRoles={['VETERINARY']}>
       <AuthenticatedLayout>{children}</AuthenticatedLayout>
     </ProtectedRoute>
   );

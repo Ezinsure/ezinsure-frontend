@@ -14,7 +14,7 @@ export function getScopedPath(
     return `/${prefix}/motor/${normalized}`;
   }
 
-  if (role === 'VET') {
+  if (role === 'VETERINARY') {
     return `/${prefix}/livestock/${normalized}`;
   }
 

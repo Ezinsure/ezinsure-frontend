@@ -1,11 +1,12 @@
 import type { AppUser } from '@/shared/types/auth';
 import type { ProductLine } from '@/shared/types/product-line';
+import { isVeterinaryRole } from '@/shared/utils/role';
 
 export function getAllowedProductLinesForRole(role: string): ProductLine[] {
   switch (role) {
     case 'AGENT':
       return ['motor'];
-    case 'VET':
+    case 'VETERINARY':
       return ['livestock'];
     case 'ADMIN':
     case 'SUPER_ADMIN':
@@ -17,12 +18,10 @@ export function getAllowedProductLinesForRole(role: string): ProductLine[] {
 }
 
 export function getDefaultProductLineForRole(role: string): ProductLine {
-  switch (role) {
-    case 'VET':
-      return 'livestock';
-    default:
-      return 'motor';
+  if (isVeterinaryRole(role)) {
+    return 'livestock';
   }
+  return 'motor';
 }
 
 export function resolveUserProductLines(user: AppUser | null): ProductLine[] {

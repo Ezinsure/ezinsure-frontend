@@ -157,7 +157,7 @@ const [formData, setFormData] = useState({
   province: '',
   district: '',
   sector: '',
-  role: 'AGENT' as 'ADMIN' | 'AGENT',
+  role: 'AGENT' as 'ADMIN' | 'AGENT' | 'VETERINARY',
   emergencyContact1Name: '',
   emergencyContact1PhoneNumber: '',
   emergencyContact1Relationship: '',

@@ -123,7 +123,7 @@ export function WorkspaceProvider({ children }: WorkspaceProviderProps) {
 
       const rolePrefix = getRolePathPrefix(role);
 
-      if (role === 'VET') {
+      if (role === 'VETERINARY') {
         return `/${rolePrefix}/livestock${normalized}`;
       }
 
@@ -153,9 +153,9 @@ export function WorkspaceProvider({ children }: WorkspaceProviderProps) {
   }, [isLoading, user, cleanPath, router]);
 
   useEffect(() => {
-    if (isLoading || !user || user.role !== 'VET') return;
+    if (isLoading || !user || user.role !== 'VETERINARY') return;
     if (!cleanPath.startsWith('/vet/livestock')) {
-      router.replace(getDashboardPath('VET', 'livestock'));
+      router.replace(getDashboardPath('VETERINARY', 'livestock'));
     }
   }, [isLoading, user, cleanPath, router]);
 
