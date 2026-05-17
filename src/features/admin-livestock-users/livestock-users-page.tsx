@@ -299,12 +299,25 @@ export function LivestockUsersPage({ viewerRole }: LivestockUsersPageProps) {
         payload.append('passportPhoto', formData.passportPhoto);
       }
 
-      payload.append('emergencyContacts1Name', formData.emergencyContact1Name);
-      payload.append('emergencyContacts1Phone', formData.emergencyContact1PhoneNumber);
-      payload.append('emergencyContacts1Relationship', formData.emergencyContact1Relationship);
-      payload.append('emergencyContacts2Name', formData.emergencyContact2Name);
-      payload.append('emergencyContacts2Phone', formData.emergencyContact2PhoneNumber);
-      payload.append('emergencyContacts2Relationship', formData.emergencyContact2Relationship);
+      const hasEmergencyContact1 =
+        formData.emergencyContact1Name.trim() ||
+        formData.emergencyContact1PhoneNumber.trim() ||
+        formData.emergencyContact1Relationship.trim();
+      const hasEmergencyContact2 =
+        formData.emergencyContact2Name.trim() ||
+        formData.emergencyContact2PhoneNumber.trim() ||
+        formData.emergencyContact2Relationship.trim();
+
+      if (hasEmergencyContact1) {
+        payload.append('emergencyContacts1Name', formData.emergencyContact1Name);
+        payload.append('emergencyContacts1Phone', formData.emergencyContact1PhoneNumber);
+        payload.append('emergencyContacts1Relationship', formData.emergencyContact1Relationship);
+      }
+      if (hasEmergencyContact2) {
+        payload.append('emergencyContacts2Name', formData.emergencyContact2Name);
+        payload.append('emergencyContacts2Phone', formData.emergencyContact2PhoneNumber);
+        payload.append('emergencyContacts2Relationship', formData.emergencyContact2Relationship);
+      }
 
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/register`, {
         method: 'POST',
