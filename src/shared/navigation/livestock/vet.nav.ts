@@ -12,7 +12,7 @@ export const livestockVetNavigation: NavGroup[] = [
   {
     items: [
       { href: `${base}/dashboard`, label: 'Dashboard', icon: LayoutDashboard },
-      { href: `${base}/applications`, label: 'My Assignments', icon: FileText },
+      { href: `${base}/applications`, label: 'My Applications', icon: FileText },
       { href: `${base}/FAQ`, label: 'FAQ', icon: HelpCircle },
       { href: `${base}/profile`, label: 'Profile', icon: UserCircle },
     ],
