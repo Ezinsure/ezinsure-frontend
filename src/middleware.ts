@@ -33,6 +33,14 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL(legacyTarget, request.url));
   }
 
+  // Legacy vet paths (role slug mistaken for URL prefix)
+  if (pathname === '/veterinary/dashboard' || pathname.startsWith('/veterinary/')) {
+    const suffix = pathname.replace(/^\/veterinary/, '') || '/dashboard';
+    const target =
+      suffix === '/dashboard' ? '/vet/livestock/dashboard' : `/vet/livestock${suffix}`;
+    return NextResponse.redirect(new URL(target, request.url));
+  }
+
   const token = request.cookies.get('ezinsure_token')?.value;
 
   // If there is a token, consider the request authenticated at the middleware level.

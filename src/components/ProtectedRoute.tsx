@@ -5,6 +5,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useEffect } from 'react';
 import { getDashboardPath } from '@/shared/routing/paths';
 import { resolveUserDefaultProductLine } from '@/shared/utils/product-line-access';
+import { normalizeRole } from '@/shared/utils/role';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -19,7 +20,10 @@ export const ProtectedRoute = ({ children, allowedRoles }: ProtectedRouteProps) 
     if (!isLoading) {
       if (!isAuthenticated) {
         router.push('/login');
-      } else if (allowedRoles && !allowedRoles.includes(user?.role || '')) {
+      } else if (
+        allowedRoles &&
+        !allowedRoles.includes(normalizeRole(user?.role || ''))
+      ) {
         if (user?.role) {
           router.push(
             getDashboardPath(user.role, resolveUserDefaultProductLine(user)),
@@ -29,7 +33,11 @@ export const ProtectedRoute = ({ children, allowedRoles }: ProtectedRouteProps) 
     }
   }, [isLoading, isAuthenticated, user, allowedRoles, router]);
 
-  if (isLoading || !isAuthenticated || (allowedRoles && !allowedRoles.includes(user?.role || ''))) {
+  if (
+    isLoading ||
+    !isAuthenticated ||
+    (allowedRoles && !allowedRoles.includes(normalizeRole(user?.role || '')))
+  ) {
     return <div>Loading...</div>;
   }
 

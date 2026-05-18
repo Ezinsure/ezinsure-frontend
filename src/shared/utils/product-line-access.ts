@@ -1,9 +1,11 @@
 import type { AppUser } from '@/shared/types/auth';
 import type { ProductLine } from '@/shared/types/product-line';
-import { isVeterinaryRole } from '@/shared/utils/role';
+import { isVeterinaryRole, normalizeRole } from '@/shared/utils/role';
 
 export function getAllowedProductLinesForRole(role: string): ProductLine[] {
-  switch (role) {
+  const normalized = normalizeRole(role);
+
+  switch (normalized) {
     case 'AGENT':
       return ['motor'];
     case 'VETERINARY':
@@ -13,7 +15,7 @@ export function getAllowedProductLinesForRole(role: string): ProductLine[] {
     case 'FINANCE':
       return ['motor', 'livestock'];
     default:
-      return ['motor'];
+      return isVeterinaryRole(normalized) ? ['livestock'] : ['motor'];
   }
 }
 

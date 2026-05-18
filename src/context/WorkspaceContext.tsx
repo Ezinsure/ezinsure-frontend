@@ -23,6 +23,7 @@ import {
   parseProductLineFromPath,
   resolveProductLineFromPath,
 } from '@/shared/routing/paths';
+import { isVeterinaryRole, normalizeRole } from '@/shared/utils/role';
 
 const WORKSPACE_STORAGE_KEY = 'ezinsure_workspace';
 
@@ -116,14 +117,14 @@ export function WorkspaceProvider({ children }: WorkspaceProviderProps) {
     (pathWithinWorkspace: string) => {
       if (!user) return pathWithinWorkspace;
 
-      const role = user.role;
+      const role = normalizeRole(user.role);
       const normalized = pathWithinWorkspace.startsWith('/')
         ? pathWithinWorkspace
         : `/${pathWithinWorkspace}`;
 
       const rolePrefix = getRolePathPrefix(role);
 
-      if (role === 'VETERINARY') {
+      if (isVeterinaryRole(role)) {
         return `/${rolePrefix}/livestock${normalized}`;
       }
 
@@ -153,9 +154,9 @@ export function WorkspaceProvider({ children }: WorkspaceProviderProps) {
   }, [isLoading, user, cleanPath, router]);
 
   useEffect(() => {
-    if (isLoading || !user || user.role !== 'VETERINARY') return;
+    if (isLoading || !user || !isVeterinaryRole(user.role)) return;
     if (!cleanPath.startsWith('/vet/livestock')) {
-      router.replace(getDashboardPath('VETERINARY', 'livestock'));
+      router.replace(getDashboardPath(user.role, 'livestock'));
     }
   }, [isLoading, user, cleanPath, router]);
 

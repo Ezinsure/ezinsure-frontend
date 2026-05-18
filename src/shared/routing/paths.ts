@@ -1,4 +1,5 @@
 import type { ProductLine } from '@/shared/types/product-line';
+import { isVeterinaryRole, normalizeRole } from '@/shared/utils/role';
 
 const ROLE_SEGMENTS: Record<string, string> = {
   ADMIN: 'admin',
@@ -9,22 +10,24 @@ const ROLE_SEGMENTS: Record<string, string> = {
 };
 
 export function getRolePathPrefix(role: string): string {
-  return ROLE_SEGMENTS[role] ?? role.toLowerCase();
+  const normalized = normalizeRole(role);
+  return ROLE_SEGMENTS[normalized] ?? normalized.toLowerCase();
 }
 
 /** Canonical dashboard path for a role + product line */
 export function getDashboardPath(role: string, productLine: ProductLine = 'motor'): string {
-  const prefix = getRolePathPrefix(role);
+  const normalized = normalizeRole(role);
+  const prefix = getRolePathPrefix(normalized);
 
-  if (role === 'VETERINARY') {
+  if (isVeterinaryRole(normalized)) {
     return `/${prefix}/livestock/dashboard`;
   }
 
-  if (role === 'AGENT') {
+  if (normalized === 'AGENT') {
     return `/${prefix}/motor/dashboard`;
   }
 
-  if (role === 'ADMIN' || role === 'SUPER_ADMIN' || role === 'FINANCE') {
+  if (normalized === 'ADMIN' || normalized === 'SUPER_ADMIN' || normalized === 'FINANCE') {
     return `/${prefix}/${productLine}/dashboard`;
   }
 

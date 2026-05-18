@@ -159,7 +159,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }));
       
       // Use window.location.href for more reliable redirect
-      const loginUser = data as AppUser;
+      const loginUser = enrichUserWithProductLines(data as AppUser);
       const dashboardUrl = getDashboardPath(
         loginUser.role,
         resolveUserDefaultProductLine(loginUser),
