@@ -1,5 +1,3 @@
-export type LivestockImportRowStatus = 'created' | 'skipped' | 'failed';
-
 export type ImportColumnSource = 'tekana' | 'ezinsure';
 
 export interface TekanaImportColumn {
@@ -29,31 +27,9 @@ export interface ParseTekanaCsvResult {
   missingEzinsureHeaders: string[];
 }
 
-export interface LivestockImportRowResult {
-  rowNumber: number;
-  chip: string;
-  policyNumber: string;
-  ownerName: string;
-  vetPhone: string;
-  vetEmail: string;
-  status: LivestockImportRowStatus;
-  reason?: string;
-  applicationNumber?: string;
-}
-
-export interface LivestockImportSummary {
-  totalRows: number;
+export interface TekanaMassUploadResponse {
+  message: string;
   created: number;
   skipped: number;
-  failed: number;
-  missingVetContact: number;
-}
-
-export interface LivestockImportResult {
-  importBatchId: string;
-  message: string;
-  simulated: true;
-  summary: LivestockImportSummary;
-  rows: LivestockImportRowResult[];
-  errors: string[];
+  errors: unknown[];
 }

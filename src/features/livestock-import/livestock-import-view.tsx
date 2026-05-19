@@ -2,6 +2,7 @@
 
 import { useCallback, useRef, useState } from 'react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import {
   AlertCircle,
   CheckCircle2,
@@ -12,7 +13,7 @@ import {
   X,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { simulateTekanaImport } from '@/features/livestock-import/mock-import';
+import { uploadTekanaVeterinaryApplications } from '@/features/livestock-import/api';
 import { parseTekanaCsv } from '@/features/livestock-import/parse-csv';
 import {
   ACCEPTED_IMPORT_EXTENSIONS,
@@ -22,10 +23,11 @@ import {
   TEKANA_EXPORT_COLUMNS,
 } from '@/features/livestock-import/template';
 import type {
-  LivestockImportResult,
   ParsedImportRow,
   TekanaImportColumn,
+  TekanaMassUploadResponse,
 } from '@/features/livestock-import/types';
+import { useApiClient } from '@/utils/apiClient';
 
 function ColumnList({
   title,
@@ -77,20 +79,25 @@ function formatFileSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function statusBadgeClass(status: 'created' | 'skipped' | 'failed'): string {
-  switch (status) {
-    case 'created':
-      return 'bg-emerald-50 text-emerald-800 ring-emerald-200';
-    case 'skipped':
-      return 'bg-amber-50 text-amber-900 ring-amber-200';
-    case 'failed':
-      return 'bg-red-50 text-red-800 ring-red-200';
-    default:
-      return 'bg-slate-50 text-slate-700 ring-slate-200';
+function formatUploadError(entry: unknown): string {
+  if (typeof entry === 'string') return entry;
+  if (entry && typeof entry === 'object' && 'message' in entry) {
+    return String((entry as { message: unknown }).message);
+  }
+  try {
+    return JSON.stringify(entry);
+  } catch {
+    return 'Unknown error';
   }
 }
 
 export default function LivestockImportView() {
+  const pathname = usePathname();
+  const { apiFetch } = useApiClient();
+  const applicationsHref = pathname?.startsWith('/super_admin')
+    ? '/super_admin/livestock/applications'
+    : '/admin/livestock/applications';
+
   const inputRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -98,7 +105,7 @@ export default function LivestockImportView() {
   const [previewRows, setPreviewRows] = useState<ParsedImportRow[]>([]);
   const [missingEzinsureHeaders, setMissingEzinsureHeaders] = useState<string[]>([]);
   const [isImporting, setIsImporting] = useState(false);
-  const [result, setResult] = useState<LivestockImportResult | null>(null);
+  const [result, setResult] = useState<TekanaMassUploadResponse | null>(null);
 
   const assignFile = useCallback(async (next: File | null) => {
     setFileError(null);
@@ -154,26 +161,19 @@ export default function LivestockImportView() {
       return;
     }
 
+    if (missingEzinsureHeaders.length > 0) {
+      setFileError('Add the required Vet Phone column before importing.');
+      return;
+    }
+
     setIsImporting(true);
     setFileError(null);
 
     try {
-      let parsed: ParsedImportRow[] = previewRows;
-      let missingHeaders = missingEzinsureHeaders;
-      if (file.name.toLowerCase().endsWith('.csv')) {
-        const text = await file.text();
-        const parseResult = parseTekanaCsv(text);
-        parsed = parseResult.rows;
-        missingHeaders = parseResult.missingEzinsureHeaders;
-        setMissingEzinsureHeaders(missingHeaders);
-      }
-
-      const importResult = await simulateTekanaImport(file, parsed, {
-        missingEzinsureHeaders: missingHeaders,
-      });
+      const importResult = await uploadTekanaVeterinaryApplications(apiFetch, file);
       setResult(importResult);
-    } catch {
-      setFileError('Import simulation failed. Try again.');
+    } catch (err) {
+      setFileError(err instanceof Error ? err.message : 'Import failed. Try again.');
     } finally {
       setIsImporting(false);
     }
@@ -200,9 +200,9 @@ export default function LivestockImportView() {
               Import from Tekana
             </h1>
             <p className="mt-2 max-w-2xl text-sm text-slate-600 leading-relaxed">
-              Export the Policy Insurance Report from Tekana, then in Excel add{' '}
-              <strong>Vet Phone</strong> and <strong>Vet Email</strong> columns for each row.
-              Upload that file here to create livestock applications and assign vets.
+              Export the Policy Insurance Report from Tekana, then in Excel add a{' '}
+              <strong>Vet Phone</strong> column for each row. Each application is assigned to the
+              veterinarian whose phone number in EzInsure matches that column.
             </p>
           </div>
           <Button
@@ -221,17 +221,9 @@ export default function LivestockImportView() {
           <p className="font-medium">Expected workflow</p>
           <ol className="mt-2 list-decimal space-y-1 pl-5 text-blue-900/90">
             <li>Export CSV from Tekana (Policy Insurance Report).</li>
-            <li>Open in Excel and add columns <strong>Vet Phone</strong> and <strong>Vet Email</strong>.</li>
+            <li>Open in Excel and add a <strong>Vet Phone</strong> column (must match a vet in EzInsure).</li>
             <li>Save and upload the file here.</li>
           </ol>
-        </div>
-
-        <div className="rounded-xl border border-amber-100 bg-amber-50/80 px-4 py-3 text-sm text-amber-950">
-          <p className="font-medium">Simulated import (demo mode)</p>
-          <p className="mt-1 text-amber-900/90">
-            Results are mocked until the API is connected. All Tekana columns are preserved in{' '}
-            <code className="rounded bg-amber-100/80 px-1 text-xs">tekana.rawRow</code> for audit.
-          </p>
         </div>
 
         {missingEzinsureHeaders.length > 0 && file && (
@@ -360,8 +352,8 @@ export default function LivestockImportView() {
 
             {file && !file.name.toLowerCase().endsWith('.csv') && (
               <p className="text-sm text-slate-500">
-                Excel preview will be available when the backend parser is connected. You can still
-                run a simulated import.
+                Excel files are uploaded directly. Ensure each row includes a Vet Phone that matches
+                a veterinarian in EzInsure.
               </p>
             )}
 
@@ -397,7 +389,7 @@ export default function LivestockImportView() {
             />
             <ColumnList
               title="Add in Excel before upload"
-              subtitle="Required EzInsure columns (not in Tekana export)."
+              subtitle="Add after Tekana export — Vet Phone is required for vet assignment."
               columns={EZINSURE_ADDED_COLUMNS}
               highlight
             />
@@ -412,27 +404,20 @@ export default function LivestockImportView() {
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-start gap-3">
                 <CheckCircle2 className="mt-0.5 h-6 w-6 shrink-0 text-emerald-600" />
-                <div>
-                  <h2 className="text-lg font-semibold text-slate-900">{result.message}</h2>
-                  <p className="text-sm text-slate-500">
-                    Batch ID: <span className="font-mono">{result.importBatchId}</span>
-                  </p>
-                </div>
+                <h2 className="text-lg font-semibold text-slate-900">{result.message}</h2>
               </div>
               <Link
-                href="/admin/livestock/applications"
+                href={applicationsHref}
                 className="text-sm font-medium text-[var(--main-blue)] hover:underline"
               >
                 View applications →
               </Link>
             </div>
 
-            <dl className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
+            <dl className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-2">
               {[
-                { label: 'Total rows', value: result.summary.totalRows },
-                { label: 'Created', value: result.summary.created },
-                { label: 'Skipped', value: result.summary.skipped },
-                { label: 'Failed', value: result.summary.failed },
+                { label: 'Created', value: result.created },
+                { label: 'Skipped', value: result.skipped },
               ].map((item) => (
                 <div
                   key={item.label}
@@ -448,56 +433,14 @@ export default function LivestockImportView() {
 
             {result.errors.length > 0 && (
               <ul className="mt-4 space-y-1 rounded-lg border border-amber-200 bg-amber-50/60 p-3 text-sm text-amber-950">
-                {result.errors.map((err) => (
-                  <li key={err} className="flex gap-2">
+                {result.errors.map((err, index) => (
+                  <li key={`${index}-${formatUploadError(err)}`} className="flex gap-2">
                     <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-                    {err}
+                    {formatUploadError(err)}
                   </li>
                 ))}
               </ul>
             )}
-
-            <div className="mt-6 overflow-x-auto rounded-xl border border-slate-100">
-              <table className="min-w-full text-left text-sm">
-                <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
-                  <tr>
-                    <th className="px-4 py-3 font-medium">Row</th>
-                    <th className="px-4 py-3 font-medium">Chip</th>
-                    <th className="px-4 py-3 font-medium">Owner</th>
-                    <th className="px-4 py-3 font-medium">Vet</th>
-                    <th className="px-4 py-3 font-medium">Status</th>
-                    <th className="px-4 py-3 font-medium">Details</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {result.rows.map((row) => (
-                    <tr key={`${row.rowNumber}-${row.chip}`} className="text-slate-800">
-                      <td className="px-4 py-3">{row.rowNumber}</td>
-                      <td className="px-4 py-3 font-mono text-xs">{row.chip}</td>
-                      <td className="px-4 py-3">{row.ownerName}</td>
-                      <td className="px-4 py-3 text-xs">
-                        <div>{row.vetPhone || '—'}</div>
-                        <div className="text-slate-500">{row.vetEmail || ''}</div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <span
-                          className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold capitalize ring-1 ring-inset ${statusBadgeClass(row.status)}`}
-                        >
-                          {row.status}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-slate-600">
-                        {row.applicationNumber && (
-                          <span className="font-medium text-slate-900">{row.applicationNumber}</span>
-                        )}
-                        {row.reason && <span>{row.reason}</span>}
-                        {!row.applicationNumber && !row.reason && '—'}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
           </section>
         )}
       </div>

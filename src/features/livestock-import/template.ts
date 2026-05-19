@@ -313,9 +313,9 @@ export const EZINSURE_ADDED_COLUMNS: TekanaImportColumn[] = [
     header: 'Vet Email',
     aliases: ['vet email', 'vet_email', 'veterinarian email'],
     label: 'Vet email',
-    required: true,
+    required: false,
     source: 'ezinsure',
-    description: 'Assigned veterinarian email. Added by admin after Tekana export.',
+    description: 'Optional veterinarian email. Vet Phone is used to match the vet in EzInsure.',
     example: 'vet.karim@example.rw',
   },
 ];
