@@ -8,7 +8,8 @@ export type LivestockApplicationSubmitPayload = LivestockApplicationFormValues &
 };
 
 export async function submitLivestockApplication(
-  _payload: LivestockApplicationSubmitPayload,
+  payload: LivestockApplicationSubmitPayload,
 ): Promise<never> {
+  void payload;
   throw new Error('Livestock application API is not connected yet.');
 }

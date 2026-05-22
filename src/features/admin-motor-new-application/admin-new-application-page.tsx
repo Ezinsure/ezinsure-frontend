@@ -808,7 +808,7 @@ export default function AdminNewApplicationPage() {
         return newErrors;
       });
     }
-  }, [allowedFileTypes, errors]);
+  }, [allowedFileTypes, errors, showToast]);
 
   // Memoized handlers for SearchInput components to prevent infinite loops
   const handleIdentificationNumberChange = useCallback((value: string) => {
@@ -853,7 +853,7 @@ export default function AdminNewApplicationPage() {
     if (formData.identificationDocumentType === 'plateNumber') {
       setHasFetchedPlate(false);
     }
-  }, []);
+  }, [formData.identificationDocumentType]);
 
   const handlePlateNumberChange = useCallback((value: string) => {
     // Don't reset isNewVehicle if a plate search just completed

@@ -72,12 +72,7 @@ export default function ManageApplicationsPage() {
       Boolean(selectedApp.isCOMESA),
     );
     setAdministrationFees(String(fees));
-  }, [
-    activeModal,
-    selectedApp?._id,
-    selectedApp?.insuranceCategory,
-    selectedApp?.isCOMESA,
-  ]);
+  }, [activeModal, selectedApp]);
 
   useEffect(() => {
     const premium = Number(netPremium || 0);
@@ -516,7 +511,7 @@ export default function ManageApplicationsPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [token]);
+  }, [token, showToast]);
 
   useEffect(() => {
     if (token) {

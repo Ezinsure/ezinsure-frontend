@@ -218,7 +218,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       console.error('Logout error:', error);
       // Optionally, show a toast or alert here
     }
-  }, [router, token]);
+  }, [token]);
 
   // Force logout without waiting for backend – used when token is expired or invalid
   const forceLogout = useCallback(() => {
