@@ -30,10 +30,14 @@ export function AppSidebar({
   const groups = getNavigation(user.role, activeProductLine);
   const showWorkspaceInSidebar = !collapsed && (canSwitchWorkspace || allowedProductLines.length === 1);
 
-  const isActive = (href: string) => {
-    const clean = pathname.split('?')[0];
-    return clean === href || clean.startsWith(`${href}/`);
-  };
+  const cleanPath = pathname.split('?')[0];
+  const navHrefs = groups.flatMap((group) => group.items.map((item) => item.href));
+  const activeHref =
+    navHrefs
+      .filter((href) => cleanPath === href || cleanPath.startsWith(`${href}/`))
+      .sort((a, b) => b.length - a.length)[0] ?? null;
+
+  const isActive = (href: string) => activeHref === href;
 
   return (
     <>

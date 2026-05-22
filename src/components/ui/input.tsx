@@ -20,6 +20,8 @@ interface InputProps {
   min?: string;
   max?: string;
   maxLength?: number;
+  step?: string;
+  inputMode?: React.HTMLAttributes<HTMLInputElement>['inputMode'];
   size?: InputSize;
   hideLabel?: boolean;
 }
@@ -39,6 +41,8 @@ export const Input = ({
   min,
   max,
   maxLength,
+  step,
+  inputMode,
   size = 'default',
   hideLabel = false,
 }: InputProps) => {
@@ -93,6 +97,8 @@ export const Input = ({
           min={min}
           max={max}
           maxLength={maxLength}
+          step={step}
+          inputMode={inputMode}
           onFocus={() => setIsFocused(true)}
           onBlur={() => setIsFocused(false)}
         />
