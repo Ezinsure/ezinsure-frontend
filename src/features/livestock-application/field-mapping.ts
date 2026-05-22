@@ -9,6 +9,8 @@ export const APPLICATION_TO_TEKANA_IMPORT_KEY = {
   farmerContributionAmount: 'farmerContribution',
   premiumRateAmount: 'premiumRate',
   governmentContribution: 'governmentContribution',
+  companyCommission: 'companyCommission',
+  veterinaryCommission: 'veterinaryCommission',
   ownerName: 'ownerName',
   ownerPhone: 'ownerPhone',
   ownerDateOfBirth: 'ownerDateOfBirth',

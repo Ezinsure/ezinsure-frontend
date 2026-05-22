@@ -79,11 +79,19 @@ export interface LivestockApplicationFormValues {
   loanAccountNumber: string;
   loanAmount: string;
 
-  // Section 9 — Premium (API: farmerContributionAmount, governmentContribution, premiumRateAmount)
+  // Section 9 — Premium
+  /** Rate % applied to total sum assured (e.g. 5.5) */
   premiumPercentage: string;
-  farmerContributionAmount: string;
-  governmentContribution: string;
+  /** Total premium RWF — 100% (API: premiumRate) */
   premiumRateAmount: string;
+  /** API: farmerContribution — 60% of premiumRateAmount */
+  farmerContributionAmount: string;
+  /** API: governmentContribution — 40% of premiumRateAmount */
+  governmentContribution: string;
+  /** API: companyCommission — 3.5% of premiumRateAmount */
+  companyCommission: string;
+  /** API: veterinaryCommission — 10% of premiumRateAmount */
+  veterinaryCommission: string;
 
   // Section 10 — Verification (application-only)
   insuranceAgentCode: string;

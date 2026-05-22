@@ -13,11 +13,19 @@ import type {
   LivestockAnimalRow,
   LivestockApplicationStepId,
 } from '@/features/livestock-application/types';
+import { computePremiumBreakdownFromForm } from '@/features/livestock-application/utils/premium-calculations';
 import { suggestPremiumPercentage } from '@/features/livestock-application/utils/premium';
 import {
   validateLivestockApplicationStep,
   validateLivestockApplicationStepHasErrors,
 } from '@/features/livestock-application/validation';
+
+function withPremiumAmounts(
+  values: LivestockApplicationFormValues,
+  useManualTotal = false,
+): LivestockApplicationFormValues {
+  return { ...values, ...computePremiumBreakdownFromForm(values, { useManualTotal }) };
+}
 
 export function useLivestockApplicationForm(
   initialValues?: Partial<LivestockApplicationFormValues>,
@@ -47,7 +55,8 @@ export function useLivestockApplicationForm(
         return prev;
       }
       lastAutoPremiumRef.current = suggested;
-      return { ...prev, premiumPercentage: suggested };
+      const next = { ...prev, premiumPercentage: suggested };
+      return withPremiumAmounts(next);
     });
   }, []);
 
@@ -56,7 +65,16 @@ export function useLivestockApplicationForm(
       key: K,
       value: LivestockApplicationFormValues[K],
     ) => {
-      setValues((prev) => ({ ...prev, [key]: value }));
+      setValues((prev) => {
+        let next = { ...prev, [key]: value };
+        if (key === 'premiumPercentage') {
+          lastAutoPremiumRef.current = String(value);
+          next = withPremiumAmounts(next);
+        } else if (key === 'premiumRateAmount') {
+          next = withPremiumAmounts(next, true);
+        }
+        return next;
+      });
       setErrors((prev) => {
         const next = { ...prev };
         delete next[key as string];
@@ -72,7 +90,7 @@ export function useLivestockApplicationForm(
         const livestockItems = prev.livestockItems.map((item) =>
           item.id === id ? { ...item, ...patch } : item,
         );
-        const next = { ...prev, livestockItems };
+        let next = { ...prev, livestockItems };
         if (patch.animalType !== undefined) {
           const suggested = suggestPremiumPercentage(livestockItems);
           if (
@@ -81,8 +99,11 @@ export function useLivestockApplicationForm(
               prev.premiumPercentage === lastAutoPremiumRef.current)
           ) {
             lastAutoPremiumRef.current = suggested;
-            return { ...next, premiumPercentage: suggested };
+            next = { ...next, premiumPercentage: suggested };
           }
+        }
+        if (patch.sumAssured !== undefined || patch.animalType !== undefined) {
+          next = withPremiumAmounts(next);
         }
         return next;
       });
@@ -103,7 +124,7 @@ export function useLivestockApplicationForm(
         prev.livestockItems.length <= 1
           ? prev.livestockItems
           : prev.livestockItems.filter((item) => item.id !== id);
-      const next = { ...prev, livestockItems };
+      let next = { ...prev, livestockItems };
       if (
         !prev.premiumPercentage.trim() ||
         prev.premiumPercentage === lastAutoPremiumRef.current
@@ -111,17 +132,17 @@ export function useLivestockApplicationForm(
         const suggested = suggestPremiumPercentage(livestockItems);
         if (suggested) {
           lastAutoPremiumRef.current = suggested;
-          return { ...next, premiumPercentage: suggested };
+          next = { ...next, premiumPercentage: suggested };
         }
       }
-      return next;
+      return withPremiumAmounts(next);
     });
   }, []);
 
   const mergeLivestockItems = useCallback((imported: LivestockAnimalRow[]) => {
     setValues((prev) => {
       const livestockItems = mergeImportedLivestockItems(prev.livestockItems, imported);
-      const next = { ...prev, livestockItems };
+      let next = { ...prev, livestockItems };
       const suggested = suggestPremiumPercentage(livestockItems);
       if (
         suggested &&
@@ -129,9 +150,9 @@ export function useLivestockApplicationForm(
           prev.premiumPercentage === lastAutoPremiumRef.current)
       ) {
         lastAutoPremiumRef.current = suggested;
-        return { ...next, premiumPercentage: suggested };
+        next = { ...next, premiumPercentage: suggested };
       }
-      return next;
+      return withPremiumAmounts(next);
     });
   }, []);
 
@@ -174,17 +195,42 @@ export function useLivestockApplicationForm(
   );
 
   const onEnterPremiumStep = useCallback(() => {
-    applySuggestedPremium(values.livestockItems, false);
-  }, [applySuggestedPremium, values.livestockItems]);
+    setValues((prev) => {
+      let next = prev;
+      const suggested = suggestPremiumPercentage(prev.livestockItems);
+      if (
+        suggested &&
+        (!prev.premiumPercentage.trim() ||
+          prev.premiumPercentage === lastAutoPremiumRef.current)
+      ) {
+        lastAutoPremiumRef.current = suggested;
+        next = { ...next, premiumPercentage: suggested };
+      }
+      return withPremiumAmounts(next);
+    });
+  }, []);
 
   const prepareSubmitPayload = useMemo(() => {
+    const amounts = withPremiumAmounts(values);
+    const toNumber = (v: string) => {
+      const n = parseFloat(String(v).replace(/\s/g, '').replace(/,/g, ''));
+      return Number.isFinite(n) ? n : 0;
+    };
+
     return {
-      ...values,
+      ...amounts,
       insuranceType: values.isRenewal ? 'Renewal' : values.isFirstApplication ? 'New' : '',
+      premiumRateAmount: toNumber(amounts.premiumRateAmount),
+      farmerContributionAmount: toNumber(amounts.farmerContributionAmount),
+      governmentContribution: toNumber(amounts.governmentContribution),
+      companyCommission: toNumber(amounts.companyCommission),
+      veterinaryCommission: toNumber(amounts.veterinaryCommission),
+      premiumPercentage: toNumber(amounts.premiumPercentage),
       livestockItems: values.livestockItems.map((item) => ({
         ...item,
         sex: item.animalCategory,
         species: item.animalType,
+        sumAssured: toNumber(item.sumAssured),
       })),
     };
   }, [values]);
