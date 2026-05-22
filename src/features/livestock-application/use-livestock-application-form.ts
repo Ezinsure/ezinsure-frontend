@@ -43,23 +43,6 @@ export function useLivestockApplicationForm(
   const isReadOnly = mode === 'readonly' || mode === 'review';
   const isReview = mode === 'review';
 
-  const applySuggestedPremium = useCallback((items: LivestockAnimalRow[], force = false) => {
-    const suggested = suggestPremiumPercentage(items);
-    if (!suggested) return;
-    setValues((prev) => {
-      if (
-        !force &&
-        prev.premiumPercentage.trim() &&
-        prev.premiumPercentage !== lastAutoPremiumRef.current
-      ) {
-        return prev;
-      }
-      lastAutoPremiumRef.current = suggested;
-      const next = { ...prev, premiumPercentage: suggested };
-      return withPremiumAmounts(next);
-    });
-  }, []);
-
   const setField = useCallback(
     <K extends keyof LivestockApplicationFormValues>(
       key: K,
