@@ -106,7 +106,12 @@ export function parseLivestockBulkCsv(text: string): BulkImportResult {
     item.id = createLivestockItemId();
     headerMap.forEach((field, colIdx) => {
       if (field === 'id') return;
-      item[field] = cells[colIdx] ?? '';
+      const raw = cells[colIdx] ?? '';
+      if (field === 'poultryProductType') {
+        item.poultryProductType = raw as LivestockAnimalRow['poultryProductType'];
+        return;
+      }
+      item[field] = raw;
     });
     if (!item.chipNumber.trim()) {
       errors.push(`Umurongo ${r + 1}: Eartag irabura.`);

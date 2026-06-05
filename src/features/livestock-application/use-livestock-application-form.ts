@@ -13,7 +13,13 @@ import type {
   LivestockAnimalRow,
   LivestockApplicationStepId,
 } from '@/features/livestock-application/types';
+import type { CreateLivestockApplicationPayload } from '@/features/livestock-application/domain/application-types';
+import type {
+  ApplicationIntakeSelection,
+  FormProfile,
+} from '@/features/livestock-application/domain/form-profiles';
 import { computePremiumBreakdownFromForm } from '@/features/livestock-application/utils/premium-calculations';
+import { computePoultryLotAmounts } from '@/features/livestock-application/utils/poultry-calculations';
 import { suggestPremiumPercentage } from '@/features/livestock-application/utils/premium';
 import {
   validateLivestockApplicationStep,
@@ -30,7 +36,10 @@ function withPremiumAmounts(
 export function useLivestockApplicationForm(
   initialValues?: Partial<LivestockApplicationFormValues>,
   mode: LivestockApplicationFormMode = 'create',
+  formProfile?: FormProfile,
+  intake?: ApplicationIntakeSelection,
 ) {
+  const stepIds = formProfile?.stepIds ?? [];
   const [values, setValues] = useState<LivestockApplicationFormValues>(() => ({
     ...createInitialLivestockApplicationValues(),
     ...initialValues,
@@ -85,7 +94,12 @@ export function useLivestockApplicationForm(
             next = { ...next, premiumPercentage: suggested };
           }
         }
-        if (patch.sumAssured !== undefined || patch.animalType !== undefined) {
+        if (
+          patch.sumAssured !== undefined ||
+          patch.animalType !== undefined ||
+          patch.quantity !== undefined ||
+          patch.unitValue !== undefined
+        ) {
           next = withPremiumAmounts(next);
         }
         return next;
@@ -95,11 +109,18 @@ export function useLivestockApplicationForm(
   );
 
   const addLivestockItem = useCallback(() => {
-    setValues((prev) => ({
-      ...prev,
-      livestockItems: [...prev.livestockItems, createEmptyLivestockItem()],
-    }));
-  }, []);
+    setValues((prev) => {
+      const empty = createEmptyLivestockItem();
+      if (formProfile?.lineTableVariant === 'POULTRY_LOT') {
+        empty.animalType = 'Inkoko';
+      } else if (formProfile?.id === 'SINGLE_OWNER_CATTLE') {
+        empty.animalType = 'Inka';
+      } else if (formProfile?.id === 'SINGLE_OWNER_PIG') {
+        empty.animalType = 'Ingurube';
+      }
+      return { ...prev, livestockItems: [...prev.livestockItems, empty] };
+    });
+  }, [formProfile]);
 
   const removeLivestockItem = useCallback((id: string) => {
     setValues((prev) => {
@@ -193,37 +214,89 @@ export function useLivestockApplicationForm(
     });
   }, []);
 
-  const prepareSubmitPayload = useMemo(() => {
+  const prepareSubmitPayload = useMemo((): CreateLivestockApplicationPayload => {
     const amounts = withPremiumAmounts(values);
     const toNumber = (v: string) => {
       const n = parseFloat(String(v).replace(/\s/g, '').replace(/,/g, ''));
       return Number.isFinite(n) ? n : 0;
     };
 
-    return {
-      ...amounts,
-      insuranceType: values.isRenewal ? 'Renewal' : values.isFirstApplication ? 'New' : '',
-      premiumRateAmount: toNumber(amounts.premiumRateAmount),
-      farmerContributionAmount: toNumber(amounts.farmerContributionAmount),
-      governmentContribution: toNumber(amounts.governmentContribution),
-      companyCommission: toNumber(amounts.companyCommission),
-      veterinaryCommission: toNumber(amounts.veterinaryCommission),
-      premiumPercentage: toNumber(amounts.premiumPercentage),
-      livestockItems: values.livestockItems.map((item) => ({
-        ...item,
-        sex: item.animalCategory,
-        species: item.animalType,
-        sumAssured: toNumber(item.sumAssured),
-      })),
-    };
-  }, [values]);
+    const isMulti = intake?.ownerMode === 'MULTI_OWNER';
+    const isPoultry = formProfile?.lineTableVariant === 'POULTRY_LOT';
 
-  const handleSubmit = useCallback(() => {
-    setSubmitMessage(
-      'API ntirakora — payload yateguwe mu console. Ohereza bizakorwa nyuma yo gushyiraho API.',
-    );
-    console.log('[LivestockApplication] submit payload (preview)', prepareSubmitPayload);
-  }, [prepareSubmitPayload]);
+    return {
+      speciesGroup: intake?.speciesGroup ?? 'CATTLE',
+      ownerMode: intake?.ownerMode ?? 'SINGLE_OWNER',
+      poultryProductType: values.livestockItems[0]?.poultryProductType || undefined,
+      insuranceType: values.isRenewal ? 'Renewal' : values.isFirstApplication ? 'New' : '',
+      policyStartDate: values.policyStartDate,
+      policyEndDate: values.policyEndDate,
+      owner: isMulti
+        ? undefined
+        : {
+            name: values.ownerName,
+            phone: values.ownerPhone,
+            nationalId: values.nationalId,
+            province: values.applicantProvince,
+            district: values.applicantDistrict,
+            sector: values.applicantSector,
+            cell: values.applicantCell,
+            village: values.applicantVillage,
+          },
+      livestockLocation: {
+        province: values.livestockProvince,
+        district: values.district,
+        sector: values.sector,
+        cell: values.cell,
+        village: values.village,
+      },
+      premiumTotals: {
+        premiumPercentage: toNumber(amounts.premiumPercentage),
+        premiumRateAmount: toNumber(amounts.premiumRateAmount),
+        farmerContributionAmount: toNumber(amounts.farmerContributionAmount),
+        governmentContribution: toNumber(amounts.governmentContribution),
+        companyCommission: toNumber(amounts.companyCommission),
+        veterinaryCommission: toNumber(amounts.veterinaryCommission),
+        totalSumAssured: values.livestockItems.reduce(
+          (s, i) => s + toNumber(i.sumAssured),
+          0,
+        ),
+      },
+      lines: values.livestockItems.map((item) => {
+        const poultry = isPoultry ? computePoultryLotAmounts(item) : null;
+        const sumAssured = poultry ? toNumber(poultry.sumAssured) : toNumber(item.sumAssured);
+        return {
+          lineType: isPoultry ? ('LOT' as const) : ('INDIVIDUAL' as const),
+          quantity: isPoultry ? toNumber(item.quantity || '1') : 1,
+          unitValue: isPoultry ? toNumber(item.unitValue || '0') : sumAssured,
+          sumAssured,
+          premiumRate: poultry ? toNumber(poultry.premiumAmount) : 0,
+          farmerContribution: poultry ? toNumber(poultry.farmerAmount) : 0,
+          governmentContribution: poultry ? toNumber(poultry.nkunganireAmount) : 0,
+          owner: isMulti
+            ? { name: item.ownerName || '', phone: item.ownerPhone || '' }
+            : undefined,
+          animal: {
+            species: item.animalType,
+            animalCategory: item.animalCategory,
+            animalAge: item.animalAge,
+            chipNumber: item.chipNumber,
+            breed: item.breed,
+            color: item.color,
+            productivity: item.productivity,
+            hatcherySource: item.hatcherySource,
+            poultryProductType: item.poultryProductType || undefined,
+          },
+          tekanaEligible: Boolean(item.chipNumber?.trim()),
+        };
+      }),
+      veterinarianVerification: {
+        insuranceAgentCode: values.insuranceAgentCode,
+        veterinarianLicenseNumber: values.veterinarianLicenseNumber,
+        veterinarianSignatureName: values.veterinarianSignatureName,
+      },
+    };
+  }, [formProfile?.lineTableVariant, intake, values]);
 
   return {
     values,
@@ -245,7 +318,7 @@ export function useLivestockApplicationForm(
     loadDraft,
     validateCurrentStep,
     onEnterPremiumStep,
-    handleSubmit,
     prepareSubmitPayload,
+    stepIds,
   };
 }

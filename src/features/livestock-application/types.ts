@@ -3,6 +3,14 @@
  * where possible. Extension fields are marked for future API mapping.
  */
 
+import type {
+  LivestockOwnerMode,
+  LivestockSpeciesGroup,
+  PoultryProductType,
+} from '@/features/livestock-application/domain/application-types';
+
+export type { LivestockOwnerMode, LivestockSpeciesGroup, PoultryProductType };
+
 export type LivestockApplicationFormMode = 'create' | 'edit' | 'review' | 'readonly';
 
 export type LivestockApplicationStepId =
@@ -32,6 +40,19 @@ export interface LivestockAnimalRow {
   productivity: string;
   /** Insured value — API field: sumAssured */
   sumAssured: string;
+  /** Multi-owner mode */
+  ownerName?: string;
+  ownerPhone?: string;
+  /** Poultry lot mode */
+  quantity?: string;
+  unitValue?: string;
+  hatcherySource?: string;
+  poultryProductType?: PoultryProductType | '';
+}
+
+export interface LivestockApplicationIntakeConfig {
+  speciesGroup: LivestockSpeciesGroup;
+  ownerMode: LivestockOwnerMode;
 }
 
 export interface LivestockApplicationFormValues {

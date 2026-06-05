@@ -1,19 +1,30 @@
 'use client';
 
 import { useEffect } from 'react';
-import { Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ApplicationStepContent } from '@/features/livestock-application/components/application-step-content';
-import { LIVESTOCK_APPLICATION_STEPS, LIVESTOCK_FORM_LABELS } from '@/features/livestock-application/labels';
+import { ApplicationStepProgress } from '@/features/livestock-application/components/shared/application-step-progress';
+import { createLivestockApplication } from '@/features/livestock-application/api/applications-api';
+import type { ApplicationIntakeSelection } from '@/features/livestock-application/domain/form-profiles';
+import type { FormProfile } from '@/features/livestock-application/domain/form-profiles';
+import { LIVESTOCK_FORM_LABELS } from '@/features/livestock-application/labels';
 import type { LivestockApplicationFormMode } from '@/features/livestock-application/types';
 import { useLivestockApplicationForm } from '@/features/livestock-application/use-livestock-application-form';
 
 interface LivestockApplicationFormProps {
   mode?: LivestockApplicationFormMode;
+  formProfile: FormProfile;
+  intake: ApplicationIntakeSelection;
+  onSubmitted?: (applicationId: string) => void;
 }
 
-export function LivestockApplicationForm({ mode = 'create' }: LivestockApplicationFormProps) {
-  const form = useLivestockApplicationForm(undefined, mode);
+export function LivestockApplicationForm({
+  mode = 'create',
+  formProfile,
+  intake,
+  onSubmitted,
+}: LivestockApplicationFormProps) {
+  const form = useLivestockApplicationForm(undefined, mode, formProfile, intake);
   const {
     values,
     setField,
@@ -30,12 +41,13 @@ export function LivestockApplicationForm({ mode = 'create' }: LivestockApplicati
     loadDraft,
     validateCurrentStep,
     onEnterPremiumStep,
-    handleSubmit,
+    prepareSubmitPayload,
+    stepIds,
   } = form;
 
-  const currentStep = LIVESTOCK_APPLICATION_STEPS[stepIndex];
-  const isLastStep = stepIndex === LIVESTOCK_APPLICATION_STEPS.length - 1;
-  const premiumStepIndex = LIVESTOCK_APPLICATION_STEPS.findIndex((s) => s.id === 'premiumInfo');
+  const currentStepId = stepIds[stepIndex];
+  const isLastStep = stepIndex === stepIds.length - 1;
+  const premiumStepIndex = stepIds.indexOf('premiumInfo');
 
   useEffect(() => {
     if (mode === 'create') loadDraft();
@@ -47,69 +59,42 @@ export function LivestockApplicationForm({ mode = 'create' }: LivestockApplicati
   }, [stepIndex, premiumStepIndex, onEnterPremiumStep]);
 
   const goNext = () => {
-    if (!validateCurrentStep(currentStep.id)) return;
-    const nextIndex = Math.min(stepIndex + 1, LIVESTOCK_APPLICATION_STEPS.length - 1);
+    if (!validateCurrentStep(currentStepId)) return;
+    const nextIndex = Math.min(stepIndex + 1, stepIds.length - 1);
     setStepIndex(nextIndex);
-    if (LIVESTOCK_APPLICATION_STEPS[nextIndex]?.id === 'premiumInfo') {
-      onEnterPremiumStep();
-    }
+    if (stepIds[nextIndex] === 'premiumInfo') onEnterPremiumStep();
   };
 
   const goPrev = () => setStepIndex((i) => Math.max(i - 1, 0));
 
+  const handleSubmit = async () => {
+    try {
+      const result = await createLivestockApplication(prepareSubmitPayload);
+      onSubmitted?.(result._id);
+    } catch {
+      /* stub never throws */
+    }
+  };
+
   return (
-    <div className="mx-auto max-w-4xl">
-      <header className="mb-8">
-        <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">
-          SONARWA · Livestock
-        </p>
-        <h1 className="mt-2 text-2xl font-semibold text-slate-900 sm:text-3xl">
+    <div>
+      <header className="mb-6">
+        <h1 className="text-xl font-semibold text-slate-900 sm:text-2xl">
           {LIVESTOCK_FORM_LABELS.formTitle}
         </h1>
-        <p className="mt-2 text-sm text-slate-600">{LIVESTOCK_FORM_LABELS.formSubtitle}</p>
+        <p className="mt-1 text-sm text-slate-600">{LIVESTOCK_FORM_LABELS.formSubtitle}</p>
       </header>
 
-      <nav aria-label="Progress" className="mb-8 overflow-x-auto">
-        <ol className="flex min-w-max gap-2">
-          {LIVESTOCK_APPLICATION_STEPS.map((step, index) => {
-            const done = index < stepIndex;
-            const active = index === stepIndex;
-            return (
-              <li key={step.id}>
-                <button
-                  type="button"
-                  disabled={isReadOnly && !active}
-                  onClick={() => {
-                    if (index <= stepIndex) setStepIndex(index);
-                  }}
-                  className={[
-                    'flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-medium transition',
-                    active
-                      ? 'bg-blue-600 text-white shadow-sm'
-                      : done
-                        ? 'bg-emerald-50 text-emerald-800 ring-1 ring-emerald-200'
-                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200',
-                  ].join(' ')}
-                >
-                  <span
-                    className={[
-                      'flex h-5 w-5 items-center justify-center rounded-full text-[10px]',
-                      active ? 'bg-white/20' : 'bg-white',
-                    ].join(' ')}
-                  >
-                    {done ? <Check className="h-3 w-3" /> : index + 1}
-                  </span>
-                  <span className="max-w-[8rem] truncate hidden sm:inline">{step.label}</span>
-                </button>
-              </li>
-            );
-          })}
-        </ol>
-      </nav>
+      <ApplicationStepProgress
+        stepIds={stepIds}
+        stepIndex={stepIndex}
+        onStepClick={setStepIndex}
+        disabled={isReadOnly}
+      />
 
-      <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-8">
         <ApplicationStepContent
-          stepId={currentStep.id}
+          stepId={currentStepId}
           values={values}
           errors={errors}
           disabled={isReadOnly}
@@ -118,6 +103,7 @@ export function LivestockApplicationForm({ mode = 'create' }: LivestockApplicati
           addLivestockItem={addLivestockItem}
           removeLivestockItem={removeLivestockItem}
           mergeLivestockItems={mergeLivestockItems}
+          formProfile={formProfile}
         />
 
         {submitMessage && (
@@ -128,18 +114,11 @@ export function LivestockApplicationForm({ mode = 'create' }: LivestockApplicati
 
         {!isReadOnly && (
           <div className="mt-8 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-6">
-            <div className="flex gap-2">
-              <Button type="button" variant="outline" size="sm" onClick={saveDraft}>
-                {LIVESTOCK_FORM_LABELS.saveDraft}
-              </Button>
-            </div>
+            <Button type="button" variant="outline" size="sm" onClick={saveDraft}>
+              {LIVESTOCK_FORM_LABELS.saveDraft}
+            </Button>
             <div className="flex flex-wrap gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={goPrev}
-                disabled={stepIndex === 0}
-              >
+              <Button type="button" variant="outline" onClick={goPrev} disabled={stepIndex === 0}>
                 {LIVESTOCK_FORM_LABELS.previous}
               </Button>
               {!isLastStep ? (
@@ -147,7 +126,7 @@ export function LivestockApplicationForm({ mode = 'create' }: LivestockApplicati
                   {LIVESTOCK_FORM_LABELS.next}
                 </Button>
               ) : (
-                <Button type="button" variant="primary" onClick={handleSubmit}>
+                <Button type="button" variant="primary" onClick={() => void handleSubmit()}>
                   {LIVESTOCK_FORM_LABELS.submit}
                 </Button>
               )}

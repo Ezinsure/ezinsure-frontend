@@ -6,6 +6,8 @@ import {
   LivestockTextField,
 } from '@/features/livestock-application/components/form-controls';
 import { LivestockItemsTable } from '@/features/livestock-application/components/livestock-items-table';
+import { PoultryLotsTable } from '@/features/livestock-application/components/tables/poultry-lots-table';
+import type { FormProfile } from '@/features/livestock-application/domain/form-profiles';
 import { RwandaLocationFields } from '@/features/livestock-application/components/rwanda-location-fields';
 import { LIVESTOCK_FORM_LABELS } from '@/features/livestock-application/labels';
 import {
@@ -33,6 +35,7 @@ interface ApplicationStepContentProps {
   addLivestockItem: () => void;
   removeLivestockItem: (id: string) => void;
   mergeLivestockItems: (items: LivestockAnimalRow[]) => void;
+  formProfile?: FormProfile;
 }
 
 export function ApplicationStepContent({
@@ -45,6 +48,7 @@ export function ApplicationStepContent({
   addLivestockItem,
   removeLivestockItem,
   mergeLivestockItems,
+  formProfile,
 }: ApplicationStepContentProps) {
   const title = LIVESTOCK_FORM_LABELS.sections[stepId];
 
@@ -200,15 +204,34 @@ export function ApplicationStepContent({
       return (
         <section className="space-y-4">
           <h2 className="text-lg font-semibold text-slate-900">{title}</h2>
-          <LivestockItemsTable
-            items={values.livestockItems}
-            errors={errors}
-            disabled={disabled}
-            onUpdate={updateLivestockItem}
-            onAdd={addLivestockItem}
-            onRemove={removeLivestockItem}
-            onMergeImported={mergeLivestockItems}
-          />
+          {formProfile?.lineTableVariant === 'POULTRY_LOT' ? (
+            <PoultryLotsTable
+              items={values.livestockItems}
+              errors={errors}
+              disabled={disabled}
+              onUpdate={updateLivestockItem}
+              onAdd={addLivestockItem}
+              onRemove={removeLivestockItem}
+            />
+          ) : (
+            <LivestockItemsTable
+              items={values.livestockItems}
+              errors={errors}
+              disabled={disabled}
+              onUpdate={updateLivestockItem}
+              onAdd={addLivestockItem}
+              onRemove={removeLivestockItem}
+              onMergeImported={mergeLivestockItems}
+              showOwnerColumns={formProfile?.lineTableVariant === 'MULTI_OWNER'}
+              fixedAnimalType={
+                formProfile?.id === 'SINGLE_OWNER_CATTLE'
+                  ? 'Inka'
+                  : formProfile?.id === 'SINGLE_OWNER_PIG'
+                    ? 'Ingurube'
+                    : undefined
+              }
+            />
+          )}
         </section>
       );
 

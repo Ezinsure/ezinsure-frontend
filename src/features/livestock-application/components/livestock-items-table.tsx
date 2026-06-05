@@ -24,6 +24,8 @@ interface LivestockItemsTableProps {
   onRemove: (id: string) => void;
   onMergeImported: (items: LivestockAnimalRow[]) => void;
   onImportMessage?: (message: string) => void;
+  showOwnerColumns?: boolean;
+  fixedAnimalType?: string;
 }
 
 export function LivestockItemsTable({
@@ -35,6 +37,8 @@ export function LivestockItemsTable({
   onRemove,
   onMergeImported,
   onImportMessage,
+  showOwnerColumns,
+  fixedAnimalType,
 }: LivestockItemsTableProps) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [importNote, setImportNote] = useState<string | null>(null);
@@ -117,10 +121,16 @@ export function LivestockItemsTable({
       )}
 
       <div className="w-full max-w-full overflow-x-auto rounded-xl border border-slate-200">
-        <table className="min-w-[92rem] w-full text-sm">
+        <table className={`w-full text-sm ${showOwnerColumns ? 'min-w-[110rem]' : 'min-w-[92rem]'}`}>
           <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
             <tr>
               <th className="px-3 py-2 text-left w-10">#</th>
+              {showOwnerColumns && (
+                <>
+                  <th className="px-3 py-2 text-left min-w-[11rem]">{LIVESTOCK_FORM_LABELS.fields.ownerName}</th>
+                  <th className="px-3 py-2 text-left min-w-[10rem]">{LIVESTOCK_FORM_LABELS.fields.ownerPhone}</th>
+                </>
+              )}
               <th className="px-3 py-2 text-left min-w-[11rem]">{LIVESTOCK_FORM_LABELS.fields.animalType}</th>
               <th className="px-3 py-2 text-left min-w-[10rem]">{LIVESTOCK_FORM_LABELS.fields.animalCategory}</th>
               <th className="px-3 py-2 text-left min-w-[7rem]">{LIVESTOCK_FORM_LABELS.fields.animalAge}</th>
@@ -136,16 +146,45 @@ export function LivestockItemsTable({
             {items.map((item, index) => (
               <tr key={item.id} className="align-top bg-white">
                 <td className="px-3 py-2 text-slate-500">{index + 1}</td>
+                {showOwnerColumns && (
+                  <>
+                    <td className="px-2 py-2">
+                      <LivestockTextField
+                        fieldName="ownerName"
+                        value={item.ownerName || ''}
+                        onChange={(v) => onUpdate(item.id, { ownerName: v })}
+                        error={errors[`livestockItems.${index}.ownerName`]}
+                        disabled={disabled}
+                        hideLabel
+                      />
+                    </td>
+                    <td className="px-2 py-2">
+                      <LivestockTextField
+                        fieldName="ownerPhone"
+                        value={item.ownerPhone || ''}
+                        onChange={(v) => onUpdate(item.id, { ownerPhone: v })}
+                        disabled={disabled}
+                        hideLabel
+                      />
+                    </td>
+                  </>
+                )}
                 <td className="px-2 py-2 min-w-[11rem]">
-                  <LivestockSelect
-                    fieldName="animalType"
-                    value={item.animalType}
-                    onChange={(v) => onUpdate(item.id, { animalType: v })}
-                    options={LIVESTOCK_ANIMAL_TYPE_OPTIONS}
-                    error={errors[`livestockItems.${index}.animalType`]}
-                    disabled={disabled}
-                    hideLabel
-                  />
+                  {fixedAnimalType ? (
+                    <span className="inline-flex rounded-lg bg-slate-100 px-3 py-2 text-sm font-medium text-slate-800">
+                      {fixedAnimalType}
+                    </span>
+                  ) : (
+                    <LivestockSelect
+                      fieldName="animalType"
+                      value={item.animalType}
+                      onChange={(v) => onUpdate(item.id, { animalType: v })}
+                      options={LIVESTOCK_ANIMAL_TYPE_OPTIONS}
+                      error={errors[`livestockItems.${index}.animalType`]}
+                      disabled={disabled}
+                      hideLabel
+                    />
+                  )}
                 </td>
                 <td className="px-2 py-2 min-w-[10rem]">
                   <LivestockSelect

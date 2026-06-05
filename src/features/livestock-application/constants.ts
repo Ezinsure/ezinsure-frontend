@@ -32,4 +32,10 @@ export const LIVESTOCK_BULK_IMPORT_HEADERS = [
   'sumAssured',
 ] as const;
 
+export const POULTRY_PRODUCT_OPTIONS = [
+  { value: 'EGG_LAYER', label: 'Inkoko zitera amagi (12 months)' },
+  { value: 'MEAT', label: 'Inkoko y\'inyama (12 weeks)' },
+] as const;
+
 export const LIVESTOCK_APPLICATION_DRAFT_KEY = 'ezinsure:livestock-application-draft';
+export const LIVESTOCK_APPLICATION_INTAKE_KEY = 'ezinsure:livestock-application-intake';

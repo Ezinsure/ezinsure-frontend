@@ -1,1 +1,5 @@
-export { default } from '@/features/vet-portal/vet-applications-page';
+import LivestockApplicationsListPage from '@/features/livestock-application/livestock-applications-list-page';
+
+export default function VetLivestockApplicationsPage() {
+  return <LivestockApplicationsListPage viewRole="vet" />;
+}
