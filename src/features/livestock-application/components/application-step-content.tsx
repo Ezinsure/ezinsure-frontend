@@ -223,13 +223,7 @@ export function ApplicationStepContent({
               onRemove={removeLivestockItem}
               onMergeImported={mergeLivestockItems}
               showOwnerColumns={formProfile?.lineTableVariant === 'MULTI_OWNER'}
-              fixedAnimalType={
-                formProfile?.id === 'SINGLE_OWNER_CATTLE'
-                  ? 'Inka'
-                  : formProfile?.id === 'SINGLE_OWNER_PIG'
-                    ? 'Ingurube'
-                    : undefined
-              }
+              fixedAnimalType={formProfile?.lockedAnimalType}
             />
           )}
         </section>

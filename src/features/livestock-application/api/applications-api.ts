@@ -1,5 +1,4 @@
 import type {
-  CreateLivestockApplicationPayload,
   GenerateSubsidyDocumentResponse,
   LivestockApplicationPackage,
   LivestockApplicationsListResponse,
@@ -22,43 +21,29 @@ function objectUrlFromFile(file: File): string {
   return URL.createObjectURL(file);
 }
 
-/** GET /livestock/applications — vetId optional for admin (all apps) */
-export async function fetchLivestockApplications(
-  vetId: string | undefined,
+/** Mock list — admin/super_admin until backend list endpoint is wired */
+export async function fetchLivestockApplicationsMock(
   startDate: string,
   endDate: string,
 ): Promise<LivestockApplicationsListResponse> {
   await delay();
-  void vetId;
   const all = getMockApplicationsList();
+  const data = all.filter((app) => {
+    const d = app.submittedAt.slice(0, 10);
+    return d >= startDate && d <= endDate;
+  });
   return {
-    data: all.filter((app) => {
-      const d = app.submittedAt.slice(0, 10);
-      return d >= startDate && d <= endDate;
-    }),
-    meta: { total: all.length, startDate, endDate },
+    data,
+    meta: { total: data.length, startDate, endDate },
   };
 }
 
-/** GET /livestock/applications/:id */
-export async function fetchLivestockApplicationById(
+/** Mock detail — admin demo ids only (mock-app-*) */
+export async function fetchLivestockApplicationByIdMock(
   applicationId: string,
 ): Promise<LivestockApplicationPackage | null> {
   await delay();
   return getMockApplicationDetail(applicationId);
-}
-
-/** POST /livestock/applications */
-export async function createLivestockApplication(
-  payload: CreateLivestockApplicationPayload,
-): Promise<{ _id: string; applicationNumber: string; status: string }> {
-  await delay(900);
-  console.log('[API stub] POST /livestock/applications', payload);
-  return {
-    _id: `mock-app-${Date.now()}`,
-    applicationNumber: `LS-2026-${String(Math.floor(Math.random() * 900) + 100).padStart(5, '0')}`,
-    status: 'SUBMITTED',
-  };
 }
 
 /**

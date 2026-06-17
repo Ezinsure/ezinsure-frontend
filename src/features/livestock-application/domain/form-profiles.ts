@@ -18,6 +18,8 @@ export interface FormProfile {
   description: string;
   stepIds: LivestockApplicationStepId[];
   lineTableVariant: 'INDIVIDUAL' | 'POULTRY_LOT' | 'MULTI_OWNER';
+  /** All animal rows use this type — matches intake species selection */
+  lockedAnimalType: string;
 }
 
 const BASE_TAIL: LivestockApplicationStepId[] = [
@@ -44,6 +46,8 @@ const MULTI_OWNER_HEAD: LivestockApplicationStepId[] = [
 ];
 
 export function resolveFormProfile(intake: ApplicationIntakeSelection): FormProfile {
+  const lockedAnimalType = speciesGroupToAnimalType(intake.speciesGroup);
+
   if (intake.ownerMode === 'MULTI_OWNER') {
     return {
       id: 'MULTI_OWNER',
@@ -51,6 +55,7 @@ export function resolveFormProfile(intake: ApplicationIntakeSelection): FormProf
       description: 'Several farmers in one package — owner details on each animal row.',
       stepIds: [...MULTI_OWNER_HEAD, ...BASE_TAIL],
       lineTableVariant: 'MULTI_OWNER',
+      lockedAnimalType,
     };
   }
 
@@ -61,6 +66,7 @@ export function resolveFormProfile(intake: ApplicationIntakeSelection): FormProf
       description: 'Lots with quantity, hatchery source, and auto premium at 5.5%.',
       stepIds: [...SINGLE_OWNER_HEAD, ...BASE_TAIL],
       lineTableVariant: 'POULTRY_LOT',
+      lockedAnimalType,
     };
   }
 
@@ -71,6 +77,7 @@ export function resolveFormProfile(intake: ApplicationIntakeSelection): FormProf
       description: 'Individual animals under one owner.',
       stepIds: [...SINGLE_OWNER_HEAD, ...BASE_TAIL],
       lineTableVariant: 'INDIVIDUAL',
+      lockedAnimalType,
     };
   }
 
@@ -80,6 +87,7 @@ export function resolveFormProfile(intake: ApplicationIntakeSelection): FormProf
     description: 'Individual cattle with chip/eartag under one owner.',
     stepIds: [...SINGLE_OWNER_HEAD, ...BASE_TAIL],
     lineTableVariant: 'INDIVIDUAL',
+    lockedAnimalType,
   };
 }
 
@@ -88,6 +96,16 @@ export function speciesGroupLabel(group: LivestockSpeciesGroup): string {
     CATTLE: 'Inka (Cattle)',
     POULTRY: 'Inkoko (Poultry)',
     PIG: 'Ingurube (Pig)',
+  };
+  return map[group];
+}
+
+/** Kinyarwanda label used in livestock table rows and API `animal.species`. */
+export function speciesGroupToAnimalType(group: LivestockSpeciesGroup): string {
+  const map: Record<LivestockSpeciesGroup, string> = {
+    CATTLE: 'Inka',
+    POULTRY: 'Inkoko',
+    PIG: 'Ingurube',
   };
   return map[group];
 }

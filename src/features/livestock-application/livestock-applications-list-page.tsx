@@ -64,8 +64,9 @@ export default function LivestockApplicationsListPage({
   const { applications, isLoading, error, load } = useLivestockApplicationsList(vetId);
 
   useEffect(() => {
+    if (viewRole === 'vet' && !vetId) return;
     void load(startDate, endDate);
-  }, [load, startDate, endDate]);
+  }, [load, startDate, endDate, vetId, viewRole]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();

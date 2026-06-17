@@ -1,10 +1,11 @@
 'use client';
 
 import { useEffect } from 'react';
+import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ApplicationStepContent } from '@/features/livestock-application/components/application-step-content';
 import { ApplicationStepProgress } from '@/features/livestock-application/components/shared/application-step-progress';
-import { createLivestockApplication } from '@/features/livestock-application/api/applications-api';
+import { useCreateLivestockApplication } from '@/features/livestock-application/hooks/use-livestock-applications';
 import type { ApplicationIntakeSelection } from '@/features/livestock-application/domain/form-profiles';
 import type { FormProfile } from '@/features/livestock-application/domain/form-profiles';
 import { LIVESTOCK_FORM_LABELS } from '@/features/livestock-application/labels';
@@ -24,6 +25,7 @@ export function LivestockApplicationForm({
   intake,
   onSubmitted,
 }: LivestockApplicationFormProps) {
+  const { submit, isSubmitting, error: submitError, clearError } = useCreateLivestockApplication();
   const form = useLivestockApplicationForm(undefined, mode, formProfile, intake);
   const {
     values,
@@ -68,12 +70,9 @@ export function LivestockApplicationForm({
   const goPrev = () => setStepIndex((i) => Math.max(i - 1, 0));
 
   const handleSubmit = async () => {
-    try {
-      const result = await createLivestockApplication(prepareSubmitPayload);
-      onSubmitted?.(result._id);
-    } catch {
-      /* stub never throws */
-    }
+    clearError();
+    const result = await submit(prepareSubmitPayload);
+    if (result) onSubmitted?.(result._id);
   };
 
   return (
@@ -112,6 +111,12 @@ export function LivestockApplicationForm({
           </p>
         )}
 
+        {submitError && (
+          <p className="mt-6 rounded-lg border border-red-100 bg-red-50 px-3 py-2 text-sm text-red-800">
+            {submitError}
+          </p>
+        )}
+
         {!isReadOnly && (
           <div className="mt-8 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-6">
             <Button type="button" variant="outline" size="sm" onClick={saveDraft}>
@@ -126,8 +131,20 @@ export function LivestockApplicationForm({
                   {LIVESTOCK_FORM_LABELS.next}
                 </Button>
               ) : (
-                <Button type="button" variant="primary" onClick={() => void handleSubmit()}>
-                  {LIVESTOCK_FORM_LABELS.submit}
+                <Button
+                  type="button"
+                  variant="primary"
+                  disabled={isSubmitting}
+                  onClick={() => void handleSubmit()}
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Submitting…
+                    </>
+                  ) : (
+                    LIVESTOCK_FORM_LABELS.submit
+                  )}
                 </Button>
               )}
             </div>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { LIVESTOCK_APPLICATION_DRAFT_KEY } from '@/features/livestock-application/constants';
 import {
   createEmptyLivestockItem,
@@ -18,6 +18,7 @@ import type {
   ApplicationIntakeSelection,
   FormProfile,
 } from '@/features/livestock-application/domain/form-profiles';
+import { speciesGroupToAnimalType } from '@/features/livestock-application/domain/form-profiles';
 import { computePremiumBreakdownFromForm } from '@/features/livestock-application/utils/premium-calculations';
 import { computePoultryLotAmounts } from '@/features/livestock-application/utils/poultry-calculations';
 import { suggestPremiumPercentage } from '@/features/livestock-application/utils/premium';
@@ -31,6 +32,13 @@ function withPremiumAmounts(
   useManualTotal = false,
 ): LivestockApplicationFormValues {
   return { ...values, ...computePremiumBreakdownFromForm(values, { useManualTotal }) };
+}
+
+function withLockedAnimalType(
+  items: LivestockAnimalRow[],
+  animalType: string,
+): LivestockAnimalRow[] {
+  return items.map((item) => ({ ...item, animalType }));
 }
 
 export function useLivestockApplicationForm(
@@ -48,6 +56,21 @@ export function useLivestockApplicationForm(
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitMessage, setSubmitMessage] = useState<string | null>(null);
   const lastAutoPremiumRef = useRef('');
+  const lockedAnimalType = intake?.speciesGroup
+    ? speciesGroupToAnimalType(intake.speciesGroup)
+    : formProfile?.lockedAnimalType;
+
+  useEffect(() => {
+    if (!lockedAnimalType) return;
+    setValues((prev) => {
+      const needsSync = prev.livestockItems.some((item) => item.animalType !== lockedAnimalType);
+      if (!needsSync) return prev;
+      return {
+        ...prev,
+        livestockItems: withLockedAnimalType(prev.livestockItems, lockedAnimalType),
+      };
+    });
+  }, [lockedAnimalType]);
 
   const isReadOnly = mode === 'readonly' || mode === 'review';
   const isReview = mode === 'review';
@@ -78,12 +101,22 @@ export function useLivestockApplicationForm(
 
   const updateLivestockItem = useCallback(
     (id: string, patch: Partial<LivestockAnimalRow>) => {
+      const patchWithoutType: Partial<LivestockAnimalRow> = { ...patch };
+      if (lockedAnimalType) delete patchWithoutType.animalType;
+
       setValues((prev) => {
-        const livestockItems = prev.livestockItems.map((item) =>
-          item.id === id ? { ...item, ...patch } : item,
+        let livestockItems = prev.livestockItems.map((item) =>
+          item.id === id ? { ...item, ...patchWithoutType } : item,
         );
+        if (lockedAnimalType) {
+          livestockItems = withLockedAnimalType(livestockItems, lockedAnimalType);
+        }
         let next = { ...prev, livestockItems };
-        if (patch.animalType !== undefined) {
+        if (
+          patch.sumAssured !== undefined ||
+          patch.quantity !== undefined ||
+          patch.unitValue !== undefined
+        ) {
           const suggested = suggestPremiumPercentage(livestockItems);
           if (
             suggested &&
@@ -93,34 +126,21 @@ export function useLivestockApplicationForm(
             lastAutoPremiumRef.current = suggested;
             next = { ...next, premiumPercentage: suggested };
           }
-        }
-        if (
-          patch.sumAssured !== undefined ||
-          patch.animalType !== undefined ||
-          patch.quantity !== undefined ||
-          patch.unitValue !== undefined
-        ) {
           next = withPremiumAmounts(next);
         }
         return next;
       });
     },
-    [],
+    [lockedAnimalType],
   );
 
   const addLivestockItem = useCallback(() => {
     setValues((prev) => {
       const empty = createEmptyLivestockItem();
-      if (formProfile?.lineTableVariant === 'POULTRY_LOT') {
-        empty.animalType = 'Inkoko';
-      } else if (formProfile?.id === 'SINGLE_OWNER_CATTLE') {
-        empty.animalType = 'Inka';
-      } else if (formProfile?.id === 'SINGLE_OWNER_PIG') {
-        empty.animalType = 'Ingurube';
-      }
+      if (lockedAnimalType) empty.animalType = lockedAnimalType;
       return { ...prev, livestockItems: [...prev.livestockItems, empty] };
     });
-  }, [formProfile]);
+  }, [lockedAnimalType]);
 
   const removeLivestockItem = useCallback((id: string) => {
     setValues((prev) => {
@@ -145,7 +165,10 @@ export function useLivestockApplicationForm(
 
   const mergeLivestockItems = useCallback((imported: LivestockAnimalRow[]) => {
     setValues((prev) => {
-      const livestockItems = mergeImportedLivestockItems(prev.livestockItems, imported);
+      const normalized = lockedAnimalType
+        ? imported.map((row) => ({ ...row, animalType: lockedAnimalType }))
+        : imported;
+      const livestockItems = mergeImportedLivestockItems(prev.livestockItems, normalized);
       let next = { ...prev, livestockItems };
       const suggested = suggestPremiumPercentage(livestockItems);
       if (
@@ -158,7 +181,7 @@ export function useLivestockApplicationForm(
       }
       return withPremiumAmounts(next);
     });
-  }, []);
+  }, [lockedAnimalType]);
 
   const saveDraft = useCallback(() => {
     try {
@@ -180,14 +203,20 @@ export function useLivestockApplicationForm(
         values: LivestockApplicationFormValues;
         stepIndex?: number;
       };
-      setValues(parsed.values);
+      const loadedValues = lockedAnimalType
+        ? {
+            ...parsed.values,
+            livestockItems: withLockedAnimalType(parsed.values.livestockItems, lockedAnimalType),
+          }
+        : parsed.values;
+      setValues(loadedValues);
       if (typeof parsed.stepIndex === 'number') setStepIndex(parsed.stepIndex);
       setSubmitMessage('Draft yavanywe.');
       return true;
     } catch {
       return false;
     }
-  }, []);
+  }, [lockedAnimalType]);
 
   const validateCurrentStep = useCallback(
     (stepId: LivestockApplicationStepId) => {

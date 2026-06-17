@@ -1,15 +1,38 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import type {
+  CreateLivestockApplicationPayload,
+  LivestockApplicationListItem,
+  LivestockApplicationPackage,
+} from '@/features/livestock-application/domain/application-types';
+import type { CreateApplicationResult } from '@/features/livestock-application/api/backend-types';
+import { LivestockApiError } from '@/features/livestock-application/api/http';
 import {
-  fetchLivestockApplicationById,
-  fetchLivestockApplications,
-} from '@/features/livestock-application/api/applications-api';
+  createLivestockRepositoryForVet,
+  isMockApplicationId,
+  type LivestockApplicationsRepository,
+} from '@/features/livestock-application/api/livestock-applications.repository';
+import { useAuth } from '@/context/AuthContext';
+import { useApiClient } from '@/utils/apiClient';
 
-export function useLivestockApplicationsList(vetId?: string) {
-  const [applications, setApplications] = useState<Awaited<
-    ReturnType<typeof fetchLivestockApplications>
-  >['data']>([]);
+function toErrorMessage(err: unknown, fallback: string): string {
+  if (err instanceof LivestockApiError) return err.message;
+  if (err instanceof Error) return err.message;
+  return fallback;
+}
+
+function useLivestockRepository(vetAgentId?: string): LivestockApplicationsRepository {
+  const { apiFetch } = useApiClient();
+  return useMemo(
+    () => createLivestockRepositoryForVet(apiFetch, vetAgentId),
+    [apiFetch, vetAgentId],
+  );
+}
+
+export function useLivestockApplicationsList(vetAgentId?: string) {
+  const repository = useLivestockRepository(vetAgentId);
+  const [applications, setApplications] = useState<LivestockApplicationListItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -18,24 +41,29 @@ export function useLivestockApplicationsList(vetId?: string) {
       setIsLoading(true);
       setError(null);
       try {
-        const res = await fetchLivestockApplications(vetId ?? 'demo-vet', startDate, endDate);
+        const res = await repository.list({
+          agentId: vetAgentId ?? '',
+          startDate,
+          endDate,
+        });
         setApplications(res.data);
-      } catch {
-        setError('Failed to load applications.');
+      } catch (err) {
+        setError(toErrorMessage(err, 'Failed to load applications.'));
+        setApplications([]);
       } finally {
         setIsLoading(false);
       }
     },
-    [vetId],
+    [repository, vetAgentId],
   );
 
-  return { applications, isLoading, error, load };
+  return { applications, isLoading, error, load, dataSource: repository.dataSource };
 }
 
 export function useLivestockApplicationDetail(applicationId: string) {
-  const [application, setApplication] = useState<Awaited<
-    ReturnType<typeof fetchLivestockApplicationById>
-  > | null>(null);
+  const { user } = useAuth();
+  const repository = useLivestockRepository(isMockApplicationId(applicationId) ? undefined : user?._id);
+  const [application, setApplication] = useState<LivestockApplicationPackage | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -43,19 +71,49 @@ export function useLivestockApplicationDetail(applicationId: string) {
     setIsLoading(true);
     setError(null);
     try {
-      const data = await fetchLivestockApplicationById(applicationId);
+      const data = await repository.getById({
+        applicationId,
+        agentId: user?._id,
+      });
+
       if (!data) setError('Application not found.');
       setApplication(data);
-    } catch {
-      setError('Failed to load application.');
+    } catch (err) {
+      setError(toErrorMessage(err, 'Failed to load application.'));
+      setApplication(null);
     } finally {
       setIsLoading(false);
     }
-  }, [applicationId]);
+  }, [applicationId, repository, user?._id]);
 
   useEffect(() => {
     void reload();
   }, [reload]);
 
-  return { application, isLoading, error, reload };
+  return { application, isLoading, error, reload, dataSource: repository.dataSource };
+}
+
+export function useCreateLivestockApplication() {
+  const { user } = useAuth();
+  const repository = useLivestockRepository(user?._id);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const submit = useCallback(
+    async (payload: CreateLivestockApplicationPayload): Promise<CreateApplicationResult | null> => {
+      setIsSubmitting(true);
+      setError(null);
+      try {
+        return await repository.create(payload);
+      } catch (err) {
+        setError(toErrorMessage(err, 'Failed to submit application.'));
+        return null;
+      } finally {
+        setIsSubmitting(false);
+      }
+    },
+    [repository],
+  );
+
+  return { submit, isSubmitting, error, clearError: () => setError(null) };
 }

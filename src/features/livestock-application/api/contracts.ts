@@ -5,7 +5,7 @@
 export const API_CONTRACTS = {
   listApplications: {
     method: 'GET' as const,
-    path: '/livestock/applications?vetId={vetId}&startDate={YYYY-MM-DD}&endDate={YYYY-MM-DD}',
+    path: '/getVeterinaryApplications?agentId={agentId}&startDate={YYYY-MM-DD}&endDate={YYYY-MM-DD}',
     response: `{
   "data": [
     {
@@ -32,13 +32,13 @@ export const API_CONTRACTS = {
 
   getApplication: {
     method: 'GET' as const,
-    path: '/livestock/applications/{applicationId}',
+    path: '/getVeterinaryApplication/{applicationId} (fallback: scan GET /getVeterinaryApplications)',
     response: `See LivestockApplicationPackage in domain/application-types.ts`,
   },
 
   createApplication: {
     method: 'POST' as const,
-    path: '/livestock/applications',
+    path: '/newApplication',
     payload: `{
   "speciesGroup": "CATTLE",
   "ownerMode": "SINGLE_OWNER",
