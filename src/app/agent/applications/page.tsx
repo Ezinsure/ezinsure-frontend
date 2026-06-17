@@ -20,6 +20,11 @@ import {
   getVehicleManufactureYearBounds,
   getVehicleManufactureYearValidationError,
 } from '@/utils/vehicle-year';
+import {
+  matchesPerformedByFilter,
+  performedByFilterLabel,
+  type PerformedByFilter,
+} from '@/utils/application-performed-by-filter';
 
 interface Application {
   _id: string;
@@ -1018,6 +1023,7 @@ export default function AgentApplicationsPage() {
   const [isSubmittingPayment, setIsSubmittingPayment] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
+  const [selectedPerformedBy, setSelectedPerformedBy] = useState<PerformedByFilter>('all');
   const [startDate, setStartDate] = useState<string>('');
   const [endDate, setEndDate] = useState<string>('');
   const [viewingDocument, setViewingDocument] = useState<{
@@ -1188,7 +1194,7 @@ export default function AgentApplicationsPage() {
       return true;
     })();
     
-    return matchesSearch && matchesStatus && matchesDateRange;
+    return matchesSearch && matchesStatus && matchesDateRange && matchesPerformedByFilter(app, selectedPerformedBy);
   });
 
   const paginatedApplications = filteredApplications.slice(
@@ -1205,6 +1211,9 @@ export default function AgentApplicationsPage() {
       case 'status':
         setSelectedStatus(value);
         break;
+      case 'performedBy':
+        setSelectedPerformedBy(value as PerformedByFilter);
+        break;
       case 'startDate':
         setStartDate(value);
         break;
@@ -1219,6 +1228,7 @@ export default function AgentApplicationsPage() {
   const handleClearFilters = () => {
     setSearchQuery('');
     setSelectedStatus('all');
+    setSelectedPerformedBy('all');
     setStartDate(getFirstDayOfMonth());
     setEndDate(getCurrentDate());
     setCurrentPage(1);
@@ -1256,6 +1266,11 @@ export default function AgentApplicationsPage() {
       
       if (selectedStatus !== 'all') {
         doc.text(`Status Filter: ${selectedStatus.replace('_', ' ')}`, 14, filterY);
+        filterY += 6;
+      }
+
+      if (selectedPerformedBy !== 'all') {
+        doc.text(`Performed By: ${performedByFilterLabel(selectedPerformedBy)}`, 14, filterY);
         filterY += 6;
       }
       
@@ -1855,7 +1870,7 @@ const getActionButtons = (app: Application) => {
 
         {/* Search and filter section */}
         <div className="mb-6 bg-white p-4 rounded-lg shadow-sm slide-in-right">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-3">
             {/* Search Input */}
             <div className="lg:col-span-2">
               <label className="block text-xs font-semibold text-gray-600 tracking-wide mb-1 uppercase">Search Applications</label>
@@ -1896,6 +1911,20 @@ const getActionButtons = (app: Application) => {
                 <option value="cancelled">Cancelled</option>
               </select>
             </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-gray-600 tracking-wide mb-1 uppercase">Performed By</label>
+              <select
+                value={selectedPerformedBy}
+                onChange={(e) => handleFilterChange('performedBy', e.target.value)}
+                className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="all">All</option>
+                <option value="admin">Admin</option>
+                <option value="agent">Agent</option>
+                <option value="client">Client</option>
+              </select>
+            </div>
             
             {/* Start Date */}
             <div>
@@ -1925,6 +1954,7 @@ const getActionButtons = (app: Application) => {
           <div className="text-sm text-gray-500">
             {searchQuery && <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 mr-2">Search: {searchQuery}</span>}
             {selectedStatus !== 'all' && <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 mr-2">Status: {selectedStatus.replace('_', ' ')}</span>}
+            {selectedPerformedBy !== 'all' && <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-800 mr-2">Performed By: {performedByFilterLabel(selectedPerformedBy)}</span>}
             {(startDate || endDate) && <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">Date Range: {startDate || 'beginning'} - {endDate || 'now'}</span>}
           </div>
           <div className="flex flex-wrap gap-2">

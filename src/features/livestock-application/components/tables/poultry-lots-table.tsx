@@ -77,6 +77,7 @@ export function PoultryLotsTable({
           <thead className="bg-slate-50 text-[10px] uppercase tracking-wide text-slate-500 sm:text-xs">
             <tr>
               <th className="px-3 py-2 text-left">#</th>
+              <th className="px-3 py-2 text-left min-w-[8rem]">Lot No</th>
               <th className="px-3 py-2 text-left min-w-[10rem]">Product</th>
               <th className="px-3 py-2 text-left min-w-[12rem]">Hatchery source</th>
               <th className="px-3 py-2 text-left min-w-[7rem]">Quantity</th>
@@ -94,6 +95,16 @@ export function PoultryLotsTable({
               return (
                 <tr key={item.id} className="align-top bg-white">
                   <td className="px-3 py-3 text-slate-500">{index + 1}</td>
+                  <td className="px-2 py-2">
+                    <LivestockTextField
+                      fieldName="lotNumber"
+                      value={item.chipNumber || ''}
+                      onChange={(v) => handlePatch(item.id, { chipNumber: v }, item)}
+                      disabled={disabled}
+                      hideLabel
+                      placeholder="Lot No"
+                    />
+                  </td>
                   <td className="px-2 py-2">
                     <select
                       value={item.poultryProductType || ''}

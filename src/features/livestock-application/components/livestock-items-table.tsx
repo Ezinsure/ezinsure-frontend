@@ -66,6 +66,11 @@ export function LivestockItemsTable({
     }
   };
 
+  const isPoultryTable = fixedAnimalType === 'Inkoko';
+  const idFieldLabel = isPoultryTable
+    ? LIVESTOCK_FORM_LABELS.fields.lotNumber
+    : LIVESTOCK_FORM_LABELS.fields.chipNumber;
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -134,7 +139,7 @@ export function LivestockItemsTable({
               <th className="px-3 py-2 text-left min-w-[11rem]">{LIVESTOCK_FORM_LABELS.fields.animalType}</th>
               <th className="px-3 py-2 text-left min-w-[10rem]">{LIVESTOCK_FORM_LABELS.fields.animalCategory}</th>
               <th className="px-3 py-2 text-left min-w-[7rem]">{LIVESTOCK_FORM_LABELS.fields.animalAge}</th>
-              <th className="px-3 py-2 text-left min-w-[13rem]">{LIVESTOCK_FORM_LABELS.fields.chipNumber}</th>
+              <th className="px-3 py-2 text-left min-w-[13rem]">{idFieldLabel}</th>
               <th className="px-3 py-2 text-left min-w-[10rem]">{LIVESTOCK_FORM_LABELS.fields.breed}</th>
               <th className="px-3 py-2 text-left min-w-[9rem]">{LIVESTOCK_FORM_LABELS.fields.color}</th>
               <th className="px-3 py-2 text-left min-w-[10rem]">{LIVESTOCK_FORM_LABELS.fields.productivity}</th>
@@ -208,12 +213,13 @@ export function LivestockItemsTable({
                 </td>
                 <td className="px-2 py-2 min-w-[13rem]">
                   <LivestockTextField
-                    fieldName="chipNumber"
+                    fieldName={isPoultryTable ? 'lotNumber' : 'chipNumber'}
                     value={item.chipNumber}
                     onChange={(v) => onUpdate(item.id, { chipNumber: v })}
                     error={errors[`livestockItems.${index}.chipNumber`]}
                     disabled={disabled}
                     hideLabel
+                    placeholder={isPoultryTable ? LIVESTOCK_FORM_LABELS.placeholders.lotNumber : undefined}
                   />
                 </td>
                 <td className="px-2 py-2 min-w-[10rem]">
