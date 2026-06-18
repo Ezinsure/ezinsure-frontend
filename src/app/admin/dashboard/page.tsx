@@ -7,6 +7,7 @@ import type { TooltipProps } from 'recharts';
 import { MainLayout } from '@/components/ui/main-layout';
 import { useAuth } from '@/context/AuthContext';
 import Link from 'next/link';
+import { getAgentAnalyticsPath } from '@/shared/routing/motor-paths';
 import { formatDateUTC, formatDateRange as formatDateRangeUtil, formatTime } from '@/utils/date-formatter';
 
 // Define types for the data
@@ -278,7 +279,8 @@ const getTodayDate = (): string => {
 };
 
 const AdminDashboard = () => {
-  const { token } = useAuth();
+  const { token, user } = useAuth();
+  const agentAnalyticsPath = getAgentAnalyticsPath(user?.role ?? 'ADMIN');
   const [selectedInsuranceType, setSelectedInsuranceType] = useState('all');
   const [showProfitChart, setShowProfitChart] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
@@ -1627,7 +1629,7 @@ const CustomTooltip: React.FC<TooltipProps<number, string>> = ({ active, payload
               <button className="rounded-xl border border-white/30 bg-white text-slate-900 font-semibold py-3 hover:bg-slate-50 transition-colors">
                 Add New Agent
               </button>
-              <Link href="/finance/motor/dashboard">
+              <Link href={agentAnalyticsPath}>
                 <button className="w-full rounded-xl border border-white/30 bg-transparent text-white font-semibold py-3 hover:bg-white/10 transition-colors">
                 View All Agents
               </button>

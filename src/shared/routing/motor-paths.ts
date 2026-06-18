@@ -1,5 +1,6 @@
 import type { ProductLine } from '@/shared/types/product-line';
 import { getRolePathPrefix } from '@/shared/routing/paths';
+import { normalizeRole } from '@/shared/utils/role';
 
 /** Build a canonical scoped app path (motor or livestock). */
 export function getScopedPath(
@@ -58,9 +59,18 @@ export const motorPaths = {
     payments: '/finance/motor/payments',
     paymentInitiated: '/finance/motor/payment-initiated',
     history: '/finance/motor/history',
+    agentAnalytics: '/finance/motor/agents/analytics',
     profile: '/finance/motor/profile',
   },
 } as const;
+
+/** Agent performance analytics — scoped by role so finance users stay under /finance. */
+export function getAgentAnalyticsPath(role: string): string {
+  const normalized = normalizeRole(role);
+  if (normalized === 'SUPER_ADMIN') return motorPaths.superAdmin.agentAnalytics;
+  if (normalized === 'FINANCE') return motorPaths.finance.agentAnalytics;
+  return motorPaths.admin.agentAnalytics;
+}
 
 /** Legacy motor paths (without /motor segment) → canonical paths. */
 export const legacyMotorPathRedirects: Record<string, string> = {

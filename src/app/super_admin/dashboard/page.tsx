@@ -7,6 +7,7 @@ import type { TooltipProps } from 'recharts';
 import { MainLayout } from '@/components/ui/main-layout';
 import { useAuth } from '@/context/AuthContext';
 import Link from 'next/link';
+import { motorPaths } from '@/shared/routing/motor-paths';
 import { formatDateUTC, formatDateRange as formatDateRangeUtil, formatTime } from '@/utils/date-formatter';
 
 // Define types for the data
@@ -1300,7 +1301,7 @@ const SuperAdminDashboard = () => {
                   <h3 className="text-lg font-semibold text-slate-900">Top Agents</h3>
                   <p className="text-xs text-slate-500">Highest earning agents this month</p>
                 </div>
-                <Link href="/applications" >
+                <Link href={motorPaths.superAdmin.agentAnalytics}>
                   <p className="text-blue-600 text-xs font-semibold hover:text-blue-500 transition-colors">View All</p>
                 </Link>
               </div>
