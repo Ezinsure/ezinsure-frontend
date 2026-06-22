@@ -1,5 +1,5 @@
 /**
- * Wire-format types returned by / sent to the livestock veterinary backend.
+ * Wire-format types for the livestock API layer.
  * UI domain types live in domain/application-types.ts; map via api/mappers/.
  */
 
@@ -8,7 +8,7 @@ import type {
   LivestockSpeciesGroup,
 } from '@/features/livestock-application/domain/application-types';
 
-/** POST /newApplication request body (camelCase wire format). */
+/** New application request body (API wire format). */
 export interface NewLivestockApplicationBody {
   speciesGroup: LivestockSpeciesGroup;
   ownerMode: LivestockOwnerMode;

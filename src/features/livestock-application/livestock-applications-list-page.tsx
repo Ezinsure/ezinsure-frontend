@@ -7,7 +7,6 @@ import { Button } from '@/components/ui/button';
 import { ApplicationsListFiltersBar } from '@/features/livestock-application/components/applications-list/applications-list-filters-bar';
 import { ApplicationsListTable } from '@/features/livestock-application/components/applications-list/applications-list-table';
 import { LivestockApplicationDetailPanel } from '@/features/livestock-application/components/livestock-application-detail-panel';
-import { ApiContractPanel } from '@/features/livestock-application/components/shared/api-contract-panel';
 import { LivestockApplicationsPagination } from '@/features/livestock-application/components/shared/livestock-applications-pagination';
 import { useLivestockApplicationsList } from '@/features/livestock-application/hooks/use-livestock-applications';
 import type { LivestockApplicationViewRole } from '@/features/livestock-application/domain/application-types';
@@ -200,8 +199,6 @@ export default function LivestockApplicationsListPage({
             onItemsPerPageChange={(size) => changePageSize(startDate, endDate, size)}
           />
         </div>
-
-        <ApiContractPanel contractKey={isVet ? 'listApplications' : 'listAllApplications'} />
       </div>
 
       <LivestockApplicationDetailPanel

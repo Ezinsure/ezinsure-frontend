@@ -4,12 +4,11 @@ import { useState } from 'react';
 import { Download, Eye, FileSpreadsheet, Loader2, Upload } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { SubsidySignedUploadModal } from '@/features/livestock-application/components/modals/subsidy-signed-upload-modal';
-import { ApiContractPanel } from '@/features/livestock-application/components/shared/api-contract-panel';
 import { ComingSoonButton } from '@/features/livestock-application/components/shared/coming-soon-button';
 import {
   generateSubsidyDocument,
   uploadSignedSubsidyDocument,
-} from '@/features/livestock-application/api/applications-api';
+} from '@/features/livestock-application/api/subsidy-api';
 import type {
   LivestockApplicationPackage,
   LivestockApplicationViewRole,
@@ -48,10 +47,13 @@ export function SubsidyWorkflowSection({
 
   const handleGenerate = async () => {
     setLoading(true);
+    setNote(null);
     try {
       const res = await generateSubsidyDocument(application._id);
       setNote(`Document generated: ${res.templateVersion}`);
       onUpdated?.();
+    } catch (err) {
+      setNote(err instanceof Error ? err.message : 'Could not generate document.');
     } finally {
       setLoading(false);
     }
@@ -62,10 +64,13 @@ export function SubsidyWorkflowSection({
     signedBy: 'SECTOR';
   }) => {
     setLoading(true);
+    setNote(null);
     try {
       await uploadSignedSubsidyDocument(application._id, payload);
       setNote('Signed document uploaded. Forward to SONARWA for approval.');
       onUpdated?.();
+    } catch (err) {
+      setNote(err instanceof Error ? err.message : 'Could not upload signed document.');
     } finally {
       setLoading(false);
     }
@@ -145,9 +150,6 @@ export function SubsidyWorkflowSection({
             {note}
           </p>
         )}
-
-        <ApiContractPanel contractKey="generateSubsidyDoc" className="mt-6" />
-        <ApiContractPanel contractKey="uploadSignedSubsidy" className="mt-3" />
       </section>
 
       <SubsidySignedUploadModal

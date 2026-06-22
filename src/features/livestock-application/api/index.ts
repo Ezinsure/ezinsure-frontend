@@ -9,12 +9,9 @@ export type {
   CreateApplicationResult,
 } from '@/features/livestock-application/api/backend-types';
 export {
-  createLivestockApplicationsRepository,
   createLivestockRepositoryForVet,
-  resolveLivestockDataSource,
-  isMockApplicationId,
+  createLivestockApplicationsRepositoryForScope,
   type LivestockApplicationsRepository,
-  type LivestockDataSource,
 } from '@/features/livestock-application/api/livestock-applications.repository';
 export {
   toNewApplicationBody,

@@ -21,10 +21,6 @@ import {
   unwrapEntityPayload,
 } from '@/features/livestock-application/api/http';
 import {
-  fetchLivestockApplicationByIdMock,
-  fetchLivestockApplicationsMock,
-} from '@/features/livestock-application/api/applications-api';
-import {
   extractApplicationsListPaginationMeta,
   mapApplicationsListResponse,
   mapToLivestockApplicationPackage,
@@ -37,14 +33,7 @@ import {
   getCachedLivestockApplicationRow,
 } from '@/features/livestock-application/api/livestock-application-session-cache';
 
-export type LivestockDataSource = 'backend' | 'mock';
 export type LivestockListScope = 'vet' | 'all';
-
-const MOCK_ID_PREFIX = 'mock-app-';
-
-export function isMockApplicationId(id: string): boolean {
-  return id.startsWith(MOCK_ID_PREFIX);
-}
 
 export interface ListApplicationsQuery {
   agentId?: string;
@@ -61,11 +50,7 @@ export interface GetApplicationQuery {
   scope?: LivestockListScope;
 }
 
-/**
- * Repository interface — UI hooks depend on this, not raw fetch paths.
- */
 export interface LivestockApplicationsRepository {
-  readonly dataSource: LivestockDataSource;
   readonly listScope: LivestockListScope;
   list(query: ListApplicationsQuery): Promise<LivestockApplicationsListResponse>;
   getById(query: GetApplicationQuery): Promise<LivestockApplicationPackage | null>;
@@ -138,10 +123,16 @@ function createBackendRepository(
   listScope: LivestockListScope,
 ): LivestockApplicationsRepository {
   return {
-    dataSource: 'backend',
     listScope,
 
-    async list({ agentId, startDate, endDate, pageNumber = 1, pageSize = LIVESTOCK_LIST_DEFAULT_PAGE_SIZE, scope = listScope }) {
+    async list({
+      agentId,
+      startDate,
+      endDate,
+      pageNumber = 1,
+      pageSize = LIVESTOCK_LIST_DEFAULT_PAGE_SIZE,
+      scope = listScope,
+    }) {
       const path =
         scope === 'all'
           ? LIVESTOCK_ADMIN_ENDPOINTS.listAllApplications({
@@ -224,76 +215,18 @@ function createBackendRepository(
   };
 }
 
-function createMockRepository(listScope: LivestockListScope): LivestockApplicationsRepository {
-  return {
-    dataSource: 'mock',
-    listScope,
-
-    async list({ startDate, endDate, pageNumber = 1, pageSize = LIVESTOCK_LIST_DEFAULT_PAGE_SIZE }) {
-      const all = await fetchLivestockApplicationsMock(startDate, endDate);
-      const start = (pageNumber - 1) * pageSize;
-      const data = all.data.slice(start, start + pageSize);
-      const total = all.meta.total;
-      return {
-        data,
-        meta: {
-          total,
-          startDate,
-          endDate,
-          pageNumber,
-          pageSize,
-          totalPages: Math.max(1, Math.ceil(total / pageSize)),
-        },
-      };
-    },
-
-    async getById({ applicationId }) {
-      if (!isMockApplicationId(applicationId)) return null;
-      return fetchLivestockApplicationByIdMock(applicationId);
-    },
-
-    async create() {
-      throw new Error('Create application is only available for veterinary agents.');
-    },
-  };
-}
-
-export function createLivestockApplicationsRepository(
-  apiFetch: ApiFetch,
-  dataSource: LivestockDataSource,
-  listScope: LivestockListScope = 'vet',
-): LivestockApplicationsRepository {
-  return dataSource === 'backend'
-    ? createBackendRepository(apiFetch, listScope)
-    : createMockRepository(listScope);
-}
-
-export function resolveLivestockDataSource(
-  listScope: LivestockListScope,
-  vetAgentId?: string,
-): LivestockDataSource {
-  if (listScope === 'all') return 'backend';
-  return vetAgentId ? 'backend' : 'mock';
-}
-
 export function createLivestockApplicationsRepositoryForScope(
   apiFetch: ApiFetch,
   listScope: LivestockListScope,
-  vetAgentId?: string,
 ): LivestockApplicationsRepository {
-  return createLivestockApplicationsRepository(
-    apiFetch,
-    resolveLivestockDataSource(listScope, vetAgentId),
-    listScope,
-  );
+  return createBackendRepository(apiFetch, listScope);
 }
 
 /** @deprecated Use createLivestockApplicationsRepositoryForScope */
 export function createLivestockRepositoryForVet(
   apiFetch: ApiFetch,
-  vetAgentId?: string,
 ): LivestockApplicationsRepository {
-  return createLivestockApplicationsRepositoryForScope(apiFetch, 'vet', vetAgentId);
+  return createLivestockApplicationsRepositoryForScope(apiFetch, 'vet');
 }
 
 export type { ApiFetch } from '@/features/livestock-application/api/http';

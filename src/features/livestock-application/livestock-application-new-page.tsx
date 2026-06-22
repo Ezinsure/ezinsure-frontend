@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { ApplicationIntakeStep } from '@/features/livestock-application/components/intake/application-intake-step';
-import { ApiContractPanel } from '@/features/livestock-application/components/shared/api-contract-panel';
 import { LivestockApplicationForm } from '@/features/livestock-application/livestock-application-form';
 import { LIVESTOCK_APPLICATION_INTAKE_KEY } from '@/features/livestock-application/constants';
 import type { ApplicationIntakeSelection } from '@/features/livestock-application/domain/form-profiles';
@@ -70,8 +69,6 @@ export default function LivestockApplicationNewPage() {
         </div>
 
         <LivestockApplicationForm mode="create" formProfile={profile} intake={intake} />
-
-        <ApiContractPanel contractKey="createApplication" className="mt-8" />
       </div>
     </div>
   );

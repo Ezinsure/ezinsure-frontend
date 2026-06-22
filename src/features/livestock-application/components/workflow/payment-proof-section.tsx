@@ -7,7 +7,6 @@ import {
   PaymentProofUploadModal,
   type PaymentProofUploadPayload,
 } from '@/features/livestock-application/components/modals/payment-proof-upload-modal';
-import { ApiContractPanel } from '@/features/livestock-application/components/shared/api-contract-panel';
 import { useUploadLivestockPaymentProof } from '@/features/livestock-application/hooks/use-upload-payment-proof';
 import type {
   LivestockApplicationPackage,
@@ -139,10 +138,6 @@ export function PaymentProofSection({
           <p className="mt-4 rounded-lg border border-emerald-100 bg-emerald-50 px-3 py-2 text-sm text-emerald-900">
             {note}
           </p>
-        )}
-
-        {viewRole === 'vet' && (
-          <ApiContractPanel contractKey="uploadPaymentProof" className="mt-6" />
         )}
       </section>
 

@@ -2,7 +2,6 @@
 
 import { ArrowRight, Layers, Users, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { ApiContractPanel } from '@/features/livestock-application/components/shared/api-contract-panel';
 import type { ApplicationIntakeSelection } from '@/features/livestock-application/domain/form-profiles';
 import {
   ownerModeLabel,
@@ -133,8 +132,6 @@ export function ApplicationIntakeStep({ value, onChange, onContinue }: Applicati
           <ArrowRight className="ml-2 h-4 w-4" />
         </Button>
       </div>
-
-      <ApiContractPanel contractKey="createApplication" />
     </div>
   );
 }

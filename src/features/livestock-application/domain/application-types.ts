@@ -1,5 +1,5 @@
 /**
- * Livestock application package — backend contract (UI reference for API team).
+ * Livestock application domain types.
  * One application = many insured lines + optional payment/subsidy artifacts.
  */
 
@@ -52,7 +52,7 @@ export type SubsidyCaseStatus =
   | 'SONARWA_APPROVED'
   | 'REJECTED';
 
-/** POST /livestock/applications — intake + header */
+/** Application intake payload — header and owner details. */
 export interface CreateLivestockApplicationPayload {
   speciesGroup: LivestockSpeciesGroup;
   ownerMode: LivestockOwnerMode;
@@ -122,7 +122,7 @@ export interface InsuredLinePayload {
   tekanaEligible: boolean;
 }
 
-/** GET /livestock/applications/:id */
+/** Full application package for detail views. */
 export interface LivestockApplicationPackage {
   _id: string;
   applicationNumber: string;
@@ -171,7 +171,7 @@ export interface LivestockApplicationPackage {
   issuedDocuments?: LivestockIssuedDocuments;
 }
 
-/** GET /getVeterinaryApplications?agentId=&startDate=&endDate=&pageSize=&pageNumber= */
+/** Paginated applications list response. */
 export interface LivestockApplicationsListResponse {
   data: LivestockApplicationListItem[];
   meta: {
@@ -216,7 +216,7 @@ export interface LivestockApplicationListItem {
   vetName?: string;
 }
 
-/** PUT /uploadProofOfPayment/:id — multipart/form-data */
+/** Payment proof upload payload (multipart). */
 export interface UploadPaymentProofPayload {
   amount: number;
   proofOfPayment: File;
@@ -232,13 +232,13 @@ export interface UploadPaymentProofUrlPayload {
   notes?: string;
 }
 
-/** POST /livestock/applications/:id/subsidy/generate-document */
+/** Generate nkunganire subsidy document response. */
 export interface GenerateSubsidyDocumentResponse {
   documentUrl: string;
   templateVersion: string;
 }
 
-/** POST /livestock/applications/:id/subsidy/upload-signed — multipart/form-data */
+/** Upload signed nkunganire document (multipart). */
 export interface UploadSignedSubsidyPayload {
   signedDocument: File;
   signedBy: 'SECTOR' | 'VET' | 'SONARWA';

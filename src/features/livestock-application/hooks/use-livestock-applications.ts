@@ -11,7 +11,6 @@ import { LIVESTOCK_LIST_DEFAULT_PAGE_SIZE } from '@/features/livestock-applicati
 import { LivestockApiError } from '@/features/livestock-application/api/http';
 import {
   createLivestockApplicationsRepositoryForScope,
-  isMockApplicationId,
   type LivestockApplicationsRepository,
   type LivestockListScope,
 } from '@/features/livestock-application/api/livestock-applications.repository';
@@ -55,21 +54,18 @@ export interface UseLivestockApplicationsListOptions {
   initialPageSize?: number;
 }
 
-function useLivestockRepository(
-  scope: LivestockListScope,
-  vetAgentId?: string,
-): LivestockApplicationsRepository {
+function useLivestockRepository(scope: LivestockListScope): LivestockApplicationsRepository {
   const { apiFetch } = useApiClient();
   return useMemo(
-    () => createLivestockApplicationsRepositoryForScope(apiFetch, scope, vetAgentId),
-    [apiFetch, scope, vetAgentId],
+    () => createLivestockApplicationsRepositoryForScope(apiFetch, scope),
+    [apiFetch, scope],
   );
 }
 
 export function useLivestockApplicationsList(options: UseLivestockApplicationsListOptions = {}) {
   const scope = options.scope ?? 'vet';
   const vetAgentId = options.vetAgentId;
-  const repository = useLivestockRepository(scope, vetAgentId);
+  const repository = useLivestockRepository(scope);
   const [applications, setApplications] = useState<LivestockApplicationListItem[]>([]);
   const [meta, setMeta] = useState<LivestockApplicationsListMeta>(EMPTY_LIST_META);
   const [pageNumber, setPageNumber] = useState(1);
@@ -141,7 +137,6 @@ export function useLivestockApplicationsList(options: UseLivestockApplicationsLi
     load,
     goToPage,
     changePageSize,
-    dataSource: repository.dataSource,
   };
 }
 
@@ -156,10 +151,7 @@ export function useLivestockApplicationDetail(
 ) {
   const { user } = useAuth();
   const scope = options?.scope ?? 'vet';
-  const repository = useLivestockRepository(
-    scope,
-    isMockApplicationId(applicationId) ? undefined : scope === 'vet' ? user?._id : undefined,
-  );
+  const repository = useLivestockRepository(scope);
   const [application, setApplication] = useState<LivestockApplicationPackage | null>(() => {
     if (!options?.preferListCache || typeof window === 'undefined') return null;
     const cached = getCachedLivestockApplicationRow(applicationId);
@@ -198,12 +190,12 @@ export function useLivestockApplicationDetail(
     void reload();
   }, [applicationId, options?.preferListCache, reload]);
 
-  return { application, isLoading, error, reload, dataSource: repository.dataSource };
+  return { application, isLoading, error, reload };
 }
 
 export function useCreateLivestockApplication() {
   const { user } = useAuth();
-  const repository = useLivestockRepository('vet', user?._id);
+  const repository = useLivestockRepository('vet');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 

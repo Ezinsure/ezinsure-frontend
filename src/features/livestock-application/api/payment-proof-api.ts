@@ -1,10 +1,8 @@
 import type { UploadPaymentProofPayload } from '@/features/livestock-application/domain/application-types';
 import { resolvePaymentProofFileType } from '@/features/livestock-application/api/error-messages';
 import { LIVESTOCK_VET_ENDPOINTS } from '@/features/livestock-application/api/endpoints';
-import { uploadPaymentProof as uploadPaymentProofMock } from '@/features/livestock-application/api/applications-api';
 import type { ApiFetch } from '@/features/livestock-application/api/http';
 import { requestJson, unwrapEntityPayload } from '@/features/livestock-application/api/http';
-import { isMockApplicationId } from '@/features/livestock-application/api/livestock-applications.repository';
 import { patchCachedLivestockApplicationRow } from '@/features/livestock-application/api/livestock-application-session-cache';
 
 export interface UploadPaymentProofResult {
@@ -27,16 +25,11 @@ function parseUploadPaymentProofResponse(payload: unknown): UploadPaymentProofRe
   };
 }
 
-/** PUT /uploadProofOfPayment/:id — multipart/form-data (vet only). */
 export async function uploadLivestockPaymentProof(
   apiFetch: ApiFetch,
   applicationId: string,
   payload: UploadPaymentProofPayload,
 ): Promise<UploadPaymentProofResult> {
-  if (isMockApplicationId(applicationId)) {
-    return uploadPaymentProofMock(applicationId, payload);
-  }
-
   const formData = new FormData();
   const file = payload.proofOfPayment;
   formData.append('proofOfPayment', file, file.name || 'payment-proof');

@@ -76,7 +76,6 @@ export function LivestockApplicationDetailPanel({
               backLabel="Back to all applications"
               onClose={onClose}
               onUpdated={onUpdated}
-              showApiContract={false}
             />
           </motion.div>
         </>

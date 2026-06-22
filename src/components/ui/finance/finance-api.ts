@@ -15,38 +15,6 @@ import { useApiClient } from '@/utils/apiClient';
 
 type FinanceApplicationStatusFilter = 'PAID' | 'READY_TO_BE_PAID' | 'PAYMENT_INITIATED' | 'ALL';
 
-// This file is the "API contract layer" for the finance UI.
-//
-// Backend endpoints to implement (these match the data the UI renders):
-//
-// 1) Dashboard (accruals / ready-to-be-paid)
-//   - GET /finance/accruals/agent-totals?startMonth&startYear&endMonth&endYear
-//     -> FinanceAgentTotals[]
-//   - GET /finance/accruals/applications-by-agent?agentId&startMonth&startYear&endMonth&endYear
-//     -> FinanceApplication[]
-//
-// 2) Payment initiated (snapshot)
-//   - GET /finance/motor/payment-initiated/batches
-//     -> { batches: FinanceBatchSummary[] }
-//   - GET /finance/motor/payment-initiated/agent-totals?month&year
-//     -> FinanceAgentTotals[]
-//   - GET /finance/motor/payment-initiated/applications-by-agent?agentId&month&year
-//     -> FinanceApplication[] (must include snapshot commission fields)
-//   - GET /finance/motor/payment-initiated/application-details?id
-//     -> FinanceApplication (must be snapshot-frozen)
-//
-// 3) Payment history
-//   - GET /getPaidBatchesByYear?year=YYYY
-//   - GET /finance/payment-history/agent-totals?month&year
-//   - GET /finance/payment-history/applications-by-agent?agentId&month&year
-//   - GET /finance/payment-history/application-details?id
-//
-// 4) Actions (backend)
-//   - PUT /initiatePayment?startDate&endDate
-//   - PUT /markAsPaid?startDate&endDate
-//
-// Accrual/initiated detail paths still use the local dummy store where noted.
-
 export function useFinanceApi() {
   const { agents, applications, state } = useFinanceMock();
   const { apiFetch } = useApiClient();
@@ -227,10 +195,6 @@ export function useFinanceApi() {
 
   const getApplicationDetails = useCallback(
     async (applicationId: string, context: 'accrual' | 'initiated' | 'paid', month?: number, year?: number) => {
-      // Backend endpoint contract:
-      // - accrual: GET /finance/accruals/application-details?id=...
-      // - initiated: GET /finance/motor/payment-initiated/application-details?id=...
-      // - paid: GET /finance/payment-history/application-details?id=...
       setIsPending(true);
       try {
         const app = applications.find((a) => a._id === applicationId);

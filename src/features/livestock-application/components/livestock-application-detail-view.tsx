@@ -4,7 +4,6 @@ import Link from 'next/link';
 import { useState } from 'react';
 import { ArrowLeft, X } from 'lucide-react';
 import { DocumentViewer } from '@/components/ui/document-viewer';
-import { ApiContractPanel } from '@/features/livestock-application/components/shared/api-contract-panel';
 import { ApplicationDocumentsGrid } from '@/features/livestock-application/components/shared/application-documents-grid';
 import { ApplicationOwnersSection } from '@/features/livestock-application/components/shared/application-owners-section';
 import { LivestockApplicationStatusBadge } from '@/features/livestock-application/components/shared/application-status-badge';
@@ -40,7 +39,6 @@ export interface LivestockApplicationDetailViewProps {
   backLabel?: string;
   onClose?: () => void;
   onUpdated?: () => void;
-  showApiContract?: boolean;
 }
 
 function MetricCard({ label, value }: { label: string; value: string }) {
@@ -64,7 +62,6 @@ export function LivestockApplicationDetailView({
   backLabel = 'All applications',
   onClose,
   onUpdated,
-  showApiContract = layout === 'page',
 }: LivestockApplicationDetailViewProps) {
   const [viewingDocument, setViewingDocument] = useState<{ name: string; path: string } | null>(
     null,
@@ -206,8 +203,6 @@ export function LivestockApplicationDetailView({
             </div>
           </aside>
         </div>
-
-        {showApiContract && <ApiContractPanel contractKey="getApplication" defaultOpen />}
       </div>
     </div>
   );
