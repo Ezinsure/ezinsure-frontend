@@ -8,15 +8,18 @@ const SUBSIDY_UNAVAILABLE =
 
 /** Generate the nkunganire subsidy document for an application. */
 export async function generateSubsidyDocument(
-  _applicationId: string,
+  applicationId: string,
 ): Promise<GenerateSubsidyDocumentResponse> {
+  void applicationId;
   throw new Error(SUBSIDY_UNAVAILABLE);
 }
 
 /** Upload a sector-signed nkunganire document. */
 export async function uploadSignedSubsidyDocument(
-  _applicationId: string,
-  _payload: UploadSignedSubsidyPayload,
+  applicationId: string,
+  payload: UploadSignedSubsidyPayload,
 ): Promise<{ subsidyCase: { status: string; uploadedSignedDocumentUrl: string } }> {
+  void applicationId;
+  void payload;
   throw new Error(SUBSIDY_UNAVAILABLE);
 }

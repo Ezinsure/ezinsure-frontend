@@ -194,7 +194,6 @@ export function useLivestockApplicationDetail(
 }
 
 export function useCreateLivestockApplication() {
-  const { user } = useAuth();
   const repository = useLivestockRepository('vet');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);

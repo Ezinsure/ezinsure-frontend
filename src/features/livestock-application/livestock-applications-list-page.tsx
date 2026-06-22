@@ -104,8 +104,9 @@ export default function LivestockApplicationsListPage({
 
   const panelApplication = useMemo(() => {
     if (!openFromUrl) return null;
+    void detailVersion;
     return resolveApplicationPackageById(openFromUrl);
-  }, [openFromUrl, applications, detailVersion]);
+  }, [openFromUrl, detailVersion]);
 
   const handleApplicationUpdated = useCallback(() => {
     void load(startDate, endDate, pageNumber, pageSize);
