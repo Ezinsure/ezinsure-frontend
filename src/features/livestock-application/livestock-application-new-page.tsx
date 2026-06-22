@@ -1,8 +1,6 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ApplicationIntakeStep } from '@/features/livestock-application/components/intake/application-intake-step';
 import { ApiContractPanel } from '@/features/livestock-application/components/shared/api-contract-panel';
@@ -14,10 +12,8 @@ import { resolveFormProfile } from '@/features/livestock-application/domain/form
 type FlowPhase = 'intake' | 'form';
 
 export default function LivestockApplicationNewPage() {
-  const router = useRouter();
   const [phase, setPhase] = useState<FlowPhase>('intake');
   const [intake, setIntake] = useState<ApplicationIntakeSelection | null>(null);
-  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     try {
@@ -48,12 +44,6 @@ export default function LivestockApplicationNewPage() {
     setPhase('intake');
   };
 
-  const handleSubmitted = async (applicationId: string) => {
-    setSubmitting(true);
-    sessionStorage.removeItem(LIVESTOCK_APPLICATION_INTAKE_KEY);
-    router.push(`/vet/livestock/applications/${applicationId}`);
-  };
-
   if (phase === 'intake' || !intake || !profile) {
     return (
       <div className="min-h-[calc(100vh-4rem)] bg-gradient-to-b from-slate-50 to-white px-4 py-8 sm:px-6 lg:px-8">
@@ -79,19 +69,7 @@ export default function LivestockApplicationNewPage() {
           </Button>
         </div>
 
-        {submitting && (
-          <div className="mb-4 flex items-center gap-2 rounded-lg bg-blue-50 px-4 py-3 text-sm text-blue-800">
-            <Loader2 className="h-4 w-4 animate-spin" />
-            Redirecting to application…
-          </div>
-        )}
-
-        <LivestockApplicationForm
-          mode="create"
-          formProfile={profile}
-          intake={intake}
-          onSubmitted={handleSubmitted}
-        />
+        <LivestockApplicationForm mode="create" formProfile={profile} intake={intake} />
 
         <ApiContractPanel contractKey="createApplication" className="mt-8" />
       </div>

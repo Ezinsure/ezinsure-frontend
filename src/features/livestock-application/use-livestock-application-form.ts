@@ -227,6 +227,20 @@ export function useLivestockApplicationForm(
     [values],
   );
 
+  const validateAllSteps = useCallback(() => {
+    for (let i = 0; i < stepIds.length; i++) {
+      const stepId = stepIds[i];
+      const stepErrors = validateLivestockApplicationStep(stepId, values);
+      if (validateLivestockApplicationStepHasErrors(stepId, values)) {
+        setErrors(stepErrors);
+        setStepIndex(i);
+        return false;
+      }
+    }
+    setErrors({});
+    return true;
+  }, [stepIds, values]);
+
   const onEnterPremiumStep = useCallback(() => {
     setValues((prev) => {
       let next = prev;
@@ -327,6 +341,18 @@ export function useLivestockApplicationForm(
     };
   }, [formProfile?.lineTableVariant, intake, values]);
 
+  const resetForm = useCallback(() => {
+    const initial = createInitialLivestockApplicationValues();
+    if (lockedAnimalType) {
+      initial.livestockItems = withLockedAnimalType(initial.livestockItems, lockedAnimalType);
+    }
+    setValues(initial);
+    setStepIndex(0);
+    setErrors({});
+    setSubmitMessage(null);
+    lastAutoPremiumRef.current = '';
+  }, [lockedAnimalType]);
+
   return {
     values,
     setValues,
@@ -346,8 +372,10 @@ export function useLivestockApplicationForm(
     saveDraft,
     loadDraft,
     validateCurrentStep,
+    validateAllSteps,
     onEnterPremiumStep,
     prepareSubmitPayload,
+    resetForm,
     stepIds,
   };
 }

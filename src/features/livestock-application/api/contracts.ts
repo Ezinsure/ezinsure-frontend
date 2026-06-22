@@ -43,10 +43,11 @@ export const API_CONTRACTS = {
   "speciesGroup": "CATTLE",
   "ownerMode": "SINGLE_OWNER",
   "poultryProductType": "EGG_LAYER",
+  "insuranceType": "New",
   "policyStartDate": "2026-04-01",
   "policyEndDate": "2027-03-31",
   "owner": { "name", "phone", "district", "sector", "cell", "village" },
-  "livestockLocation": { "district", "sector", "cell", "village" },
+  "livestockLocation": { "district", "sector", "cell", "village", "province" },
   "premiumTotals": {
     "premiumRateAmount": 440000,
     "farmerContributionAmount": 264000,
@@ -60,13 +61,16 @@ export const API_CONTRACTS = {
       "quantity": 1,
       "unitValue": 800000,
       "sumAssured": 800000,
+      "tekanaEligible": true,
       "owner": { "name", "phone" },
-      "animal": { "species", "chipNumber", "hatcherySource" },
-      "tekanaEligible": false
+      "animal": {
+        "species", "chipNumber", "animalCategory", "animalAge",
+        "breed", "color", "productivity", "hatcherySource", "poultryProductType"
+      }
     }
   ]
 }`,
-    response: `{ "_id": "string", "applicationNumber": "LS-2026-00042", "status": "SUBMITTED" }`,
+    response: `{ "_id": "string", "applicationNumber": "APP-20260622-136413", "status": "SUBMITTED", "submittedAt": "2026-06-22T15:07:09.593Z" }`,
   },
 
   uploadPaymentProof: {

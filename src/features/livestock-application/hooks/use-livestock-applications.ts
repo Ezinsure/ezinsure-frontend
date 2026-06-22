@@ -16,8 +16,17 @@ import {
 import { useAuth } from '@/context/AuthContext';
 import { useApiClient } from '@/utils/apiClient';
 
+export type CreateLivestockApplicationSubmitResult =
+  | { success: true; data: CreateApplicationResult }
+  | { success: false; error: string };
+
 function toErrorMessage(err: unknown, fallback: string): string {
-  if (err instanceof LivestockApiError) return err.message;
+  if (err instanceof LivestockApiError) {
+    if (Array.isArray(err.details) && err.details.length > 0) {
+      return `${err.message}: ${err.details.join('; ')}`;
+    }
+    return err.message;
+  }
   if (err instanceof Error) return err.message;
   return fallback;
 }
@@ -100,14 +109,18 @@ export function useCreateLivestockApplication() {
   const [error, setError] = useState<string | null>(null);
 
   const submit = useCallback(
-    async (payload: CreateLivestockApplicationPayload): Promise<CreateApplicationResult | null> => {
+    async (
+      payload: CreateLivestockApplicationPayload,
+    ): Promise<CreateLivestockApplicationSubmitResult> => {
       setIsSubmitting(true);
       setError(null);
       try {
-        return await repository.create(payload);
+        const data = await repository.create(payload);
+        return { success: true, data };
       } catch (err) {
-        setError(toErrorMessage(err, 'Failed to submit application.'));
-        return null;
+        const message = toErrorMessage(err, 'Failed to submit application.');
+        setError(message);
+        return { success: false, error: message };
       } finally {
         setIsSubmitting(false);
       }

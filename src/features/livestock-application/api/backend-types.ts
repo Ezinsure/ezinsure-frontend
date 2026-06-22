@@ -8,11 +8,12 @@ import type {
   LivestockSpeciesGroup,
 } from '@/features/livestock-application/domain/application-types';
 
-/** POST /newApplication request body */
+/** POST /newApplication request body (camelCase wire format). */
 export interface NewLivestockApplicationBody {
   speciesGroup: LivestockSpeciesGroup;
   ownerMode: LivestockOwnerMode;
   poultryProductType?: string;
+  insuranceType?: 'New' | 'Renewal';
   policyStartDate: string;
   policyEndDate: string;
   owner?: {
@@ -28,6 +29,7 @@ export interface NewLivestockApplicationBody {
     sector: string;
     cell: string;
     village: string;
+    province?: string;
   };
   premiumTotals: {
     premiumRateAmount: number;
@@ -112,4 +114,5 @@ export interface CreateApplicationResult {
   _id: string;
   applicationNumber: string;
   status: string;
+  submittedAt?: string;
 }
