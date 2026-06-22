@@ -32,6 +32,14 @@ function listConfig(role: LivestockApplicationViewRole) {
       showNewButton: false,
     };
   }
+  if (role === 'finance') {
+    return {
+      title: 'Livestock applications',
+      subtitle: 'Review vet submissions, verify payments, and track nkunganire workflow.',
+      detailBase: '/finance/livestock/applications',
+      showNewButton: false,
+    };
+  }
   if (role === 'super_admin') {
     return {
       title: 'Livestock applications',

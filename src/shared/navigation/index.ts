@@ -5,6 +5,7 @@ import { motorAgentNavigation } from '@/shared/navigation/motor/agent.nav';
 import { motorSuperAdminNavigation } from '@/shared/navigation/motor/super-admin.nav';
 import { motorFinanceNavigation } from '@/shared/navigation/motor/finance.nav';
 import { getLivestockAdminNavigation } from '@/shared/navigation/livestock/admin.nav';
+import { livestockFinanceNavigation } from '@/shared/navigation/livestock/finance.nav';
 import { livestockVetNavigation } from '@/shared/navigation/livestock/vet.nav';
 
 export function getNavigation(role: string, productLine: ProductLine): NavGroup[] {
@@ -16,6 +17,8 @@ export function getNavigation(role: string, productLine: ProductLine): NavGroup[
         return getLivestockAdminNavigation('super_admin');
       case 'VETERINARY':
         return livestockVetNavigation;
+      case 'FINANCE':
+        return livestockFinanceNavigation;
       default:
         return [];
     }

@@ -20,7 +20,7 @@ export interface LivestockIssuedDocuments {
   ebm?: string;
 }
 
-export type LivestockApplicationViewRole = 'vet' | 'admin' | 'super_admin';
+export type LivestockApplicationViewRole = 'vet' | 'admin' | 'super_admin' | 'finance';
 
 export type InsuredLineType = 'INDIVIDUAL' | 'LOT';
 
