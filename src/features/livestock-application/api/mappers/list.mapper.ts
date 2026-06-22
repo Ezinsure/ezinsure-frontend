@@ -14,6 +14,7 @@ import {
   isNewApiApplicationRecord,
 } from '@/features/livestock-application/api/mappers/guards';
 import { buildOwnerSummary } from '@/features/livestock-application/api/mappers/line.mapper';
+import { countInsuredLines } from '@/features/livestock-application/api/mappers/owners.mapper';
 import {
   isFlatListApplicationRecord,
   mapFlatApplicationToListItem,
@@ -108,9 +109,7 @@ export function mapToLivestockApplicationListItem(item: unknown): LivestockAppli
       lineCount:
         typeof o.lineCount === 'number'
           ? o.lineCount
-          : Array.isArray(o.lines)
-            ? o.lines.length
-            : 1,
+          : countInsuredLines(o) || 1,
       totals: {
         farmerContributionAmount: Number(
           (o.totals as { farmerContributionAmount?: number })?.farmerContributionAmount ??
@@ -151,13 +150,29 @@ export function extractApplicationsListPaginationMeta(
   const root =
     payload && typeof payload === 'object' ? (payload as Record<string, unknown>) : null;
 
+  const pagination =
+    root?.pagination && typeof root.pagination === 'object'
+      ? (root.pagination as Record<string, unknown>)
+      : null;
+
   const total = Number(
-    root?.total ?? root?.totalCount ?? root?.totalRecords ?? root?.count ?? fallback.dataLength,
+    pagination?.totalCount ??
+      root?.total ??
+      root?.totalCount ??
+      root?.totalRecords ??
+      root?.count ??
+      fallback.dataLength,
   );
-  const pageSize = Number(root?.pageSize ?? root?.limit ?? fallback.pageSize) || fallback.pageSize;
-  const pageNumber = Number(root?.pageNumber ?? root?.page ?? fallback.pageNumber) || fallback.pageNumber;
+  const pageSize =
+    Number(pagination?.pageSize ?? root?.pageSize ?? root?.limit ?? fallback.pageSize) ||
+    fallback.pageSize;
+  const pageNumber =
+    Number(pagination?.pageNumber ?? root?.pageNumber ?? root?.page ?? fallback.pageNumber) ||
+    fallback.pageNumber;
   const totalPages = Number(
-    root?.totalPages ?? Math.max(1, Math.ceil((Number.isFinite(total) ? total : fallback.dataLength) / pageSize)),
+    pagination?.totalPages ??
+      root?.totalPages ??
+      Math.max(1, Math.ceil((Number.isFinite(total) ? total : fallback.dataLength) / pageSize)),
   );
 
   return {

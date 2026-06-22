@@ -13,6 +13,76 @@ export interface AggregatedOwner {
   totalSumAssured: number;
 }
 
+function ownerMatchesLine(
+  owner: { id?: string; name: string; phone: string },
+  line: InsuredLinePayload,
+): boolean {
+  const linePhone = line.owner?.phone?.trim();
+  const lineName = line.owner?.name?.trim();
+  if (owner.phone && linePhone && owner.phone === linePhone) return true;
+  if (owner.name && lineName && owner.name === lineName) return true;
+  return false;
+}
+
+export function aggregateOwnersFromPackage(
+  application: LivestockApplicationPackage,
+): AggregatedOwner[] {
+  const fromLines = aggregateOwnersFromLines(
+    application.lines,
+    application.ownerMode,
+    application.ownerSummary,
+  );
+
+  const hasLineBackedOwners = fromLines.some((owner) => owner.lineCount > 0);
+  if (hasLineBackedOwners) {
+    if (
+      fromLines.length === 1 &&
+      fromLines[0].lineCount === 0 &&
+      application.totals.totalSumAssured > 0
+    ) {
+      return [{ ...fromLines[0], totalSumAssured: application.totals.totalSumAssured }];
+    }
+    return fromLines;
+  }
+
+  if (application.ownerMode === 'MULTI_OWNER' && application.ownersList?.length) {
+    return application.ownersList.map((owner) => {
+      const matchingLines = application.lines.filter((line) => ownerMatchesLine(owner, line));
+      return {
+        key: owner.id || owner.phone || owner.name,
+        name: owner.name,
+        phone: owner.phone,
+        lineCount:
+          matchingLines.length > 0
+            ? matchingLines.reduce(
+                (count, line) => count + (line.lineType === 'LOT' ? 1 : line.quantity),
+                0,
+              )
+            : 0,
+        totalSumAssured: matchingLines.reduce((sum, line) => sum + line.sumAssured, 0),
+      };
+    });
+  }
+
+  if (
+    application.ownerMode === 'SINGLE_OWNER' &&
+    fromLines.length === 0 &&
+    (application.primaryOwner?.name || application.ownerSummary)
+  ) {
+    return [
+      {
+        key: 'primary',
+        name: application.primaryOwner?.name || application.ownerSummary,
+        phone: application.primaryOwner?.phone,
+        lineCount: application.lineCount,
+        totalSumAssured: application.totals.totalSumAssured,
+      },
+    ];
+  }
+
+  return fromLines;
+}
+
 export function aggregateOwnersFromLines(
   lines: InsuredLinePayload[],
   ownerMode: LivestockOwnerMode,

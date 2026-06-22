@@ -13,6 +13,14 @@ import {
   isLivestockApplicationStatus,
 } from '@/features/livestock-application/api/mappers/guards';
 import {
+  countInsuredLines,
+  mapInsuredLinesFromRecord,
+  mapPaymentProofFromRecord,
+  resolveOwnerSummaryFromRecord,
+  resolvePackageOwnersList,
+  resolvePackagePrimaryOwner,
+} from '@/features/livestock-application/api/mappers/owners.mapper';
+import {
   computePremiumPercentage,
   mapLegacyStatus,
   mapPaidStatus,
@@ -21,7 +29,7 @@ import {
   subsidyRequiredFromStatus,
 } from '@/features/livestock-application/api/mappers/status.mapper';
 
-/** GET /getVeterinaryApplications row without nested lines[]. */
+/** GET /getVeterinaryApplications & /getAllApplications row (animals[], no nested lines[]). */
 export function isFlatListApplicationRecord(record: Record<string, unknown>): boolean {
   return (
     typeof record._id === 'string' &&
@@ -29,20 +37,6 @@ export function isFlatListApplicationRecord(record: Record<string, unknown>): bo
     typeof record.speciesGroup === 'string' &&
     !Array.isArray(record.lines)
   );
-}
-
-function resolveOwnerSummary(
-  record: Record<string, unknown>,
-  locationSummary: string,
-): string {
-  if (record.ownerMode === 'MULTI_OWNER') {
-    return 'Multiple owners';
-  }
-
-  const explicit = String(record.ownerSummary ?? record.ownerName ?? '').trim();
-  if (explicit) return explicit;
-
-  return locationSummary !== '—' ? locationSummary : '—';
 }
 
 function readTotals(record: Record<string, unknown>) {
@@ -92,8 +86,8 @@ export function mapFlatApplicationToListItem(
     status: isLivestockApplicationStatus(statusRaw)
       ? statusRaw
       : mapLegacyStatus(statusRaw, subsidyStatus, paidStatus),
-    ownerSummary: resolveOwnerSummary(record, formatLocationSummary(location)),
-    lineCount: Array.isArray(record.lines) ? record.lines.length : 0,
+    ownerSummary: resolveOwnerSummaryFromRecord(record, formatLocationSummary(location)),
+    lineCount: countInsuredLines(record),
     totals: {
       farmerContributionAmount: totals.farmerContributionAmount,
       premiumRateAmount: totals.premiumRateAmount,
@@ -115,7 +109,10 @@ export function mapFlatApplicationToPackage(
   const location = extractLivestockLocation(record);
   const submittedAt = listItem.submittedAt;
   const subsidyStatus = String(record.subsidyStatus ?? '');
-  const paidStatus = String(record.paidStatus ?? '');
+
+  const lines = mapInsuredLinesFromRecord(record);
+  const ownersList = resolvePackageOwnersList(record);
+  const primaryOwner = resolvePackagePrimaryOwner(record);
 
   return {
     _id: listItem._id,
@@ -132,18 +129,17 @@ export function mapFlatApplicationToPackage(
     vetId: String((record.agent as { _id?: string } | undefined)?._id ?? ''),
     vetName: String((record.agent as { fullName?: string } | undefined)?.fullName ?? '—'),
     ownerSummary: listItem.ownerSummary,
-    lineCount: 0,
+    primaryOwner,
+    ownersList: ownersList.length > 0 ? ownersList : undefined,
+    lineCount: lines.length,
     policyStartDate: String(record.policyStartDate ?? '').slice(0, 10),
     policyEndDate: String(record.policyEndDate ?? '').slice(0, 10),
     totals,
-    paymentProof: {
-      status: mapPaidStatus(paidStatus),
-      expectedAmount: totals.farmerContributionAmount,
-    },
+    paymentProof: mapPaymentProofFromRecord(record, totals.farmerContributionAmount),
     subsidyCase: {
       required: subsidyRequiredFromStatus(subsidyStatus),
       status: mapSubsidyStatus(subsidyStatus),
     },
-    lines: [],
+    lines,
   };
 }

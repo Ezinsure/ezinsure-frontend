@@ -4,7 +4,7 @@ import { useMemo } from 'react';
 import { Users } from 'lucide-react';
 import type { LivestockApplicationPackage } from '@/features/livestock-application/domain/application-types';
 import {
-  aggregateOwnersFromLines,
+  aggregateOwnersFromPackage,
   type AggregatedOwner,
 } from '@/features/livestock-application/utils/insured-line-display';
 import { formatRwfDisplay } from '@/features/livestock-application/utils/format-rwf';
@@ -21,22 +21,9 @@ export function ApplicationOwnersSection({
   onSelectOwner,
 }: ApplicationOwnersSectionProps) {
   const owners = useMemo(() => {
-    const aggregated = aggregateOwnersFromLines(
-      application.lines,
-      application.ownerMode,
-      application.ownerSummary,
-    );
+    const aggregated = aggregateOwnersFromPackage(application);
 
-    if (aggregated.length > 0) {
-      if (
-        aggregated.length === 1 &&
-        aggregated[0].lineCount === 0 &&
-        application.totals.totalSumAssured > 0
-      ) {
-        return [{ ...aggregated[0], totalSumAssured: application.totals.totalSumAssured }];
-      }
-      return aggregated;
-    }
+    if (aggregated.length > 0) return aggregated;
 
     if (application.ownerMode === 'MULTI_OWNER') {
       return [
@@ -50,7 +37,7 @@ export function ApplicationOwnersSection({
     }
 
     return aggregated;
-  }, [application.lines, application.ownerMode, application.ownerSummary, application.lineCount, application.totals.totalSumAssured]);
+  }, [application]);
 
   const isMulti = application.ownerMode === 'MULTI_OWNER';
 

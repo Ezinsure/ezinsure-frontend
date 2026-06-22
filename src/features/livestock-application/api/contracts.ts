@@ -7,18 +7,61 @@ export const API_CONTRACTS = {
     method: 'GET' as const,
     path: '/getVeterinaryApplications?agentId={agentId}&startDate={YYYY-MM-DD}&endDate={YYYY-MM-DD}&pageSize={n}&pageNumber={n}',
     response: `{
-  "data": [ /* flat application rows */ ],
-  "total": 120,
-  "pageNumber": 1,
-  "pageSize": 25,
-  "totalPages": 5
+  "data": [
+    {
+      "_id": "string",
+      "applicationNumber": "APP-20260622-203235",
+      "speciesGroup": "CATTLE",
+      "ownerMode": "MULTI_OWNER | SINGLE_OWNER",
+      "owner": { "_id", "name", "phone" } | null,
+      "owners": [{ "_id", "name", "phone" }],
+      "animals": [{ "ownerId", "lineType", "species", "chipNumber", ... }],
+      "agent": { "_id", "fullName", "phoneNumber" },
+      "paymentProofs": [],
+      "premiumRateAmount": 440000,
+      "farmerContributionAmount": 264000,
+      "totalSumAssured": 1400000,
+      "status": "SUBMITTED"
+    }
+  ],
+  "pagination": {
+    "totalCount": 6,
+    "pageNumber": 1,
+    "pageSize": 25,
+    "totalPages": 1
+  }
 }`,
   },
 
   listAllApplications: {
     method: 'GET' as const,
     path: '/getAllApplications?startDate={YYYY-MM-DD}&endDate={YYYY-MM-DD}&pageSize={n}&pageNumber={n}',
-    response: `Same paginated envelope as listApplications — admin / finance / super admin`,
+    response: `{
+  "data": [
+    {
+      "_id": "string",
+      "applicationNumber": "APP-20260622-203235",
+      "speciesGroup": "CATTLE",
+      "ownerMode": "MULTI_OWNER | SINGLE_OWNER",
+      "owner": { "_id", "name", "phone" } | null,
+      "owners": [{ "_id", "name", "phone" }],
+      "animals": [{ "ownerId", "lineType", "species", "chipNumber", ... }],
+      "agent": { "_id", "fullName", "phoneNumber" },
+      "paymentProofs": [],
+      "subsidyDocuments": [],
+      "premiumRateAmount": 440000,
+      "farmerContributionAmount": 264000,
+      "totalSumAssured": 1400000,
+      "status": "SUBMITTED"
+    }
+  ],
+  "pagination": {
+    "totalCount": 6,
+    "pageNumber": 1,
+    "pageSize": 25,
+    "totalPages": 1
+  }
+}`,
   },
 
   getApplication: {

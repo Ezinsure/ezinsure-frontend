@@ -1,3 +1,5 @@
+'use client';
+
 import { Suspense } from 'react';
 import { Loader2 } from 'lucide-react';
 import LivestockApplicationsListPage from '@/features/livestock-application/livestock-applications-list-page';

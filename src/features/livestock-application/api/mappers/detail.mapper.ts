@@ -13,6 +13,12 @@ import {
 } from '@/features/livestock-application/api/mappers/guards';
 import { buildOwnerSummary, mapApiLineRecord } from '@/features/livestock-application/api/mappers/line.mapper';
 import {
+  mapInsuredLinesFromRecord,
+  mapPaymentProofFromRecord,
+  resolvePackageOwnersList,
+  resolvePackagePrimaryOwner,
+} from '@/features/livestock-application/api/mappers/owners.mapper';
+import {
   isFlatListApplicationRecord,
   mapFlatApplicationToPackage,
 } from '@/features/livestock-application/api/mappers/flat.mapper';
@@ -105,7 +111,12 @@ function normalizePackage(pkg: LivestockApplicationPackage): LivestockApplicatio
 
 function mapGenericPackageObject(o: Record<string, unknown>): LivestockApplicationPackage | null {
   const rawLines = Array.isArray(o.lines) ? o.lines : [];
-  const lines = rawLines.map((line) => mapApiLineRecord(line as Record<string, unknown>));
+  const lines =
+    Array.isArray(o.animals) && o.animals.length > 0
+      ? mapInsuredLinesFromRecord(o)
+      : rawLines.map((line) => mapApiLineRecord(line as Record<string, unknown>));
+  const ownersList = resolvePackageOwnersList(o);
+  const primaryOwner = resolvePackagePrimaryOwner(o);
   const totals = o.totals as LivestockApplicationPackage['totals'] | undefined;
   const premiumRate = totals?.premiumRateAmount ?? Number(o.premiumRateAmount ?? 0);
   const farmer = totals?.farmerContributionAmount ?? Number(o.farmerContributionAmount ?? 0);
@@ -138,6 +149,8 @@ function mapGenericPackageObject(o: Record<string, unknown>): LivestockApplicati
     vetId: String((o.vetId as string) ?? (o.agent as { _id?: string })?._id ?? ''),
     vetName: String(o.vetName ?? (o.agent as { fullName?: string })?.fullName ?? '—'),
     ownerSummary: buildOwnerSummary(o, rawLines),
+    primaryOwner,
+    ownersList: ownersList.length > 0 ? ownersList : undefined,
     lineCount: typeof o.lineCount === 'number' ? o.lineCount : lines.length || 1,
     policyStartDate: String(o.policyStartDate ?? '').slice(0, 10),
     policyEndDate: String(o.policyEndDate ?? '').slice(0, 10),
@@ -150,10 +163,7 @@ function mapGenericPackageObject(o: Record<string, unknown>): LivestockApplicati
       veterinaryCommission: Math.round(Number(o.veterinaryCommission ?? 0)),
       totalSumAssured: sumAssured,
     },
-    paymentProof: paymentProof ?? {
-      status: mapPaidStatus(String(o.paidStatus ?? '')),
-      expectedAmount: farmer,
-    },
+    paymentProof: paymentProof ?? mapPaymentProofFromRecord(o, farmer),
     subsidyCase: subsidyCase ?? {
       required: subsidyRequiredFromStatus(String(o.subsidyStatus ?? '')),
       status: mapSubsidyStatus(String(o.subsidyStatus ?? '')),
@@ -173,7 +183,10 @@ export function mapToLivestockApplicationPackage(item: unknown): LivestockApplic
     return normalizePackage(mapFlatApplicationToPackage(o));
   }
 
-  if (Array.isArray(o.lines) && typeof o._id === 'string') {
+  if (
+    typeof o._id === 'string' &&
+    (Array.isArray(o.lines) || (Array.isArray(o.animals) && o.animals.length > 0))
+  ) {
     const mapped = mapGenericPackageObject(o);
     return mapped ? normalizePackage(mapped) : null;
   }

@@ -1,4 +1,9 @@
 import type { InsuredLinePayload } from '@/features/livestock-application/domain/application-types';
+import {
+  resolveOwnerSummaryFromRecord,
+  resolvePackageOwnersList,
+  resolvePackagePrimaryOwner,
+} from '@/features/livestock-application/api/mappers/owners.mapper';
 
 export function pickDefinedStrings(
   fields: Record<string, string | undefined>,
@@ -9,21 +14,36 @@ export function pickDefinedStrings(
 }
 
 export function buildOwnerSummary(o: Record<string, unknown>, lines: unknown[]): string {
+  const animalLines = Array.isArray(o.animals) && o.animals.length > 0 ? o.animals : lines;
+  const lookup = new Map<string, string>();
+
+  for (const owner of resolvePackageOwnersList(o)) {
+    if (owner.id) lookup.set(owner.id, owner.name);
+  }
+
+  const primary = resolvePackagePrimaryOwner(o);
+  if (primary?.id) lookup.set(primary.id, primary.name);
+
   const uniqueOwners = new Set(
-    lines
+    animalLines
       .map((line) => {
         const l = line as Record<string, unknown>;
         const owner = l.owner as { name?: string } | undefined;
-        return String(l.ownerName ?? owner?.name ?? '').trim();
+        const ownerId = String(l.ownerId ?? '').trim();
+        return String(l.ownerName ?? owner?.name ?? (ownerId ? lookup.get(ownerId) : '') ?? '').trim();
       })
       .filter(Boolean),
   );
 
-  if (o.ownerMode === 'MULTI_OWNER' && uniqueOwners.size > 1) {
+  if (uniqueOwners.size > 1) {
     return `${uniqueOwners.size} owners`;
   }
 
-  return String(o.ownerSummary ?? o.ownerName ?? '—');
+  if (uniqueOwners.size === 1) {
+    return Array.from(uniqueOwners)[0];
+  }
+
+  return resolveOwnerSummaryFromRecord(o, '—');
 }
 
 export function mapApiLineRecord(line: Record<string, unknown>): InsuredLinePayload {

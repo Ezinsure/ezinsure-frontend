@@ -144,6 +144,8 @@ export interface LivestockApplicationPackage {
   vetId: string;
   vetName: string;
   ownerSummary: string;
+  primaryOwner?: { id?: string; name: string; phone: string };
+  ownersList?: Array<{ id?: string; name: string; phone: string }>;
   lineCount: number;
   totals: ApplicationPremiumTotals;
   paymentProof: {
