@@ -146,7 +146,7 @@ export default function AgentFAQPage() {
   return (
     <MainLayout>
       <div className="max-w-4xl mx-auto py-10 px-4">
-        <div className="absolute top-0 left-0 w-full h-[10vh] overflow-hidden z-0 bg-gradient-to-br from-[#0A2540] to-[#126BB3]"></div>
+
         <h1 className="text-3xl font-bold mb-8 text-center text-[var(--secondary-blue)] relative z-10">
           Agent FAQ
         </h1>

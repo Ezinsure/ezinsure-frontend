@@ -27,6 +27,12 @@ import {
 } from 'lucide-react';
 import { Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area, ComposedChart, Line } from 'recharts';
 import AgentDetailModal from '@/components/ui/admin/agent-detail-modal';
+import { DataExportActions } from '@/components/ui/data-export-actions';
+import {
+  exportAgentAnalyticsToExcel,
+  exportAgentAnalyticsToPdf,
+  type AgentAnalyticsExportRow,
+} from '@/shared/export/agent-analytics-exports';
 
 // Helper functions for dates
 const getFirstDayOfMonth = () => {
@@ -736,6 +742,63 @@ export default function AgentAnalyticsPage() {
     currentPage * itemsPerPage
   );
 
+  const agentExportRows = useMemo<AgentAnalyticsExportRow[]>(
+    () =>
+      filteredAndSortedAgents.map((agent) => ({
+        name: agent.name,
+        email: agent.email,
+        phoneNumber: agent.phoneNumber,
+        province: agent.province,
+        district: agent.district,
+        status: agent.status,
+        totalApplications: agent.totalApplications,
+        totalCommission: agent.totalCommission,
+        averageCommission: agent.averageCommission,
+        totalRevenue: agent.totalRevenue,
+      })),
+    [filteredAndSortedAgents],
+  );
+
+  const agentExportParams = useMemo(
+    () => ({
+      rows: agentExportRows,
+      startDate,
+      endDate,
+      searchQuery,
+      provinceFilter,
+      statusFilter,
+    }),
+    [agentExportRows, startDate, endDate, searchQuery, provinceFilter, statusFilter],
+  );
+
+  const handleExportAgentsExcel = useCallback(async () => {
+    if (agentExportRows.length === 0) {
+      showToast('No agents to export for the current filters', 'error');
+      return;
+    }
+    try {
+      await exportAgentAnalyticsToExcel(agentExportParams);
+      showToast('Agent analytics exported to Excel', 'success');
+    } catch (error) {
+      console.error('Excel export failed:', error);
+      showToast('Failed to export Excel file', 'error');
+    }
+  }, [agentExportParams, agentExportRows.length, showToast]);
+
+  const handleExportAgentsPdf = useCallback(async () => {
+    if (agentExportRows.length === 0) {
+      showToast('No agents to export for the current filters', 'error');
+      return;
+    }
+    try {
+      await exportAgentAnalyticsToPdf(agentExportParams);
+      showToast('Agent analytics exported to PDF', 'success');
+    } catch (error) {
+      console.error('PDF export failed:', error);
+      showToast('Failed to export PDF file', 'error');
+    }
+  }, [agentExportParams, agentExportRows.length, showToast]);
+
   // Summary statistics - use API data if available, otherwise calculate from filtered agents
   const summaryStats = useMemo(() => {
     if (overallAnalytics) {
@@ -883,7 +946,7 @@ export default function AgentAnalyticsPage() {
   return (
     <MainLayout>
       <div className="min-h-screen bg-gray-50 py-8">
-      <div className="absolute top-0 left-0 w-full h-[11vh] overflow-hidden z-0  bg-gradient-to-br from-[#0A2540] to-[#126BB3]"></div>
+
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Header */}
           <div className="mb-6">
@@ -1205,52 +1268,60 @@ export default function AgentAnalyticsPage() {
             </div>
           )}
 
-          {/* Filters and Search */}
+          {/* Filters, search, and export */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3 mb-6">
-            <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 items-stretch sm:items-center">
-              <div className="flex-1 w-full">
-                <div className="relative">
-                  <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
-                  <input
-                    type="text"
-                    placeholder="Search by name, email, or phone..."
-                    value={searchQuery}
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 items-stretch sm:items-center flex-1">
+                <div className="flex-1 w-full">
+                  <div className="relative">
+                    <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+                    <input
+                      type="text"
+                      placeholder="Search by name, email, or phone..."
+                      value={searchQuery}
+                      onChange={(e) => {
+                        setSearchQuery(e.target.value);
+                        setCurrentPage(1);
+                      }}
+                      className="pl-7 h-8 w-full text-xs border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 px-2.5"
+                    />
+                  </div>
+                </div>
+                <div className="flex gap-2 w-full sm:w-auto">
+                  <select
+                    value={provinceFilter}
                     onChange={(e) => {
-                      setSearchQuery(e.target.value);
+                      setProvinceFilter(e.target.value);
                       setCurrentPage(1);
                     }}
-                    className="pl-7 h-8 w-full text-xs border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 px-2.5"
-                  />
+                    className="flex-1 sm:flex-none min-w-[120px] px-2.5 py-1 h-8 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs bg-white"
+                  >
+                    <option value="all">All Provinces</option>
+                    {uniqueProvinces.map(province => (
+                      <option key={province} value={province}>{province}</option>
+                    ))}
+                  </select>
+                  <select
+                    value={statusFilter}
+                    onChange={(e) => {
+                      setStatusFilter(e.target.value);
+                      setCurrentPage(1);
+                    }}
+                    className="flex-1 sm:flex-none min-w-[120px] px-2.5 py-1 h-8 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs bg-white"
+                  >
+                    <option value="all">All Statuses</option>
+                    <option value="ACTIVE">Active</option>
+                    <option value="PENDING">Pending</option>
+                    <option value="DEACTIVATED">Deactivated</option>
+                  </select>
                 </div>
               </div>
-              <div className="flex gap-2 w-full sm:w-auto">
-                <select
-                  value={provinceFilter}
-                  onChange={(e) => {
-                    setProvinceFilter(e.target.value);
-                    setCurrentPage(1);
-                  }}
-                  className="flex-1 sm:flex-none min-w-[120px] px-2.5 py-1 h-8 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs bg-white"
-                >
-                  <option value="all">All Provinces</option>
-                  {uniqueProvinces.map(province => (
-                    <option key={province} value={province}>{province}</option>
-                  ))}
-                </select>
-                <select
-                  value={statusFilter}
-                  onChange={(e) => {
-                    setStatusFilter(e.target.value);
-                    setCurrentPage(1);
-                  }}
-                  className="flex-1 sm:flex-none min-w-[120px] px-2.5 py-1 h-8 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs bg-white"
-                >
-                  <option value="all">All Statuses</option>
-                  <option value="ACTIVE">Active</option>
-                  <option value="PENDING">Pending</option>
-                  <option value="DEACTIVATED">Deactivated</option>
-                </select>
-              </div>
+              <DataExportActions
+                disabled={isLoading || agentExportRows.length === 0}
+                onExportExcel={handleExportAgentsExcel}
+                onExportPdf={handleExportAgentsPdf}
+                className="shrink-0 justify-end"
+              />
             </div>
           </div>
 

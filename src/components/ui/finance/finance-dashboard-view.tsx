@@ -232,7 +232,7 @@ export default function FinanceDashboardView() {
     try {
       await initiatePaymentForRange(range);
       showToast('Payment initiated. Review your payout snapshots in Payment Initiated.', 'success');
-      router.push('/finance/payment-initiated');
+      router.push('/finance/motor/payment-initiated');
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to initiate payment.';
       showToast(message, 'error');
@@ -244,9 +244,8 @@ export default function FinanceDashboardView() {
   return (
     <MainLayout containerClass="p-0" fullWidth>
       <div className="container mx-auto px-4 py-8">
-        <div className="absolute top-0 left-0 w-full h-[10vh] overflow-hidden z-0 bg-gradient-to-br from-[#0A2540] to-[#126BB3]" />
 
-        <div className="relative mt-10 bg-gradient-to-r from-blue-900 via-blue-800 to-indigo-900 shadow-xl rounded-3xl">
+        <div className="relative mt-4 bg-gradient-to-r from-blue-900 via-blue-800 to-indigo-900 shadow-xl rounded-3xl lg:mt-6">
           <div className="max-w-7xl mx-auto px-4 py-8 sm:px-8">
             <div className="flex flex-col lg:flex-row justify-between gap-8 lg:items-center">
               <div className="text-white space-y-2">

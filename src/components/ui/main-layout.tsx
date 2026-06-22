@@ -1,9 +1,12 @@
 "use client";
 
 import { ReactNode } from 'react';
+import { usePathname } from 'next/navigation';
 import { Navigation } from '@/components/ui/navigation';
 import { Footer } from '@/components/ui/footer';
 import { useToast } from '@/components/ui/toast';
+import { useAuth } from '@/context/AuthContext';
+import { isAuthenticatedAppPath } from '@/shared/routing/paths';
 
 interface MainLayoutProps {
   children: ReactNode;
@@ -21,12 +24,19 @@ export const MainLayout = ({
   fullWidth = false,
 }: MainLayoutProps) => {
   const { ToastContainer } = useToast();
+  const { user } = useAuth();
+  const pathname = usePathname();
+  const useAppChrome = Boolean(user) && isAuthenticatedAppPath(pathname);
+  const showNavigation = showNav && !useAppChrome;
+  const showPageFooter = showFooter && !useAppChrome;
 
   return (
     <>
-      {showNav && <Navigation />}
+      {showNavigation && <Navigation />}
       
-      <main className={`min-h-screen ${containerClass} overflow-hidden`}>
+      <main
+        className={`min-h-screen ${useAppChrome ? 'py-0' : containerClass} overflow-hidden`}
+      >
         {fullWidth ? (
           children
         ) : (
@@ -36,7 +46,7 @@ export const MainLayout = ({
         )}
       </main>
       
-      {showFooter && <Footer />}
+      {showPageFooter && <Footer />}
       <ToastContainer />
     </>
   );

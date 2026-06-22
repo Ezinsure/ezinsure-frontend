@@ -8,6 +8,8 @@ import { validateForm, ValidationRules, validationPatterns } from '@/components/
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
+import { getDashboardPath } from '@/shared/routing/paths';
+import { resolveUserDefaultProductLine } from '@/shared/utils/product-line-access';
 import { getTrackingData } from '@/utils/tracking';
 import { motion, AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
@@ -63,7 +65,9 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (isAuthenticated && user) {
-      router.push(`/${user.role.toLowerCase()}/dashboard`);
+      router.replace(
+        getDashboardPath(user.role, resolveUserDefaultProductLine(user)),
+      );
     }
   }, [isAuthenticated, user, router]);
 

@@ -1,11 +1,18 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { X, DollarSign, Users, Briefcase, ArrowUpRight, Search, Eye, EyeOff, Mail, Calendar, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, FileText } from 'lucide-react';
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { TooltipProps } from 'recharts';
 import { formatDateUTC } from '@/utils/date-formatter';
+import { useToast } from '@/components/ui/toast';
+import { DataExportActions } from '@/components/ui/data-export-actions';
+import {
+  exportAgentApplicationsToExcel,
+  exportAgentApplicationsToPdf,
+  type AgentApplicationExportRow,
+} from '@/shared/export/agent-analytics-exports';
 
 const INSURANCE_COLORS: Record<string, string> = {
   'Car Insurance': '#2563EB',
@@ -310,6 +317,7 @@ const TablePagination = ({ currentPage, totalPages, totalItems, itemsPerPage, on
 };
 
 export default function AgentDetailModal({ isOpen, onClose, agentId, agentName, agentEmail, token, initialStartDate, initialEndDate }: AgentDetailModalProps) {
+  const { showToast, ToastContainer } = useToast();
   const [allApplications, setAllApplications] = useState<Application[]>([]);
   const [insuranceDistribution, setInsuranceDistribution] = useState<InsuranceDistribution[]>([]);
   const [weeklyStats, setWeeklyStats] = useState<WeeklyStat[]>([]);
@@ -650,6 +658,63 @@ export default function AgentDetailModal({ isOpen, onClose, agentId, agentName, 
 
   const totalPages = Math.ceil(filteredTableApplications.length / itemsPerPage);
 
+  const applicationExportRows = useMemo<AgentApplicationExportRow[]>(
+    () =>
+      filteredTableApplications.map((app) => ({
+        applicationNumber: app.applicationNumber,
+        clientName: app.client?.fullName || 'N/A',
+        clientEmail: app.client?.email || '',
+        insuranceCategory: app.insuranceCategory,
+        insuranceType: app.insuranceType,
+        amount: app.amount || 0,
+        agentCommission: app.agentCommission || 0,
+        status: app.status,
+        submittedAt: app.submittedAt,
+      })),
+    [filteredTableApplications],
+  );
+
+  const applicationExportParams = useMemo(
+    () => ({
+      rows: applicationExportRows,
+      agentName,
+      agentEmail,
+      startDate,
+      endDate,
+      searchQuery: searchTerm,
+      statusFilter: selectedStatus,
+    }),
+    [applicationExportRows, agentName, agentEmail, startDate, endDate, searchTerm, selectedStatus],
+  );
+
+  const handleExportApplicationsExcel = useCallback(async () => {
+    if (applicationExportRows.length === 0) {
+      showToast('No applications to export for the current filters', 'error');
+      return;
+    }
+    try {
+      await exportAgentApplicationsToExcel(applicationExportParams);
+      showToast('Applications exported to Excel', 'success');
+    } catch (error) {
+      console.error('Excel export failed:', error);
+      showToast('Failed to export Excel file', 'error');
+    }
+  }, [applicationExportParams, applicationExportRows.length, showToast]);
+
+  const handleExportApplicationsPdf = useCallback(async () => {
+    if (applicationExportRows.length === 0) {
+      showToast('No applications to export for the current filters', 'error');
+      return;
+    }
+    try {
+      await exportAgentApplicationsToPdf(applicationExportParams);
+      showToast('Applications exported to PDF', 'success');
+    } catch (error) {
+      console.error('PDF export failed:', error);
+      showToast('Failed to export PDF file', 'error');
+    }
+  }, [applicationExportParams, applicationExportRows.length, showToast]);
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -963,12 +1028,19 @@ export default function AgentDetailModal({ isOpen, onClose, agentId, agentName, 
                 {/* Applications Table */}
                 <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
                   <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
-                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                      <div>
-                        <h3 className="text-lg font-semibold text-gray-900">Applications</h3>
-                        <p className="text-sm text-gray-500 mt-1">All applications submitted by this agent</p>
+                    <div className="flex flex-col gap-4">
+                      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                        <div>
+                          <h3 className="text-lg font-semibold text-gray-900">Applications</h3>
+                          <p className="text-sm text-gray-500 mt-1">All applications submitted by this agent</p>
+                        </div>
+                        <DataExportActions
+                          disabled={isApplicationsLoading || applicationExportRows.length === 0}
+                          onExportExcel={handleExportApplicationsExcel}
+                          onExportPdf={handleExportApplicationsPdf}
+                        />
                       </div>
-                      <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+                      <div className="flex flex-col sm:flex-row gap-3 w-full">
                         <div className="relative flex-1 sm:flex-none sm:w-64">
                           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
                           <input
@@ -1081,6 +1153,7 @@ export default function AgentDetailModal({ isOpen, onClose, agentId, agentName, 
           </div>
         </div>
       </motion.div>
+      <ToastContainer />
         </>
       )}
     </AnimatePresence>

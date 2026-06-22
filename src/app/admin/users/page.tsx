@@ -157,7 +157,7 @@ const [formData, setFormData] = useState({
   province: '',
   district: '',
   sector: '',
-  role: 'AGENT' as 'ADMIN' | 'AGENT',
+  role: 'AGENT' as 'ADMIN' | 'AGENT' | 'VETERINARY',
   emergencyContact1Name: '',
   emergencyContact1PhoneNumber: '',
   emergencyContact1Relationship: '',
@@ -494,7 +494,6 @@ const confirmDeactivation = async (reason: string, deactivationFile: File | null
     setUserToDeactivate(null);
   }
 };
-
 
 const handleEditUser = async (updatedUser: User) => {
   setIsLoading(true);
@@ -843,7 +842,7 @@ const handleEditUser = async (updatedUser: User) => {
   return (
     <MainLayout containerClass="p-0" fullWidth>
       <div className="container mx-auto px-4 py-8">
-        <div className="absolute top-0 left-0 w-full h-[10vh] overflow-hidden z-0 bg-gradient-to-br from-[#0A2540] to-[#126BB3]"></div>
+
         <div className="mb-8 mt-16">
           <h1 className="text-3xl font-bold mb-2">User Management</h1>
           <p className="text-gray-600">Manage all system users and agents</p>

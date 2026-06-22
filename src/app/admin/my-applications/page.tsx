@@ -9,6 +9,11 @@ import { DocumentViewer } from '@/components/ui/document-viewer';
 import { useAuth } from '@/context/AuthContext';
 import { useApiClient } from '@/utils/apiClient';
 import { formatDateUTC } from '@/utils/date-formatter';
+import {
+  matchesPerformedByFilter,
+  performedByFilterLabel,
+  type PerformedByFilter,
+} from '@/utils/application-performed-by-filter';
 
 // Application statuses
 enum ApplicationStatus {
@@ -137,6 +142,7 @@ export default function AdminMyApplicationsPage() {
   const [selectedApp, setSelectedApp] = useState<Application | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
+  const [selectedPerformedBy, setSelectedPerformedBy] = useState<PerformedByFilter>('all');
   const [startDate, setStartDate] = useState<string>('');
   const [endDate, setEndDate] = useState<string>('');
   const [isLoading, setIsLoading] = useState(true);
@@ -245,7 +251,7 @@ export default function AdminMyApplicationsPage() {
       return true;
     })();
     
-    return matchesSearch && matchesStatus && matchesDateRange;
+    return matchesSearch && matchesStatus && matchesDateRange && matchesPerformedByFilter(app, selectedPerformedBy);
   });
 
   const paginatedApplications = filteredApplications.slice(
@@ -262,6 +268,9 @@ export default function AdminMyApplicationsPage() {
       case 'status':
         setSelectedStatus(value);
         break;
+      case 'performedBy':
+        setSelectedPerformedBy(value as PerformedByFilter);
+        break;
       case 'startDate':
         setStartDate(value);
         break;
@@ -276,6 +285,7 @@ export default function AdminMyApplicationsPage() {
   const handleClearFilters = () => {
     setSearchQuery('');
     setSelectedStatus('all');
+    setSelectedPerformedBy('all');
     setStartDate(getFirstDayOfMonth());
     setEndDate(getCurrentDate());
     setCurrentPage(1);
@@ -314,6 +324,11 @@ export default function AdminMyApplicationsPage() {
 
       if (selectedStatus !== 'all') {
         doc.text(`Status Filter: ${(selectedStatus || '').replace('_', ' ')}`, 14, filterY);
+        filterY += 6;
+      }
+
+      if (selectedPerformedBy !== 'all') {
+        doc.text(`Performed By: ${performedByFilterLabel(selectedPerformedBy)}`, 14, filterY);
         filterY += 6;
       }
 
@@ -716,7 +731,7 @@ export default function AdminMyApplicationsPage() {
   return (
     <MainLayout containerClass="p-0" fullWidth>
       <div className="container mx-auto px-4 py-8">
-         <div className="absolute top-0 left-0 w-full h-[10vh] overflow-hidden z-0  bg-gradient-to-br from-[#0A2540] to-[#126BB3]"></div>
+
         <div className="mb-8 mt-16">
           <h1 className="text-3xl font-bold mb-2 fade-in">My Applications</h1>
           <p className="text-gray-600 slide-up">View and manage all applications</p>
@@ -724,7 +739,7 @@ export default function AdminMyApplicationsPage() {
 
         {/* Search and filter section */}
         <div className="mb-6 bg-white p-4 rounded-lg shadow-sm slide-in-right">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-3">
             {/* Search Input */}
             <div className="lg:col-span-2">
               <label className="block text-xs font-semibold text-gray-600 tracking-wide mb-1 uppercase">Search Applications</label>
@@ -765,6 +780,20 @@ export default function AdminMyApplicationsPage() {
                 <option value={ApplicationStatus.CANCELLED}>Cancelled</option>
               </select>
             </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-gray-600 tracking-wide mb-1 uppercase">Performed By</label>
+              <select
+                value={selectedPerformedBy}
+                onChange={(e) => handleFilterChange('performedBy', e.target.value)}
+                className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[var(--main-blue)] focus:border-[var(--main-blue)] bg-white"
+              >
+                <option value="all">All</option>
+                <option value="admin">Admin</option>
+                <option value="agent">Agent</option>
+                <option value="client">Client</option>
+              </select>
+            </div>
             
             {/* Start Date */}
             <div>
@@ -794,6 +823,7 @@ export default function AdminMyApplicationsPage() {
             <div className="text-sm text-gray-500">
               {searchQuery && <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 mr-2">Search: {searchQuery}</span>}
               {selectedStatus !== 'all' && <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 mr-2">Status: {(selectedStatus || '').replace('_', ' ')}</span>}
+              {selectedPerformedBy !== 'all' && <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-800 mr-2">Performed By: {performedByFilterLabel(selectedPerformedBy)}</span>}
               {(startDate || endDate) && <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">Date Range: {startDate || 'beginning'} - {endDate || 'now'}</span>}
             </div>
             <div className="flex flex-wrap gap-2">

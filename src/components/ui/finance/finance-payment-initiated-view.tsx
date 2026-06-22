@@ -225,9 +225,8 @@ export default function FinancePaymentInitiatedView() {
   return (
     <MainLayout containerClass="p-0" fullWidth>
       <div className="container mx-auto px-4 py-8">
-        <div className="absolute top-0 left-0 w-full h-[10vh] overflow-hidden z-0 bg-gradient-to-br from-[#0A2540] to-[#126BB3]" />
 
-        <div className="mt-10 bg-gradient-to-r from-indigo-900 via-blue-900 to-blue-700 text-white rounded-2xl shadow-xl">
+        <div className="mt-4 bg-gradient-to-r from-indigo-900 via-blue-900 to-blue-700 text-white rounded-2xl shadow-xl lg:mt-6">
           <div className="max-w-7xl mx-auto px-4 py-6 sm:px-6">
             <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
               <div>
@@ -252,7 +251,7 @@ export default function FinancePaymentInitiatedView() {
                   variant="outline"
                   size="sm"
                   className="border-white/40 bg-transparent text-white hover:bg-white/10 gap-2"
-                  onClick={() => router.push('/finance/payments')}
+                  onClick={() => router.push('/finance/motor/payments')}
                 >
                   <ChevronLeft className="w-4 h-4" />
                   Back to Payments

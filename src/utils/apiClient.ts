@@ -1,6 +1,42 @@
 import { useAuth } from '@/context/AuthContext';
 import { useCallback } from 'react';
 
+/** True when the response indicates an invalid/expired session (not merely forbidden). */
+function shouldForceLogoutOnError(status: number, errorMessage?: string): boolean {
+  if (status === 403) return false;
+
+  const msg = (errorMessage ?? '').toLowerCase();
+
+  if (msg === 'jwt expired' || msg.includes('token expired') || msg.includes('invalid token')) {
+    return true;
+  }
+
+  if (status !== 401) return false;
+
+  // Role/permission denials are often returned as 401 — do not clear the session.
+  if (
+    msg.includes('forbidden') ||
+    msg.includes('permission') ||
+    msg.includes('not allowed') ||
+    msg.includes('access denied') ||
+    msg.includes('insufficient')
+  ) {
+    return false;
+  }
+
+  if (
+    msg.includes('jwt') ||
+    msg.includes('session') ||
+    msg === 'unauthorized' ||
+    msg.includes('not authenticated') ||
+    msg.includes('authentication required')
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
 /**
  * Hook that returns a shared API client.
  * It automatically attaches the Authorization header when a token is present
@@ -40,9 +76,11 @@ export const useApiClient = () => {
         const errorMessage =
           typeof body === 'object' && body !== null && 'error' in body
             ? (body as { error?: string }).error
-            : undefined;
+            : typeof body === 'object' && body !== null && 'message' in body
+              ? (body as { message?: string }).message
+              : undefined;
 
-        if (response.status === 401 || errorMessage === 'jwt expired') {
+        if (shouldForceLogoutOnError(response.status, errorMessage)) {
           forceLogout();
           throw new Error('Session expired. Please log in again.');
         }

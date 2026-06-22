@@ -3,7 +3,8 @@ import { Input } from "@/components/ui/input";
 import { ValidationRules, validateForm } from "@/components/ui/form-validation";
 import { AdministrativeDivision, rwandaProvinces } from '@/utils/rwanda-administrative';
 import { rwandaBanks } from '@/utils/rwanda-banks';
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from 'react';
+import { VETERINARY_ROLE } from '@/shared/utils/role';
 import { useToast } from "../toast";
 
 // import { useState } from "react";
@@ -17,7 +18,7 @@ interface FormData {
   province: string;
   district: string;
   sector: string;
-  role: 'ADMIN' | 'AGENT';
+  role: 'ADMIN' | 'AGENT' | 'VETERINARY';
   emergencyContact1Name: string;
   emergencyContact1PhoneNumber: string;
   emergencyContact1Relationship: string;
@@ -44,6 +45,7 @@ interface FileUploadFieldProps {
   file: File | null;
   description: string;
   onChange: (e: React.ChangeEvent<HTMLInputElement>, fieldName: string) => void;
+  required?: boolean;
 }
 
 const FileUploadField = ({
@@ -53,7 +55,8 @@ const FileUploadField = ({
   error,
   file,
   description,
-  onChange
+  onChange,
+  required = true,
 }: FileUploadFieldProps) => {
   const [isDragging, setIsDragging] = useState(false);
 
@@ -97,7 +100,8 @@ const FileUploadField = ({
   return (
     <div>
       <label className="block text-sm font-medium text-gray-700 mb-2">
-        {label} <span className="text-red-500">*</span>
+        {label}
+        {required && <span className="text-red-500"> *</span>}
       </label>
       <div
         className={`mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-lg transition-colors ${isDragging ? 'border-[var(--main-blue)] bg-blue-50' : 'hover:border-[var(--main-blue)]'
@@ -155,6 +159,10 @@ interface UserCreateModalProps {
   formData: FormData;
   setFormData: React.Dispatch<React.SetStateAction<FormData>>;
   setErrors: React.Dispatch<React.SetStateAction<Errors>>;
+  /** When set, role select is hidden; agent requires full onboarding docs, veterinary has a lighter form */
+  fixedRole?: 'AGENT' | 'VETERINARY';
+  title?: string;
+  submitLabel?: string;
 }
 
 export const UserCreateModal = ({
@@ -165,41 +173,57 @@ export const UserCreateModal = ({
   errors,
   formData,
   setFormData,
-  setErrors
+  setErrors,
+  fixedRole,
+  title = 'Create New User',
+  submitLabel = 'Create User',
 }: UserCreateModalProps) => {
   const { showToast, ToastContainer } = useToast();
   const [districts, setDistricts] = useState<AdministrativeDivision[]>([]);
   const [sectors, setSectors] = useState<string[]>([]);
-  const validationRules: ValidationRules = {
-    fullName: { required: true, minLength: 3 },
-    email: { required: true, pattern: /^[^\s@]+@[^\s@]+\.[^\s@]+$/ },
-    phoneNumber: { required: true, pattern: /^250\d{9}$/ },
-    dateOfBirth: { required: true },
-    address: { required: true, minLength: 4 },
-    emergencyContact1Name: { required: true, minLength: 2 },
-    emergencyContact1PhoneNumber: { required: true, pattern: /^250\d{9}$/ },
-    emergencyContact1Relationship: { required: true },
-    emergencyContact2Name: { required: true, minLength: 2 },
-    emergencyContact2PhoneNumber: { required: true, pattern: /^250\d{9}$/ },
-    emergencyContact2Relationship: { required: true },
-    nationalIdDocument: { required: true },
-    criminalRecordCertificate: { required: true },
-    passportPhoto: { required: true },
-    bankName: { required: true },
-    bankAccountNumber: {
-      required: true,
-      validate: (value: string) => {
-        if (!value) return 'Bank account number is required';
-        if (!/^\d+$/.test(value)) return 'Bank account number must contain only digits (0-9)';
-        if (value.length < 10) return 'Bank account number must be at least 10 digits';
-        if (value.length > 16) return 'Bank account number must be at most 16 digits';
-        return true;
-      }
-    },
-    province: { required: true },
-    district: { required: true },
-    sector: { required: true },
-  };
+
+  const isVeterinaryForm =
+    fixedRole === VETERINARY_ROLE || formData.role === VETERINARY_ROLE;
+
+  const validationRules: ValidationRules = useMemo(() => {
+    const rules: ValidationRules = {
+      fullName: { required: true, minLength: 3 },
+      email: { required: true, pattern: /^[^\s@]+@[^\s@]+\.[^\s@]+$/ },
+      phoneNumber: { required: true, pattern: /^250\d{9}$/ },
+      dateOfBirth: { required: true },
+      address: { required: true, minLength: 4 },
+      bankName: { required: true },
+      bankAccountNumber: {
+        required: true,
+        validate: (value: string) => {
+          if (!value) return 'Bank account number is required';
+          if (!/^\d+$/.test(value)) return 'Bank account number must contain only digits (0-9)';
+          if (value.length < 10) return 'Bank account number must be at least 10 digits';
+          if (value.length > 16) return 'Bank account number must be at most 16 digits';
+          return true;
+        },
+      },
+      province: { required: true },
+      district: { required: true },
+      sector: { required: true },
+    };
+
+    if (!isVeterinaryForm) {
+      rules.emergencyContact1Name = { required: true, minLength: 2 };
+      rules.emergencyContact1PhoneNumber = { required: true, pattern: /^250\d{9}$/ };
+      rules.emergencyContact1Relationship = { required: true };
+      rules.emergencyContact2Name = { required: true, minLength: 2 };
+      rules.emergencyContact2PhoneNumber = { required: true, pattern: /^250\d{9}$/ };
+      rules.emergencyContact2Relationship = { required: true };
+      rules.nationalIdDocument = { required: true };
+      rules.criminalRecordCertificate = { required: true };
+      rules.passportPhoto = { required: true };
+    } else {
+      rules.nationalIdDocument = { required: true };
+    }
+
+    return rules;
+  }, [isVeterinaryForm]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -229,44 +253,50 @@ export const UserCreateModal = ({
 
   const validateFiles = () => {
     const fileErrors: Errors = {};
+    const isAgentForm = fixedRole === 'AGENT' || formData.role === 'AGENT';
 
-    if (formData.role === 'AGENT') {
-      if (!formData.nationalIdDocument) {
-        fileErrors.nationalIdDocument = 'National ID document is required';
-      }
+    if (!isAgentForm && !isVeterinaryForm) {
+      return fileErrors;
+    }
+
+    const allowedImageTypes = ['image/jpeg', 'image/jpg', 'image/png'];
+    const allowedDocTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png'];
+    const maxFileSize = 5 * 1024 * 1024;
+
+    if (!formData.nationalIdDocument) {
+      fileErrors.nationalIdDocument = 'National ID document is required';
+    }
+
+    if (isAgentForm) {
       if (!formData.criminalRecordCertificate) {
         fileErrors.criminalRecordCertificate = 'Criminal record document is required';
       }
       if (!formData.passportPhoto) {
         fileErrors.passportPhoto = 'Passport photo is required';
       }
+    }
 
-      const allowedImageTypes = ['image/jpeg', 'image/jpg', 'image/png'];
-      const allowedDocTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png'];
-      const maxFileSize = 5 * 1024 * 1024; // 5MB
-
-      if (formData.nationalIdDocument) {
-        if (!allowedDocTypes.includes(formData.nationalIdDocument.type)) {
-          fileErrors.nationalIdDocument = 'National ID must be PDF, JPEG, or PNG';
-        } else if (formData.nationalIdDocument.size > maxFileSize) {
-          fileErrors.nationalIdDocument = 'National ID file size must be less than 5MB';
-        }
+    if (formData.nationalIdDocument) {
+      if (!allowedDocTypes.includes(formData.nationalIdDocument.type)) {
+        fileErrors.nationalIdDocument = 'National ID must be PDF, JPEG, or PNG';
+      } else if (formData.nationalIdDocument.size > maxFileSize) {
+        fileErrors.nationalIdDocument = 'National ID file size must be less than 5MB';
       }
+    }
 
-      if (formData.criminalRecordCertificate) {
-        if (!allowedDocTypes.includes(formData.criminalRecordCertificate.type)) {
-          fileErrors.criminalRecordCertificate = 'Criminal record must be PDF, JPEG, or PNG';
-        } else if (formData.criminalRecordCertificate.size > maxFileSize) {
-          fileErrors.criminalRecordCertificate = 'Criminal record file size must be less than 5MB';
-        }
+    if (formData.criminalRecordCertificate) {
+      if (!allowedDocTypes.includes(formData.criminalRecordCertificate.type)) {
+        fileErrors.criminalRecordCertificate = 'Criminal record must be PDF, JPEG, or PNG';
+      } else if (formData.criminalRecordCertificate.size > maxFileSize) {
+        fileErrors.criminalRecordCertificate = 'Criminal record file size must be less than 5MB';
       }
+    }
 
-      if (formData.passportPhoto) {
-        if (!allowedImageTypes.includes(formData.passportPhoto.type)) {
-          fileErrors.passportPhoto = 'Passport photo must be JPEG or PNG';
-        } else if (formData.passportPhoto.size > maxFileSize) {
-          fileErrors.passportPhoto = 'Passport photo file size must be less than 5MB';
-        }
+    if (formData.passportPhoto) {
+      if (!allowedImageTypes.includes(formData.passportPhoto.type)) {
+        fileErrors.passportPhoto = 'Passport photo must be JPEG or PNG';
+      } else if (formData.passportPhoto.size > maxFileSize) {
+        fileErrors.passportPhoto = 'Passport photo file size must be less than 5MB';
       }
     }
 
@@ -285,6 +315,11 @@ export const UserCreateModal = ({
       showToast('Please correct the errors in the form.', 'error');
     }
   };
+
+  useEffect(() => {
+    if (!isOpen || !fixedRole) return;
+    setFormData((prev) => ({ ...prev, role: fixedRole }));
+  }, [isOpen, fixedRole, setFormData]);
 
   useEffect(() => {
     if (formData.province) {
@@ -329,7 +364,7 @@ export const UserCreateModal = ({
     <div className="fixed inset-0 bg-gray-600/50 flex items-center justify-center z-50">
       <div className="max-h-[90vh] overflow-y-auto bg-white rounded-lg shadow-xl p-6 w-full max-w-2xl mx-4">
         <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-semibold mb-4">Create New User</h3>
+          <h3 className="text-lg font-semibold mb-4">{title}</h3>
           <button
             onClick={onClose}
             className="text-gray-400 hover:text-gray-600 cursor-pointer"
@@ -485,23 +520,33 @@ export const UserCreateModal = ({
               placeholder="Enter account number (10-16 digits)"
             />
           </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">
-              Role <span className="text-red-500">*</span>
-            </label>
-            <select
-              name="role"
-              value={formData.role}
-              onChange={handleInputChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[var(--main-blue)] focus:border-[var(--main-blue)]"
-            >
-              <option value="AGENT">Agent</option>
-              {/* <option value="ADMIN">Admin</option> */}
-            </select>
-          </div>
+          {fixedRole ? (
+            <div>
+              <label className="block text-sm font-medium mb-1">Role</label>
+              <p className="rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700">
+                {fixedRole === VETERINARY_ROLE ? 'Veterinarian' : 'Agent'}
+              </p>
+            </div>
+          ) : (
+            <div>
+              <label className="block text-sm font-medium mb-1">
+                Role <span className="text-red-500">*</span>
+              </label>
+              <select
+                name="role"
+                value={formData.role}
+                onChange={handleInputChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[var(--main-blue)] focus:border-[var(--main-blue)]"
+              >
+                <option value="AGENT">Agent</option>
+              </select>
+            </div>
+          )}
 
           <div className="bg-gray-50 p-4 rounded-lg">
-            <h4 className="font-medium mb-3">Required Documents</h4>
+            <h4 className="font-medium mb-3">
+              {isVeterinaryForm ? 'Documents' : 'Required Documents'}
+            </h4>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <FileUploadField
                 label="National ID"
@@ -511,6 +556,7 @@ export const UserCreateModal = ({
                 file={formData.nationalIdDocument}
                 description="PDF, JPEG, or PNG up to 5MB"
                 onChange={handleFileChange}
+                required
               />
               <FileUploadField
                 label="Criminal Record Certificate"
@@ -520,6 +566,7 @@ export const UserCreateModal = ({
                 file={formData.criminalRecordCertificate}
                 description="PDF, JPEG, or PNG up to 5MB"
                 onChange={handleFileChange}
+                required={!isVeterinaryForm}
               />
             </div>
             <div className="mt-6">
@@ -531,12 +578,18 @@ export const UserCreateModal = ({
                 file={formData.passportPhoto}
                 description="JPEG or PNG up to 5MB"
                 onChange={handleFileChange}
+                required={!isVeterinaryForm}
               />
             </div>
           </div>
 
           <div className="bg-gray-50 p-4 rounded-lg">
-            <h4 className="font-medium mb-3">Emergency Contacts</h4>
+            <h4 className="font-medium mb-3">
+              Emergency Contacts
+              {isVeterinaryForm && (
+                <span className="ml-1 text-sm font-normal text-gray-500">(optional)</span>
+              )}
+            </h4>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
               <Input
                 label="Full Name"
@@ -545,7 +598,7 @@ export const UserCreateModal = ({
                 value={formData.emergencyContact1Name}
                 onChange={handleInputChange}
                 error={errors.emergencyContact1Name}
-                required
+                required={!isVeterinaryForm}
               />
               <Input
                 label="Phone Number"
@@ -555,11 +608,12 @@ export const UserCreateModal = ({
                 value={formData.emergencyContact1PhoneNumber}
                 onChange={handleInputChange}
                 error={errors.emergencyContact1PhoneNumber}
-                required
+                required={!isVeterinaryForm}
               />
               <div>
                 <label className="block text-sm font-medium mb-1">
-                  Relationship <span className="text-red-500">*</span>
+                  Relationship
+                  {!isVeterinaryForm && <span className="text-red-500"> *</span>}
                 </label>
                 <select
                   name="emergencyContact1Relationship"
@@ -586,7 +640,7 @@ export const UserCreateModal = ({
                 value={formData.emergencyContact2Name}
                 onChange={handleInputChange}
                 error={errors.emergencyContact2Name}
-                required
+                required={!isVeterinaryForm}
               />
               <Input
                 label="Phone Number"
@@ -596,11 +650,12 @@ export const UserCreateModal = ({
                 value={formData.emergencyContact2PhoneNumber}
                 onChange={handleInputChange}
                 error={errors.emergencyContact2PhoneNumber}
-                required
+                required={!isVeterinaryForm}
               />
               <div>
                 <label className="block text-sm font-medium mb-1">
-                  Relationship <span className="text-red-500">*</span>
+                  Relationship
+                  {!isVeterinaryForm && <span className="text-red-500"> *</span>}
                 </label>
                 <select
                   name="emergencyContact2Relationship"
@@ -641,7 +696,7 @@ export const UserCreateModal = ({
                   </svg>
                   Creating...
                 </>
-              ) : 'Create User'}
+              ) : submitLabel}
             </Button>
           </div>
         </div>

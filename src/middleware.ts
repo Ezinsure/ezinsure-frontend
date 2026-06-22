@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { legacyMotorPathRedirects } from '@/shared/routing/motor-paths';
 
 // Routes that are always accessible without authentication.
 const PUBLIC_ROUTES = [
@@ -25,6 +26,19 @@ export function middleware(request: NextRequest) {
     pathname.includes('.')
   ) {
     return NextResponse.next();
+  }
+
+  const legacyTarget = legacyMotorPathRedirects[pathname];
+  if (legacyTarget) {
+    return NextResponse.redirect(new URL(legacyTarget, request.url));
+  }
+
+  // Legacy vet paths (role slug mistaken for URL prefix)
+  if (pathname === '/veterinary/dashboard' || pathname.startsWith('/veterinary/')) {
+    const suffix = pathname.replace(/^\/veterinary/, '') || '/dashboard';
+    const target =
+      suffix === '/dashboard' ? '/vet/livestock/dashboard' : `/vet/livestock${suffix}`;
+    return NextResponse.redirect(new URL(target, request.url));
   }
 
   const token = request.cookies.get('ezinsure_token')?.value;

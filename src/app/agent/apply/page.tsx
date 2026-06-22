@@ -210,7 +210,6 @@ const getTrackingData = async (): Promise<TrackingData> => {
   };
 };
 
-
 export default function AgentApplyPage() {
   const vehicleYearBounds = useMemo(() => getVehicleManufactureYearBounds(), []);
   const { showToast, ToastContainer } = useToast();
@@ -291,7 +290,6 @@ export default function AgentApplyPage() {
 
     initializeTracking();
   }, []);
-
 
   const validationRules: ValidationRules = {
     fullName: { required: true, minLength: 3, maxLength: 50 },
@@ -641,7 +639,6 @@ export default function AgentApplyPage() {
     }
   };
 
-
   const formatInsuranceType = (type: string) => {
     switch (type) {
       case 'comprehensive': return 'Comprehensive Insurance (covers everything)';
@@ -901,7 +898,7 @@ export default function AgentApplyPage() {
   return (
     <MainLayout containerClass="p-0" fullWidth>
       <div className=" container mx-auto px-4 py-12 ">
-        <div className="absolute top-0 left-0 w-full h-[10vh] overflow-hidden z-0  bg-gradient-to-br from-[#0A2540] to-[#126BB3]"></div>
+
         <div className="max-w-6xl mx-auto mt-16">
           <div className="mb-8 text-center">
             <h1 className="text-3xl md:text-4xl font-bold mb-4">

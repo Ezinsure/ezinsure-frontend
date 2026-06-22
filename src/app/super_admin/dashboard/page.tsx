@@ -7,6 +7,7 @@ import type { TooltipProps } from 'recharts';
 import { MainLayout } from '@/components/ui/main-layout';
 import { useAuth } from '@/context/AuthContext';
 import Link from 'next/link';
+import { motorPaths } from '@/shared/routing/motor-paths';
 import { formatDateUTC, formatDateRange as formatDateRangeUtil, formatTime } from '@/utils/date-formatter';
 
 // Define types for the data
@@ -222,8 +223,6 @@ const fetchRecentApplications = async (token: string) => {
     return [];
   }
 };
-
-
 
 const fetchInsuranceDistribution = async (token: string) => {
   try {
@@ -495,8 +494,6 @@ const SuperAdminDashboard = () => {
     fetchStatsData();
   }, [token, adminFeesStartDate, adminFeesEndDate]);
 
-
-
   useEffect(() => {
     if (!token) return;
     fetchRecentApplications(token).then((apps: Application[] = []) => {
@@ -540,8 +537,6 @@ const SuperAdminDashboard = () => {
       .finally(() => setIsTopAgentsLoading(false));
   }, [token, adminFeesStartDate, adminFeesEndDate]);
 
-
-
   // Fetch Regional Performance
   useEffect(() => {
     if (!token) return;
@@ -583,8 +578,6 @@ const SuperAdminDashboard = () => {
       })
       .finally(() => setIsAvgCommissionLoading(false));
   }, [token, adminFeesStartDate, adminFeesEndDate]);
-
-
 
   // Fetch total clients
   useEffect(() => {
@@ -682,8 +675,6 @@ const SuperAdminDashboard = () => {
     fetchDailyMetrics();
   }, [token, dailyMetricsDate]);
 
-
-
   const CustomTooltip: React.FC<TooltipProps<number, string>> = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
       return (
@@ -774,13 +765,11 @@ const SuperAdminDashboard = () => {
   return (
     <MainLayout containerClass="p-0" fullWidth>
       <div className="container mx-auto px-4 py-8">
-        <div className="absolute top-0 left-0 w-full h-[10vh] overflow-hidden z-0 bg-gradient-to-br from-[#0A2540] to-[#126BB3]"></div>
-        
+
         {/* Header Section */}
-        <section className="mt-10">
-          <div className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <div className="absolute inset-0 bg-gradient-to-r from-blue-50 via-white to-slate-50 opacity-70" />
-            <div className="relative z-10 flex flex-col gap-6 p-6 lg:p-8">
+        <section className="mt-4 lg:mt-6">
+          <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <div className="flex flex-col gap-6 p-6 lg:p-8">
               <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
                 <div>
                   <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Executive Overview</p>
@@ -1312,7 +1301,7 @@ const SuperAdminDashboard = () => {
                   <h3 className="text-lg font-semibold text-slate-900">Top Agents</h3>
                   <p className="text-xs text-slate-500">Highest earning agents this month</p>
                 </div>
-                <Link href="/applications" >
+                <Link href={motorPaths.superAdmin.agentAnalytics}>
                   <p className="text-blue-600 text-xs font-semibold hover:text-blue-500 transition-colors">View All</p>
                 </Link>
               </div>

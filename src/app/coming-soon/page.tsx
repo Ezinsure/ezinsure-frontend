@@ -3,6 +3,9 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
+import { getDashboardPath } from '@/shared/routing/paths';
+import { resolveUserDefaultProductLine } from '@/shared/utils/product-line-access';
+import type { AppUser } from '@/shared/types/auth';
 
 export default function ComingSoonPage() {
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -45,8 +48,10 @@ export default function ComingSoonPage() {
     // 1. Check if user is logged in
     if (cookies['ezinsure_token'] && cookies['ezinsure_user']) {
       try {
-        const userData = JSON.parse(cookies['ezinsure_user'].split('=')[1]);
-        router.push(`/${userData.role.toLowerCase()}/dashboard`);
+        const userData = JSON.parse(cookies['ezinsure_user'].split('=')[1]) as AppUser;
+        router.push(
+          getDashboardPath(userData.role, resolveUserDefaultProductLine(userData)),
+        );
         return;
       } catch (error) {
         console.error('Error parsing user data:', error);

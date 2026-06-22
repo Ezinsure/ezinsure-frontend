@@ -7,6 +7,7 @@ import type { TooltipProps } from 'recharts';
 import { MainLayout } from '@/components/ui/main-layout';
 import { useAuth } from '@/context/AuthContext';
 import Link from 'next/link';
+import { getAgentAnalyticsPath } from '@/shared/routing/motor-paths';
 import { formatDateUTC, formatDateRange as formatDateRangeUtil, formatTime } from '@/utils/date-formatter';
 
 // Define types for the data
@@ -278,7 +279,8 @@ const getTodayDate = (): string => {
 };
 
 const AdminDashboard = () => {
-  const { token } = useAuth();
+  const { token, user } = useAuth();
+  const agentAnalyticsPath = getAgentAnalyticsPath(user?.role ?? 'ADMIN');
   const [selectedInsuranceType, setSelectedInsuranceType] = useState('all');
   const [showProfitChart, setShowProfitChart] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
@@ -673,11 +675,9 @@ const AdminDashboard = () => {
     }
   ];
 
-
   useEffect(() => {
     setTimeout(() => setIsLoading(false), 500);
   }, []);
-
 
 const CustomTooltip: React.FC<TooltipProps<number, string>> = ({ active, payload, label }) => {
   if (active && payload && payload.length) {
@@ -769,13 +769,11 @@ const CustomTooltip: React.FC<TooltipProps<number, string>> = ({ active, payload
   return (
       <MainLayout containerClass="p-0" fullWidth>
     <div className="container mx-auto px-4 py-8">
-         <div className="absolute top-0 left-0 w-full h-[10vh] overflow-hidden z-0 bg-gradient-to-br from-[#0A2540] to-[#126BB3]"></div>
-        
+
       {/* Header Section */}
-      <section className="mt-10">
-        <div className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-          <div className="absolute inset-0 bg-gradient-to-r from-blue-50 via-white to-slate-50 opacity-70" />
-          <div className="relative z-10 flex flex-col gap-6 p-6 lg:p-8">
+      <section className="mt-4 lg:mt-6">
+        <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <div className="flex flex-col gap-6 p-6 lg:p-8">
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
               <div>
                 <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Executive Overview</p>
@@ -1631,7 +1629,7 @@ const CustomTooltip: React.FC<TooltipProps<number, string>> = ({ active, payload
               <button className="rounded-xl border border-white/30 bg-white text-slate-900 font-semibold py-3 hover:bg-slate-50 transition-colors">
                 Add New Agent
               </button>
-              <Link href="/finance/dashboard">
+              <Link href={agentAnalyticsPath}>
                 <button className="w-full rounded-xl border border-white/30 bg-transparent text-white font-semibold py-3 hover:bg-white/10 transition-colors">
                 View All Agents
               </button>
