@@ -10,30 +10,40 @@ export const API_CONTRACTS = {
   "data": [
     {
       "_id": "string",
-      "applicationNumber": "LS-2026-00041",
-      "insuranceProvider": "SONARWA | RADIANT",
-      "speciesGroup": "CATTLE | POULTRY | PIG",
-      "ownerMode": "SINGLE_OWNER | MULTI_OWNER",
-      "status": "PAYMENT_PROOF_REQUIRED",
-      "ownerSummary": "BITWAYIKI Pierre",
-      "lineCount": 10,
-      "totals": {
-        "farmerContributionAmount": 264000,
-        "premiumRateAmount": 440000
-      },
-      "submittedAt": "ISO8601",
-      "paymentProofStatus": "PENDING | SUBMITTED | VERIFIED",
-      "subsidyRequired": true
+      "applicationNumber": "APP-20260622-136413",
+      "speciesGroup": "CATTLE",
+      "ownerMode": "SINGLE_OWNER",
+      "insuranceType": "New",
+      "policyStartDate": "2026-06-22T00:00:00.000Z",
+      "policyEndDate": "2027-06-21T00:00:00.000Z",
+      "livestockDistrict": "Kayonza",
+      "livestockSector": "Ruramira",
+      "livestockProvince": "East",
+      "premiumRateAmount": 82500,
+      "farmerContributionAmount": 49500,
+      "governmentContribution": 33000,
+      "totalSumAssured": 1500000,
+      "status": "SUBMITTED",
+      "paidStatus": "PENDING",
+      "subsidyStatus": "NOT_REQUIRED",
+      "submittedAt": "2026-06-22T15:07:09.593Z",
+      "insuranceProvider": "SONARWA",
+      "agent": { "_id": "string", "fullName": "string", "phoneNumber": "string" }
     }
-  ],
-  "meta": { "total": 4, "startDate": "2026-03-01", "endDate": "2026-03-31" }
+  ]
 }`,
+  },
+
+  listAllApplications: {
+    method: 'GET' as const,
+    path: '/getAllLivestockApplications?startDate={YYYY-MM-DD}&endDate={YYYY-MM-DD}',
+    response: `Same flat row shape as listApplications — all packages in date range (admin / finance / super admin)`,
   },
 
   getApplication: {
     method: 'GET' as const,
-    path: '/getVeterinaryApplication/{applicationId} (fallback: scan GET /getVeterinaryApplications)',
-    response: `See LivestockApplicationPackage in domain/application-types.ts`,
+    path: 'Reuse cached row from list response (no per-id GET for vet or staff)',
+    response: `Same flat row as list response — mapped to LivestockApplicationPackage in the client`,
   },
 
   createApplication: {

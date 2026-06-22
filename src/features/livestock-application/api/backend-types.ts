@@ -95,6 +95,9 @@ export interface VeterinaryApplicationRecord {
   livestockSector?: string;
   livestockCell?: string;
   livestockVillage?: string;
+  livestockProvince?: string;
+  totalSumAssured?: number;
+  primaryOwnerId?: string | null;
   status?: string;
   subsidyStatus?: string;
   paidStatus?: string;

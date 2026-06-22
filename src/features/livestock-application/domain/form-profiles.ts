@@ -5,7 +5,8 @@ export type FormProfileId =
   | 'SINGLE_OWNER_CATTLE'
   | 'SINGLE_OWNER_PIG'
   | 'SINGLE_OWNER_POULTRY'
-  | 'MULTI_OWNER';
+  | 'MULTI_OWNER'
+  | 'MULTI_OWNER_POULTRY';
 
 export interface ApplicationIntakeSelection {
   speciesGroup: LivestockSpeciesGroup;
@@ -18,6 +19,8 @@ export interface FormProfile {
   description: string;
   stepIds: LivestockApplicationStepId[];
   lineTableVariant: 'INDIVIDUAL' | 'POULTRY_LOT' | 'MULTI_OWNER';
+  /** Owner name / phone columns on each livestock row */
+  showOwnerColumns: boolean;
   /** All animal rows use this type — matches intake species selection */
   lockedAnimalType: string;
 }
@@ -49,12 +52,26 @@ export function resolveFormProfile(intake: ApplicationIntakeSelection): FormProf
   const lockedAnimalType = speciesGroupToAnimalType(intake.speciesGroup);
 
   if (intake.ownerMode === 'MULTI_OWNER') {
+    if (intake.speciesGroup === 'POULTRY') {
+      return {
+        id: 'MULTI_OWNER_POULTRY',
+        title: 'Poultry application (multi-owner)',
+        description:
+          'Several farmers in one package — owner on each lot; same lot fields as single-owner poultry.',
+        stepIds: [...MULTI_OWNER_HEAD, ...BASE_TAIL],
+        lineTableVariant: 'POULTRY_LOT',
+        showOwnerColumns: true,
+        lockedAnimalType,
+      };
+    }
+
     return {
       id: 'MULTI_OWNER',
       title: 'Multi-owner application',
       description: 'Several farmers in one package — owner details on each animal row.',
       stepIds: [...MULTI_OWNER_HEAD, ...BASE_TAIL],
       lineTableVariant: 'MULTI_OWNER',
+      showOwnerColumns: true,
       lockedAnimalType,
     };
   }
@@ -66,6 +83,7 @@ export function resolveFormProfile(intake: ApplicationIntakeSelection): FormProf
       description: 'Lots with quantity, hatchery source, and auto premium at 5.5%.',
       stepIds: [...SINGLE_OWNER_HEAD, ...BASE_TAIL],
       lineTableVariant: 'POULTRY_LOT',
+      showOwnerColumns: false,
       lockedAnimalType,
     };
   }
@@ -77,6 +95,7 @@ export function resolveFormProfile(intake: ApplicationIntakeSelection): FormProf
       description: 'Individual animals under one owner.',
       stepIds: [...SINGLE_OWNER_HEAD, ...BASE_TAIL],
       lineTableVariant: 'INDIVIDUAL',
+      showOwnerColumns: false,
       lockedAnimalType,
     };
   }
@@ -87,6 +106,7 @@ export function resolveFormProfile(intake: ApplicationIntakeSelection): FormProf
     description: 'Individual cattle with chip/eartag under one owner.',
     stepIds: [...SINGLE_OWNER_HEAD, ...BASE_TAIL],
     lineTableVariant: 'INDIVIDUAL',
+    showOwnerColumns: false,
     lockedAnimalType,
   };
 }

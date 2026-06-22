@@ -218,20 +218,31 @@ export function useLivestockApplicationForm(
     }
   }, [lockedAnimalType]);
 
+  const validationContext = useMemo(
+    () =>
+      formProfile
+        ? {
+            lineTableVariant: formProfile.lineTableVariant,
+            showOwnerColumns: formProfile.showOwnerColumns,
+          }
+        : undefined,
+    [formProfile],
+  );
+
   const validateCurrentStep = useCallback(
     (stepId: LivestockApplicationStepId) => {
-      const stepErrors = validateLivestockApplicationStep(stepId, values);
+      const stepErrors = validateLivestockApplicationStep(stepId, values, validationContext);
       setErrors(stepErrors);
-      return !validateLivestockApplicationStepHasErrors(stepId, values);
+      return !validateLivestockApplicationStepHasErrors(stepId, values, validationContext);
     },
-    [values],
+    [validationContext, values],
   );
 
   const validateAllSteps = useCallback(() => {
     for (let i = 0; i < stepIds.length; i++) {
       const stepId = stepIds[i];
-      const stepErrors = validateLivestockApplicationStep(stepId, values);
-      if (validateLivestockApplicationStepHasErrors(stepId, values)) {
+      const stepErrors = validateLivestockApplicationStep(stepId, values, validationContext);
+      if (validateLivestockApplicationStepHasErrors(stepId, values, validationContext)) {
         setErrors(stepErrors);
         setStepIndex(i);
         return false;
@@ -239,7 +250,7 @@ export function useLivestockApplicationForm(
     }
     setErrors({});
     return true;
-  }, [stepIds, values]);
+  }, [stepIds, validationContext, values]);
 
   const onEnterPremiumStep = useCallback(() => {
     setValues((prev) => {

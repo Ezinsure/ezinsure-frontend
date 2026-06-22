@@ -129,7 +129,15 @@ export interface LivestockApplicationPackage {
   speciesGroup: LivestockSpeciesGroup;
   ownerMode: LivestockOwnerMode;
   poultryProductType?: PoultryProductType;
+  insuranceType?: string;
   insuranceProvider?: InsuranceProviderId;
+  livestockLocation?: {
+    province?: string;
+    district: string;
+    sector: string;
+    cell: string;
+    village: string;
+  };
   status: LivestockApplicationStatus;
   submittedAt: string;
   updatedAt: string;
@@ -173,6 +181,20 @@ export interface LivestockApplicationListItem {
   insuranceProvider?: InsuranceProviderId;
   speciesGroup: LivestockSpeciesGroup;
   ownerMode: LivestockOwnerMode;
+  poultryProductType?: PoultryProductType;
+  insuranceType?: string;
+  policyStartDate?: string;
+  policyEndDate?: string;
+  livestockLocation?: {
+    province?: string;
+    district: string;
+    sector: string;
+    cell: string;
+    village: string;
+  };
+  totalSumAssured?: number;
+  governmentContribution?: number;
+  veterinaryCommission?: number;
   status: LivestockApplicationStatus;
   ownerSummary: string;
   lineCount: number;
@@ -180,6 +202,9 @@ export interface LivestockApplicationListItem {
   submittedAt: string;
   paymentProofStatus: PaymentProofStatus;
   subsidyRequired: boolean;
+  paidStatus?: string;
+  subsidyStatus?: string;
+  vetName?: string;
 }
 
 /** POST /livestock/applications/:id/payment-proof — multipart/form-data (same as motor sendProofofPayment) */

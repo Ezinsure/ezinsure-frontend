@@ -209,6 +209,7 @@ export function ApplicationStepContent({
               items={values.livestockItems}
               errors={errors}
               disabled={disabled}
+              showOwnerColumns={formProfile.showOwnerColumns}
               onUpdate={updateLivestockItem}
               onAdd={addLivestockItem}
               onRemove={removeLivestockItem}
@@ -222,7 +223,7 @@ export function ApplicationStepContent({
               onAdd={addLivestockItem}
               onRemove={removeLivestockItem}
               onMergeImported={mergeLivestockItems}
-              showOwnerColumns={formProfile?.lineTableVariant === 'MULTI_OWNER'}
+              showOwnerColumns={formProfile?.showOwnerColumns}
               fixedAnimalType={formProfile?.lockedAnimalType}
             />
           )}

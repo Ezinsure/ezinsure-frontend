@@ -15,6 +15,10 @@ import {
 } from '@/features/livestock-application/api/mappers/guards';
 import { buildOwnerSummary } from '@/features/livestock-application/api/mappers/line.mapper';
 import {
+  isFlatListApplicationRecord,
+  mapFlatApplicationToListItem,
+} from '@/features/livestock-application/api/mappers/flat.mapper';
+import {
   mapLegacyStatus,
   mapPaidStatus,
   normalizeInsuranceProvider,
@@ -77,6 +81,10 @@ export function mapToLivestockApplicationListItem(item: unknown): LivestockAppli
   }
 
   const o = item as Record<string, unknown>;
+
+  if (isFlatListApplicationRecord(o)) {
+    return mapFlatApplicationToListItem(o);
+  }
 
   if (isNewApiApplicationRecord(o)) {
     return mapNewApiApplicationToListItem(o);

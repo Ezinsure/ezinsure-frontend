@@ -20,15 +20,37 @@ export function ApplicationOwnersSection({
   selectedOwnerKey = null,
   onSelectOwner,
 }: ApplicationOwnersSectionProps) {
-  const owners = useMemo(
-    () =>
-      aggregateOwnersFromLines(
-        application.lines,
-        application.ownerMode,
-        application.ownerSummary,
-      ),
-    [application.lines, application.ownerMode, application.ownerSummary],
-  );
+  const owners = useMemo(() => {
+    const aggregated = aggregateOwnersFromLines(
+      application.lines,
+      application.ownerMode,
+      application.ownerSummary,
+    );
+
+    if (aggregated.length > 0) {
+      if (
+        aggregated.length === 1 &&
+        aggregated[0].lineCount === 0 &&
+        application.totals.totalSumAssured > 0
+      ) {
+        return [{ ...aggregated[0], totalSumAssured: application.totals.totalSumAssured }];
+      }
+      return aggregated;
+    }
+
+    if (application.ownerMode === 'MULTI_OWNER') {
+      return [
+        {
+          key: 'multi',
+          name: application.ownerSummary || 'Multiple owners',
+          lineCount: application.lineCount,
+          totalSumAssured: application.totals.totalSumAssured,
+        },
+      ];
+    }
+
+    return aggregated;
+  }, [application.lines, application.ownerMode, application.ownerSummary, application.lineCount, application.totals.totalSumAssured]);
 
   const isMulti = application.ownerMode === 'MULTI_OWNER';
 

@@ -13,6 +13,10 @@ import {
 } from '@/features/livestock-application/api/mappers/guards';
 import { buildOwnerSummary, mapApiLineRecord } from '@/features/livestock-application/api/mappers/line.mapper';
 import {
+  isFlatListApplicationRecord,
+  mapFlatApplicationToPackage,
+} from '@/features/livestock-application/api/mappers/flat.mapper';
+import {
   computePremiumPercentage,
   mapLegacyStatus,
   mapPaidStatus,
@@ -164,6 +168,10 @@ export function mapToLivestockApplicationPackage(item: unknown): LivestockApplic
   if (!item || typeof item !== 'object') return null;
 
   const o = item as Record<string, unknown>;
+
+  if (isFlatListApplicationRecord(o)) {
+    return normalizePackage(mapFlatApplicationToPackage(o));
+  }
 
   if (Array.isArray(o.lines) && typeof o._id === 'string') {
     const mapped = mapGenericPackageObject(o);

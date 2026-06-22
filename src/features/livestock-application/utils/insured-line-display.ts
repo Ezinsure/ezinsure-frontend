@@ -24,7 +24,10 @@ export function aggregateOwnersFromLines(
         key: 'primary',
         name: ownerSummary,
         lineCount: lines.length,
-        totalSumAssured: lines.reduce((s, l) => s + l.sumAssured, 0),
+        totalSumAssured:
+          lines.length > 0
+            ? lines.reduce((s, l) => s + l.sumAssured, 0)
+            : 0,
       },
     ];
   }

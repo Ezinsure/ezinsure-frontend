@@ -20,9 +20,14 @@ const PAGE_SIZE_OPTIONS = [10, 25, 50] as const;
 interface InsuredLinesSectionProps {
   application: LivestockApplicationPackage;
   ownerFilterKey?: string | null;
+  linesUnavailableNote?: string;
 }
 
-export function InsuredLinesSection({ application, ownerFilterKey = null }: InsuredLinesSectionProps) {
+export function InsuredLinesSection({
+  application,
+  ownerFilterKey = null,
+  linesUnavailableNote,
+}: InsuredLinesSectionProps) {
   const { lines, speciesGroup, ownerMode } = application;
   const isPoultry = isPoultryApplication(application);
   const isMultiOwner = ownerMode === 'MULTI_OWNER';
@@ -84,6 +89,39 @@ export function InsuredLinesSection({ application, ownerFilterKey = null }: Insu
   );
 
   const globalIndex = (localIndex: number) => (safePage - 1) * pageSize + localIndex;
+
+  if (lines.length === 0) {
+    return (
+      <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="flex items-start gap-3">
+          <div className="rounded-xl bg-amber-50 p-3">
+            <PawPrint className="h-6 w-6 text-amber-700" />
+          </div>
+          <div>
+            <h2 className="text-lg font-semibold text-slate-900">Insured animals & lots</h2>
+            <p className="mt-2 text-sm text-slate-600">
+              {linesUnavailableNote ??
+                'No insured lines are available for this application yet.'}
+            </p>
+            <dl className="mt-4 flex flex-wrap gap-4 text-sm">
+              <div className="rounded-lg bg-slate-50 px-3 py-2">
+                <dt className="text-[10px] font-semibold uppercase text-slate-400">Package value</dt>
+                <dd className="font-semibold text-slate-900">
+                  {formatRwfDisplay(application.totals.totalSumAssured)}
+                </dd>
+              </div>
+              <div className="rounded-lg bg-slate-50 px-3 py-2">
+                <dt className="text-[10px] font-semibold uppercase text-slate-400">Total premium</dt>
+                <dd className="font-semibold text-slate-900">
+                  {formatRwfDisplay(application.totals.premiumRateAmount)}
+                </dd>
+              </div>
+            </dl>
+          </div>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <>
