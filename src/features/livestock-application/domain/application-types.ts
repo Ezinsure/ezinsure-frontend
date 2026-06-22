@@ -169,10 +169,17 @@ export interface LivestockApplicationPackage {
   issuedDocuments?: LivestockIssuedDocuments;
 }
 
-/** GET /livestock/applications?vetId=&startDate=&endDate= */
+/** GET /getVeterinaryApplications?agentId=&startDate=&endDate=&pageSize=&pageNumber= */
 export interface LivestockApplicationsListResponse {
   data: LivestockApplicationListItem[];
-  meta: { total: number; startDate: string; endDate: string };
+  meta: {
+    total: number;
+    startDate: string;
+    endDate: string;
+    pageNumber: number;
+    pageSize: number;
+    totalPages: number;
+  };
 }
 
 export interface LivestockApplicationListItem {
@@ -207,7 +214,7 @@ export interface LivestockApplicationListItem {
   vetName?: string;
 }
 
-/** POST /livestock/applications/:id/payment-proof — multipart/form-data (same as motor sendProofofPayment) */
+/** PUT /uploadProofOfPayment/:id — multipart/form-data */
 export interface UploadPaymentProofPayload {
   amount: number;
   proofOfPayment: File;

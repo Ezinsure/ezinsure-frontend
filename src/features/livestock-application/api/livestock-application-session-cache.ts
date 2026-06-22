@@ -38,6 +38,18 @@ export function getCachedLivestockApplicationRow(applicationId: string): unknown
   return cache[applicationId] ?? null;
 }
 
+/** Patch fields on a cached list row after a workflow action (e.g. payment proof upload). */
+export function patchCachedLivestockApplicationRow(
+  applicationId: string,
+  patch: Record<string, unknown>,
+): void {
+  const cache = readCache();
+  const existing = cache[applicationId];
+  if (!existing || typeof existing !== 'object') return;
+  cache[applicationId] = { ...(existing as Record<string, unknown>), ...patch };
+  writeCache(cache);
+}
+
 /** @deprecated Use cacheLivestockApplicationRows */
 export const cacheVetApplicationRows = cacheLivestockApplicationRows;
 

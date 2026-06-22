@@ -111,6 +111,12 @@ export interface VeterinaryApplicationRecord {
 
 export interface VeterinaryApplicationsListPayload {
   data?: VeterinaryApplicationRecord[];
+  total?: number;
+  totalCount?: number;
+  count?: number;
+  pageNumber?: number;
+  pageSize?: number;
+  totalPages?: number;
 }
 
 export interface CreateApplicationResult {

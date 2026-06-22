@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { LivestockApplicationDetailPanel } from '@/features/livestock-application/components/livestock-application-detail-panel';
 import { ApiContractPanel } from '@/features/livestock-application/components/shared/api-contract-panel';
 import { LivestockApplicationStatusBadge } from '@/features/livestock-application/components/shared/application-status-badge';
+import { LivestockApplicationsPagination } from '@/features/livestock-application/components/shared/livestock-applications-pagination';
 import {
   PaymentStatusBadge,
   SubsidyStatusBadge,
@@ -22,7 +23,6 @@ import {
 import { formatRwfDisplay } from '@/features/livestock-application/utils/format-rwf';
 import { resolveApplicationPackageById } from '@/features/livestock-application/utils/resolve-application-package';
 import { useAuth } from '@/context/AuthContext';
-import { insuranceProviderLabel } from '@/shared/insurance-providers';
 
 const getDefaultStartDate = (): string => {
   const now = new Date();
@@ -140,24 +140,42 @@ export default function LivestockApplicationsListPage({
   const [startDate, setStartDate] = useState(getDefaultStartDate);
   const [endDate, setEndDate] = useState(getTodayDate);
   const [search, setSearch] = useState('');
+  const [detailVersion, setDetailVersion] = useState(0);
   const isVet = viewRole === 'vet';
   const listScope = isVet ? 'vet' : 'all';
   const vetId = isVet ? user?._id : undefined;
-  const { applications, isLoading, error, load } = useLivestockApplicationsList({
+  const {
+    applications,
+    meta,
+    pageNumber,
+    pageSize,
+    isLoading,
+    error,
+    load,
+    goToPage,
+    changePageSize,
+  } = useLivestockApplicationsList({
     scope: listScope,
     vetAgentId: vetId,
   });
 
-  const colSpan = isVet ? 8 : 10;
+  const colSpan = isVet ? 8 : 9;
+  const searchActive = search.trim().length > 0;
 
   const panelApplication = useMemo(() => {
     if (!openFromUrl) return null;
     return resolveApplicationPackageById(openFromUrl);
-  }, [openFromUrl, applications]);
+  }, [openFromUrl, applications, detailVersion]);
+
+  const handleApplicationUpdated = useCallback(() => {
+    void load(startDate, endDate, pageNumber, pageSize);
+    setDetailVersion((v) => v + 1);
+  }, [endDate, load, pageNumber, pageSize, startDate]);
 
   useEffect(() => {
     if (isVet && !vetId) return;
-    void load(startDate, endDate);
+    void load(startDate, endDate, 1, pageSize);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reset to page 1 when filters change
   }, [load, startDate, endDate, vetId, isVet]);
 
   const openApplication = useCallback(
@@ -178,6 +196,10 @@ export default function LivestockApplicationsListPage({
     if (!q) return applications;
     return applications.filter((app) => matchesSearch(app, q));
   }, [applications, search]);
+
+  const emptyMessage = searchActive
+    ? 'No matches on this page. Try another page or clear the search filter.'
+    : 'No applications in this period. Try widening the date range above.';
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white p-6 lg:p-8">
@@ -208,8 +230,8 @@ export default function LivestockApplicationsListPage({
                 type="search"
                 placeholder={
                   isVet
-                    ? 'Search by number, location, species, or status…'
-                    : 'Search by number, vet, location, species, or status…'
+                    ? 'Search this page by number, location, species, or status…'
+                    : 'Search this page by number, vet, location, species, or status…'
                 }
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
@@ -243,7 +265,7 @@ export default function LivestockApplicationsListPage({
               type="button"
               variant="outline"
               disabled={isLoading}
-              onClick={() => void load(startDate, endDate)}
+              onClick={() => void load(startDate, endDate, pageNumber, pageSize)}
             >
               {isLoading ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -252,6 +274,12 @@ export default function LivestockApplicationsListPage({
               )}
             </Button>
           </div>
+          {searchActive && (
+            <p className="mt-3 text-xs text-slate-500">
+              Search filters results on the current page only. Use date range and pagination to browse
+              all applications.
+            </p>
+          )}
         </div>
 
         {error && (
@@ -266,7 +294,6 @@ export default function LivestockApplicationsListPage({
               <thead className="border-b border-slate-100 bg-slate-50/80 text-left text-xs uppercase tracking-wide text-slate-500">
                 <tr>
                   <th className="px-4 py-3">Application</th>
-                  {!isVet && <th className="px-4 py-3">Provider</th>}
                   {!isVet && <th className="px-4 py-3">Veterinarian</th>}
                   <th className="px-4 py-3">Coverage</th>
                   <th className="px-4 py-3">Policy period</th>
@@ -287,7 +314,7 @@ export default function LivestockApplicationsListPage({
                 ) : filtered.length === 0 ? (
                   <tr>
                     <td colSpan={colSpan} className="px-4 py-12 text-center text-slate-500">
-                      No applications in this period. Try widening the date range above.
+                      {emptyMessage}
                     </td>
                   </tr>
                 ) : (
@@ -299,11 +326,6 @@ export default function LivestockApplicationsListPage({
                           {formatSubmittedDateTime(app.submittedAt)}
                         </p>
                       </td>
-                      {!isVet && (
-                        <td className="px-4 py-4 text-slate-700">
-                          {insuranceProviderLabel(app.insuranceProvider)}
-                        </td>
-                      )}
                       {!isVet && (
                         <td className="px-4 py-4 text-slate-700">
                           {app.vetName ?? '—'}
@@ -346,6 +368,16 @@ export default function LivestockApplicationsListPage({
               </tbody>
             </table>
           </div>
+
+          <LivestockApplicationsPagination
+            currentPage={pageNumber}
+            totalPages={meta.totalPages}
+            totalItems={meta.total}
+            itemsPerPage={pageSize}
+            disabled={isLoading}
+            onPageChange={(page) => goToPage(startDate, endDate, page)}
+            onItemsPerPageChange={(size) => changePageSize(startDate, endDate, size)}
+          />
         </div>
 
         <ApiContractPanel contractKey={isVet ? 'listApplications' : 'listAllApplications'} />
@@ -356,6 +388,7 @@ export default function LivestockApplicationsListPage({
         application={panelApplication}
         viewRole={viewRole}
         onClose={closeApplicationPanel}
+        onUpdated={handleApplicationUpdated}
       />
     </div>
   );

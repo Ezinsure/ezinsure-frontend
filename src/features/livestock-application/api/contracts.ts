@@ -5,39 +5,20 @@
 export const API_CONTRACTS = {
   listApplications: {
     method: 'GET' as const,
-    path: '/getVeterinaryApplications?agentId={agentId}&startDate={YYYY-MM-DD}&endDate={YYYY-MM-DD}',
+    path: '/getVeterinaryApplications?agentId={agentId}&startDate={YYYY-MM-DD}&endDate={YYYY-MM-DD}&pageSize={n}&pageNumber={n}',
     response: `{
-  "data": [
-    {
-      "_id": "string",
-      "applicationNumber": "APP-20260622-136413",
-      "speciesGroup": "CATTLE",
-      "ownerMode": "SINGLE_OWNER",
-      "insuranceType": "New",
-      "policyStartDate": "2026-06-22T00:00:00.000Z",
-      "policyEndDate": "2027-06-21T00:00:00.000Z",
-      "livestockDistrict": "Kayonza",
-      "livestockSector": "Ruramira",
-      "livestockProvince": "East",
-      "premiumRateAmount": 82500,
-      "farmerContributionAmount": 49500,
-      "governmentContribution": 33000,
-      "totalSumAssured": 1500000,
-      "status": "SUBMITTED",
-      "paidStatus": "PENDING",
-      "subsidyStatus": "NOT_REQUIRED",
-      "submittedAt": "2026-06-22T15:07:09.593Z",
-      "insuranceProvider": "SONARWA",
-      "agent": { "_id": "string", "fullName": "string", "phoneNumber": "string" }
-    }
-  ]
+  "data": [ /* flat application rows */ ],
+  "total": 120,
+  "pageNumber": 1,
+  "pageSize": 25,
+  "totalPages": 5
 }`,
   },
 
   listAllApplications: {
     method: 'GET' as const,
-    path: '/getAllLivestockApplications?startDate={YYYY-MM-DD}&endDate={YYYY-MM-DD}',
-    response: `Same flat row shape as listApplications — all packages in date range (admin / finance / super admin)`,
+    path: '/getAllApplications?startDate={YYYY-MM-DD}&endDate={YYYY-MM-DD}&pageSize={n}&pageNumber={n}',
+    response: `Same paginated envelope as listApplications — admin / finance / super admin`,
   },
 
   getApplication: {
@@ -84,12 +65,14 @@ export const API_CONTRACTS = {
   },
 
   uploadPaymentProof: {
-    method: 'POST' as const,
-    path: '/livestock/applications/{id}/payment-proof',
+    method: 'PUT' as const,
+    path: '/uploadProofOfPayment/{id}',
     payload: `multipart/form-data:
-  proofOfPayment: File (jpg|jpeg|png|pdf)
-  transactionId: string
-  amount: number (optional — server validates farmer share 60%)`,
+  proofOfPayment: File (jpg|jpeg|png|pdf) — required
+  transactionId: string — required
+  amount: number — required
+  fileType: string (MIME, e.g. image/jpeg) — sent by client
+  notes: string — optional`,
     response: `{ "status": "SUBMITTED", "expectedAmount": 264000, "documentUrl": "https://...", "transactionId": "..." }`,
   },
 

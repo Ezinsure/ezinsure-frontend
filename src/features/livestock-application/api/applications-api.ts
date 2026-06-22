@@ -34,7 +34,14 @@ export async function fetchLivestockApplicationsMock(
   });
   return {
     data,
-    meta: { total: data.length, startDate, endDate },
+    meta: {
+      total: data.length,
+      startDate,
+      endDate,
+      pageNumber: 1,
+      pageSize: data.length || 25,
+      totalPages: 1,
+    },
   };
 }
 

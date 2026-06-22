@@ -13,10 +13,16 @@ import { createLivestockApplicationsRepository } from '@/features/livestock-appl
 
 export type { ApiFetch } from '@/features/livestock-application/api/http';
 
-/** GET /getVeterinaryApplications?agentId=&startDate=&endDate= */
+/** GET /getVeterinaryApplications?agentId=&startDate=&endDate=&pageSize=&pageNumber= */
 export async function fetchVetLivestockApplications(
   apiFetch: ApiFetch,
-  params: { agentId: string; startDate: string; endDate: string },
+  params: {
+    agentId: string;
+    startDate: string;
+    endDate: string;
+    pageNumber?: number;
+    pageSize?: number;
+  },
 ): Promise<LivestockApplicationsListResponse> {
   const repo = createLivestockApplicationsRepository(apiFetch, 'backend');
   return repo.list(params);

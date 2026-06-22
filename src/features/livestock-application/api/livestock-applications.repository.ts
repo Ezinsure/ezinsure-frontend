@@ -9,7 +9,9 @@ import type {
 } from '@/features/livestock-application/api/backend-types';
 import {
   LIST_FALLBACK_START_DATE,
+  LIST_FALLBACK_PAGE_SIZE,
   LIVESTOCK_ADMIN_ENDPOINTS,
+  LIVESTOCK_LIST_DEFAULT_PAGE_SIZE,
   LIVESTOCK_VET_ENDPOINTS,
 } from '@/features/livestock-application/api/endpoints';
 import {
@@ -23,6 +25,7 @@ import {
   fetchLivestockApplicationsMock,
 } from '@/features/livestock-application/api/applications-api';
 import {
+  extractApplicationsListPaginationMeta,
   mapApplicationsListResponse,
   mapToLivestockApplicationPackage,
   parseCreateApplicationResponse,
@@ -47,6 +50,8 @@ export interface ListApplicationsQuery {
   agentId?: string;
   startDate: string;
   endDate: string;
+  pageNumber?: number;
+  pageSize?: number;
   scope?: LivestockListScope;
 }
 
@@ -91,38 +96,30 @@ async function tryFetchApplicationRecord(
   return null;
 }
 
-async function findApplicationInVetList(
+async function findApplicationInList(
   apiFetch: ApiFetch,
   applicationId: string,
-  agentId: string,
+  options?: { agentId?: string; scope?: LivestockListScope },
 ): Promise<unknown | null> {
   const today = new Date().toISOString().slice(0, 10);
-  const payload = await requestJson<VeterinaryApplicationsListPayload>(
-    apiFetch,
-    LIVESTOCK_VET_ENDPOINTS.listApplications({
-      agentId,
-      startDate: LIST_FALLBACK_START_DATE,
-      endDate: today,
-    }),
-    { method: 'GET' },
-  );
+  const listParams = {
+    startDate: LIST_FALLBACK_START_DATE,
+    endDate: today,
+    pageNumber: 1,
+    pageSize: LIST_FALLBACK_PAGE_SIZE,
+  };
 
-  return findRowById(payload, applicationId);
-}
+  const path =
+    options?.scope === 'all'
+      ? LIVESTOCK_ADMIN_ENDPOINTS.listAllApplications(listParams)
+      : LIVESTOCK_VET_ENDPOINTS.listApplications({
+          ...listParams,
+          agentId: options?.agentId ?? '',
+        });
 
-async function findApplicationInAllList(
-  apiFetch: ApiFetch,
-  applicationId: string,
-): Promise<unknown | null> {
-  const today = new Date().toISOString().slice(0, 10);
-  const payload = await requestJson<VeterinaryApplicationsListPayload>(
-    apiFetch,
-    LIVESTOCK_ADMIN_ENDPOINTS.listAllApplications({
-      startDate: LIST_FALLBACK_START_DATE,
-      endDate: today,
-    }),
-    { method: 'GET' },
-  );
+  const payload = await requestJson<VeterinaryApplicationsListPayload>(apiFetch, path, {
+    method: 'GET',
+  });
 
   return findRowById(payload, applicationId);
 }
@@ -144,31 +141,47 @@ function createBackendRepository(
     dataSource: 'backend',
     listScope,
 
-    async list({ agentId, startDate, endDate, scope = listScope }) {
-      const payload =
+    async list({ agentId, startDate, endDate, pageNumber = 1, pageSize = LIVESTOCK_LIST_DEFAULT_PAGE_SIZE, scope = listScope }) {
+      const path =
         scope === 'all'
-          ? await requestJson<VeterinaryApplicationsListPayload>(
-              apiFetch,
-              LIVESTOCK_ADMIN_ENDPOINTS.listAllApplications({ startDate, endDate }),
-              { method: 'GET' },
-            )
-          : await requestJson<VeterinaryApplicationsListPayload>(
-              apiFetch,
-              LIVESTOCK_VET_ENDPOINTS.listApplications({
-                agentId: agentId ?? '',
-                startDate,
-                endDate,
-              }),
-              { method: 'GET' },
-            );
+          ? LIVESTOCK_ADMIN_ENDPOINTS.listAllApplications({
+              startDate,
+              endDate,
+              pageNumber,
+              pageSize,
+            })
+          : LIVESTOCK_VET_ENDPOINTS.listApplications({
+              agentId: agentId ?? '',
+              startDate,
+              endDate,
+              pageNumber,
+              pageSize,
+            });
+
+      const payload = await requestJson<VeterinaryApplicationsListPayload>(apiFetch, path, {
+        method: 'GET',
+      });
 
       const rawRows = extractApplicationsRawRows(payload);
       cacheLivestockApplicationRows(rawRows);
 
       const data = mapApplicationsListResponse(payload);
+      const pagination = extractApplicationsListPaginationMeta(payload, {
+        pageNumber,
+        pageSize,
+        dataLength: data.length,
+      });
+
       return {
         data,
-        meta: { total: data.length, startDate, endDate },
+        meta: {
+          total: pagination.total,
+          startDate,
+          endDate,
+          pageNumber: pagination.pageNumber,
+          pageSize: pagination.pageSize,
+          totalPages: pagination.totalPages,
+        },
       };
     },
 
@@ -179,14 +192,14 @@ function createBackendRepository(
       }
 
       if (scope === 'all') {
-        const raw = await findApplicationInAllList(apiFetch, applicationId);
+        const raw = await findApplicationInList(apiFetch, applicationId, { scope: 'all' });
         if (!raw) return null;
         cacheLivestockApplicationRows([raw]);
         return mapToLivestockApplicationPackage(raw);
       }
 
       if (agentId) {
-        const raw = await findApplicationInVetList(apiFetch, applicationId, agentId);
+        const raw = await findApplicationInList(apiFetch, applicationId, { agentId, scope: 'vet' });
         if (!raw) return null;
         cacheLivestockApplicationRows([raw]);
         return mapToLivestockApplicationPackage(raw);
@@ -216,8 +229,22 @@ function createMockRepository(listScope: LivestockListScope): LivestockApplicati
     dataSource: 'mock',
     listScope,
 
-    async list({ startDate, endDate }) {
-      return fetchLivestockApplicationsMock(startDate, endDate);
+    async list({ startDate, endDate, pageNumber = 1, pageSize = LIVESTOCK_LIST_DEFAULT_PAGE_SIZE }) {
+      const all = await fetchLivestockApplicationsMock(startDate, endDate);
+      const start = (pageNumber - 1) * pageSize;
+      const data = all.data.slice(start, start + pageSize);
+      const total = all.meta.total;
+      return {
+        data,
+        meta: {
+          total,
+          startDate,
+          endDate,
+          pageNumber,
+          pageSize,
+          totalPages: Math.max(1, Math.ceil(total / pageSize)),
+        },
+      };
     },
 
     async getById({ applicationId }) {

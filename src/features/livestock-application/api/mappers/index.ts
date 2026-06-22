@@ -7,6 +7,7 @@ export {
   mapApplicationsListResponse,
   mapToLivestockApplicationListItem,
   extractApplicationsRawRows,
+  extractApplicationsListPaginationMeta,
 } from '@/features/livestock-application/api/mappers/list.mapper';
 
 export { mapToLivestockApplicationPackage } from '@/features/livestock-application/api/mappers/detail.mapper';

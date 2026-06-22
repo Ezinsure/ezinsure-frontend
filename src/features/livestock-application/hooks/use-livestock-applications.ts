@@ -7,6 +7,7 @@ import type {
   LivestockApplicationPackage,
 } from '@/features/livestock-application/domain/application-types';
 import type { CreateApplicationResult } from '@/features/livestock-application/api/backend-types';
+import { LIVESTOCK_LIST_DEFAULT_PAGE_SIZE } from '@/features/livestock-application/api/endpoints';
 import { LivestockApiError } from '@/features/livestock-application/api/http';
 import {
   createLivestockApplicationsRepositoryForScope,
@@ -23,6 +24,20 @@ export type CreateLivestockApplicationSubmitResult =
   | { success: true; data: CreateApplicationResult }
   | { success: false; error: string };
 
+export interface LivestockApplicationsListMeta {
+  total: number;
+  pageNumber: number;
+  pageSize: number;
+  totalPages: number;
+}
+
+const EMPTY_LIST_META: LivestockApplicationsListMeta = {
+  total: 0,
+  pageNumber: 1,
+  pageSize: LIVESTOCK_LIST_DEFAULT_PAGE_SIZE,
+  totalPages: 1,
+};
+
 function toErrorMessage(err: unknown, fallback: string): string {
   if (err instanceof LivestockApiError) {
     if (Array.isArray(err.details) && err.details.length > 0) {
@@ -37,6 +52,7 @@ function toErrorMessage(err: unknown, fallback: string): string {
 export interface UseLivestockApplicationsListOptions {
   scope?: LivestockListScope;
   vetAgentId?: string;
+  initialPageSize?: number;
 }
 
 function useLivestockRepository(
@@ -55,11 +71,21 @@ export function useLivestockApplicationsList(options: UseLivestockApplicationsLi
   const vetAgentId = options.vetAgentId;
   const repository = useLivestockRepository(scope, vetAgentId);
   const [applications, setApplications] = useState<LivestockApplicationListItem[]>([]);
+  const [meta, setMeta] = useState<LivestockApplicationsListMeta>(EMPTY_LIST_META);
+  const [pageNumber, setPageNumber] = useState(1);
+  const [pageSize, setPageSize] = useState(
+    options.initialPageSize ?? LIVESTOCK_LIST_DEFAULT_PAGE_SIZE,
+  );
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(
-    async (startDate: string, endDate: string) => {
+    async (
+      startDate: string,
+      endDate: string,
+      nextPageNumber: number,
+      nextPageSize: number,
+    ) => {
       setIsLoading(true);
       setError(null);
       try {
@@ -67,12 +93,23 @@ export function useLivestockApplicationsList(options: UseLivestockApplicationsLi
           agentId: vetAgentId,
           startDate,
           endDate,
+          pageNumber: nextPageNumber,
+          pageSize: nextPageSize,
           scope,
         });
         setApplications(res.data);
+        setMeta({
+          total: res.meta.total,
+          pageNumber: res.meta.pageNumber,
+          pageSize: res.meta.pageSize,
+          totalPages: res.meta.totalPages,
+        });
+        setPageNumber(res.meta.pageNumber);
+        setPageSize(res.meta.pageSize);
       } catch (err) {
         setError(toErrorMessage(err, 'Failed to load applications.'));
         setApplications([]);
+        setMeta(EMPTY_LIST_META);
       } finally {
         setIsLoading(false);
       }
@@ -80,7 +117,32 @@ export function useLivestockApplicationsList(options: UseLivestockApplicationsLi
     [repository, scope, vetAgentId],
   );
 
-  return { applications, isLoading, error, load, dataSource: repository.dataSource };
+  const goToPage = useCallback(
+    (startDate: string, endDate: string, page: number) => {
+      void load(startDate, endDate, page, pageSize);
+    },
+    [load, pageSize],
+  );
+
+  const changePageSize = useCallback(
+    (startDate: string, endDate: string, size: number) => {
+      void load(startDate, endDate, 1, size);
+    },
+    [load],
+  );
+
+  return {
+    applications,
+    meta,
+    pageNumber,
+    pageSize,
+    isLoading,
+    error,
+    load,
+    goToPage,
+    changePageSize,
+    dataSource: repository.dataSource,
+  };
 }
 
 export interface UseLivestockApplicationDetailOptions {

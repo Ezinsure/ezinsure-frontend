@@ -136,4 +136,36 @@ export function mapApplicationsListResponse(payload: unknown): LivestockApplicat
     .filter((item): item is LivestockApplicationListItem => item !== null);
 }
 
+export interface ApplicationsListPaginationMeta {
+  total: number;
+  pageNumber: number;
+  pageSize: number;
+  totalPages: number;
+}
+
+/** Read pagination fields from GET /getVeterinaryApplications envelope. */
+export function extractApplicationsListPaginationMeta(
+  payload: unknown,
+  fallback: { pageNumber: number; pageSize: number; dataLength: number },
+): ApplicationsListPaginationMeta {
+  const root =
+    payload && typeof payload === 'object' ? (payload as Record<string, unknown>) : null;
+
+  const total = Number(
+    root?.total ?? root?.totalCount ?? root?.totalRecords ?? root?.count ?? fallback.dataLength,
+  );
+  const pageSize = Number(root?.pageSize ?? root?.limit ?? fallback.pageSize) || fallback.pageSize;
+  const pageNumber = Number(root?.pageNumber ?? root?.page ?? fallback.pageNumber) || fallback.pageNumber;
+  const totalPages = Number(
+    root?.totalPages ?? Math.max(1, Math.ceil((Number.isFinite(total) ? total : fallback.dataLength) / pageSize)),
+  );
+
+  return {
+    total: Number.isFinite(total) ? total : fallback.dataLength,
+    pageNumber,
+    pageSize,
+    totalPages: Number.isFinite(totalPages) ? totalPages : 1,
+  };
+}
+
 export { extractApplicationsRawRows };

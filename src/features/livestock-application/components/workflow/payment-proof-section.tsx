@@ -1,11 +1,14 @@
 'use client';
 
 import { useState } from 'react';
-import { Eye, FileUp, Loader2, Receipt } from 'lucide-react';
+import { AlertCircle, Eye, FileUp, Loader2, Receipt } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { PaymentProofUploadModal } from '@/features/livestock-application/components/modals/payment-proof-upload-modal';
+import {
+  PaymentProofUploadModal,
+  type PaymentProofUploadPayload,
+} from '@/features/livestock-application/components/modals/payment-proof-upload-modal';
 import { ApiContractPanel } from '@/features/livestock-application/components/shared/api-contract-panel';
-import { uploadPaymentProof } from '@/features/livestock-application/api/applications-api';
+import { useUploadLivestockPaymentProof } from '@/features/livestock-application/hooks/use-upload-payment-proof';
 import type {
   LivestockApplicationPackage,
   LivestockApplicationViewRole,
@@ -26,27 +29,24 @@ export function PaymentProofSection({
   onViewDocument,
 }: PaymentProofSectionProps) {
   const [modalOpen, setModalOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
   const [note, setNote] = useState<string | null>(null);
+  const { upload, isUploading, error: uploadError, clearError } = useUploadLivestockPaymentProof();
   const { paymentProof } = application;
 
   const canUpload =
     viewRole === 'vet' && (paymentProof.status === 'PENDING' || paymentProof.status === 'REJECTED');
 
-  const handleSubmit = async (payload: { proofOfPayment: File; transactionId: string }) => {
-    setLoading(true);
+  const handleSubmit = async (payload: PaymentProofUploadPayload) => {
     setNote(null);
-    try {
-      await uploadPaymentProof(application._id, {
-        amount: paymentProof.expectedAmount,
-        proofOfPayment: payload.proofOfPayment,
-        transactionId: payload.transactionId,
-      });
-      setNote('Payment proof submitted successfully.');
-      onUpdated?.();
-    } finally {
-      setLoading(false);
-    }
+    clearError();
+    await upload(application._id, {
+      amount: payload.amount,
+      proofOfPayment: payload.proofOfPayment,
+      transactionId: payload.transactionId,
+      notes: payload.notes,
+    });
+    setNote('Payment proof submitted successfully. Finance will review the receipt.');
+    onUpdated?.();
   };
 
   return (
@@ -60,6 +60,7 @@ export function PaymentProofSection({
             <h2 className="text-lg font-semibold text-slate-900">Payment proof</h2>
             <p className="mt-1 text-sm text-slate-600">
               One receipt for the whole application — farmer share (60%) for all animals combined.
+              {viewRole !== 'vet' && ' Only veterinarians can upload payment proof.'}
             </p>
           </div>
         </div>
@@ -80,7 +81,7 @@ export function PaymentProofSection({
           {paymentProof.transactionId && (
             <div className="rounded-xl bg-slate-50 p-4">
               <dt className="text-xs font-medium uppercase text-slate-500">Transaction ID</dt>
-              <dd className="mt-1 text-sm font-mono font-semibold text-slate-800">
+              <dd className="mt-1 font-mono text-sm font-semibold text-slate-800">
                 {paymentProof.transactionId}
               </dd>
             </div>
@@ -95,8 +96,13 @@ export function PaymentProofSection({
 
         <div className="mt-6 flex flex-wrap gap-3">
           {canUpload && (
-            <Button type="button" variant="primary" disabled={loading} onClick={() => setModalOpen(true)}>
-              {loading ? (
+            <Button
+              type="button"
+              variant="primary"
+              disabled={isUploading}
+              onClick={() => setModalOpen(true)}
+            >
+              {isUploading ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               ) : (
                 <FileUp className="mr-2 h-4 w-4" />
@@ -116,25 +122,46 @@ export function PaymentProofSection({
           )}
         </div>
 
+        {uploadError && (
+          <div
+            className="mt-4 flex gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900"
+            role="alert"
+          >
+            <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-red-600" aria-hidden />
+            <div>
+              <p className="font-semibold text-red-950">Could not upload payment proof</p>
+              <p className="mt-1 leading-relaxed text-red-800">{uploadError}</p>
+            </div>
+          </div>
+        )}
+
         {note && (
           <p className="mt-4 rounded-lg border border-emerald-100 bg-emerald-50 px-3 py-2 text-sm text-emerald-900">
             {note}
           </p>
         )}
 
-        <ApiContractPanel contractKey="uploadPaymentProof" className="mt-6" />
+        {viewRole === 'vet' && (
+          <ApiContractPanel contractKey="uploadPaymentProof" className="mt-6" />
+        )}
       </section>
 
-      <PaymentProofUploadModal
-        open={modalOpen}
-        onClose={() => setModalOpen(false)}
-        ownerSummary={application.ownerSummary}
-        expectedAmount={paymentProof.expectedAmount}
-        invoiceUrl={application.issuedDocuments?.invoice}
-        existingProofUrl={paymentProof.documentUrl}
-        existingTransactionId={paymentProof.transactionId}
-        onSubmit={handleSubmit}
-      />
+      {canUpload && (
+        <PaymentProofUploadModal
+          open={modalOpen}
+          onClose={() => {
+            clearError();
+            setModalOpen(false);
+          }}
+          applicationNumber={application.applicationNumber}
+          ownerSummary={application.ownerSummary}
+          expectedAmount={paymentProof.expectedAmount}
+          invoiceUrl={application.issuedDocuments?.invoice}
+          existingProofUrl={paymentProof.documentUrl}
+          existingTransactionId={paymentProof.transactionId}
+          onSubmit={handleSubmit}
+        />
+      )}
     </>
   );
 }
