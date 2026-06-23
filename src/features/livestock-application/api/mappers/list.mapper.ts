@@ -14,7 +14,7 @@ import {
   isNewApiApplicationRecord,
 } from '@/features/livestock-application/api/mappers/guards';
 import { buildOwnerSummary } from '@/features/livestock-application/api/mappers/line.mapper';
-import { countInsuredLines } from '@/features/livestock-application/api/mappers/owners.mapper';
+import { countInsuredLines, mapPaymentProofFromRecord } from '@/features/livestock-application/api/mappers/owners.mapper';
 import {
   isFlatListApplicationRecord,
   mapFlatApplicationToListItem,
@@ -29,6 +29,8 @@ import {
 function mapNewApiApplicationToListItem(o: Record<string, unknown>): LivestockApplicationListItem {
   const lines = o.lines as unknown[];
   const statusRaw = String(o.status ?? '');
+  const farmerContributionAmount = Number(o.farmerContributionAmount ?? 0);
+  const paymentProof = mapPaymentProofFromRecord(o, farmerContributionAmount);
 
   return {
     _id: String(o._id),
@@ -42,11 +44,12 @@ function mapNewApiApplicationToListItem(o: Record<string, unknown>): LivestockAp
     ownerSummary: buildOwnerSummary(o, lines),
     lineCount: lines.length,
     totals: {
-      farmerContributionAmount: Number(o.farmerContributionAmount ?? 0),
+      farmerContributionAmount,
       premiumRateAmount: Number(o.premiumRateAmount ?? 0),
     },
     submittedAt: String(o.submittedAt ?? new Date().toISOString()),
-    paymentProofStatus: mapPaidStatus(String(o.paymentProofStatus ?? o.paidStatus ?? '')),
+    paymentProofStatus: paymentProof.status,
+    paymentProofDocumentUrl: paymentProof.documentUrl,
     subsidyRequired: subsidyRequiredFromStatus(String(o.subsidyStatus ?? '')),
   };
 }

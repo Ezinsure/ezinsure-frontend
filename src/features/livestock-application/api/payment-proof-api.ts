@@ -12,15 +12,31 @@ export interface UploadPaymentProofResult {
   transactionId: string;
 }
 
+export interface VerifyLivestockPaymentPayload {
+  action: 'approve' | 'reject';
+  reasonForPaymentRejection?: string;
+}
+
+export interface VerifyLivestockPaymentResult {
+  status: string;
+  paidStatus?: string;
+}
+
 function parseUploadPaymentProofResponse(payload: unknown): UploadPaymentProofResult {
   const data = unwrapEntityPayload(payload);
   const row =
     data && typeof data === 'object' ? (data as Record<string, unknown>) : (payload as Record<string, unknown>);
 
+  const documentUrl = row.documentUrl
+    ? String(row.documentUrl)
+    : row.proofOfPayment
+      ? String(row.proofOfPayment)
+      : undefined;
+
   return {
     status: String(row.status ?? 'SUBMITTED'),
     expectedAmount: Number(row.expectedAmount ?? row.amount ?? 0),
-    documentUrl: row.documentUrl ? String(row.documentUrl) : undefined,
+    documentUrl,
     transactionId: String(row.transactionId ?? ''),
   };
 }
@@ -56,7 +72,60 @@ export async function uploadLivestockPaymentProof(
     paidStatus: 'SUBMITTED',
     paymentProofStatus: 'SUBMITTED',
     status: 'PAYMENT_PROOF_SUBMITTED',
+    ...(result.documentUrl ? { proofOfPayment: result.documentUrl } : {}),
+    ...(result.transactionId ? { transactionId: result.transactionId } : {}),
   });
+
+  return result;
+}
+
+function parseVerifyPaymentResponse(payload: unknown): VerifyLivestockPaymentResult {
+  const data = unwrapEntityPayload(payload);
+  const row =
+    data && typeof data === 'object' ? (data as Record<string, unknown>) : (payload as Record<string, unknown>);
+
+  return {
+    status: String(row.status ?? ''),
+    paidStatus: row.paidStatus ? String(row.paidStatus) : undefined,
+  };
+}
+
+export async function verifyLivestockPaymentProof(
+  apiFetch: ApiFetch,
+  applicationId: string,
+  payload: VerifyLivestockPaymentPayload,
+): Promise<VerifyLivestockPaymentResult> {
+  const response = await requestJson<unknown>(
+    apiFetch,
+    LIVESTOCK_VET_ENDPOINTS.verifyPayment(applicationId),
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: payload.action,
+        ...(payload.action === 'reject' && payload.reasonForPaymentRejection
+          ? { reasonForPaymentRejection: payload.reasonForPaymentRejection.trim() }
+          : {}),
+      }),
+    },
+    'payment-proof',
+  );
+
+  const result = parseVerifyPaymentResponse(response);
+
+  if (payload.action === 'approve') {
+    patchCachedLivestockApplicationRow(applicationId, {
+      status: 'PAYMENT_VERIFIED',
+      paidStatus: 'VERIFIED',
+      paymentProofStatus: 'VERIFIED',
+    });
+  } else {
+    patchCachedLivestockApplicationRow(applicationId, {
+      status: 'PAYMENT_PROOF_REQUIRED',
+      paidStatus: 'REJECTED',
+      paymentProofStatus: 'REJECTED',
+    });
+  }
 
   return result;
 }

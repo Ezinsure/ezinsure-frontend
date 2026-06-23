@@ -36,7 +36,8 @@ export const Button = ({
   rel,
   ...props
 }: ButtonProps & React.ButtonHTMLAttributes<HTMLButtonElement> & React.AnchorHTMLAttributes<HTMLAnchorElement>) => {
-  const baseClasses = 'rounded-lg font-medium transition-all duration-200 flex items-center justify-center';
+  const baseClasses =
+    'rounded-lg font-medium transition-all duration-200 flex items-center justify-center cursor-pointer';
   
   const variantClasses = {
     primary: 'bg-[var(--main-blue)] hover:bg-[var(--secondary-blue)] text-white shadow-sm',

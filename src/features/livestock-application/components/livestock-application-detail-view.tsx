@@ -216,7 +216,7 @@ export function LivestockApplicationDetailView({
               <button
                 type="button"
                 onClick={onClose}
-                className="inline-flex min-h-10 items-center gap-2 rounded-lg px-2 text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                className="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-lg px-2 text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900"
               >
                 <ArrowLeft className="h-4 w-4 shrink-0" />
                 <span className="hidden sm:inline">{backLabel}</span>
@@ -230,7 +230,7 @@ export function LivestockApplicationDetailView({
               <button
                 type="button"
                 onClick={onClose}
-                className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-800"
+                className="inline-flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-800"
                 aria-label="Close"
               >
                 <X className="h-5 w-5" />

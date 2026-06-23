@@ -118,20 +118,54 @@ export function mapInsuredLinesFromRecord(record: Record<string, unknown>): Insu
   return [];
 }
 
+function pickNonemptyString(...values: unknown[]): string | undefined {
+  for (const value of values) {
+    const text = String(value ?? '').trim();
+    if (text) return text;
+  }
+  return undefined;
+}
+
+/** Root `proofOfPayment` URL or latest entry in `paymentProofs[]`. */
+export function resolvePaymentProofDocumentUrl(
+  record: Record<string, unknown>,
+): string | undefined {
+  const proofs = Array.isArray(record.paymentProofs) ? record.paymentProofs : [];
+  const latest = proofs.length > 0 ? (proofs[proofs.length - 1] as Record<string, unknown>) : null;
+
+  return pickNonemptyString(
+    record.proofOfPayment,
+    record.proofOfPaymentUrl,
+    latest?.documentUrl,
+    latest?.proofOfPayment,
+    latest?.url,
+  );
+}
+
 export function mapPaymentProofFromRecord(
   record: Record<string, unknown>,
   expectedAmount: number,
 ): LivestockApplicationPackage['paymentProof'] {
   const proofs = Array.isArray(record.paymentProofs) ? record.paymentProofs : [];
   const latest = proofs.length > 0 ? (proofs[proofs.length - 1] as Record<string, unknown>) : null;
+  const documentUrl = resolvePaymentProofDocumentUrl(record);
+  const appStatus = String(record.status ?? '').toUpperCase();
+
+  const statusSource =
+    latest?.status ??
+    (documentUrl || appStatus === 'PAYMENT_PROOF_SUBMITTED' ? 'SUBMITTED' : undefined) ??
+    record.paidStatus ??
+    record.paymentProofStatus;
 
   return {
-    status: mapPaidStatus(
-      String(latest?.status ?? record.paidStatus ?? record.paymentProofStatus ?? ''),
-    ),
+    status: mapPaidStatus(String(statusSource ?? '')),
     expectedAmount,
-    documentUrl: latest?.documentUrl ? String(latest.documentUrl) : undefined,
-    transactionId: latest?.transactionId ? String(latest.transactionId) : undefined,
+    documentUrl,
+    transactionId: pickNonemptyString(
+      latest?.transactionId,
+      record.transactionId,
+      record.paymentTransactionId,
+    ),
     submittedAt: latest?.submittedAt ? String(latest.submittedAt) : undefined,
     verifiedAt: latest?.verifiedAt ? String(latest.verifiedAt) : undefined,
   };

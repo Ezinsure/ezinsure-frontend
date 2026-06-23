@@ -68,7 +68,7 @@ export function ApplicationDocumentsGrid({
           key={doc.label}
           type="button"
           onClick={() => onViewDocument(doc)}
-          className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-left transition hover:border-blue-200 hover:bg-blue-50/40"
+          className="flex cursor-pointer items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-left transition hover:border-blue-200 hover:bg-blue-50/40"
         >
           <span className="rounded-lg bg-blue-50 p-2">
             <FileText className="h-5 w-5 text-blue-600" />

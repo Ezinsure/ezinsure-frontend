@@ -52,6 +52,7 @@ export const SUBSIDY_STATUS_LABELS: Record<SubsidyCaseStatus, string> = {
 export const STATUS_TIMELINE_ORDER: LivestockApplicationStatus[] = [
   'SUBMITTED',
   'PAYMENT_PROOF_REQUIRED',
+  'PAYMENT_PROOF_SUBMITTED',
   'PAYMENT_VERIFIED',
   'SUBSIDY_DOC_REQUIRED',
   'SUBSIDY_SECTOR_SIGNED',

@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { ApplicationsListFiltersBar } from '@/features/livestock-application/components/applications-list/applications-list-filters-bar';
 import { ApplicationsListTable } from '@/features/livestock-application/components/applications-list/applications-list-table';
+import type { ApplicationsListRowActionHandlers } from '@/features/livestock-application/components/applications-list/applications-list-row-actions';
 import { LivestockApplicationDetailPanel } from '@/features/livestock-application/components/livestock-application-detail-panel';
 import { LivestockApplicationsPagination } from '@/features/livestock-application/components/shared/livestock-applications-pagination';
 import { useLivestockApplicationsList } from '@/features/livestock-application/hooks/use-livestock-applications';
@@ -43,7 +44,7 @@ function listConfig(role: LivestockApplicationViewRole) {
     return {
       title: 'Livestock applications',
       subtitle:
-        'Filter by payment status, species, and workflow stage — open a row to verify proofs and premiums.',
+        'Filter by payment status, species, and workflow stage — open an application to review details and documents.',
       detailBase: '/finance/livestock/applications',
       showNewButton: false,
     };
@@ -58,7 +59,7 @@ function listConfig(role: LivestockApplicationViewRole) {
   }
   return {
     title: 'My applications',
-    subtitle: 'Packages you submitted — open a row to review owners, animals, and workflow status.',
+    subtitle: 'Packages you submitted — open an application to review owners, animals, and documents.',
     detailBase: '/vet/livestock/applications',
     showNewButton: true,
   };
@@ -132,6 +133,13 @@ export default function LivestockApplicationsListPage({
     router.replace(config.detailBase, { scroll: false });
   }, [config.detailBase, router]);
 
+  const rowActions = useMemo<ApplicationsListRowActionHandlers>(
+    () => ({
+      onViewDetails: openApplication,
+    }),
+    [openApplication],
+  );
+
   const filtered = useMemo(
     () => applyApplicationsListFilters(applications, filters),
     [applications, filters],
@@ -187,7 +195,7 @@ export default function LivestockApplicationsListPage({
             isLoading={isLoading}
             isVet={isVet}
             emptyMessage={emptyMessage}
-            onOpen={openApplication}
+            rowActions={rowActions}
           />
 
           <LivestockApplicationsPagination
