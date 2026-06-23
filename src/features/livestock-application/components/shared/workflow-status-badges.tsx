@@ -28,7 +28,7 @@ export function PaymentStatusBadge({ status, className = '' }: PaymentStatusBadg
 
   return (
     <span
-      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1 ring-inset ${styles} ${className}`}
+      className={`inline-flex w-max max-w-full items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1 ring-inset ${styles} ${className}`}
     >
       {label}
     </span>
@@ -67,7 +67,7 @@ export function SubsidyStatusBadge({ status, className = '' }: SubsidyStatusBadg
 
   return (
     <span
-      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1 ring-inset ${styles} ${className}`}
+      className={`inline-flex w-max max-w-full items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1 ring-inset ${styles} ${className}`}
     >
       {label}
     </span>
