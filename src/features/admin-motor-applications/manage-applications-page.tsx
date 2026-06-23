@@ -265,10 +265,23 @@ export default function ManageApplicationsPage() {
 
       if (currentValue instanceof File) {
         changedFields[key] = currentValue;
+      } else if (typeof currentValue === 'boolean' || typeof originalValue === 'boolean') {
+        if (Boolean(currentValue) !== Boolean(originalValue)) {
+          changedFields[key] = currentValue as boolean;
+        }
       } else if (String(currentValue || '') !== String(originalValue || '')) {
         changedFields[key] = currentValue as string | number | boolean;
       }
     });
+
+    if ('fullName' in changedFields) {
+      const trimmedName = String(changedFields.fullName).trim();
+      if (!trimmedName) {
+        showToast('Client full name is required', 'error');
+        return;
+      }
+      changedFields.fullName = trimmedName;
+    }
 
     if (
       'insuranceDuration' in editFormData &&
@@ -936,6 +949,7 @@ const getActionButtons = (app: Application) => {
         className="inline-flex items-center gap-1"
         onClick={() => {
           const formData = {
+            fullName: app.client?.fullName || app.fullName || '',
             insuranceCategory: app.insuranceCategory || '',
             insuranceType: app.insuranceType || '',
             insuranceDuration: app.insuranceDuration || '',
@@ -1171,7 +1185,7 @@ const getActionButtons = (app: Application) => {
     );
   };
 
-  const clientFullNameValue = editingApp?.client?.fullName || editingApp?.fullName || '';
+  const clientFullNameValue = editFormData ? getFormValue(editFormData.fullName) : '';
   const clientEmailValue = editingApp?.client?.email || editingApp?.email || '';
   const clientPhoneValue = editingApp?.client?.phoneNumber || editingApp?.phoneNumber || '';
   const clientDobValue = editingApp?.client?.dateOfBirth
@@ -1248,9 +1262,7 @@ const getActionButtons = (app: Application) => {
     isPersistentlyVisible('vehicleUse') || (isVehicleInsurance && hasExistingValue(vehicleUseValue));
   const showOtherVehicleUse =
     isPersistentlyVisible('otherVehicleUse') || (isVehicleInsurance && hasExistingValue(otherVehicleUseValue));
-  const showComesaField =
-    isPersistentlyVisible('comesa') ||
-    (isVehicleInsurance && typeof editFormData?.isCOMESA === 'boolean' && Boolean(editFormData.isCOMESA));
+  const showComesaField = isPersistentlyVisible('comesa') || isVehicleInsurance;
   const showInsuranceProvider =
     isPersistentlyVisible('insuranceProvider') || hasExistingValue(insuranceProviderValue);
   const showInsuranceType = isPersistentlyVisible('insuranceType') || hasExistingValue(insuranceTypeValue);
@@ -3048,9 +3060,10 @@ const getActionButtons = (app: Application) => {
                         <label className="block text-xs font-medium mb-1">Full Name</label>
                         <input
                           type="text"
+                          name="fullName"
                           value={clientFullNameValue}
-                          disabled
-                          className="w-full py-1.5 px-2 text-xs rounded-lg bg-gray-100 border border-gray-300 text-gray-600"
+                          onChange={handleEditInputChange}
+                          className="w-full py-1.5 px-2 text-xs rounded-lg focus:outline-none border border-gray-300 focus:border-[var(--main-blue)]"
                         />
                       </div>
                     )}
@@ -3220,14 +3233,15 @@ const getActionButtons = (app: Application) => {
                     )}
                     {showComesaField && (
                       <div className="md:col-span-2">
-                        <label className="flex items-center space-x-2">
+                        <label className="flex items-center space-x-2 cursor-pointer">
                           <input
                             type="checkbox"
-                            checked
-                            disabled
-                            className="rounded h-3 border-gray-300 bg-gray-100"
+                            name="isCOMESA"
+                            checked={Boolean(editFormData?.isCOMESA)}
+                            onChange={handleEditInputChange}
+                            className="rounded h-3 border-gray-300 text-[var(--main-blue)] focus:ring-[var(--main-blue)]"
                           />
-                          <span className="text-xs font-medium text-gray-600">Ext. Territorial (COMESA)</span>
+                          <span className="text-xs font-medium text-gray-700">Ext. Territorial (COMESA)</span>
                         </label>
                       </div>
                     )}

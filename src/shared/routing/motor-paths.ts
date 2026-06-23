@@ -60,6 +60,7 @@ export const motorPaths = {
     paymentInitiated: '/finance/motor/payment-initiated',
     history: '/finance/motor/history',
     agentAnalytics: '/finance/motor/agents/analytics',
+    commissionReview: '/finance/motor/commission-review',
     profile: '/finance/motor/profile',
   },
 } as const;
@@ -102,5 +103,6 @@ export const legacyMotorPathRedirects: Record<string, string> = {
   '/finance/payments': motorPaths.finance.payments,
   '/finance/payment-initiated': motorPaths.finance.paymentInitiated,
   '/finance/history': motorPaths.finance.history,
+  '/finance/commission-review': motorPaths.finance.commissionReview,
   '/finance/profile': motorPaths.finance.profile,
 };

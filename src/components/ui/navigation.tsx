@@ -67,7 +67,8 @@ export const Navigation = () => {
         newLinks.push(
           { href: `${rolePrefix}/payments`, label: 'Payments' },
           { href: `${rolePrefix}/payment-initiated`, label: 'Initiated Payments' },
-          { href: `${rolePrefix}/history`, label: 'Payment History' }
+          { href: `${rolePrefix}/history`, label: 'Payment History' },
+          { href: `${rolePrefix}/commission-review`, label: 'Commission Review' }
         );
       }
 
