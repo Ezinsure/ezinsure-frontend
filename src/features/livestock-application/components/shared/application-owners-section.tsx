@@ -88,7 +88,7 @@ export function ApplicationOwnersSection({
         <button
           type="button"
           onClick={() => onSelectOwner(null)}
-          className="mt-3 text-sm font-medium text-blue-600 hover:text-blue-800"
+          className="mt-3 cursor-pointer text-sm font-medium text-blue-600 hover:text-blue-800"
         >
           Clear owner filter · show all {application.lines.length} lines
         </button>
@@ -121,7 +121,7 @@ function OwnerRow({
           <button
             type="button"
             onClick={() => onSelect(selected ? null : owner.key)}
-            className="text-sm font-semibold text-blue-600 hover:text-blue-800"
+            className="cursor-pointer text-sm font-semibold text-blue-600 hover:text-blue-800"
           >
             {selected ? 'Showing' : 'Filter lines'}
           </button>

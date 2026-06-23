@@ -23,7 +23,6 @@ import {
 import {
   computePremiumPercentage,
   mapLegacyStatus,
-  mapPaidStatus,
   mapSubsidyStatus,
   normalizeInsuranceProvider,
   subsidyRequiredFromStatus,
@@ -66,6 +65,7 @@ export function mapFlatApplicationToListItem(
   const statusRaw = String(record.status ?? '');
   const subsidyStatus = String(record.subsidyStatus ?? '');
   const paidStatus = String(record.paidStatus ?? '');
+  const paymentProof = mapPaymentProofFromRecord(record, totals.farmerContributionAmount);
 
   return {
     _id: String(record._id),
@@ -93,7 +93,8 @@ export function mapFlatApplicationToListItem(
       premiumRateAmount: totals.premiumRateAmount,
     },
     submittedAt: String(record.submittedAt ?? new Date().toISOString()),
-    paymentProofStatus: mapPaidStatus(paidStatus),
+    paymentProofStatus: paymentProof.status,
+    paymentProofDocumentUrl: paymentProof.documentUrl,
     subsidyRequired: subsidyRequiredFromStatus(subsidyStatus),
     paidStatus,
     subsidyStatus,

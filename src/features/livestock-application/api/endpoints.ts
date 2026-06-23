@@ -45,6 +45,9 @@ export const LIVESTOCK_VET_ENDPOINTS = {
     `/getVeterinaryApplication?id=${encodeURIComponent(applicationId)}`,
 
   createApplication: (): string => '/newApplication',
+
+  verifyPayment: (applicationId: string): string =>
+    `/verifyPayment/${encodeURIComponent(applicationId)}`,
 } as const;
 
 /** Admin / finance / super admin — all vet applications in date range. */

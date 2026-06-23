@@ -210,6 +210,8 @@ export interface LivestockApplicationListItem {
   totals: Pick<ApplicationPremiumTotals, 'farmerContributionAmount' | 'premiumRateAmount'>;
   submittedAt: string;
   paymentProofStatus: PaymentProofStatus;
+  /** Cloudinary (or API) URL from root `proofOfPayment` when list row includes it. */
+  paymentProofDocumentUrl?: string;
   subsidyRequired: boolean;
   paidStatus?: string;
   subsidyStatus?: string;

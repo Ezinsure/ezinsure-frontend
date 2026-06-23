@@ -1,17 +1,20 @@
 'use client';
 
 import { useState } from 'react';
-import { AlertCircle, Eye, FileUp, Loader2, Receipt } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Eye, FileUp, Loader2, Receipt, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   PaymentProofUploadModal,
   type PaymentProofUploadPayload,
 } from '@/features/livestock-application/components/modals/payment-proof-upload-modal';
+import { PaymentProofReviewModal } from '@/features/livestock-application/components/modals/payment-proof-review-modal';
 import { useUploadLivestockPaymentProof } from '@/features/livestock-application/hooks/use-upload-payment-proof';
+import { useVerifyLivestockPaymentProof } from '@/features/livestock-application/hooks/use-verify-livestock-payment';
 import type {
   LivestockApplicationPackage,
   LivestockApplicationViewRole,
 } from '@/features/livestock-application/domain/application-types';
+import { canAdminReviewLivestockPayment } from '@/features/livestock-application/utils/application-timeline';
 import { formatRwfDisplay } from '@/features/livestock-application/utils/format-rwf';
 
 interface PaymentProofSectionProps {
@@ -27,26 +30,59 @@ export function PaymentProofSection({
   onUpdated,
   onViewDocument,
 }: PaymentProofSectionProps) {
-  const [modalOpen, setModalOpen] = useState(false);
+  const [uploadModalOpen, setUploadModalOpen] = useState(false);
+  const [reviewModalOpen, setReviewModalOpen] = useState(false);
   const [note, setNote] = useState<string | null>(null);
-  const { upload, isUploading, error: uploadError, clearError } = useUploadLivestockPaymentProof();
+  const { upload, isUploading, error: uploadError, clearError: clearUploadError } =
+    useUploadLivestockPaymentProof();
+  const {
+    verify,
+    isVerifying,
+    error: verifyError,
+    clearError: clearVerifyError,
+  } = useVerifyLivestockPaymentProof();
   const { paymentProof } = application;
 
   const canUpload =
     viewRole === 'vet' && (paymentProof.status === 'PENDING' || paymentProof.status === 'REJECTED');
 
-  const handleSubmit = async (payload: PaymentProofUploadPayload) => {
+  const canReview = viewRole === 'admin' && canAdminReviewLivestockPayment(application);
+
+  const handleUploadSubmit = async (payload: PaymentProofUploadPayload) => {
     setNote(null);
-    clearError();
-    await upload(application._id, {
-      amount: payload.amount,
-      proofOfPayment: payload.proofOfPayment,
-      transactionId: payload.transactionId,
-      notes: payload.notes,
-    });
-    setNote('Payment proof submitted successfully. Finance will review the receipt.');
+    clearUploadError();
+    try {
+      await upload(application._id, {
+        amount: payload.amount,
+        proofOfPayment: payload.proofOfPayment,
+        transactionId: payload.transactionId,
+        notes: payload.notes,
+      });
+      setUploadModalOpen(false);
+      setNote('Payment proof submitted successfully. An administrator will review the receipt.');
+      onUpdated?.();
+    } catch {
+      // upload hook sets error state
+    }
+  };
+
+  const handleReviewSubmit = async (payload: {
+    action: 'approve' | 'reject';
+    reasonForPaymentRejection?: string;
+  }) => {
+    setNote(null);
+    clearVerifyError();
+    await verify(application._id, payload);
+    setReviewModalOpen(false);
+    setNote(
+      payload.action === 'approve'
+        ? 'Payment verified. The application can proceed to the next workflow step.'
+        : 'Payment sent back to the veterinarian with your feedback.',
+    );
     onUpdated?.();
   };
+
+  const activeError = uploadError || verifyError;
 
   return (
     <>
@@ -59,7 +95,9 @@ export function PaymentProofSection({
             <h2 className="text-lg font-semibold text-slate-900">Payment proof</h2>
             <p className="mt-1 text-sm text-slate-600">
               One receipt for the whole application — farmer share (60%) for all animals combined.
-              {viewRole !== 'vet' && ' Only veterinarians can upload payment proof.'}
+              {viewRole === 'vet' && ' Upload the farmer receipt once payment is complete.'}
+              {viewRole === 'admin' && ' Review the uploaded proof and approve or request corrections.'}
+              {viewRole !== 'vet' && viewRole !== 'admin' && ' Track payment proof status here.'}
             </p>
           </div>
         </div>
@@ -99,7 +137,7 @@ export function PaymentProofSection({
               type="button"
               variant="primary"
               disabled={isUploading}
-              onClick={() => setModalOpen(true)}
+              onClick={() => setUploadModalOpen(true)}
             >
               {isUploading ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -109,6 +147,23 @@ export function PaymentProofSection({
               Upload payment proof
             </Button>
           )}
+
+          {canReview && (
+            <Button
+              type="button"
+              variant="primary"
+              disabled={isVerifying}
+              onClick={() => setReviewModalOpen(true)}
+            >
+              {isVerifying ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <ShieldCheck className="mr-2 h-4 w-4" />
+              )}
+              Review payment
+            </Button>
+          )}
+
           {paymentProof.documentUrl && onViewDocument && (
             <Button
               type="button"
@@ -121,32 +176,33 @@ export function PaymentProofSection({
           )}
         </div>
 
-        {uploadError && (
+        {activeError && (
           <div
             className="mt-4 flex gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900"
             role="alert"
           >
             <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-red-600" aria-hidden />
             <div>
-              <p className="font-semibold text-red-950">Could not upload payment proof</p>
-              <p className="mt-1 leading-relaxed text-red-800">{uploadError}</p>
+              <p className="font-semibold text-red-950">Could not complete payment action</p>
+              <p className="mt-1 leading-relaxed text-red-800">{activeError}</p>
             </div>
           </div>
         )}
 
         {note && (
-          <p className="mt-4 rounded-lg border border-emerald-100 bg-emerald-50 px-3 py-2 text-sm text-emerald-900">
-            {note}
-          </p>
+          <div className="mt-4 flex gap-3 rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
+            <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" aria-hidden />
+            <p>{note}</p>
+          </div>
         )}
       </section>
 
       {canUpload && (
         <PaymentProofUploadModal
-          open={modalOpen}
+          open={uploadModalOpen}
           onClose={() => {
-            clearError();
-            setModalOpen(false);
+            clearUploadError();
+            setUploadModalOpen(false);
           }}
           applicationNumber={application.applicationNumber}
           ownerSummary={application.ownerSummary}
@@ -154,7 +210,25 @@ export function PaymentProofSection({
           invoiceUrl={application.issuedDocuments?.invoice}
           existingProofUrl={paymentProof.documentUrl}
           existingTransactionId={paymentProof.transactionId}
-          onSubmit={handleSubmit}
+          onSubmit={handleUploadSubmit}
+        />
+      )}
+
+      {canReview && (
+        <PaymentProofReviewModal
+          open={reviewModalOpen}
+          onClose={() => {
+            clearVerifyError();
+            setReviewModalOpen(false);
+          }}
+          applicationNumber={application.applicationNumber}
+          ownerSummary={application.ownerSummary}
+          expectedAmount={paymentProof.expectedAmount}
+          transactionId={paymentProof.transactionId}
+          proofUrl={paymentProof.documentUrl}
+          submittedAt={paymentProof.submittedAt ?? application.updatedAt}
+          onSubmit={handleReviewSubmit}
+          onViewDocument={onViewDocument}
         />
       )}
     </>

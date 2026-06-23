@@ -79,7 +79,9 @@ export function hasActiveListFilters(
 }
 
 function normalizePaymentValue(app: LivestockApplicationListItem): string {
-  return String(app.paidStatus ?? app.paymentProofStatus ?? '').toUpperCase();
+  if (app.paymentProofDocumentUrl?.trim()) return 'SUBMITTED';
+  if (app.status === 'PAYMENT_PROOF_SUBMITTED') return 'SUBMITTED';
+  return String(app.paymentProofStatus ?? app.paidStatus ?? '').toUpperCase();
 }
 
 function buildSearchHaystack(app: LivestockApplicationListItem): string {

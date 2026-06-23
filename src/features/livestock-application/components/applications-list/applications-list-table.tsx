@@ -1,11 +1,15 @@
 'use client';
 
-import { ArrowRight, Loader2 } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { LivestockApplicationStatusBadge } from '@/features/livestock-application/components/shared/application-status-badge';
 import {
   PaymentStatusBadge,
   SubsidyStatusBadge,
 } from '@/features/livestock-application/components/shared/workflow-status-badges';
+import {
+  ApplicationsListRowActions,
+  type ApplicationsListRowActionHandlers,
+} from '@/features/livestock-application/components/applications-list/applications-list-row-actions';
 import { speciesGroupLabel } from '@/features/livestock-application/domain/form-profiles';
 import type { LivestockApplicationListItem } from '@/features/livestock-application/domain/application-types';
 import {
@@ -23,7 +27,7 @@ interface ApplicationsListTableProps {
   isLoading: boolean;
   isVet: boolean;
   emptyMessage: string;
-  onOpen: (app: LivestockApplicationListItem) => void;
+  rowActions: ApplicationsListRowActionHandlers;
 }
 
 export function ApplicationsListTable({
@@ -31,7 +35,7 @@ export function ApplicationsListTable({
   isLoading,
   isVet,
   emptyMessage,
-  onOpen,
+  rowActions,
 }: ApplicationsListTableProps) {
   const colSpan = isVet ? 6 : 7;
 
@@ -46,7 +50,7 @@ export function ApplicationsListTable({
             <th className="px-4 py-3">Coverage</th>
             <th className="px-4 py-3">Value & premium</th>
             <th className="px-4 py-3">Workflow</th>
-            <th className="px-4 py-3" />
+            <th className="px-4 py-3 text-right">Actions</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-100">
@@ -64,11 +68,7 @@ export function ApplicationsListTable({
             </tr>
           ) : (
             applications.map((app) => (
-              <tr
-                key={app._id}
-                className="cursor-pointer hover:bg-slate-50/80"
-                onClick={() => onOpen(app)}
-              >
+              <tr key={app._id} className="hover:bg-slate-50/80">
                 <td className="px-4 py-4">
                   <p className="font-semibold text-slate-900">{app.applicationNumber}</p>
                   <p className="text-xs text-slate-500">{formatSubmittedDateTime(app.submittedAt)}</p>
@@ -89,10 +89,7 @@ export function ApplicationsListTable({
                   <WorkflowCell app={app} />
                 </td>
                 <td className="px-4 py-4 text-right">
-                  <span className="inline-flex items-center gap-1 text-sm font-semibold text-blue-600">
-                    View
-                    <ArrowRight className="h-4 w-4" />
-                  </span>
+                  <ApplicationsListRowActions app={app} handlers={rowActions} />
                 </td>
               </tr>
             ))
@@ -150,7 +147,7 @@ function WorkflowCell({ app }: { app: LivestockApplicationListItem }) {
     <div className="flex max-w-[14rem] flex-col gap-1.5">
       <LivestockApplicationStatusBadge status={app.status} />
       <div className="flex flex-wrap gap-1">
-        <PaymentStatusBadge status={app.paidStatus ?? app.paymentProofStatus} />
+        <PaymentStatusBadge status={app.paymentProofStatus} />
         <SubsidyStatusBadge status={app.subsidyStatus} />
       </div>
     </div>

@@ -160,7 +160,7 @@ export function ApplicationsListFiltersBar({
                 key={item.label}
                 type="button"
                 onClick={() => patch(item.patch)}
-                className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                className={`cursor-pointer rounded-full px-3 py-1 text-xs font-medium transition-colors ${
                   isActive
                     ? 'bg-blue-600 text-white'
                     : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
@@ -208,7 +208,7 @@ export function ApplicationsListFiltersBar({
           <button
             type="button"
             onClick={clearFilters}
-            className="inline-flex items-center gap-1 rounded-lg px-2 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+            className="inline-flex cursor-pointer items-center gap-1 rounded-lg px-2 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900"
           >
             <X className="h-4 w-4" />
             Clear filters

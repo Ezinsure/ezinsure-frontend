@@ -2,6 +2,7 @@
 
 import { Button } from './button';
 import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 
 interface DocumentViewerProps {
   documentName: string;
@@ -14,6 +15,7 @@ export const DocumentViewer = ({
   documentPath, 
   onClose 
 }: DocumentViewerProps) => {
+  const [mounted, setMounted] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [isImage, setIsImage] = useState(false);
@@ -21,6 +23,10 @@ export const DocumentViewer = ({
   const [useEmbedFallback, setUseEmbedFallback] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const loadingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     // Check file type
@@ -181,14 +187,18 @@ export const DocumentViewer = ({
     );
   };
 
-  return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60]">
+  if (!mounted) return null;
+
+  return createPortal(
+    <div className="fixed inset-0 z-[230] flex items-center justify-center bg-black/50">
       <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-4xl mx-4 h-[90vh] flex flex-col">
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-lg font-semibold">Viewing: {documentName}</h3>
           <button
+            type="button"
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600"
+            className="cursor-pointer text-gray-400 hover:text-gray-600"
+            aria-label="Close document viewer"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -270,6 +280,7 @@ export const DocumentViewer = ({
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 };
