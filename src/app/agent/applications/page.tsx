@@ -807,7 +807,7 @@ const [formState, setFormState] = useState<Partial<Application>>(() => {
                           name="chasisNumber"
                           value={formState.chasisNumber || ''}
                           onChange={handleInputChange}
-                          placeholder="Enter vehicle chassis / VIN number"
+                          placeholder="Enter vehicle chassis"
                           className="w-full py-2 px-3 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none"
                         />
                       </div>

@@ -2008,7 +2008,7 @@ export default function AdminNewApplicationPage() {
 
                         name="chasisNumber"
 
-                        placeholder="Enter vehicle chassis / VIN number"
+                        placeholder="Enter vehicle chassis"
 
                         value={formData.chasisNumber}
 

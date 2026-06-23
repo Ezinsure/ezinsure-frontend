@@ -1209,7 +1209,7 @@ export default function ApplyPage() {
                     <Input
                       label="Chassis number"
                       name="chasisNumber"
-                      placeholder="Enter vehicle chassis / VIN number"
+                      placeholder="Enter vehicle chassis"
                       value={formState.chasisNumber}
                       onChange={handleInputChange}
                     />
