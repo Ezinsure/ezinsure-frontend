@@ -14,6 +14,7 @@ import { formatDateUTC, formatDateForExcel as formatDateForExcelUtil, formatTime
 import { carTypes, motoTypes, carUses, motoUses } from '@/utils/vehicle-types';
 import { validateInsuranceDuration, normalizeInsuranceDurationPayload } from '@/utils/insurance-duration';
 import { InsuranceDurationField } from '@/components/ui/insurance-duration-field';
+import { ComesaCheckboxField } from '@/components/ui/comesa-checkbox-field';
 import { NumericInputField } from '@/components/ui/numeric-input-field';
 import { isMotorVehicleInsuranceCategory } from '@/utils/administration-fees';
 import {
@@ -935,17 +936,16 @@ const [formState, setFormState] = useState<Partial<Application>>(() => {
 
                     {/* COMESA Coverage */}
                     {(formState.insuranceCategory === 'Car Insurance' || formState.insuranceCategory === 'Motorbike Insurance') && (
-                      <div className="flex items-center">
-                        <input
-                          type="checkbox"
-                          name="isCOMESA"
-                          checked={formState.isCOMESA || false}
-                          onChange={(e) => setFormState(prev => ({ ...prev, isCOMESA: e.target.checked }))}
-                          className="h-4 w-4 rounded border-gray-300 text-[var(--main-blue)] focus:ring-[var(--main-blue)]"
+                      <div className="md:col-span-2">
+                        <ComesaCheckboxField
+                          checked={Boolean(formState.isCOMESA)}
+                          onChange={(checked) =>
+                            setFormState((prev) => ({ ...prev, isCOMESA: checked }))
+                          }
+                          insuranceCategory={formState.insuranceCategory || ''}
+                          variant="compact"
+                          label="COMESA Coverage"
                         />
-                        <label className="ml-2 block text-sm text-gray-700">
-                          COMESA Coverage
-                        </label>
                       </div>
                     )}
                   </div>

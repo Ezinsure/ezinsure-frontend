@@ -28,6 +28,7 @@ import {
 import { NumericInputField } from '@/components/ui/numeric-input-field';
 import { validateInsuranceDuration, normalizeInsuranceDurationPayload } from '@/utils/insurance-duration';
 import { InsuranceDurationField } from '@/components/ui/insurance-duration-field';
+import { ComesaCheckboxField } from '@/components/ui/comesa-checkbox-field';
 
 // Device tracking utility types and functions
 interface DeviceInfo {
@@ -1389,21 +1390,14 @@ export default function AgentApplyPage() {
                 {/* COMESA Checkbox */}
                 {(formState.insuranceCategory === 'car' || formState.insuranceCategory === 'motorbike') && (
                 <div className="md:col-span-2">
-                  <label className="flex items-center space-x-2">
-                    <input
-                      type="checkbox"
-                      name="isCOMESA"
-                      checked={formState.isCOMESA}
-                      onChange={handleInputChange}
-                      className="rounded h-4 border-gray-300 text-[var(--main-blue)] focus:ring-[var(--main-blue)]"
-                    />
-                    <span className="text-sm font-medium">
-                      Ext. Territorial (COMESA)
-                    </span>
-                  </label>
-                  {errors.isCOMESA && (
-                    <p className="mt-1 text-sm text-[var(--error-red)]">{errors.isCOMESA}</p>
-                  )}
+                  <ComesaCheckboxField
+                    checked={formState.isCOMESA}
+                    onChange={(checked) =>
+                      setFormState((prev) => ({ ...prev, isCOMESA: checked }))
+                    }
+                    insuranceCategory={formState.insuranceCategory}
+                    error={errors.isCOMESA}
+                  />
                 </div>
 
                  )}
