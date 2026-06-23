@@ -8,6 +8,7 @@ import { useToast } from '@/components/ui/toast';
 import { DocumentViewer } from '@/components/ui/document-viewer';
 import { useAuth } from '@/context/AuthContext';
 import { formatDateUTC, formatTime } from '@/utils/date-formatter';
+import { formatPoliceNumberDisplay } from '@/utils/police-number';
 import {
   matchesPerformedByFilter,
   performedByFilterLabel,
@@ -37,6 +38,7 @@ interface Application {
   proofOfPayment?: string;
   paymentInstructions?: string;
   transactionId?: string;
+  policeNumber?: string;
   amount?: number;
   netPremium?: number;
   companyCommission?: number;
@@ -396,6 +398,7 @@ export default function SuperAdminApplicationsPage() {
           app.amount ? `${app.amount.toLocaleString()} RWF` : '0 RWF',
           app.companyCommission ? `${app.companyCommission.toLocaleString()} RWF` : '0 RWF',
           app.agentCommission ? `${app.agentCommission.toLocaleString()} RWF` : '0 RWF',
+          formatPoliceNumberDisplay(app),
           formatDateUTC(app.submittedAt),
           (app.status || '').replace('_', ' ').toUpperCase()
         ];
@@ -404,7 +407,7 @@ export default function SuperAdminApplicationsPage() {
       // Add table
       autoTable.default(doc, {
         head: [
-          ['#', 'Client Name', 'Email', 'Category', 'End Date', 'Performed By', 'Amount', 'Company Comm.', 'Agent Comm.', 'Date', 'Status']
+          ['#', 'Client Name', 'Email', 'Category', 'End Date', 'Performed By', 'Amount', 'Company Comm.', 'Agent Comm.', 'Police Number', 'Date', 'Status']
         ],
         body: tableData,
         startY: filterY + 10,
@@ -437,8 +440,9 @@ export default function SuperAdminApplicationsPage() {
           6: { cellWidth: 25, halign: 'right' }, // Amount
           7: { cellWidth: 25, halign: 'right' }, // Company Comm
           8: { cellWidth: 25, halign: 'right' }, // Agent Comm
-          9: { cellWidth: 25, halign: 'center' }, // Date
-          10: { cellWidth: 25, halign: 'center' }, // Status
+          9: { cellWidth: 22, halign: 'left' }, // Police Number
+          10: { cellWidth: 25, halign: 'center' }, // Date
+          11: { cellWidth: 25, halign: 'center' }, // Status
         },
         alternateRowStyles: {
           fillColor: [245, 245, 245],
@@ -476,7 +480,7 @@ export default function SuperAdminApplicationsPage() {
       const headers = [
         'Client Name', 'Email', 'Phone', 'Insurance Category', 'Insurance Type', 
         'Duration', 'Insurance End Date', 'Performed By', 'Amount (RWF)', 'Company Commission (RWF)', 
-        'Agent Commission (RWF)', 'Date', 'Status', 'Address', 'Province', 'District', 'Sector',
+        'Agent Commission (RWF)', 'Police Number', 'Date', 'Status', 'Address', 'Province', 'District', 'Sector',
         'Device Type', 'OS', 'Browser', 'IP Address', 'City', 'Country', 'Region'
       ];
       
@@ -504,6 +508,7 @@ export default function SuperAdminApplicationsPage() {
           app.amount ? app.amount.toString() : '0',
           app.companyCommission ? app.companyCommission.toString() : '0',
           app.agentCommission ? app.agentCommission.toString() : '0',
+          formatPoliceNumberDisplay(app),
           formatDateUTC(app.submittedAt),
           app.status.replace('_', ' '),
           clientAddress,
@@ -1413,6 +1418,10 @@ export default function SuperAdminApplicationsPage() {
                       <p className="text-sm text-gray-500 mt-1">{selectedApp.transactionId}</p>
                     </div>
                   )}
+                  <div className="bg-white p-4 rounded-lg border border-gray-200">
+                    <p className="text-sm font-medium text-gray-900">Police number</p>
+                    <p className="text-sm text-gray-500 mt-1">{formatPoliceNumberDisplay(selectedApp)}</p>
+                  </div>
                 </div>
               </div>
             )}

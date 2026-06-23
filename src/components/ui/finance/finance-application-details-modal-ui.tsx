@@ -7,6 +7,7 @@ import { useFinanceApi } from './finance-api';
 import { Button } from '@/components/ui/button';
 import { DocumentViewer } from '@/components/ui/document-viewer';
 import { formatDateUTC } from '@/utils/date-formatter';
+import { formatPoliceNumberDisplay } from '@/utils/police-number';
 
 type FinanceDetailsContext = 'accrual' | 'initiated' | 'paid';
 
@@ -226,6 +227,10 @@ export default function FinanceApplicationDetailsModalUI({
                           <p className="font-semibold">{app.insuranceProvider}</p>
                         </div>
                       )}
+                      <div>
+                        <p className="text-sm text-gray-500">Police number</p>
+                        <p className="font-semibold">{formatPoliceNumberDisplay(app)}</p>
+                      </div>
                     </div>
 
                     {(app.insuranceCategory === 'Car Insurance' || app.insuranceCategory === 'MotorBike Insurance') && (

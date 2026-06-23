@@ -393,6 +393,7 @@ export function useFinanceApi() {
           insuranceDuration: typeof raw.insuranceDuration === 'string' ? raw.insuranceDuration : undefined,
           insuranceEndAt: typeof raw.insuranceEndAt === 'string' ? raw.insuranceEndAt : undefined,
           insuranceProvider: typeof raw.insuranceProvider === 'string' ? raw.insuranceProvider : undefined,
+          policeNumber: typeof raw.policeNumber === 'string' ? raw.policeNumber : undefined,
           amount: Number(raw.amount ?? 0),
           companyCommission: Number(raw.companyCommission ?? 0),
           administrationFees: Number(raw.administrationFees ?? 0),

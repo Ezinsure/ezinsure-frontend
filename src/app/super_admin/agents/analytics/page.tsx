@@ -1475,6 +1475,8 @@ export default function AgentAnalyticsPage() {
           agentName={selectedAgent.name}
           agentEmail={selectedAgent.email}
           token={token || ''}
+          initialStartDate={startDate}
+          initialEndDate={endDate}
         />
       )}
       

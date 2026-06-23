@@ -70,6 +70,7 @@ export type FinanceApplication = {
   insuranceDuration?: string;
   insuranceEndAt?: string;
   insuranceProvider?: string;
+  policeNumber?: string;
   isCOMESA?: boolean;
 
   // Client and vehicle

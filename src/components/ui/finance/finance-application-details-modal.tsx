@@ -5,6 +5,7 @@ import { Eye, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { DocumentViewer } from '@/components/ui/document-viewer';
 import { formatDateUTC } from '@/utils/date-formatter';
+import { formatPoliceNumberDisplay } from '@/utils/police-number';
 
 // Keep this type loose so the UI can render as backend fields evolve.
 type PaymentInitiatedApplicationDetails = Record<string, unknown>;
@@ -209,6 +210,12 @@ export default function FinanceApplicationDetailsModal({
                       <p className="text-sm text-gray-600 mt-3">Provider</p>
                       <p className="text-sm font-medium text-gray-900">
                         {renderText(details?.['insuranceProvider'] ?? fallbackApplication?.['insuranceProvider'])}
+                      </p>
+                      <p className="text-sm text-gray-600 mt-3">Police number</p>
+                      <p className="text-sm font-medium text-gray-900">
+                        {formatPoliceNumberDisplay(
+                          (details ?? fallbackApplication) as { policeNumber?: string | null } | null,
+                        )}
                       </p>
                     </div>
                   </div>

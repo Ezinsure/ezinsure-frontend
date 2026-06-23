@@ -445,6 +445,8 @@ export default function AdminNewApplicationPage() {
 
     transactionId: '',
 
+    policeNumber: '',
+
     // Insurance Issuance
 
     insuranceCertificate: null,
@@ -1097,6 +1099,7 @@ export default function AdminNewApplicationPage() {
             administrationFees: calculateAdministrationFeesRwf('Car Insurance', false).toString(),
             proofOfPayment: null,
             transactionId: '',
+            policeNumber: '',
             insuranceCertificate: null,
             contract: null,
             receipt: null,
@@ -2606,6 +2609,24 @@ export default function AdminNewApplicationPage() {
                 </legend>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+                  <div className="md:col-span-2">
+
+                    <Input
+
+                      label="Police number"
+
+                      name="policeNumber"
+
+                      value={formData.policeNumber}
+
+                      onChange={handleInputChange}
+
+                      placeholder="Enter police / policy reference number (if available)"
+
+                    />
+
+                  </div>
 
                   <div>
 

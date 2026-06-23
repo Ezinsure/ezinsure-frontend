@@ -25,6 +25,7 @@ import {
   performedByFilterLabel,
   type PerformedByFilter,
 } from '@/utils/application-performed-by-filter';
+import { formatPoliceNumberDisplay } from '@/utils/police-number';
 
 interface Application {
   _id: string;
@@ -38,6 +39,7 @@ interface Application {
   proofOfPayment?: string;
   paymentInstructions?: string;
   transactionId?: string;
+  policeNumber?: string;
   amount?: number;
   netPremium?: number;
   companyCommission?: number;
@@ -1314,6 +1316,7 @@ export default function AgentApplicationsPage() {
           app.amount ? `${app.amount.toLocaleString()} RWF` : '0 RWF',
           app.companyCommission ? `${app.companyCommission.toLocaleString()} RWF` : '0 RWF',
           app.agentCommission ? `${app.agentCommission.toLocaleString()} RWF` : '0 RWF',
+          formatPoliceNumberDisplay(app),
           formatDate(app.submittedAt),
           (app.status || '').replace('_', ' ').toUpperCase()
         ];
@@ -1322,7 +1325,7 @@ export default function AgentApplicationsPage() {
       // Add table
       autoTable.default(doc, {
         head: [
-          ['#', 'Client Name', 'Email', 'Category', 'Type', 'Performed By', 'Amount', 'Company Comm.', 'Agent Comm.', 'Date', 'Status']
+          ['#', 'Client Name', 'Email', 'Category', 'Type', 'Performed By', 'Amount', 'Company Comm.', 'Agent Comm.', 'Police Number', 'Date', 'Status']
         ],
         body: tableData,
         startY: filterY + 10,
@@ -1355,8 +1358,9 @@ export default function AgentApplicationsPage() {
           6: { cellWidth: 25, halign: 'right' }, // Amount
           7: { cellWidth: 25, halign: 'right' }, // Company Comm
           8: { cellWidth: 25, halign: 'right' }, // Agent Comm
-          9: { cellWidth: 20, halign: 'center' }, // Date
-          10: { cellWidth: 25, halign: 'center' }, // Status
+          9: { cellWidth: 22, halign: 'left' }, // Police Number
+          10: { cellWidth: 20, halign: 'center' }, // Date
+          11: { cellWidth: 25, halign: 'center' }, // Status
         },
         alternateRowStyles: {
           fillColor: [245, 245, 245],
@@ -1410,6 +1414,7 @@ export default function AgentApplicationsPage() {
         'Company Commission (RWF)',
         'Payment Status',
         'Status',
+        'Police Number',
         'Submitted At',
         'Insurance End Date',
         'Created By',
@@ -1438,6 +1443,7 @@ export default function AgentApplicationsPage() {
           app.companyCommission ? app.companyCommission.toString() : '0',
           app.agentCommissionPaymentStatus || 'N/A',
           (app.status || '').replace('_', ' '),
+          formatPoliceNumberDisplay(app),
           formatDateForExcel(app.submittedAt),
           formatDateForExcel(app.insuranceEndAt),
           createdBy,
@@ -2544,6 +2550,10 @@ const getActionButtons = (app: Application) => {
                 )}
                     </div>
                   )}
+                  <div className="bg-white p-3 rounded border">
+                    <p className="text-sm font-medium">Police number</p>
+                    <p className="text-xs text-gray-500">{formatPoliceNumberDisplay(selectedApp)}</p>
+                  </div>
                   
                 </div>
               </div>

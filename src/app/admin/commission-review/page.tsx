@@ -19,6 +19,7 @@ import {
 } from '@/utils/administration-fees';
 import { getVehicleManufactureYearValidationError } from '@/utils/vehicle-year';
 import { formatDateUTC } from '@/utils/date-formatter';
+import { formatPoliceNumberDisplay } from '@/utils/police-number';
 
 interface Application {
   _id: string;
@@ -32,6 +33,7 @@ interface Application {
   proofOfPayment?: string;
   paymentInstructions?: string;
   transactionId?: string;
+  policeNumber?: string;
   amount?: number;
   netPremium?: number;
   companyCommission?: number;
@@ -554,6 +556,7 @@ const buildInitialVisibility = (app: Application, formData: Record<string, strin
   companyCommissionField: hasExistingValue(formData.companyCommission),
   administrationFeesField: hasExistingValue(formData.administrationFees),
   transactionIdField: hasExistingValue(formData.transactionId),
+  policeNumberField: hasExistingValue(formData.policeNumber),
   paymentInstructionsField: hasExistingValue(formData.paymentInstructions),
   statusField: hasExistingValue(formData.status),
   insuranceEndDateField: hasExistingValue(app.insuranceEndAt),
@@ -564,6 +567,7 @@ const buildInitialVisibility = (app: Application, formData: Record<string, strin
   ebmUpload: hasExistingValue(app.ebm),
   proofOfPaymentInfo: hasExistingValue(app.proofOfPayment),
   transactionIdInfo: hasExistingValue(app.transactionId),
+  policeNumberInfo: hasExistingValue(app.policeNumber),
   yellowCardInfo: hasExistingValue(app.yellowCard),
   pastInsuranceCertificateInfo: hasExistingValue(app.pastInsuranceCertificate),
 });
@@ -594,6 +598,7 @@ const getActionButtons = (app: Application) => {
               netPremium: app.netPremium?.toString() || '',
               paymentInstructions: app.paymentInstructions || '',
               transactionId: app.transactionId || '',
+              policeNumber: app.policeNumber || '',
               // Commission Information (Editable)
               companyCommission: app.companyCommission?.toString() || '',
               administrationFees: app.administrationFees || '',
@@ -1206,6 +1211,7 @@ const getActionButtons = (app: Application) => {
   const companyCommissionValue = editFormData ? getFormValue(editFormData.companyCommission) : '';
   const administrationFeesValue = editFormData ? getFormValue(editFormData.administrationFees) : '';
   const transactionIdValue = editFormData ? getFormValue(editFormData.transactionId) : '';
+  const policeNumberValue = editFormData ? getFormValue(editFormData.policeNumber) : '';
   const paymentInstructionsValue = editFormData ? getFormValue(editFormData.paymentInstructions) : '';
 
   const showAmountField = isPersistentlyVisible('amountField') || hasExistingValue(amountValue);
@@ -1214,6 +1220,7 @@ const getActionButtons = (app: Application) => {
   const showCompanyCommissionField = isPersistentlyVisible('companyCommissionField') || hasExistingValue(companyCommissionValue);
   const showAdministrationFeesField = isPersistentlyVisible('administrationFeesField') || hasExistingValue(administrationFeesValue);
   const showTransactionIdField = isPersistentlyVisible('transactionIdField') || hasExistingValue(transactionIdValue);
+  const showPoliceNumberField = isPersistentlyVisible('policeNumberField') || hasExistingValue(policeNumberValue);
   const showPaymentInstructionsField = isPersistentlyVisible('paymentInstructionsField') || hasExistingValue(paymentInstructionsValue);
 
   const showPaymentSection =
@@ -1223,6 +1230,7 @@ const getActionButtons = (app: Application) => {
     showCompanyCommissionField ||
     showAdministrationFeesField ||
     showTransactionIdField ||
+    showPoliceNumberField ||
     showPaymentInstructionsField;
 
   const statusValue = editFormData ? getFormValue(editFormData.status) : '';
@@ -1255,11 +1263,16 @@ const getActionButtons = (app: Application) => {
 
   const showProofOfPaymentInfo = isPersistentlyVisible('proofOfPaymentInfo') || hasExistingValue(editingApp?.proofOfPayment);
   const showTransactionIdInfo = isPersistentlyVisible('transactionIdInfo') || hasExistingValue(editingApp?.transactionId);
+  const showPoliceNumberInfo = isPersistentlyVisible('policeNumberInfo') || hasExistingValue(editingApp?.policeNumber);
   const showYellowCardInfo = isPersistentlyVisible('yellowCardInfo') || hasExistingValue(editingApp?.yellowCard);
   const showPastInsuranceCertificateInfo =
     isPersistentlyVisible('pastInsuranceCertificateInfo') || hasExistingValue(editingApp?.pastInsuranceCertificate);
   const showAgentInfoSection =
-    showProofOfPaymentInfo || showTransactionIdInfo || showYellowCardInfo || showPastInsuranceCertificateInfo;
+    showProofOfPaymentInfo ||
+    showTransactionIdInfo ||
+    showPoliceNumberInfo ||
+    showYellowCardInfo ||
+    showPastInsuranceCertificateInfo;
 
   // ── Download helpers ──────────────────────────────────────────────────────
 
@@ -1278,6 +1291,7 @@ const getActionButtons = (app: Application) => {
     insuranceEndDate: formatDateUTC(app.insuranceEndAt),
     commission: app.agentCommission ?? 0,
     plateNumber: isVehicleCategory(app.insuranceCategory) ? (app.vehicle?.plateNumber || 'N/A') : '',
+    policeNumber: formatPoliceNumberDisplay(app),
   });
 
   const EXPORT_HEADERS = [
@@ -1290,6 +1304,7 @@ const getActionButtons = (app: Application) => {
     'Insurance End Date',
     'Commission (RWF)',
     'Plate Number',
+    'Police Number',
   ];
 
   const handleDownloadPDF = async () => {
@@ -1343,6 +1358,7 @@ const getActionButtons = (app: Application) => {
           r.insuranceEndDate,
           `${r.commission.toLocaleString()} RWF`,
           r.plateNumber,
+          r.policeNumber,
         ];
       });
 
@@ -1362,6 +1378,7 @@ const getActionButtons = (app: Application) => {
           6: { cellWidth: 22, halign: 'center' },  // Insurance End Date
           7: { cellWidth: 26, halign: 'right' },   // Commission
           8: { cellWidth: 20 },                    // Plate Number
+          9: { cellWidth: 22 },                    // Police Number
         },
         alternateRowStyles: { fillColor: [245, 245, 245] },
         margin: { top: 10, right: 8, bottom: 12, left: 8 },
@@ -1398,6 +1415,7 @@ const getActionButtons = (app: Application) => {
             r.insuranceEndDate,
             r.commission.toString(),
             r.plateNumber,
+            r.policeNumber,
           ];
           return cells.map((c) => (String(c).includes(',') ? `"${c}"` : c)).join(',');
         }),
@@ -2268,6 +2286,10 @@ const getActionButtons = (app: Application) => {
                       <p className="text-xs text-gray-500">{selectedApp.transactionId}</p>
                     </div>
                   )}
+                  <div className="bg-white p-3 rounded border">
+                    <p className="text-sm font-medium">Police number</p>
+                    <p className="text-xs text-gray-500">{formatPoliceNumberDisplay(selectedApp)}</p>
+                  </div>
                 </div>
               </div>
             )}
@@ -2694,6 +2716,18 @@ const getActionButtons = (app: Application) => {
                         />
                       </div>
                     )}
+                    {showPoliceNumberField && (
+                      <div>
+                        <label className="block text-xs font-medium mb-1">Police number</label>
+                        <input
+                          type="text"
+                          name="policeNumber"
+                          value={policeNumberValue}
+                          onChange={handleEditInputChange}
+                          className="w-full py-1.5 px-2 text-xs rounded-lg focus:outline-none border border-gray-300 focus:border-[var(--main-blue)]"
+                        />
+                      </div>
+                    )}
                     {showPaymentInstructionsField && (
                       <div className="md:col-span-2">
                         <label className="block text-xs font-medium mb-1">Payment Instructions</label>
@@ -2820,6 +2854,12 @@ const getActionButtons = (app: Application) => {
                       <div className="bg-white p-2 rounded border">
                         <p className="text-xs font-medium">Transaction ID</p>
                         <p className="text-[10px] text-gray-500">{editingApp.transactionId}</p>
+                      </div>
+                    )}
+                    {showPoliceNumberInfo && (
+                      <div className="bg-white p-2 rounded border">
+                        <p className="text-xs font-medium">Police number</p>
+                        <p className="text-[10px] text-gray-500">{formatPoliceNumberDisplay(editingApp)}</p>
                       </div>
                     )}
                     {showYellowCardInfo && (

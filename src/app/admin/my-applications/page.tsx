@@ -9,6 +9,7 @@ import { DocumentViewer } from '@/components/ui/document-viewer';
 import { useAuth } from '@/context/AuthContext';
 import { useApiClient } from '@/utils/apiClient';
 import { formatDateUTC } from '@/utils/date-formatter';
+import { formatPoliceNumberDisplay } from '@/utils/police-number';
 import {
   matchesPerformedByFilter,
   performedByFilterLabel,
@@ -39,6 +40,7 @@ interface Application {
   proofOfPayment?: string;
   paymentInstructions?: string;
   transactionId?: string;
+  policeNumber?: string;
   amount?: number;
   netPremium?: number;
   companyCommission?: number;
@@ -398,6 +400,7 @@ export default function AdminMyApplicationsPage() {
           app.amount ? `${app.amount.toLocaleString()} RWF` : '0 RWF',
           app.companyCommission ? `${app.companyCommission.toLocaleString()} RWF` : '0 RWF',
           app.agentCommission ? `${app.agentCommission.toLocaleString()} RWF` : '0 RWF',
+          formatPoliceNumberDisplay(app),
           formatDateForPDF(app.submittedAt),
           (app.status || '').replace('_', ' ').toUpperCase(),
         ];
@@ -415,6 +418,7 @@ export default function AdminMyApplicationsPage() {
             'Amount',
             'Company Comm.',
             'Agent Comm.',
+            'Police Number',
             'Date',
             'Status',
           ],
@@ -450,8 +454,9 @@ export default function AdminMyApplicationsPage() {
           6: { cellWidth: 25, halign: 'right' },
           7: { cellWidth: 25, halign: 'right' },
           8: { cellWidth: 25, halign: 'right' },
-          9: { cellWidth: 25, halign: 'center' },
+          9: { cellWidth: 22, halign: 'left' },
           10: { cellWidth: 25, halign: 'center' },
+          11: { cellWidth: 25, halign: 'center' },
         },
         alternateRowStyles: {
           fillColor: [245, 245, 245],
@@ -514,6 +519,7 @@ export default function AdminMyApplicationsPage() {
         'Amount (RWF)',
         'Company Commission (RWF)',
         'Agent Commission (RWF)',
+        'Police Number',
         'Date',
         'Status',
         'Address',
@@ -548,6 +554,7 @@ export default function AdminMyApplicationsPage() {
           app.amount ? app.amount.toString() : '0',
           app.companyCommission ? app.companyCommission.toString() : '0',
           app.agentCommission ? app.agentCommission.toString() : '0',
+          formatPoliceNumberDisplay(app),
           formatDateForExcel(app.submittedAt),
           (app.status || '').replace('_', ' '),
           clientAddress,
@@ -1377,6 +1384,10 @@ export default function AdminMyApplicationsPage() {
                       <p className="text-sm text-gray-500 mt-1">{selectedApp.transactionId}</p>
                     </div>
                   )}
+                  <div className="bg-white p-4 rounded-lg border border-gray-200">
+                    <p className="text-sm font-medium text-gray-900">Police number</p>
+                    <p className="text-sm text-gray-500 mt-1">{formatPoliceNumberDisplay(selectedApp)}</p>
+                  </div>
                 </div>
               </div>
             )}
