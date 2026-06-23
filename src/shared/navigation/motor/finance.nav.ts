@@ -6,6 +6,7 @@ import {
   UserCircle,
   BarChart3,
   ClipboardList,
+  Building2,
 } from 'lucide-react';
 import type { NavGroup } from '@/shared/navigation/types';
 
@@ -17,6 +18,7 @@ export const motorFinanceNavigation: NavGroup[] = [
       { href: `${base}/dashboard`, label: 'Dashboard', icon: LayoutDashboard },
       { href: `${base}/agents/analytics`, label: 'Agent Analytics', icon: BarChart3 },
       { href: `${base}/commission-review`, label: 'Commission Review', icon: ClipboardList },
+      { href: `${base}/company-performance`, label: 'Company Performance', icon: Building2 },
       { href: `${base}/payments`, label: 'Payments', icon: Wallet },
       { href: `${base}/payment-initiated`, label: 'Initiated Payments', icon: Clock },
       { href: `${base}/history`, label: 'Payment History', icon: History },
