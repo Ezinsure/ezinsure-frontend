@@ -21,7 +21,7 @@ export function LivestockApplicationStatusBadge({
 
   return (
     <span
-      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1 ring-inset ${colors.bg} ${colors.text} ${colors.ring} ${className}`}
+      className={`inline-flex w-max max-w-full items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1 ring-inset ${colors.bg} ${colors.text} ${colors.ring} ${className}`}
     >
       {label}
     </span>

@@ -144,7 +144,7 @@ function ValueCell({ app }: { app: LivestockApplicationListItem }) {
 
 function WorkflowCell({ app }: { app: LivestockApplicationListItem }) {
   return (
-    <div className="flex max-w-[14rem] flex-col gap-1.5">
+    <div className="flex max-w-[14rem] flex-col items-start gap-1.5">
       <LivestockApplicationStatusBadge status={app.status} />
       <div className="flex flex-wrap gap-1">
         <PaymentStatusBadge status={app.paymentProofStatus} />
