@@ -7,6 +7,7 @@ import { useFinanceApi } from './finance-api';
 import { Button } from '@/components/ui/button';
 import { DocumentViewer } from '@/components/ui/document-viewer';
 import { formatDateUTC } from '@/utils/date-formatter';
+import { formatChasisNumberDisplay } from '@/utils/chasis-number';
 import { formatPoliceNumberDisplay } from '@/utils/police-number';
 
 type FinanceDetailsContext = 'accrual' | 'initiated' | 'paid';
@@ -252,6 +253,10 @@ export default function FinanceApplicationDetailsModalUI({
                             <div>
                               <p className="text-sm text-gray-500">Plate Number</p>
                               <p className="font-semibold">{app.vehicle?.plateNumber || 'N/A'}</p>
+                            </div>
+                            <div>
+                              <p className="text-sm text-gray-500">Chassis number</p>
+                              <p className="font-semibold">{formatChasisNumberDisplay(app)}</p>
                             </div>
                           </div>
                         )}

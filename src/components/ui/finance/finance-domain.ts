@@ -40,6 +40,7 @@ export type FinanceClient = {
 
 export type FinanceVehicle = {
   plateNumber?: string;
+  chasisNumber?: string;
   vehicleType?: string;
   vehicleAge?: string;
   vehicleUse?: string;
@@ -71,6 +72,7 @@ export type FinanceApplication = {
   insuranceEndAt?: string;
   insuranceProvider?: string;
   policeNumber?: string;
+  chasisNumber?: string;
   isCOMESA?: boolean;
 
   // Client and vehicle

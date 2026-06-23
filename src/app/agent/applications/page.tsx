@@ -27,6 +27,7 @@ import {
   type PerformedByFilter,
 } from '@/utils/application-performed-by-filter';
 import { formatPoliceNumberDisplay } from '@/utils/police-number';
+import { formatChasisNumberDisplay } from '@/utils/chasis-number';
 
 interface Application {
   _id: string;
@@ -81,6 +82,7 @@ interface Application {
     vehicleType: string;
     vehicleAge: string;
     plateNumber?: string;
+    chasisNumber?: string;
     vehicleUse: string;
     otherVehicleUse?: string;
     createdAt: string;
@@ -100,6 +102,7 @@ interface Application {
   vehicleType?: string;
   vehicleAge?: string;
   plateNumber?: string;
+  chasisNumber?: string;
   nationalID?: string;
   identificationDocumentType?: string;
   identificationNumber?: string;
@@ -183,6 +186,7 @@ const [formState, setFormState] = useState<Partial<Application>>(() => {
     vehicleType: application.vehicle?.vehicleType || application.vehicleType,
     vehicleAge: application.vehicle?.vehicleAge || application.vehicleAge,
     plateNumber: (application.vehicle?.plateNumber || application.plateNumber || '') as string,
+    chasisNumber: (application.chasisNumber || application.vehicle?.chasisNumber || '') as string,
     vehicleUse: vehicleUse,
     otherVehicleUse: otherVehicleUse,
     isCOMESA: application.isCOMESA,
@@ -436,7 +440,7 @@ const [formState, setFormState] = useState<Partial<Application>>(() => {
               key === 'nationalID' || key === 'identificationDocumentType' || key === 'identificationNumber') {
             // Client fields - check nested client object first
             originalValue = application.client?.[key as keyof typeof application.client] || application[key as keyof Application];
-          } else if (key === 'vehicleType' || key === 'vehicleAge' || key === 'plateNumber') {
+          } else if (key === 'vehicleType' || key === 'vehicleAge' || key === 'plateNumber' || key === 'chasisNumber') {
             // Vehicle fields - check nested vehicle object first
             originalValue = application.vehicle?.[key as keyof typeof application.vehicle] || application[key as keyof Application];
           } else {
@@ -794,6 +798,20 @@ const [formState, setFormState] = useState<Partial<Application>>(() => {
                         <p className="mt-1 text-sm text-red-600">{errors.insuranceProvider}</p>
                       )}
                     </div>
+
+                    {(formState.insuranceCategory === 'Car Insurance' || formState.insuranceCategory === 'Motorbike Insurance') && (
+                      <div>
+                        <label className="block text-sm font-medium mb-1">Chassis number</label>
+                        <input
+                          type="text"
+                          name="chasisNumber"
+                          value={formState.chasisNumber || ''}
+                          onChange={handleInputChange}
+                          placeholder="Enter vehicle chassis / VIN number"
+                          className="w-full py-2 px-3 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none"
+                        />
+                      </div>
+                    )}
 
                     {/* Vehicle Type (only shown for car/motorbike insurance) */}
                     {(formState.insuranceCategory === 'Car Insurance' || formState.insuranceCategory === 'Motorbike Insurance') && (
@@ -2385,6 +2403,16 @@ const getActionButtons = (app: Application) => {
         </p>
       </div>
     )}
+    {(selectedApp.vehicle?.plateNumber || selectedApp.plateNumber) && (
+      <div>
+        <p className="text-sm text-gray-500">Plate Number</p>
+        <p className="font-semibold">{selectedApp.vehicle?.plateNumber || selectedApp.plateNumber}</p>
+      </div>
+    )}
+    <div>
+      <p className="text-sm text-gray-500">Chassis number</p>
+      <p className="font-semibold">{formatChasisNumberDisplay(selectedApp)}</p>
+    </div>
   </div>
 )}
             </div>

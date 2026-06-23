@@ -30,6 +30,7 @@ import {
   type PerformedByFilter,
 } from '@/utils/application-performed-by-filter';
 import { formatPoliceNumberDisplay, resolvePoliceNumber } from '@/utils/police-number';
+import { formatChasisNumberDisplay } from '@/utils/chasis-number';
 
 export default function ManageApplicationsPage() {
   const { showToast, ToastContainer } = useToast();
@@ -2074,6 +2075,10 @@ const getActionButtons = (app: Application) => {
                 <p className="font-semibold">{selectedApp.vehicle.plateNumber}</p>
               </div>
             )}
+            <div>
+              <p className="text-sm text-gray-500">Chassis number</p>
+              <p className="font-semibold">{formatChasisNumberDisplay(selectedApp)}</p>
+            </div>
           </div>
         )}
         
@@ -2826,6 +2831,10 @@ const getActionButtons = (app: Application) => {
                 <p className="font-semibold">{selectedApp.vehicle.plateNumber}</p>
               </div>
             )}
+            <div>
+              <p className="text-sm text-gray-500">Chassis number</p>
+              <p className="font-semibold">{formatChasisNumberDisplay(selectedApp)}</p>
+            </div>
           </div>
         )}
         

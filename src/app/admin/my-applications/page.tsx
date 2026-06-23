@@ -10,6 +10,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useApiClient } from '@/utils/apiClient';
 import { formatDateUTC } from '@/utils/date-formatter';
 import { formatPoliceNumberDisplay } from '@/utils/police-number';
+import { formatChasisNumberDisplay } from '@/utils/chasis-number';
 import {
   matchesPerformedByFilter,
   performedByFilterLabel,
@@ -80,6 +81,7 @@ interface Application {
     vehicleType: string;
     vehicleAge: string;
     plateNumber?: string;
+    chasisNumber?: string;
     vehicleUse: string;
     otherVehicleUse?: string;
     createdAt: string;
@@ -102,6 +104,7 @@ interface Application {
   vehicleType?: string;
   vehicleAge?: string;
   plateNumber?: string;
+  chasisNumber?: string;
   province?: string;
   district?: string;
   sector?: string;
@@ -1156,6 +1159,10 @@ export default function AdminMyApplicationsPage() {
                         <p className="font-medium text-gray-900">{selectedApp.vehicle?.plateNumber || selectedApp.plateNumber}</p>
                       </div>
                     )}
+                    <div>
+                      <p className="text-sm text-gray-500 mb-1">Chassis number</p>
+                      <p className="font-medium text-gray-900">{formatChasisNumberDisplay(selectedApp)}</p>
+                    </div>
                     {(selectedApp.vehicle?.vehicleUse || selectedApp.vehicleUse) && (
                       <div>
                         <p className="text-sm text-gray-500 mb-1">Vehicle Use</p>

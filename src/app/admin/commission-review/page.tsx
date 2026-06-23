@@ -20,6 +20,7 @@ import {
 import { getVehicleManufactureYearValidationError } from '@/utils/vehicle-year';
 import { formatDateUTC } from '@/utils/date-formatter';
 import { formatPoliceNumberDisplay } from '@/utils/police-number';
+import { formatChasisNumberDisplay } from '@/utils/chasis-number';
 
 interface Application {
   _id: string;
@@ -79,6 +80,7 @@ interface Application {
     vehicleType: string;
     vehicleAge: string;
     plateNumber?: string;
+    chasisNumber?: string;
     vehicleUse: string;
     otherVehicleUse?: string;
     createdAt: string;
@@ -92,6 +94,7 @@ interface Application {
   vehicleId?: string;
   agentId?: string;
   isCOMESA?: boolean;
+  chasisNumber?: string;
 }
 
 type CommissionReviewTab = 'pending_review' | 'ready_to_be_paid';
@@ -157,6 +160,7 @@ function normalizeCommissionRow(raw: unknown): Application {
       vehicleType: (r.vehicleType as string) || '',
       vehicleAge: (r.vehicleAge as string) || '',
       plateNumber: r.plateNumber as string | undefined,
+      chasisNumber: r.chasisNumber as string | undefined,
       vehicleUse: (r.vehicleUse as string) || '',
       otherVehicleUse: r.otherVehicleUse as string | undefined,
       createdAt: '',
@@ -2107,6 +2111,10 @@ const getActionButtons = (app: Application) => {
                       <p className="font-semibold">{selectedApp.vehicle.plateNumber}</p>
                     </div>
                   )}
+                  <div>
+                    <p className="text-sm text-gray-500">Chassis number</p>
+                    <p className="font-semibold">{formatChasisNumberDisplay(selectedApp)}</p>
+                  </div>
                 </div>
               )}
 

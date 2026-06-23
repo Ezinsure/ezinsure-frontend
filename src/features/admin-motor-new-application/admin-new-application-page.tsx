@@ -249,6 +249,7 @@ export default function AdminNewApplicationPage() {
       vehicleUse: (data.vehicleUse as string) || prev.vehicleUse,
       otherVehicleUse: (data.otherVehicleUse as string) || prev.otherVehicleUse,
       plateNumber: (data.plateNumber as string) || prev.plateNumber,
+      chasisNumber: (data.chasisNumber as string) || prev.chasisNumber,
       // Document URLs (for viewing existing documents)
       identificationDocumentUrl: (data.identificationDocumentUrl as string) || '',
       yellowCardUrl: (data.yellowCardUrl as string) || '',
@@ -302,6 +303,7 @@ export default function AdminNewApplicationPage() {
       vehicleUse: (data.vehicleUse as string) || prev.vehicleUse,
       otherVehicleUse: (data.otherVehicleUse as string) || prev.otherVehicleUse,
       plateNumber: (data.plateNumber as string) || prev.plateNumber,
+      chasisNumber: (data.chasisNumber as string) || prev.chasisNumber,
       vehicleId: (data.vehicleId as string) || prev.vehicleId,
       yellowCardUrl: (data.yellowCardUrl as string) || '',
       pastInsuranceCertificateUrl: (data.pastInsuranceCertificateUrl as string) || '',
@@ -390,6 +392,7 @@ export default function AdminNewApplicationPage() {
     insuranceProvider: 'SONARWA',
     isCOMESA: false,
     plateNumber: '',
+    chasisNumber: '',
     // Vehicle Information
     vehicleType: '',
     vehicleAge: '',
@@ -688,6 +691,7 @@ export default function AdminNewApplicationPage() {
         otherVehicleUse: '',
 
         plateNumber: '',
+        chasisNumber: '',
 
         vehicleId: '',
 
@@ -733,8 +737,9 @@ export default function AdminNewApplicationPage() {
         const next = {
           ...prev,
           [name]: value,
-          plateNumber: '',
-          vehicleType: '',
+    plateNumber: '',
+    chasisNumber: '',
+    vehicleType: '',
           vehicleAge: '',
           vehicleUse: '',
           otherVehicleUse: '',
@@ -1083,8 +1088,9 @@ export default function AdminNewApplicationPage() {
             insuranceDuration: '1 Month',
             insuranceProvider: 'SONARWA',
             isCOMESA: false,
-            plateNumber: '',
-            vehicleType: '',
+    plateNumber: '',
+    chasisNumber: '',
+    vehicleType: '',
             vehicleAge: '',
             vehicleUse: '',
             otherVehicleUse: '',
@@ -1985,6 +1991,28 @@ export default function AdminNewApplicationPage() {
                         error={errors.vehicleAge}
 
                         required
+
+                      />
+
+                    </div>
+
+                  )}
+
+                  {(formData.insuranceCategory === 'Car Insurance' || formData.insuranceCategory === 'MotorBike Insurance') && (
+
+                    <div>
+
+                      <Input
+
+                        label="Chassis number"
+
+                        name="chasisNumber"
+
+                        placeholder="Enter vehicle chassis / VIN number"
+
+                        value={formData.chasisNumber}
+
+                        onChange={handleInputChange}
 
                       />
 

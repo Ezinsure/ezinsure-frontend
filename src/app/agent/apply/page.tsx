@@ -246,6 +246,7 @@ export default function AgentApplyPage() {
     insuranceProvider: 'SONARWA',
     // New fields
     plateNumber: '',
+    chasisNumber: '',
     identificationDocumentType: 'nationalID',
     identificationNumber: '',
     // API response fields
@@ -413,6 +414,7 @@ export default function AgentApplyPage() {
         vehicleUse: '',
         otherVehicleUse: '',
         plateNumber: '',
+        chasisNumber: '',
         vehicleId: '',
         // Clear document URLs
         identificationDocumentUrl: '',
@@ -440,8 +442,9 @@ export default function AgentApplyPage() {
         ...prev,
         [name]: value,
         // Clear only vehicle-related fields (not client info)
-        plateNumber: '',
-        vehicleType: '',
+    plateNumber: '',
+    chasisNumber: '',
+    vehicleType: '',
         vehicleAge: '',
         vehicleUse: '',
         otherVehicleUse: '',
@@ -526,6 +529,7 @@ export default function AgentApplyPage() {
       vehicleUse: (data.vehicleUse as string) || prev.vehicleUse,
       otherVehicleUse: (data.otherVehicleUse as string) || prev.otherVehicleUse,
       plateNumber: (data.plateNumber as string) || prev.plateNumber,
+      chasisNumber: (data.chasisNumber as string) || prev.chasisNumber,
       // Document URLs (for viewing existing documents)
       identificationDocumentUrl: (data.identificationDocumentUrl as string) || '',
       yellowCardUrl: (data.yellowCardUrl as string) || '',
@@ -583,6 +587,7 @@ export default function AgentApplyPage() {
       vehicleUse: (data.vehicleUse as string) || prev.vehicleUse,
       otherVehicleUse: (data.otherVehicleUse as string) || prev.otherVehicleUse,
       plateNumber: (data.plateNumber as string) || prev.plateNumber,
+      chasisNumber: (data.chasisNumber as string) || prev.chasisNumber,
       vehicleId: (data.vehicleId as string) || prev.vehicleId,
       yellowCardUrl: (data.yellowCardUrl as string) || '',
       pastInsuranceCertificateUrl: (data.pastInsuranceCertificateUrl as string) || '',
@@ -762,6 +767,9 @@ export default function AgentApplyPage() {
         if (formState.insuranceCategory === 'car' || formState.insuranceCategory === 'motorbike') {
           formData.append('vehicleType', formState.vehicleType);
           formData.append('vehicleAge', formState.vehicleAge);
+          if (formState.chasisNumber?.trim()) {
+            formData.append('chasisNumber', formState.chasisNumber.trim());
+          }
           
           // Handle vehicle use with "Other" option
           const vehicleUse = formState.vehicleUse === 'Other' 
@@ -852,6 +860,7 @@ export default function AgentApplyPage() {
           insuranceProvider: 'SONARWA',
           // Reset new fields
           plateNumber: '',
+        chasisNumber: '',
           identificationDocumentType: 'nationalID',
           identificationNumber: '',
           // Reset document URLs
@@ -976,6 +985,7 @@ export default function AgentApplyPage() {
                           vehicleUse: '',
                           otherVehicleUse: '',
                           plateNumber: '',
+        chasisNumber: '',
                           vehicleId: '',
                           // Clear document URLs
                           identificationDocumentUrl: '',
@@ -1336,6 +1346,18 @@ export default function AgentApplyPage() {
                       maxDigits={4}
                       error={errors.vehicleAge}
                       required
+                    />
+                  </div>
+                )}
+
+                {(formState.insuranceCategory === 'car' || formState.insuranceCategory === 'motorbike') && (
+                  <div>
+                    <Input
+                      label="Chassis number"
+                      name="chasisNumber"
+                      placeholder="Enter vehicle chassis / VIN number"
+                      value={formState.chasisNumber}
+                      onChange={handleInputChange}
                     />
                   </div>
                 )}

@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { DocumentViewer } from '@/components/ui/document-viewer';
 import { formatDateUTC } from '@/utils/date-formatter';
 import { formatPoliceNumberDisplay } from '@/utils/police-number';
+import { formatChasisNumberDisplay } from '@/utils/chasis-number';
 
 // Keep this type loose so the UI can render as backend fields evolve.
 type PaymentInitiatedApplicationDetails = Record<string, unknown>;
@@ -215,6 +216,12 @@ export default function FinanceApplicationDetailsModal({
                       <p className="text-sm font-medium text-gray-900">
                         {formatPoliceNumberDisplay(
                           (details ?? fallbackApplication) as { policeNumber?: string | null } | null,
+                        )}
+                      </p>
+                      <p className="text-sm text-gray-600 mt-3">Chassis number</p>
+                      <p className="text-sm font-medium text-gray-900">
+                        {formatChasisNumberDisplay(
+                          (details ?? fallbackApplication) as { chasisNumber?: string | null; vehicle?: { chasisNumber?: string | null } } | null,
                         )}
                       </p>
                     </div>
