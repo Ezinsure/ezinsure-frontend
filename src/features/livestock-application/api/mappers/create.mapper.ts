@@ -9,7 +9,7 @@ import { LivestockApiError } from '@/features/livestock-application/api/http';
 function mapOwner(
   owner: NonNullable<CreateLivestockApplicationPayload['owner']>,
 ): NewLivestockApplicationBody['owner'] {
-  return {
+  const mapped: NonNullable<NewLivestockApplicationBody['owner']> = {
     name: owner.name.trim(),
     phone: owner.phone.trim(),
     district: owner.district.trim(),
@@ -17,6 +17,10 @@ function mapOwner(
     cell: owner.cell.trim(),
     village: owner.village.trim(),
   };
+  if (owner.nationalId?.trim()) mapped.nationalId = owner.nationalId.trim();
+  if (owner.gender) mapped.gender = owner.gender;
+  if (owner.province?.trim()) mapped.province = owner.province.trim();
+  return mapped;
 }
 
 function mapLivestockLocation(
@@ -56,6 +60,7 @@ function mapLine(
       productivity: line.animal.productivity,
       hatcherySource: line.animal.hatcherySource,
       poultryProductType: line.animal.poultryProductType,
+      vaccinationInfo: line.animal.vaccinationInfo,
     }),
   };
 
@@ -68,6 +73,12 @@ function mapLine(
       name: line.owner.name.trim(),
       phone: line.owner.phone.trim(),
     };
+    if (line.owner.nationalId?.trim()) {
+      mapped.owner.nationalId = line.owner.nationalId.trim();
+    }
+    if (line.owner.gender) {
+      mapped.owner.gender = line.owner.gender;
+    }
   }
 
   return mapped;
@@ -106,6 +117,10 @@ export function toNewApplicationBody(
 
   if (payload.ownerMode === 'SINGLE_OWNER' && payload.owner) {
     body.owner = mapOwner(payload.owner);
+  }
+
+  if (payload.girinka) {
+    body.girinka = payload.girinka;
   }
 
   return body;

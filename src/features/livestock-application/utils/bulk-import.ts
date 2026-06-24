@@ -48,6 +48,12 @@ const HEADER_ALIASES: Record<string, keyof LivestockAnimalRow> = {
   sumassured: 'sumAssured',
   estimatedvalue: 'sumAssured',
   agaciro: 'sumAssured',
+  vaccinationinfo: 'vaccinationInfo',
+  amakuruyogukingira: 'vaccinationInfo',
+  ownernationalid: 'ownerNationalId',
+  indangamuntu: 'ownerNationalId',
+  ownergender: 'ownerGender',
+  igitsina: 'ownerGender',
 };
 
 export interface BulkImportResult {
@@ -111,7 +117,13 @@ export function parseLivestockBulkCsv(text: string): BulkImportResult {
         item.poultryProductType = raw as LivestockAnimalRow['poultryProductType'];
         return;
       }
-      item[field] = raw;
+      if (field === 'ownerGender') {
+        const normalized = raw.trim().toLowerCase();
+        if (normalized === 'male' || normalized === 'gabo') item.ownerGender = 'male';
+        else if (normalized === 'female' || normalized === 'gore') item.ownerGender = 'female';
+        return;
+      }
+      (item as Record<string, string>)[field] = raw;
     });
     if (!item.chipNumber.trim()) {
       errors.push(`Umurongo ${r + 1}: Eartag irabura.`);

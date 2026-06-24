@@ -1,3 +1,23 @@
+export const LIVESTOCK_BREED_OPTIONS = [
+  { value: 'Boran', label: 'Boran' },
+  { value: 'Brown swiss', label: 'Brown swiss' },
+  { value: 'Exotic', label: 'Exotic' },
+  { value: 'Fresian', label: 'Fresian' },
+  { value: 'Jersey', label: 'Jersey' },
+  { value: 'Local', label: 'Local' },
+  { value: 'Other', label: 'Other' },
+] as const;
+
+export const GIRINKA_OPTIONS = [
+  { value: 'yes', label: 'Yego' },
+  { value: 'no', label: 'Oya' },
+] as const;
+
+export const OWNER_GENDER_OPTIONS = [
+  { value: 'male', label: 'GABO' },
+  { value: 'female', label: 'GORE' },
+] as const;
+
 /** Maps to API `animalType` / Tekana `Type` where applicable */
 export const LIVESTOCK_ANIMAL_TYPE_OPTIONS = [
   { value: 'Inka', label: 'Inka' },
@@ -27,6 +47,7 @@ export const LIVESTOCK_BULK_IMPORT_HEADERS = [
   'animalAge',
   'chipNumber',
   'breed',
+  'vaccinationInfo',
   'color',
   'productivity',
   'sumAssured',

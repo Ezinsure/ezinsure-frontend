@@ -19,11 +19,15 @@ export interface NewLivestockApplicationBody {
   owner?: {
     name: string;
     phone: string;
+    nationalId?: string;
+    gender?: 'male' | 'female';
     district: string;
     sector: string;
     cell: string;
     village: string;
+    province?: string;
   };
+  girinka?: 'yes' | 'no';
   livestockLocation: {
     district: string;
     sector: string;
@@ -44,7 +48,7 @@ export interface NewLivestockApplicationBody {
     unitValue: number;
     sumAssured: number;
     tekanaEligible: boolean;
-    owner?: { name: string; phone: string };
+    owner?: { name: string; phone: string; nationalId?: string; gender?: 'male' | 'female' };
     animal: Record<string, string>;
   }>;
 }

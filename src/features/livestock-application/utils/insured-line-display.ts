@@ -3,12 +3,17 @@ import type {
   LivestockApplicationPackage,
   LivestockOwnerMode,
 } from '@/features/livestock-application/domain/application-types';
+import { LIVESTOCK_FORM_LABELS } from '@/features/livestock-application/labels';
 import { formatRwfDisplay } from '@/features/livestock-application/utils/format-rwf';
+import { formatOwnerGenderDisplay } from '@/features/livestock-application/utils/display-formatters';
 
 export interface AggregatedOwner {
   key: string;
   name: string;
   phone?: string;
+  nationalId?: string;
+  gender?: 'male' | 'female';
+  address?: string;
   lineCount: number;
   totalSumAssured: number;
 }
@@ -52,6 +57,8 @@ export function aggregateOwnersFromPackage(
         key: owner.id || owner.phone || owner.name,
         name: owner.name,
         phone: owner.phone,
+        nationalId: owner.nationalId,
+        gender: owner.gender,
         lineCount:
           matchingLines.length > 0
             ? matchingLines.reduce(
@@ -116,6 +123,8 @@ export function aggregateOwnersFromLines(
         key,
         name,
         phone,
+        nationalId: line.owner?.nationalId,
+        gender: line.owner?.gender,
         lineCount: line.lineType === 'LOT' ? 1 : line.quantity,
         totalSumAssured: line.sumAssured,
       });
@@ -145,6 +154,18 @@ export function buildLineDetailFields(line: InsuredLinePayload): { label: string
   fields.push({ label: 'Line type', value: isLot ? 'Lot (poultry)' : 'Individual animal' });
   if (line.owner?.name) fields.push({ label: 'Owner', value: line.owner.name });
   if (line.owner?.phone) fields.push({ label: 'Phone', value: line.owner.phone });
+  if (line.owner?.nationalId) {
+    fields.push({
+      label: LIVESTOCK_FORM_LABELS.fields.ownerNationalId,
+      value: line.owner.nationalId,
+    });
+  }
+  if (line.owner?.gender) {
+    fields.push({
+      label: LIVESTOCK_FORM_LABELS.fields.ownerGender,
+      value: formatOwnerGenderDisplay(line.owner.gender),
+    });
+  }
   fields.push({ label: 'Species', value: line.animal.species });
   if (line.animal.chipNumber) fields.push({ label: 'Eartag / lot ID', value: line.animal.chipNumber });
   if (line.animal.hatcherySource) fields.push({ label: 'Hatchery source', value: line.animal.hatcherySource });
@@ -156,9 +177,17 @@ export function buildLineDetailFields(line: InsuredLinePayload): { label: string
   }
   if (line.animal.breed) fields.push({ label: 'Breed', value: line.animal.breed });
   if (line.animal.animalCategory) fields.push({ label: 'Category', value: line.animal.animalCategory });
-  if (line.animal.animalAge) fields.push({ label: 'Age (years)', value: line.animal.animalAge });
+  if (line.animal.animalAge) {
+    fields.push({ label: LIVESTOCK_FORM_LABELS.fields.animalAge, value: line.animal.animalAge });
+  }
   if (line.animal.color) fields.push({ label: 'Color', value: line.animal.color });
   if (line.animal.productivity) fields.push({ label: 'Productivity', value: line.animal.productivity });
+  if (line.animal.vaccinationInfo) {
+    fields.push({
+      label: LIVESTOCK_FORM_LABELS.fields.vaccinationInfo,
+      value: line.animal.vaccinationInfo,
+    });
+  }
   if (isLot) {
     fields.push({ label: 'Quantity', value: String(line.quantity) });
     fields.push({ label: 'Unit value', value: formatRwfDisplay(line.unitValue) });

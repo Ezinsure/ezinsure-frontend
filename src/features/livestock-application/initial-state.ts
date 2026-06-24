@@ -11,6 +11,7 @@ export function isLivestockRowEmpty(row: LivestockAnimalRow): boolean {
     !row.animalAge.trim() &&
     !row.chipNumber.trim() &&
     !row.breed.trim() &&
+    !row.vaccinationInfo?.trim() &&
     !row.color.trim() &&
     !row.productivity.trim() &&
     !row.sumAssured.trim()
@@ -33,6 +34,7 @@ export function createEmptyLivestockItem(): LivestockAnimalRow {
     animalAge: '',
     chipNumber: '',
     breed: '',
+    vaccinationInfo: '',
     color: '',
     productivity: '',
     sumAssured: '',
@@ -49,7 +51,9 @@ export function createInitialLivestockApplicationValues(): LivestockApplicationF
     isFirstApplication: false,
     isRenewal: false,
     nationalId: '',
+    ownerGender: '',
     ownerPhone: '',
+    girinka: '',
     applicantProvince: '',
     applicantDistrict: '',
     applicantSector: '',

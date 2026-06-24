@@ -209,14 +209,17 @@ export function useLivestockApplicationForm(
             livestockItems: withLockedAnimalType(parsed.values.livestockItems, lockedAnimalType),
           }
         : parsed.values;
-      setValues(loadedValues);
+      setValues({
+        ...loadedValues,
+        ...(intake?.girinka ? { girinka: intake.girinka } : {}),
+      });
       if (typeof parsed.stepIndex === 'number') setStepIndex(parsed.stepIndex);
       setSubmitMessage('Draft yavanywe.');
       return true;
     } catch {
       return false;
     }
-  }, [lockedAnimalType]);
+  }, [intake?.girinka, lockedAnimalType]);
 
   const validationContext = useMemo(
     () =>
@@ -224,6 +227,7 @@ export function useLivestockApplicationForm(
         ? {
             lineTableVariant: formProfile.lineTableVariant,
             showOwnerColumns: formProfile.showOwnerColumns,
+            lockedAnimalType: formProfile.lockedAnimalType,
           }
         : undefined,
     [formProfile],
@@ -248,9 +252,13 @@ export function useLivestockApplicationForm(
         return false;
       }
     }
+    if (intake?.speciesGroup === 'CATTLE' && !values.girinka) {
+      setErrors({ girinka: 'Hitamo niba iri muri Girinka' });
+      return false;
+    }
     setErrors({});
     return true;
-  }, [stepIds, validationContext, values]);
+  }, [intake?.speciesGroup, stepIds, validationContext, values]);
 
   const onEnterPremiumStep = useCallback(() => {
     setValues((prev) => {
@@ -277,6 +285,7 @@ export function useLivestockApplicationForm(
 
     const isMulti = intake?.ownerMode === 'MULTI_OWNER';
     const isPoultry = formProfile?.lineTableVariant === 'POULTRY_LOT';
+    const isCattle = (intake?.speciesGroup ?? 'CATTLE') === 'CATTLE';
 
     return {
       speciesGroup: intake?.speciesGroup ?? 'CATTLE',
@@ -285,12 +294,14 @@ export function useLivestockApplicationForm(
       insuranceType: values.isRenewal ? 'Renewal' : values.isFirstApplication ? 'New' : '',
       policyStartDate: values.policyStartDate,
       policyEndDate: values.policyEndDate,
+      ...(isCattle && values.girinka ? { girinka: values.girinka } : {}),
       owner: isMulti
         ? undefined
         : {
             name: values.ownerName,
             phone: values.ownerPhone,
-            nationalId: values.nationalId,
+            nationalId: values.nationalId.trim() || undefined,
+            ...(values.ownerGender ? { gender: values.ownerGender } : {}),
             province: values.applicantProvince,
             district: values.applicantDistrict,
             sector: values.applicantSector,
@@ -328,7 +339,14 @@ export function useLivestockApplicationForm(
           farmerContribution: poultry ? toNumber(poultry.farmerAmount) : 0,
           governmentContribution: poultry ? toNumber(poultry.nkunganireAmount) : 0,
           owner: isMulti
-            ? { name: item.ownerName || '', phone: item.ownerPhone || '' }
+            ? {
+                name: item.ownerName || '',
+                phone: item.ownerPhone || '',
+                ...(item.ownerNationalId?.trim()
+                  ? { nationalId: item.ownerNationalId.trim() }
+                  : {}),
+                ...(item.ownerGender ? { gender: item.ownerGender } : {}),
+              }
             : undefined,
           animal: {
             species: item.animalType,
@@ -340,6 +358,9 @@ export function useLivestockApplicationForm(
             productivity: item.productivity,
             hatcherySource: item.hatcherySource,
             poultryProductType: item.poultryProductType || undefined,
+            ...(item.vaccinationInfo?.trim()
+              ? { vaccinationInfo: item.vaccinationInfo.trim() }
+              : {}),
           },
           tekanaEligible: Boolean(item.chipNumber?.trim()),
         };

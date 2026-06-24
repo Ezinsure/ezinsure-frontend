@@ -12,13 +12,14 @@ import type { ApplicationIntakeSelection } from '@/features/livestock-applicatio
 import type { FormProfile } from '@/features/livestock-application/domain/form-profiles';
 import { LIVESTOCK_APPLICATION_DRAFT_KEY } from '@/features/livestock-application/constants';
 import { LIVESTOCK_FORM_LABELS } from '@/features/livestock-application/labels';
-import type { LivestockApplicationFormMode } from '@/features/livestock-application/types';
+import type { LivestockApplicationFormMode, LivestockApplicationFormValues } from '@/features/livestock-application/types';
 import { useLivestockApplicationForm } from '@/features/livestock-application/use-livestock-application-form';
 
 interface LivestockApplicationFormProps {
   mode?: LivestockApplicationFormMode;
   formProfile: FormProfile;
   intake: ApplicationIntakeSelection;
+  initialValues?: Partial<LivestockApplicationFormValues>;
   onSubmitted?: (result: CreateApplicationResult) => void;
 }
 
@@ -54,11 +55,12 @@ export function LivestockApplicationForm({
   mode = 'create',
   formProfile,
   intake,
+  initialValues,
   onSubmitted,
 }: LivestockApplicationFormProps) {
   const { showToast, ToastContainer } = useToast();
   const { submit, isSubmitting, clearError } = useCreateLivestockApplication();
-  const form = useLivestockApplicationForm(undefined, mode, formProfile, intake);
+  const form = useLivestockApplicationForm(initialValues, mode, formProfile, intake);
   const {
     values,
     setField,

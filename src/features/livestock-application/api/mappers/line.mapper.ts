@@ -48,9 +48,20 @@ export function buildOwnerSummary(o: Record<string, unknown>, lines: unknown[]):
 
 export function mapApiLineRecord(line: Record<string, unknown>): InsuredLinePayload {
   const animal = (line.animal as Record<string, unknown> | undefined) ?? line;
-  const owner = line.owner as { name?: string; phone?: string } | undefined;
+  const owner = line.owner as {
+    name?: string;
+    phone?: string;
+    nationalId?: string;
+    gender?: 'male' | 'female';
+  } | undefined;
   const ownerName = String(line.ownerName ?? owner?.name ?? '').trim();
   const ownerPhone = String(line.ownerPhone ?? owner?.phone ?? '').trim();
+  const ownerNationalId = String(
+    line.ownerNationalId ?? owner?.nationalId ?? '',
+  ).trim();
+  const ownerGenderRaw = owner?.gender ?? line.ownerGender;
+  const ownerGender =
+    ownerGenderRaw === 'male' || ownerGenderRaw === 'female' ? ownerGenderRaw : undefined;
 
   const str = (value: unknown) => {
     const s = String(value ?? '').trim();
@@ -65,7 +76,16 @@ export function mapApiLineRecord(line: Record<string, unknown>): InsuredLinePayl
     premiumRate: Number(line.premiumRate ?? 0),
     farmerContribution: Number(line.farmerContribution ?? 0),
     governmentContribution: Number(line.governmentContribution ?? 0),
-    ...(ownerName || ownerPhone ? { owner: { name: ownerName, phone: ownerPhone } } : {}),
+    ...(ownerName || ownerPhone || ownerNationalId || ownerGender
+      ? {
+          owner: {
+            name: ownerName,
+            phone: ownerPhone,
+            ...(ownerNationalId ? { nationalId: ownerNationalId } : {}),
+            ...(ownerGender ? { gender: ownerGender } : {}),
+          },
+        }
+      : {}),
     animal: {
       species: str(animal.species ?? line.species) ?? '',
       animalCategory: str(animal.animalCategory ?? line.animalCategory),
@@ -75,6 +95,7 @@ export function mapApiLineRecord(line: Record<string, unknown>): InsuredLinePayl
       color: str(animal.color ?? line.color),
       productivity: str(animal.productivity ?? line.productivity),
       hatcherySource: str(animal.hatcherySource ?? line.hatcherySource),
+      vaccinationInfo: str(animal.vaccinationInfo ?? line.vaccinationInfo),
       poultryProductType: str(animal.poultryProductType ?? line.poultryProductType) as
         | InsuredLinePayload['animal']['poultryProductType']
         | undefined,

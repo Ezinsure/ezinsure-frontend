@@ -2,11 +2,14 @@
 
 import { ArrowRight, Layers, Users, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { LivestockRadioGroup } from '@/features/livestock-application/components/form-controls';
+import { GIRINKA_OPTIONS } from '@/features/livestock-application/constants';
 import type { ApplicationIntakeSelection } from '@/features/livestock-application/domain/form-profiles';
 import {
   ownerModeLabel,
   speciesGroupLabel,
 } from '@/features/livestock-application/domain/form-profiles';
+import { LIVESTOCK_FORM_LABELS } from '@/features/livestock-application/labels';
 import type {
   LivestockOwnerMode,
   LivestockSpeciesGroup,
@@ -16,7 +19,14 @@ interface ApplicationIntakeStepProps {
   value: ApplicationIntakeSelection | null;
   onChange: (value: ApplicationIntakeSelection) => void;
   onContinue: () => void;
+  girinkaError?: string;
 }
+
+const DEFAULT_INTAKE: ApplicationIntakeSelection = {
+  speciesGroup: 'CATTLE',
+  ownerMode: 'SINGLE_OWNER',
+  girinka: '',
+};
 
 const SPECIES_OPTIONS: { value: LivestockSpeciesGroup; icon: string }[] = [
   { value: 'CATTLE', icon: '🐄' },
@@ -24,15 +34,29 @@ const SPECIES_OPTIONS: { value: LivestockSpeciesGroup; icon: string }[] = [
   { value: 'PIG', icon: '🐷' },
 ];
 
-export function ApplicationIntakeStep({ value, onChange, onContinue }: ApplicationIntakeStepProps) {
-  const selection = value ?? { speciesGroup: 'CATTLE' as LivestockSpeciesGroup, ownerMode: 'SINGLE_OWNER' as LivestockOwnerMode };
+export function ApplicationIntakeStep({
+  value,
+  onChange,
+  onContinue,
+  girinkaError,
+}: ApplicationIntakeStepProps) {
+  const selection = value ?? DEFAULT_INTAKE;
+  const isCattle = selection.speciesGroup === 'CATTLE';
 
   const setSpecies = (speciesGroup: LivestockSpeciesGroup) => {
-    onChange({ ...selection, speciesGroup });
+    onChange({
+      ...selection,
+      speciesGroup,
+      ...(speciesGroup !== 'CATTLE' ? { girinka: '' } : {}),
+    });
   };
 
   const setOwnerMode = (ownerMode: LivestockOwnerMode) => {
     onChange({ ...selection, ownerMode });
+  };
+
+  const setGirinka = (girinka: ApplicationIntakeSelection['girinka']) => {
+    onChange({ ...selection, girinka });
   };
 
   return (
@@ -77,6 +101,19 @@ export function ApplicationIntakeStep({ value, onChange, onContinue }: Applicati
             );
           })}
         </div>
+
+        {isCattle && (
+          <div className="mt-5 border-t border-slate-100 pt-5">
+            <LivestockRadioGroup
+              fieldName="girinka"
+              value={selection.girinka ?? ''}
+              onChange={(v) => setGirinka(v as ApplicationIntakeSelection['girinka'])}
+              options={GIRINKA_OPTIONS}
+              error={girinkaError}
+              required
+            />
+          </div>
+        )}
       </section>
 
       <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
@@ -126,6 +163,15 @@ export function ApplicationIntakeStep({ value, onChange, onContinue }: Applicati
           <strong>{speciesGroupLabel(selection.speciesGroup)}</strong>
           {' · '}
           <strong>{ownerModeLabel(selection.ownerMode)}</strong>
+          {isCattle && selection.girinka && (
+            <>
+              {' · '}
+              <strong>
+                {LIVESTOCK_FORM_LABELS.fields.girinka}:{' '}
+                {selection.girinka === 'yes' ? 'Yego' : 'Oya'}
+              </strong>
+            </>
+          )}
         </p>
         <Button type="button" variant="primary" size="lg" onClick={onContinue}>
           Continue to application

@@ -20,6 +20,7 @@ import {
   resolvePackageOwnersList,
   resolvePackagePrimaryOwner,
 } from '@/features/livestock-application/api/mappers/owners.mapper';
+import { mapApplicationExtensionFields } from '@/features/livestock-application/api/mappers/application-meta.mapper';
 import {
   computePremiumPercentage,
   mapLegacyStatus,
@@ -142,5 +143,6 @@ export function mapFlatApplicationToPackage(
       status: mapSubsidyStatus(subsidyStatus),
     },
     lines,
+    ...mapApplicationExtensionFields(record),
   };
 }

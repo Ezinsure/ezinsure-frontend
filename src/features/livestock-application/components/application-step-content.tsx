@@ -13,6 +13,7 @@ import { LIVESTOCK_FORM_LABELS } from '@/features/livestock-application/labels';
 import {
   VET_AVAILABILITY_OPTIONS,
   YES_NO_OPTIONS,
+  OWNER_GENDER_OPTIONS,
 } from '@/features/livestock-application/constants';
 import { formatRwfDisplay } from '@/features/livestock-application/utils/format-rwf';
 import { computePremiumBreakdownFromForm } from '@/features/livestock-application/utils/premium-calculations';
@@ -149,6 +150,17 @@ export function ApplicationStepContent({
               value={values.ownerPhone}
               onChange={(v) => setField('ownerPhone', v)}
               error={errors.ownerPhone}
+              required
+              disabled={disabled}
+            />
+            <LivestockRadioGroup
+              fieldName="ownerGender"
+              value={values.ownerGender}
+              onChange={(v) =>
+                setField('ownerGender', v as LivestockApplicationFormValues['ownerGender'])
+              }
+              options={OWNER_GENDER_OPTIONS}
+              error={errors.ownerGender}
               required
               disabled={disabled}
             />
@@ -423,6 +435,18 @@ export function ApplicationStepContent({
             <p>
               <span className="text-slate-500">Telefone:</span> {values.ownerPhone || '—'}
             </p>
+            {values.ownerGender && (
+              <p>
+                <span className="text-slate-500">{LIVESTOCK_FORM_LABELS.fields.ownerGender}:</span>{' '}
+                {values.ownerGender === 'male' ? 'GABO' : 'GORE'}
+              </p>
+            )}
+            {values.girinka && (
+              <p>
+                <span className="text-slate-500">{LIVESTOCK_FORM_LABELS.fields.girinka}:</span>{' '}
+                {values.girinka === 'yes' ? 'Yego' : 'Oya'}
+              </p>
+            )}
             <p>
               <span className="text-slate-500">Igihe:</span> {values.policyStartDate || '—'} →{' '}
               {values.policyEndDate || '—'}

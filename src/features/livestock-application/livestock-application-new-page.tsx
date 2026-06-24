@@ -10,16 +10,23 @@ import { resolveFormProfile } from '@/features/livestock-application/domain/form
 
 type FlowPhase = 'intake' | 'form';
 
+const DEFAULT_INTAKE: ApplicationIntakeSelection = {
+  speciesGroup: 'CATTLE',
+  ownerMode: 'SINGLE_OWNER',
+  girinka: '',
+};
+
 export default function LivestockApplicationNewPage() {
   const [phase, setPhase] = useState<FlowPhase>('intake');
-  const [intake, setIntake] = useState<ApplicationIntakeSelection | null>(null);
+  const [intake, setIntake] = useState<ApplicationIntakeSelection>(DEFAULT_INTAKE);
+  const [girinkaError, setGirinkaError] = useState<string | undefined>();
 
   useEffect(() => {
     try {
       const raw = sessionStorage.getItem(LIVESTOCK_APPLICATION_INTAKE_KEY);
       if (raw) {
         const parsed = JSON.parse(raw) as ApplicationIntakeSelection;
-        setIntake(parsed);
+        setIntake({ ...DEFAULT_INTAKE, ...parsed });
         setPhase('form');
       }
     } catch {
@@ -33,23 +40,33 @@ export default function LivestockApplicationNewPage() {
   );
 
   const handleContinueIntake = useCallback(() => {
-    if (!intake) return;
+    if (intake.speciesGroup === 'CATTLE' && !intake.girinka) {
+      setGirinkaError('Hitamo niba iri muri Girinka');
+      return;
+    }
+    setGirinkaError(undefined);
     sessionStorage.setItem(LIVESTOCK_APPLICATION_INTAKE_KEY, JSON.stringify(intake));
     setPhase('form');
   }, [intake]);
+
+  const handleIntakeChange = useCallback((next: ApplicationIntakeSelection) => {
+    setIntake(next);
+    if (next.girinka) setGirinkaError(undefined);
+  }, []);
 
   const handleBackToIntake = () => {
     sessionStorage.removeItem(LIVESTOCK_APPLICATION_INTAKE_KEY);
     setPhase('intake');
   };
 
-  if (phase === 'intake' || !intake || !profile) {
+  if (phase === 'intake' || !profile) {
     return (
       <div className="min-h-[calc(100vh-4rem)] bg-gradient-to-b from-slate-50 to-white px-4 py-8 sm:px-6 lg:px-8">
         <ApplicationIntakeStep
           value={intake}
-          onChange={setIntake}
+          onChange={handleIntakeChange}
           onContinue={handleContinueIntake}
+          girinkaError={girinkaError}
         />
       </div>
     );
@@ -68,7 +85,12 @@ export default function LivestockApplicationNewPage() {
           </Button>
         </div>
 
-        <LivestockApplicationForm mode="create" formProfile={profile} intake={intake} />
+        <LivestockApplicationForm
+          mode="create"
+          formProfile={profile}
+          intake={intake}
+          initialValues={{ girinka: intake.girinka ?? '' }}
+        />
       </div>
     </div>
   );

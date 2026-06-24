@@ -30,6 +30,7 @@ import {
   normalizeInsuranceProvider,
   subsidyRequiredFromStatus,
 } from '@/features/livestock-application/api/mappers/status.mapper';
+import { mapApplicationExtensionFields } from '@/features/livestock-application/api/mappers/application-meta.mapper';
 
 function mapVeterinaryApplicationToPackage(app: VeterinaryApplication): LivestockApplicationPackage {
   const premiumRate = app.premiumRateAmount ?? 0;
@@ -170,6 +171,7 @@ function mapGenericPackageObject(o: Record<string, unknown>): LivestockApplicati
     },
     lines: lines.length > 0 ? lines : [],
     issuedDocuments: o.issuedDocuments as LivestockApplicationPackage['issuedDocuments'],
+    ...mapApplicationExtensionFields(o),
   };
 }
 
