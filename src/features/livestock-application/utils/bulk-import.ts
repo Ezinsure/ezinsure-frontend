@@ -70,6 +70,34 @@ function resolveHeaderKey(norm: string): keyof LivestockAnimalRow | null {
   return camel && camel !== 'id' ? camel : null;
 }
 
+function assignImportStringField(
+  item: LivestockAnimalRow,
+  field: keyof LivestockAnimalRow,
+  raw: string,
+): void {
+  switch (field) {
+    case 'animalType':
+    case 'animalCategory':
+    case 'animalAge':
+    case 'chipNumber':
+    case 'breed':
+    case 'color':
+    case 'productivity':
+    case 'sumAssured':
+    case 'vaccinationInfo':
+    case 'ownerNationalId':
+    case 'ownerName':
+    case 'ownerPhone':
+    case 'quantity':
+    case 'unitValue':
+    case 'hatcherySource':
+      item[field] = raw;
+      break;
+    default:
+      break;
+  }
+}
+
 export function parseLivestockBulkCsv(text: string): BulkImportResult {
   const lines = text
     .replace(/^\uFEFF/, '')
@@ -123,7 +151,7 @@ export function parseLivestockBulkCsv(text: string): BulkImportResult {
         else if (normalized === 'female' || normalized === 'gore') item.ownerGender = 'female';
         return;
       }
-      (item as Record<string, string>)[field] = raw;
+      assignImportStringField(item, field, raw);
     });
     if (!item.chipNumber.trim()) {
       errors.push(`Umurongo ${r + 1}: Eartag irabura.`);
