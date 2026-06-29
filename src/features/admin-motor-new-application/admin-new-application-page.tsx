@@ -249,6 +249,7 @@ export default function AdminNewApplicationPage() {
       vehicleUse: (data.vehicleUse as string) || prev.vehicleUse,
       otherVehicleUse: (data.otherVehicleUse as string) || prev.otherVehicleUse,
       plateNumber: (data.plateNumber as string) || prev.plateNumber,
+      chasisNumber: (data.chasisNumber as string) || prev.chasisNumber,
       // Document URLs (for viewing existing documents)
       identificationDocumentUrl: (data.identificationDocumentUrl as string) || '',
       yellowCardUrl: (data.yellowCardUrl as string) || '',
@@ -302,6 +303,7 @@ export default function AdminNewApplicationPage() {
       vehicleUse: (data.vehicleUse as string) || prev.vehicleUse,
       otherVehicleUse: (data.otherVehicleUse as string) || prev.otherVehicleUse,
       plateNumber: (data.plateNumber as string) || prev.plateNumber,
+      chasisNumber: (data.chasisNumber as string) || prev.chasisNumber,
       vehicleId: (data.vehicleId as string) || prev.vehicleId,
       yellowCardUrl: (data.yellowCardUrl as string) || '',
       pastInsuranceCertificateUrl: (data.pastInsuranceCertificateUrl as string) || '',
@@ -390,6 +392,7 @@ export default function AdminNewApplicationPage() {
     insuranceProvider: 'SONARWA',
     isCOMESA: false,
     plateNumber: '',
+    chasisNumber: '',
     // Vehicle Information
     vehicleType: '',
     vehicleAge: '',
@@ -444,6 +447,8 @@ export default function AdminNewApplicationPage() {
     proofOfPayment: null,
 
     transactionId: '',
+
+    policeNumber: '',
 
     // Insurance Issuance
 
@@ -686,6 +691,7 @@ export default function AdminNewApplicationPage() {
         otherVehicleUse: '',
 
         plateNumber: '',
+        chasisNumber: '',
 
         vehicleId: '',
 
@@ -731,8 +737,9 @@ export default function AdminNewApplicationPage() {
         const next = {
           ...prev,
           [name]: value,
-          plateNumber: '',
-          vehicleType: '',
+    plateNumber: '',
+    chasisNumber: '',
+    vehicleType: '',
           vehicleAge: '',
           vehicleUse: '',
           otherVehicleUse: '',
@@ -1081,8 +1088,9 @@ export default function AdminNewApplicationPage() {
             insuranceDuration: '1 Month',
             insuranceProvider: 'SONARWA',
             isCOMESA: false,
-            plateNumber: '',
-            vehicleType: '',
+    plateNumber: '',
+    chasisNumber: '',
+    vehicleType: '',
             vehicleAge: '',
             vehicleUse: '',
             otherVehicleUse: '',
@@ -1097,6 +1105,7 @@ export default function AdminNewApplicationPage() {
             administrationFees: calculateAdministrationFeesRwf('Car Insurance', false).toString(),
             proofOfPayment: null,
             transactionId: '',
+            policeNumber: '',
             insuranceCertificate: null,
             contract: null,
             receipt: null,
@@ -1989,6 +1998,28 @@ export default function AdminNewApplicationPage() {
 
                   )}
 
+                  {(formData.insuranceCategory === 'Car Insurance' || formData.insuranceCategory === 'MotorBike Insurance') && (
+
+                    <div>
+
+                      <Input
+
+                        label="Chassis number"
+
+                        name="chasisNumber"
+
+                        placeholder="Enter vehicle chassis"
+
+                        value={formData.chasisNumber}
+
+                        onChange={handleInputChange}
+
+                      />
+
+                    </div>
+
+                  )}
+
                   {/* Vehicle Use (only shown for car/motorbike insurance) */}
 
                   {(formData.insuranceCategory === 'Car Insurance' || formData.insuranceCategory === 'MotorBike Insurance') && (
@@ -2606,6 +2637,24 @@ export default function AdminNewApplicationPage() {
                 </legend>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+                  <div className="md:col-span-2">
+
+                    <Input
+
+                      label="Police number"
+
+                      name="policeNumber"
+
+                      value={formData.policeNumber}
+
+                      onChange={handleInputChange}
+
+                      placeholder="Enter police / policy reference number (if available)"
+
+                    />
+
+                  </div>
 
                   <div>
 

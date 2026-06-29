@@ -28,6 +28,7 @@ import {
 import { NumericInputField } from '@/components/ui/numeric-input-field';
 import { validateInsuranceDuration, normalizeInsuranceDurationPayload } from '@/utils/insurance-duration';
 import { InsuranceDurationField } from '@/components/ui/insurance-duration-field';
+import { ComesaCheckboxField } from '@/components/ui/comesa-checkbox-field';
 
 // Device tracking utility types and functions
 interface DeviceInfo {
@@ -245,6 +246,7 @@ export default function AgentApplyPage() {
     insuranceProvider: 'SONARWA',
     // New fields
     plateNumber: '',
+    chasisNumber: '',
     identificationDocumentType: 'nationalID',
     identificationNumber: '',
     // API response fields
@@ -412,6 +414,7 @@ export default function AgentApplyPage() {
         vehicleUse: '',
         otherVehicleUse: '',
         plateNumber: '',
+        chasisNumber: '',
         vehicleId: '',
         // Clear document URLs
         identificationDocumentUrl: '',
@@ -439,8 +442,9 @@ export default function AgentApplyPage() {
         ...prev,
         [name]: value,
         // Clear only vehicle-related fields (not client info)
-        plateNumber: '',
-        vehicleType: '',
+    plateNumber: '',
+    chasisNumber: '',
+    vehicleType: '',
         vehicleAge: '',
         vehicleUse: '',
         otherVehicleUse: '',
@@ -525,6 +529,7 @@ export default function AgentApplyPage() {
       vehicleUse: (data.vehicleUse as string) || prev.vehicleUse,
       otherVehicleUse: (data.otherVehicleUse as string) || prev.otherVehicleUse,
       plateNumber: (data.plateNumber as string) || prev.plateNumber,
+      chasisNumber: (data.chasisNumber as string) || prev.chasisNumber,
       // Document URLs (for viewing existing documents)
       identificationDocumentUrl: (data.identificationDocumentUrl as string) || '',
       yellowCardUrl: (data.yellowCardUrl as string) || '',
@@ -582,6 +587,7 @@ export default function AgentApplyPage() {
       vehicleUse: (data.vehicleUse as string) || prev.vehicleUse,
       otherVehicleUse: (data.otherVehicleUse as string) || prev.otherVehicleUse,
       plateNumber: (data.plateNumber as string) || prev.plateNumber,
+      chasisNumber: (data.chasisNumber as string) || prev.chasisNumber,
       vehicleId: (data.vehicleId as string) || prev.vehicleId,
       yellowCardUrl: (data.yellowCardUrl as string) || '',
       pastInsuranceCertificateUrl: (data.pastInsuranceCertificateUrl as string) || '',
@@ -761,6 +767,9 @@ export default function AgentApplyPage() {
         if (formState.insuranceCategory === 'car' || formState.insuranceCategory === 'motorbike') {
           formData.append('vehicleType', formState.vehicleType);
           formData.append('vehicleAge', formState.vehicleAge);
+          if (formState.chasisNumber?.trim()) {
+            formData.append('chasisNumber', formState.chasisNumber.trim());
+          }
           
           // Handle vehicle use with "Other" option
           const vehicleUse = formState.vehicleUse === 'Other' 
@@ -851,6 +860,7 @@ export default function AgentApplyPage() {
           insuranceProvider: 'SONARWA',
           // Reset new fields
           plateNumber: '',
+        chasisNumber: '',
           identificationDocumentType: 'nationalID',
           identificationNumber: '',
           // Reset document URLs
@@ -975,6 +985,7 @@ export default function AgentApplyPage() {
                           vehicleUse: '',
                           otherVehicleUse: '',
                           plateNumber: '',
+        chasisNumber: '',
                           vehicleId: '',
                           // Clear document URLs
                           identificationDocumentUrl: '',
@@ -1339,6 +1350,18 @@ export default function AgentApplyPage() {
                   </div>
                 )}
 
+                {(formState.insuranceCategory === 'car' || formState.insuranceCategory === 'motorbike') && (
+                  <div>
+                    <Input
+                      label="Chassis number"
+                      name="chasisNumber"
+                      placeholder="Enter vehicle chassis"
+                      value={formState.chasisNumber}
+                      onChange={handleInputChange}
+                    />
+                  </div>
+                )}
+
                 {/* Vehicle Use (only shown for car/motorbike insurance) */}
                 {(formState.insuranceCategory === 'car' || formState.insuranceCategory === 'motorbike') && (
                   <>
@@ -1389,21 +1412,14 @@ export default function AgentApplyPage() {
                 {/* COMESA Checkbox */}
                 {(formState.insuranceCategory === 'car' || formState.insuranceCategory === 'motorbike') && (
                 <div className="md:col-span-2">
-                  <label className="flex items-center space-x-2">
-                    <input
-                      type="checkbox"
-                      name="isCOMESA"
-                      checked={formState.isCOMESA}
-                      onChange={handleInputChange}
-                      className="rounded h-4 border-gray-300 text-[var(--main-blue)] focus:ring-[var(--main-blue)]"
-                    />
-                    <span className="text-sm font-medium">
-                      Ext. Territorial (COMESA)
-                    </span>
-                  </label>
-                  {errors.isCOMESA && (
-                    <p className="mt-1 text-sm text-[var(--error-red)]">{errors.isCOMESA}</p>
-                  )}
+                  <ComesaCheckboxField
+                    checked={formState.isCOMESA}
+                    onChange={(checked) =>
+                      setFormState((prev) => ({ ...prev, isCOMESA: checked }))
+                    }
+                    insuranceCategory={formState.insuranceCategory}
+                    error={errors.isCOMESA}
+                  />
                 </div>
 
                  )}

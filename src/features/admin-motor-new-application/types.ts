@@ -64,6 +64,7 @@ export interface ApplicationFormData {
   insuranceProvider: string;
   isCOMESA: boolean;
   plateNumber: string;
+  chasisNumber: string;
   vehicleType: string;
   vehicleAge: string;
   vehicleUse: string;
@@ -86,6 +87,7 @@ export interface ApplicationFormData {
   administrationFees: string;
   proofOfPayment: File | null;
   transactionId: string;
+  policeNumber: string;
   insuranceCertificate: File | null;
   contract: File | null;
   receipt: File | null;

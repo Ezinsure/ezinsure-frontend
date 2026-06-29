@@ -21,6 +21,8 @@ export interface Application {
   proofOfPayment?: string;
   paymentInstructions?: string;
   transactionId?: string;
+  /** Police / policy reference number — set when insurance is issued. */
+  policeNumber?: string;
   amount?: number;
   netPremium?: number;
   companyCommission?: number;
@@ -60,6 +62,7 @@ export interface Application {
     vehicleType: string;
     vehicleAge: string;
     plateNumber?: string;
+    chasisNumber?: string;
     vehicleUse: string;
     otherVehicleUse?: string;
     createdAt: string;
@@ -90,6 +93,7 @@ export interface Application {
   isCOMESA?: boolean;
   vehicleUse?: string;
   otherVehicleUse?: string;
+  chasisNumber?: string;
   deductAgentAssignmentCommission?: boolean;
 }
 

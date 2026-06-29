@@ -4,6 +4,7 @@ import { useRef, useState } from 'react';
 import { Plus, Trash2, Upload } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { LivestockTextField } from '@/features/livestock-application/components/form-controls';
+import { OwnerTableCells, OwnerTableHeaders } from '@/features/livestock-application/components/tables/livestock-owner-table-columns';
 import { POULTRY_PRODUCT_OPTIONS } from '@/features/livestock-application/constants';
 import { LIVESTOCK_FORM_LABELS } from '@/features/livestock-application/labels';
 import type { LivestockAnimalRow } from '@/features/livestock-application/types';
@@ -87,21 +88,14 @@ export function PoultryLotsTable({
 
       <div className="w-full max-w-full overflow-x-auto rounded-xl border border-slate-200">
         <table
-          className={`w-full text-sm ${showOwnerColumns ? 'min-w-[104rem]' : 'min-w-[80rem]'}`}
+          className={`w-full text-sm ${
+            showOwnerColumns ? 'min-w-[120rem]' : 'min-w-[88rem]'
+          }`}
         >
           <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
             <tr>
               <th className="px-3 py-2 text-left w-10">#</th>
-              {showOwnerColumns && (
-                <>
-                  <th className="px-3 py-2 text-left min-w-[11rem]">
-                    {LIVESTOCK_FORM_LABELS.fields.ownerName}
-                  </th>
-                  <th className="px-3 py-2 text-left min-w-[10rem]">
-                    {LIVESTOCK_FORM_LABELS.fields.ownerPhone}
-                  </th>
-                </>
-              )}
+              <OwnerTableHeaders showOwnerColumns={showOwnerColumns} />
               <th className="px-3 py-2 text-left min-w-[8rem]">{LIVESTOCK_FORM_LABELS.fields.lotNumber}</th>
               <th className="px-3 py-2 text-left min-w-[10rem]">Product</th>
               <th className="px-3 py-2 text-left min-w-[12rem]">
@@ -113,6 +107,9 @@ export function PoultryLotsTable({
               <th className="px-3 py-2 text-left min-w-[9rem]">Premium 5.5%</th>
               <th className="px-3 py-2 text-left min-w-[9rem]">Nkunganire 40%</th>
               <th className="px-3 py-2 text-left min-w-[9rem]">Farmer 60%</th>
+              <th className="px-3 py-2 text-left min-w-[14rem]">
+                {LIVESTOCK_FORM_LABELS.fields.vaccinationInfo}
+              </th>
               <th className="px-3 py-2 w-14" />
             </tr>
           </thead>
@@ -122,30 +119,14 @@ export function PoultryLotsTable({
               return (
                 <tr key={item.id} className="align-top bg-white">
                   <td className="px-3 py-2 text-slate-500">{index + 1}</td>
-                  {showOwnerColumns && (
-                    <>
-                      <td className="px-2 py-2">
-                        <LivestockTextField
-                          fieldName="ownerName"
-                          value={item.ownerName || ''}
-                          onChange={(v) => handlePatch(item.id, { ownerName: v }, item)}
-                          error={errors[`livestockItems.${index}.ownerName`]}
-                          disabled={disabled}
-                          hideLabel
-                        />
-                      </td>
-                      <td className="px-2 py-2">
-                        <LivestockTextField
-                          fieldName="ownerPhone"
-                          value={item.ownerPhone || ''}
-                          onChange={(v) => handlePatch(item.id, { ownerPhone: v }, item)}
-                          error={errors[`livestockItems.${index}.ownerPhone`]}
-                          disabled={disabled}
-                          hideLabel
-                        />
-                      </td>
-                    </>
-                  )}
+                  <OwnerTableCells
+                    item={item}
+                    index={index}
+                    errors={errors}
+                    disabled={disabled}
+                    showOwnerColumns={showOwnerColumns}
+                    onUpdate={(patch) => handlePatch(item.id, patch, item)}
+                  />
                   <td className="px-2 py-2">
                     <LivestockTextField
                       fieldName="lotNumber"
@@ -232,6 +213,15 @@ export function PoultryLotsTable({
                   </td>
                   <td className="px-3 py-3 font-semibold text-emerald-700">
                     {formatRwfDisplay(amounts.farmerAmount)}
+                  </td>
+                  <td className="px-2 py-2 min-w-[14rem]">
+                    <LivestockTextField
+                      fieldName="vaccinationInfo"
+                      value={item.vaccinationInfo || ''}
+                      onChange={(v) => handlePatch(item.id, { vaccinationInfo: v }, item)}
+                      disabled={disabled}
+                      hideLabel
+                    />
                   </td>
                   <td className="px-2 py-2">
                     <button

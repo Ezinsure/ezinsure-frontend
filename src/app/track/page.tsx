@@ -16,6 +16,7 @@ import {
   getVehicleManufactureYearBounds,
   getVehicleManufactureYearValidationError,
 } from '@/utils/vehicle-year';
+import { formatChasisNumberDisplay } from '@/utils/chasis-number';
 
 export interface Application {
   _id: string;
@@ -67,6 +68,7 @@ export interface Application {
     vehicleType: string;
     vehicleAge: string;
     plateNumber?: string;
+    chasisNumber?: string;
     vehicleUse: string;
     otherVehicleUse?: string;
     createdAt: string;
@@ -85,6 +87,7 @@ export interface Application {
   isCOMESA?: boolean;
   vehicleUse?: string;
   otherVehicleUse?: string;
+  chasisNumber?: string;
   nationalID?: string;
   yellowCard?: string;
   pastInsuranceCertificate?: string | null;
@@ -1382,6 +1385,10 @@ const handleEditSuccess = async (): Promise<void> => {
                     </p>
                   </div>
                 )}
+                <div>
+                  <p className="text-sm text-gray-500">Chassis number</p>
+                  <p className="font-medium">{formatChasisNumberDisplay(application)}</p>
+                </div>
                 {application.isCOMESA !== undefined && (
                   <div>
                     <p className="text-sm text-gray-500">COMESA Coverage</p>

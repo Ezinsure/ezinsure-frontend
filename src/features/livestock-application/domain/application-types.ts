@@ -64,12 +64,17 @@ export interface CreateLivestockApplicationPayload {
     name: string;
     phone: string;
     nationalId?: string;
+    gender?: 'male' | 'female';
     province?: string;
     district: string;
     sector: string;
     cell: string;
     village: string;
   };
+  /** Cattle applications — Girinka programme participation */
+  girinka?: 'yes' | 'no';
+  farmingExperience?: string;
+  previousIncidents?: string;
   livestockLocation: {
     province?: string;
     district: string;
@@ -107,7 +112,7 @@ export interface InsuredLinePayload {
   premiumRate: number;
   farmerContribution: number;
   governmentContribution: number;
-  owner?: { name: string; phone: string };
+  owner?: { name: string; phone: string; nationalId?: string; gender?: 'male' | 'female' };
   animal: {
     species: string;
     animalCategory?: string;
@@ -118,6 +123,7 @@ export interface InsuredLinePayload {
     productivity?: string;
     hatcherySource?: string;
     poultryProductType?: PoultryProductType;
+    vaccinationInfo?: string;
   };
   tekanaEligible: boolean;
 }
@@ -144,8 +150,31 @@ export interface LivestockApplicationPackage {
   vetId: string;
   vetName: string;
   ownerSummary: string;
-  primaryOwner?: { id?: string; name: string; phone: string };
-  ownersList?: Array<{ id?: string; name: string; phone: string }>;
+  primaryOwner?: { id?: string; name: string; phone: string; nationalId?: string; gender?: 'male' | 'female' };
+  ownersList?: Array<{ id?: string; name: string; phone: string; nationalId?: string; gender?: 'male' | 'female' }>;
+  girinka?: 'yes' | 'no';
+  ownerGender?: 'male' | 'female';
+  nationalId?: string;
+  farmingExperience?: string;
+  previousIncidents?: string;
+  hasVeterinarian?: string;
+  veterinarianAvailability?: string;
+  knownDiseases?: string;
+  hasLoan?: string;
+  financialInstitutionName?: string;
+  institutionLocation?: string;
+  loanAccountNumber?: string;
+  loanAmount?: string;
+  insuranceAgentCode?: string;
+  veterinarianLicenseNumber?: string;
+  veterinarianSignatureName?: string;
+  applicantAddress?: {
+    province?: string;
+    district: string;
+    sector: string;
+    cell: string;
+    village: string;
+  };
   lineCount: number;
   totals: ApplicationPremiumTotals;
   paymentProof: {

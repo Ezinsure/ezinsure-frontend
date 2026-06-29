@@ -40,9 +40,14 @@ export interface LivestockAnimalRow {
   productivity: string;
   /** Insured value — API field: sumAssured */
   sumAssured: string;
-  /** Multi-owner mode */
+  /** Multi-owner mode — per-row owner details */
   ownerName?: string;
   ownerPhone?: string;
+  ownerNationalId?: string;
+  /** Per-row gender for multi-owner — API: owner.gender */
+  ownerGender?: '' | 'male' | 'female';
+  /** Vaccination / inoculation records — API: vaccinationInfo */
+  vaccinationInfo?: string;
   /** Poultry lot mode */
   quantity?: string;
   unitValue?: string;
@@ -67,7 +72,11 @@ export interface LivestockApplicationFormValues {
   isFirstApplication: boolean;
   isRenewal: boolean;
   nationalId: string;
+  /** API: gender — male | female */
+  ownerGender: '' | 'male' | 'female';
   ownerPhone: string;
+  /** Cattle only — API: girinka — yes | no */
+  girinka: '' | 'yes' | 'no';
 
   // Section 3 — Applicant address (extension: province; API location uses district/sector/cell/village)
   applicantProvince: string;

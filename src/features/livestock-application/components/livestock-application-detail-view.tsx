@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { ArrowLeft, X } from 'lucide-react';
 import { DocumentViewer } from '@/components/ui/document-viewer';
 import { ApplicationDocumentsGrid } from '@/features/livestock-application/components/shared/application-documents-grid';
+import { ApplicationFormDetailsSection } from '@/features/livestock-application/components/shared/application-form-details-section';
 import { ApplicationOwnersSection } from '@/features/livestock-application/components/shared/application-owners-section';
 import { LivestockApplicationStatusBadge } from '@/features/livestock-application/components/shared/application-status-badge';
 import { InsuredLinesSection } from '@/features/livestock-application/components/shared/insured-lines-section';
@@ -168,6 +169,8 @@ export function LivestockApplicationDetailView({
             />
           </div>
         </section>
+
+        <ApplicationFormDetailsSection application={application} />
 
         <ApplicationOwnersSection
           application={application}

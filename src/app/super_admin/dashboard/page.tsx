@@ -2,13 +2,19 @@
 
 import React, { useState, useEffect } from 'react';
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { TrendingUp, Users, DollarSign, Download, Search, UserCheck, Award, Activity, Briefcase, Globe, ArrowUpRight, ArrowDownRight, Eye, EyeOff, RefreshCw, Receipt, Settings, Database, Key } from 'lucide-react';
+import { TrendingUp, Users, DollarSign, Download, Search, UserCheck, Award, Activity, Briefcase, ArrowUpRight, ArrowDownRight, Eye, EyeOff, RefreshCw, Receipt, Settings, Database, Key } from 'lucide-react';
 import type { TooltipProps } from 'recharts';
 import { MainLayout } from '@/components/ui/main-layout';
 import { useAuth } from '@/context/AuthContext';
 import Link from 'next/link';
 import { motorPaths } from '@/shared/routing/motor-paths';
 import { formatDateUTC, formatDateRange as formatDateRangeUtil, formatTime } from '@/utils/date-formatter';
+import {
+  EMPTY_MONTHLY_COMMISSION_SUMMARY,
+  fetchMonthlyCommissionSummary,
+  getSonarwaBillingTotal,
+  type MonthlyCommissionSummary,
+} from '@/utils/monthly-commission-summary';
 
 // Define types for the data
 interface Application {
@@ -141,69 +147,6 @@ const fetchApplicationsThisMonth = async (token: string, startDate: string, endD
   }
 };
 
-const fetchCoveredProvinces = async (token: string) => {
-  try {
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/countCoveredProvinces`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      }
-    });
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    const data = await response.json();
-    return data.data || 0;
-  } catch (error) {
-    console.error('Error fetching covered provinces:', error);
-    return 0;
-    }
-};
-
-const fetchTotalCommission = async (token: string, startDate: string, endDate: string) => {
-  try {
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/getTotalCompanyCommissionThisMonth?startDate=${startDate}&endDate=${endDate}`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      }
-    });
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    const data = await response.json();
-    return data.data || 0;
-  } catch (error) {
-    console.error('Error fetching total commission:', error);
-    return 0;
-  }
-};
-
-const fetchAdministrationFees = async (token: string, startDate: string, endDate: string) => {
-  try {
-    const response = await fetch(
-      `${process.env.NEXT_PUBLIC_API_BASE_URL}/getAdministrationFeesByRange?startDate=${startDate}&endDate=${endDate}`,
-      {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        }
-      }
-    );
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    const data = await response.json();
-    return data.totalAdministrationFees || 0;
-  } catch (error) {
-    console.error('Error fetching administration fees:', error);
-    return 0;
-  }
-};
-
 const fetchRecentApplications = async (token: string) => {
   try {
     const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/getRecentApplications`, {
@@ -290,20 +233,18 @@ const SuperAdminDashboard = () => {
   // Admin fees state
   const [adminFeesStartDate, setAdminFeesStartDate] = useState<string>(getFirstDayOfMonth());
   const [adminFeesEndDate, setAdminFeesEndDate] = useState<string>(getTodayDate());
-  const [totalAdministrationFees, setTotalAdministrationFees] = useState<number>(0);
-  const [isAdminFeesLoading, setIsAdminFeesLoading] = useState<boolean>(true);
+  const [commissionSummary, setCommissionSummary] = useState<MonthlyCommissionSummary>(
+    EMPTY_MONTHLY_COMMISSION_SUMMARY,
+  );
+  const [isCommissionSummaryLoading, setIsCommissionSummaryLoading] = useState<boolean>(true);
   
   // State for stats cards data
   const [statsData, setStatsData] = useState({
     activeAgents: 0,
     applications: 0,
-    coveredProvinces: 0,
-    totalCommission: 0,
     loading: {
       activeAgents: true,
       applications: true,
-      coveredProvinces: true,
-      totalCommission: true
     }
   });
 
@@ -335,9 +276,7 @@ const SuperAdminDashboard = () => {
   // Daily metrics date state (single date)
   const [dailyMetricsDate, setDailyMetricsDate] = useState<string>(getTodayDate());
 
-  // Calculate total revenue (commission + admin fees)
-  const totalRevenue = (statsData.totalCommission || 0) + (totalAdministrationFees || 0);
-  const isTotalRevenueLoading = statsData.loading.totalCommission || isAdminFeesLoading;
+  const sonarwaBillingTotal = getSonarwaBillingTotal(commissionSummary);
 
   // Format date range for display (using UTC to avoid timezone issues)
   const formatDateRange = formatDateRangeUtil;
@@ -349,40 +288,65 @@ const SuperAdminDashboard = () => {
 
   const statsCards = [
     {
-      title: 'Total Revenue',
-      value: isTotalRevenueLoading ? '' : `${totalRevenue.toLocaleString()} RWF`,
-      change: '+23.5%',
-      changeType: 'increase',
+      title: 'SONARWA Billing',
+      value: isCommissionSummaryLoading ? '' : `${sonarwaBillingTotal.toLocaleString()} RWF`,
+      change: '',
+      changeType: 'neutral' as const,
       icon: <DollarSign className="w-5 h-5" />,
       color: 'from-blue-600 to-blue-700',
       bgColor: 'bg-blue-50',
       textColor: 'text-blue-600',
-      subtitle: 'Commission + Admin fees',
-      loading: isTotalRevenueLoading
+      subtitle: formatDateRange(adminFeesStartDate, adminFeesEndDate),
+      breakdown: isCommissionSummaryLoading
+        ? undefined
+        : [
+            { label: 'Company commission', value: commissionSummary.totalCompanyCommission },
+            { label: 'Agent commission', value: commissionSummary.totalAgentCommission },
+            { label: 'Admin fees', value: commissionSummary.administrationFees },
+          ],
+      loading: isCommissionSummaryLoading,
     },
     {
-      title: 'Total Commission',
-      value: statsData.loading.totalCommission ? '' : `${(statsData.totalCommission || 0).toLocaleString()} RWF`,
-      change: '+23.5%',
-      changeType: 'increase',
+      title: 'Company Commission',
+      value: isCommissionSummaryLoading
+        ? ''
+        : `${commissionSummary.totalCompanyCommission.toLocaleString()} RWF`,
+      change: '',
+      changeType: 'neutral' as const,
       icon: <TrendingUp className="w-5 h-5" />,
       color: 'from-slate-600 to-slate-700',
       bgColor: 'bg-slate-50',
       textColor: 'text-slate-600',
-      subtitle: formatDateRange(adminFeesStartDate, adminFeesEndDate),
-      loading: statsData.loading.totalCommission
+      subtitle: 'Company share',
+      loading: isCommissionSummaryLoading,
     },
     {
-      title: 'Admin Fees Generated',
-      value: isAdminFeesLoading ? '' : `${(totalAdministrationFees || 0).toLocaleString()} RWF`,
+      title: 'Agent Commission',
+      value: isCommissionSummaryLoading
+        ? ''
+        : `${commissionSummary.totalAgentCommission.toLocaleString()} RWF`,
       change: '',
-      changeType: 'neutral',
+      changeType: 'neutral' as const,
+      icon: <Users className="w-5 h-5" />,
+      color: 'from-blue-500 to-blue-600',
+      bgColor: 'bg-blue-50',
+      textColor: 'text-blue-600',
+      subtitle: 'Agent share',
+      loading: isCommissionSummaryLoading,
+    },
+    {
+      title: 'Admin Fees',
+      value: isCommissionSummaryLoading
+        ? ''
+        : `${commissionSummary.administrationFees.toLocaleString()} RWF`,
+      change: '',
+      changeType: 'neutral' as const,
       icon: <Receipt className="w-5 h-5" />,
       color: 'from-slate-500 to-slate-600',
       bgColor: 'bg-slate-50',
       textColor: 'text-slate-600',
       subtitle: 'Administration fees',
-      loading: isAdminFeesLoading
+      loading: isCommissionSummaryLoading,
     },
     {
       title: 'Applications',
@@ -432,18 +396,6 @@ const SuperAdminDashboard = () => {
       subtitle: isAvgCommissionLoading ? 'Loading...' : `Per agent/month • ${totalAgents ?? 0} agents`,
       loading: isAvgCommissionLoading
     },
-    {
-      title: 'Coverage Areas',
-      value: statsData.loading.coveredProvinces ? '' : (statsData.coveredProvinces || 0),
-      change: '0%',
-      changeType: 'neutral',
-      icon: <Globe className="w-5 h-5" />,
-      color: 'from-blue-500 to-blue-600',
-      bgColor: 'bg-blue-50',
-      textColor: 'text-blue-600',
-      subtitle: 'Provinces covered',
-      loading: statsData.loading.coveredProvinces
-    }
   ];
 
   // Fetch stats data on component mount
@@ -455,38 +407,34 @@ const SuperAdminDashboard = () => {
       }
 
       try {
-        const [activeAgents, applications, coveredProvinces, totalCommission] = await Promise.all([
+        setIsCommissionSummaryLoading(true);
+        const [activeAgents, applications, summary] = await Promise.all([
           fetchActiveAgentsCount(token),
           fetchApplicationsThisMonth(token, adminFeesStartDate, adminFeesEndDate),
-          fetchCoveredProvinces(token),
-          fetchTotalCommission(token, adminFeesStartDate, adminFeesEndDate)
+          fetchMonthlyCommissionSummary(token, adminFeesStartDate, adminFeesEndDate),
         ]);
 
+        setCommissionSummary(summary);
         setStatsData({
           activeAgents: activeAgents || 0,
           applications: applications || 0,
-          coveredProvinces: coveredProvinces || 0,
-          totalCommission: totalCommission || 0,
           loading: {
             activeAgents: false,
             applications: false,
-            coveredProvinces: false,
-            totalCommission: false
           }
         });
       } catch (error) {
         console.error('Error fetching stats data:', error);
-        // Set default values on error
+        setCommissionSummary(EMPTY_MONTHLY_COMMISSION_SUMMARY);
         setStatsData(prev => ({
           ...prev,
           loading: {
             activeAgents: false,
             applications: false,
-            coveredProvinces: false,
-            totalCommission: false
           }
         }));
       } finally {
+        setIsCommissionSummaryLoading(false);
         setIsLoading(false);
       }
     };
@@ -597,18 +545,6 @@ const SuperAdminDashboard = () => {
       .catch(() => setTotalClients(0))
       .finally(() => setIsTotalClientsLoading(false));
   }, [token]);
-
-  // Fetch administration fees
-  useEffect(() => {
-    if (!token) return;
-    setIsAdminFeesLoading(true);
-    fetchAdministrationFees(token, adminFeesStartDate, adminFeesEndDate)
-      .then((fees) => {
-        setTotalAdministrationFees(fees);
-      })
-      .catch(() => setTotalAdministrationFees(0))
-      .finally(() => setIsAdminFeesLoading(false));
-  }, [token, adminFeesStartDate, adminFeesEndDate]);
 
   // Fetch Revenue Analytics
   useEffect(() => {
@@ -853,6 +789,16 @@ const SuperAdminDashboard = () => {
                     <div className="space-y-0.5">
                       <p className="text-xl font-semibold text-gray-900">{card.value}</p>
                       <p className="text-xs text-gray-500">{card.subtitle}</p>
+                      {'breakdown' in card && card.breakdown && card.breakdown.length > 0 && (
+                        <dl className="mt-2 space-y-1 border-t border-slate-100 pt-2">
+                          {card.breakdown.map((row) => (
+                            <div key={row.label} className="flex items-center justify-between gap-2 text-[11px]">
+                              <dt className="text-gray-500">{row.label}</dt>
+                              <dd className="font-medium text-gray-700">{row.value.toLocaleString()} RWF</dd>
+                            </div>
+                          ))}
+                        </dl>
+                      )}
                     </div>
                   </>
                 )}

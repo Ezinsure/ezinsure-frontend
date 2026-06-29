@@ -11,6 +11,8 @@ export type FormProfileId =
 export interface ApplicationIntakeSelection {
   speciesGroup: LivestockSpeciesGroup;
   ownerMode: LivestockOwnerMode;
+  /** Cattle applications — collected at intake */
+  girinka?: '' | 'yes' | 'no';
 }
 
 export interface FormProfile {

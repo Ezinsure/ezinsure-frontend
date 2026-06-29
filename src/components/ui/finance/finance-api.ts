@@ -393,6 +393,8 @@ export function useFinanceApi() {
           insuranceDuration: typeof raw.insuranceDuration === 'string' ? raw.insuranceDuration : undefined,
           insuranceEndAt: typeof raw.insuranceEndAt === 'string' ? raw.insuranceEndAt : undefined,
           insuranceProvider: typeof raw.insuranceProvider === 'string' ? raw.insuranceProvider : undefined,
+          policeNumber: typeof raw.policeNumber === 'string' ? raw.policeNumber : undefined,
+          chasisNumber: typeof raw.chasisNumber === 'string' ? raw.chasisNumber : undefined,
           amount: Number(raw.amount ?? 0),
           companyCommission: Number(raw.companyCommission ?? 0),
           administrationFees: Number(raw.administrationFees ?? 0),
@@ -414,6 +416,7 @@ export function useFinanceApi() {
           },
           vehicle: {
             plateNumber: typeof vehicle.plateNumber === 'string' ? vehicle.plateNumber : undefined,
+            chasisNumber: typeof vehicle.chasisNumber === 'string' ? vehicle.chasisNumber : typeof raw.chasisNumber === 'string' ? raw.chasisNumber : undefined,
             vehicleType: typeof vehicle.vehicleType === 'string' ? vehicle.vehicleType : undefined,
             vehicleAge: typeof vehicle.vehicleAge === 'string' ? vehicle.vehicleAge : undefined,
             vehicleUse: typeof vehicle.vehicleUse === 'string' ? vehicle.vehicleUse : undefined,

@@ -13,6 +13,7 @@ import {
   exportAgentApplicationsToPdf,
   type AgentApplicationExportRow,
 } from '@/shared/export/agent-analytics-exports';
+import { formatPoliceNumberDisplay } from '@/utils/police-number';
 
 const INSURANCE_COLORS: Record<string, string> = {
   'Car Insurance': '#2563EB',
@@ -52,6 +53,7 @@ interface Application {
   amount?: number;
   agentCommission?: number;
   submittedAt: string;
+  policeNumber?: string;
   client?: {
     _id: string;
     fullName: string;
@@ -93,6 +95,7 @@ interface ApiApplicationItem {
   amount?: number;
   agentCommission?: number;
   submittedAt?: string;
+  policeNumber?: string;
   client?: {
     _id?: string;
     fullName?: string;
@@ -336,14 +339,12 @@ export default function AgentDetailModal({ isOpen, onClose, agentId, agentName, 
   const [startDate, setStartDate] = useState<string>(initialStartDate ?? getFirstDayOfMonth());
   const [endDate, setEndDate] = useState<string>(initialEndDate ?? getTodayDate());
 
-  // Keep the date range in sync if the parent changes it while the modal is open
+  // Keep the date range in sync when the modal opens or the parent range changes
   useEffect(() => {
+    if (!isOpen) return;
     if (initialStartDate) setStartDate(initialStartDate);
-  }, [initialStartDate]);
-
-  useEffect(() => {
     if (initialEndDate) setEndDate(initialEndDate);
-  }, [initialEndDate]);
+  }, [isOpen, initialStartDate, initialEndDate]);
   
   // Applications table pagination (same as admin agents table)
   const [currentPage, setCurrentPage] = useState(1);
@@ -488,6 +489,7 @@ export default function AgentDetailModal({ isOpen, onClose, agentId, agentName, 
           amount: item.amount,
           agentCommission: item.agentCommission,
           submittedAt: item.submittedAt || '',
+          policeNumber: item.policeNumber,
           client: {
             _id: item.client?._id || '',
             fullName: item.client?.fullName ?? (item as ApiApplicationItem).fullName ?? '',
@@ -670,6 +672,7 @@ export default function AgentDetailModal({ isOpen, onClose, agentId, agentName, 
         agentCommission: app.agentCommission || 0,
         status: app.status,
         submittedAt: app.submittedAt,
+        policeNumber: formatPoliceNumberDisplay(app),
       })),
     [filteredTableApplications],
   );

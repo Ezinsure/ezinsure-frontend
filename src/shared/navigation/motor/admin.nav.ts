@@ -9,6 +9,7 @@ import {
   BarChart3,
   HelpCircle,
   UserCircle,
+  Building2,
 } from 'lucide-react';
 import type { NavGroup } from '@/shared/navigation/types';
 
@@ -28,6 +29,7 @@ export const motorAdminNavigation: NavGroup[] = [
     label: 'Commissions',
     items: [
       { href: `${base}/commission-review`, label: 'Commission Review', icon: BarChart3 },
+      { href: `${base}/company-performance`, label: 'Company Performance', icon: Building2 },
     ],
   },
   {

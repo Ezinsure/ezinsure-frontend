@@ -48,6 +48,12 @@ const HEADER_ALIASES: Record<string, keyof LivestockAnimalRow> = {
   sumassured: 'sumAssured',
   estimatedvalue: 'sumAssured',
   agaciro: 'sumAssured',
+  vaccinationinfo: 'vaccinationInfo',
+  amakuruyogukingira: 'vaccinationInfo',
+  ownernationalid: 'ownerNationalId',
+  indangamuntu: 'ownerNationalId',
+  ownergender: 'ownerGender',
+  igitsina: 'ownerGender',
 };
 
 export interface BulkImportResult {
@@ -62,6 +68,34 @@ function resolveHeaderKey(norm: string): keyof LivestockAnimalRow | null {
     (h) => normalizeHeader(h) === norm,
   ) as keyof LivestockAnimalRow | undefined;
   return camel && camel !== 'id' ? camel : null;
+}
+
+function assignImportStringField(
+  item: LivestockAnimalRow,
+  field: keyof LivestockAnimalRow,
+  raw: string,
+): void {
+  switch (field) {
+    case 'animalType':
+    case 'animalCategory':
+    case 'animalAge':
+    case 'chipNumber':
+    case 'breed':
+    case 'color':
+    case 'productivity':
+    case 'sumAssured':
+    case 'vaccinationInfo':
+    case 'ownerNationalId':
+    case 'ownerName':
+    case 'ownerPhone':
+    case 'quantity':
+    case 'unitValue':
+    case 'hatcherySource':
+      item[field] = raw;
+      break;
+    default:
+      break;
+  }
 }
 
 export function parseLivestockBulkCsv(text: string): BulkImportResult {
@@ -111,7 +145,13 @@ export function parseLivestockBulkCsv(text: string): BulkImportResult {
         item.poultryProductType = raw as LivestockAnimalRow['poultryProductType'];
         return;
       }
-      item[field] = raw;
+      if (field === 'ownerGender') {
+        const normalized = raw.trim().toLowerCase();
+        if (normalized === 'male' || normalized === 'gabo') item.ownerGender = 'male';
+        else if (normalized === 'female' || normalized === 'gore') item.ownerGender = 'female';
+        return;
+      }
+      assignImportStringField(item, field, raw);
     });
     if (!item.chipNumber.trim()) {
       errors.push(`Umurongo ${r + 1}: Eartag irabura.`);

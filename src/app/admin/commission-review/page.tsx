@@ -19,6 +19,8 @@ import {
 } from '@/utils/administration-fees';
 import { getVehicleManufactureYearValidationError } from '@/utils/vehicle-year';
 import { formatDateUTC } from '@/utils/date-formatter';
+import { formatPoliceNumberDisplay } from '@/utils/police-number';
+import { formatChasisNumberDisplay, resolveChasisNumber } from '@/utils/chasis-number';
 
 interface Application {
   _id: string;
@@ -32,6 +34,7 @@ interface Application {
   proofOfPayment?: string;
   paymentInstructions?: string;
   transactionId?: string;
+  policeNumber?: string;
   amount?: number;
   netPremium?: number;
   companyCommission?: number;
@@ -77,6 +80,7 @@ interface Application {
     vehicleType: string;
     vehicleAge: string;
     plateNumber?: string;
+    chasisNumber?: string;
     vehicleUse: string;
     otherVehicleUse?: string;
     createdAt: string;
@@ -89,6 +93,8 @@ interface Application {
   clientId?: string;
   vehicleId?: string;
   agentId?: string;
+  isCOMESA?: boolean;
+  chasisNumber?: string;
 }
 
 type CommissionReviewTab = 'pending_review' | 'ready_to_be_paid';
@@ -154,6 +160,7 @@ function normalizeCommissionRow(raw: unknown): Application {
       vehicleType: (r.vehicleType as string) || '',
       vehicleAge: (r.vehicleAge as string) || '',
       plateNumber: r.plateNumber as string | undefined,
+      chasisNumber: r.chasisNumber as string | undefined,
       vehicleUse: (r.vehicleUse as string) || '',
       otherVehicleUse: r.otherVehicleUse as string | undefined,
       createdAt: '',
@@ -540,6 +547,7 @@ const buildInitialVisibility = (app: Application, formData: Record<string, strin
   clientIdentification: hasExistingValue(app.client?.identificationNumber || app.client?.nationalID || ''),
   insuranceCategory: hasExistingValue(formData.insuranceCategory),
   plateNumber: hasExistingValue(formData.plateNumber),
+  chasisNumber: hasExistingValue(formData.chasisNumber),
   vehicleType: hasExistingValue(formData.vehicleType),
   vehicleAge: hasExistingValue(formData.vehicleAge),
   vehicleUse: hasExistingValue(formData.vehicleUse),
@@ -554,6 +562,7 @@ const buildInitialVisibility = (app: Application, formData: Record<string, strin
   companyCommissionField: hasExistingValue(formData.companyCommission),
   administrationFeesField: hasExistingValue(formData.administrationFees),
   transactionIdField: hasExistingValue(formData.transactionId),
+  policeNumberField: hasExistingValue(formData.policeNumber),
   paymentInstructionsField: hasExistingValue(formData.paymentInstructions),
   statusField: hasExistingValue(formData.status),
   insuranceEndDateField: hasExistingValue(app.insuranceEndAt),
@@ -564,6 +573,7 @@ const buildInitialVisibility = (app: Application, formData: Record<string, strin
   ebmUpload: hasExistingValue(app.ebm),
   proofOfPaymentInfo: hasExistingValue(app.proofOfPayment),
   transactionIdInfo: hasExistingValue(app.transactionId),
+  policeNumberInfo: hasExistingValue(app.policeNumber),
   yellowCardInfo: hasExistingValue(app.yellowCard),
   pastInsuranceCertificateInfo: hasExistingValue(app.pastInsuranceCertificate),
 });
@@ -577,6 +587,7 @@ const getActionButtons = (app: Application) => {
           onClick={() => {
             // Initialize edit form data from application
             const formData = {
+              fullName: app.client?.fullName || app.fullName || '',
               // Insurance Information (Readonly)
               insuranceCategory: app.insuranceCategory || '',
               insuranceType: app.insuranceType || '',
@@ -584,16 +595,18 @@ const getActionButtons = (app: Application) => {
               insuranceProvider: app.insuranceProvider || '',
               // Vehicle Information (Readonly)
               plateNumber: app.vehicle?.plateNumber || '',
+              chasisNumber: resolveChasisNumber(app),
               vehicleType: app.vehicle?.vehicleType || '',
               vehicleAge: app.vehicle?.vehicleAge || '',
               vehicleUse: app.vehicle?.vehicleUse || '',
               otherVehicleUse: app.vehicle?.otherVehicleUse || '',
-              isCOMESA: false, 
+              isCOMESA: Boolean(app.isCOMESA),
               // Payment Information (Editable)
               amount: app.amount?.toString() || '',
               netPremium: app.netPremium?.toString() || '',
               paymentInstructions: app.paymentInstructions || '',
               transactionId: app.transactionId || '',
+              policeNumber: app.policeNumber || '',
               // Commission Information (Editable)
               companyCommission: app.companyCommission?.toString() || '',
               administrationFees: app.administrationFees || '',
@@ -816,12 +829,25 @@ const getActionButtons = (app: Application) => {
       // Handle file fields - if a new file was selected, it's a change
       if (currentValue instanceof File) {
         changedFields[key] = currentValue;
+      } else if (typeof currentValue === 'boolean' || typeof originalValue === 'boolean') {
+        if (Boolean(currentValue) !== Boolean(originalValue)) {
+          changedFields[key] = currentValue as boolean;
+        }
       }
       // Compare other values (handle string/number conversions)
       else if (String(currentValue || '') !== String(originalValue || '')) {
         changedFields[key] = currentValue as string | number | boolean;
       }
     });
+
+    if ('fullName' in changedFields) {
+      const trimmedName = String(changedFields.fullName).trim();
+      if (!trimmedName) {
+        showToast('Client full name is required', 'error');
+        return;
+      }
+      changedFields.fullName = trimmedName;
+    }
 
     if (
       'insuranceDuration' in editFormData &&
@@ -859,6 +885,16 @@ const getActionButtons = (app: Application) => {
     setIsSubmittingEdit(true);
     try {
       const formDataToSend = new FormData();
+
+      const clientId = editingApp.client?._id || editingApp.clientId || '';
+      if (clientId) {
+        formDataToSend.set('clientId', clientId);
+      }
+
+      const vehicleId = editingApp.vehicle?._id || editingApp.vehicleId || '';
+      if (vehicleId) {
+        formDataToSend.set('vehicleId', vehicleId);
+      }
       
       // Add only changed fields
       Object.entries(changedFields).forEach(([key, value]) => {
@@ -1127,7 +1163,7 @@ const getActionButtons = (app: Application) => {
 
   // Visibility helpers for edit form sections
   const isPersistentlyVisible = (field: string) => visibleEditFields[field] ?? false;
-  const clientFullNameValue = editingApp?.client?.fullName || editingApp?.fullName || '';
+  const clientFullNameValue = editFormData ? getFormValue(editFormData.fullName) : '';
   const clientEmailValue = editingApp?.client?.email || editingApp?.email || '';
   const clientPhoneValue = editingApp?.client?.phoneNumber || editingApp?.phoneNumber || '';
   const clientDobValue = editingApp?.client?.dateOfBirth
@@ -1163,6 +1199,7 @@ const getActionButtons = (app: Application) => {
 
   const insuranceCategoryValue = editFormData ? getFormValue(editFormData.insuranceCategory) : '';
   const plateNumberValue = editFormData ? getFormValue(editFormData.plateNumber) : '';
+  const chasisNumberValue = editFormData ? getFormValue(editFormData.chasisNumber) : '';
   const vehicleTypeValue = editFormData ? getFormValue(editFormData.vehicleType) : '';
   const vehicleAgeValue = editFormData ? getFormValue(editFormData.vehicleAge) : '';
   const vehicleUseValue = editFormData ? getFormValue(editFormData.vehicleUse) : '';
@@ -1177,13 +1214,12 @@ const getActionButtons = (app: Application) => {
 
   const showInsuranceCategory = isPersistentlyVisible('insuranceCategory') || hasExistingValue(insuranceCategoryValue);
   const showPlateNumber = isPersistentlyVisible('plateNumber') || (isVehicleInsurance && hasExistingValue(plateNumberValue));
+  const showChasisNumber = isPersistentlyVisible('chasisNumber') || isVehicleInsurance;
   const showVehicleType = isPersistentlyVisible('vehicleType') || (isVehicleInsurance && hasExistingValue(vehicleTypeValue));
   const showVehicleAge = isPersistentlyVisible('vehicleAge') || (isVehicleInsurance && hasExistingValue(vehicleAgeValue));
   const showVehicleUse = isPersistentlyVisible('vehicleUse') || (isVehicleInsurance && hasExistingValue(vehicleUseValue));
   const showOtherVehicleUse = isPersistentlyVisible('otherVehicleUse') || (isVehicleInsurance && hasExistingValue(otherVehicleUseValue));
-  const showComesaField =
-    isPersistentlyVisible('comesa') ||
-    (isVehicleInsurance && typeof editFormData?.isCOMESA === 'boolean' && editFormData.isCOMESA);
+  const showComesaField = isPersistentlyVisible('comesa') || isVehicleInsurance;
   const showInsuranceProvider = isPersistentlyVisible('insuranceProvider') || hasExistingValue(insuranceProviderValue);
   const showInsuranceType = isPersistentlyVisible('insuranceType') || hasExistingValue(insuranceTypeValue);
   const showInsuranceDuration = isPersistentlyVisible('insuranceDuration') || hasExistingValue(insuranceDurationValue);
@@ -1191,6 +1227,7 @@ const getActionButtons = (app: Application) => {
   const showInsuranceDetailsSection =
     showInsuranceCategory ||
     showPlateNumber ||
+    showChasisNumber ||
     showVehicleType ||
     showVehicleAge ||
     showVehicleUse ||
@@ -1206,6 +1243,7 @@ const getActionButtons = (app: Application) => {
   const companyCommissionValue = editFormData ? getFormValue(editFormData.companyCommission) : '';
   const administrationFeesValue = editFormData ? getFormValue(editFormData.administrationFees) : '';
   const transactionIdValue = editFormData ? getFormValue(editFormData.transactionId) : '';
+  const policeNumberValue = editFormData ? getFormValue(editFormData.policeNumber) : '';
   const paymentInstructionsValue = editFormData ? getFormValue(editFormData.paymentInstructions) : '';
 
   const showAmountField = isPersistentlyVisible('amountField') || hasExistingValue(amountValue);
@@ -1214,6 +1252,7 @@ const getActionButtons = (app: Application) => {
   const showCompanyCommissionField = isPersistentlyVisible('companyCommissionField') || hasExistingValue(companyCommissionValue);
   const showAdministrationFeesField = isPersistentlyVisible('administrationFeesField') || hasExistingValue(administrationFeesValue);
   const showTransactionIdField = isPersistentlyVisible('transactionIdField') || hasExistingValue(transactionIdValue);
+  const showPoliceNumberField = isPersistentlyVisible('policeNumberField') || hasExistingValue(policeNumberValue);
   const showPaymentInstructionsField = isPersistentlyVisible('paymentInstructionsField') || hasExistingValue(paymentInstructionsValue);
 
   const showPaymentSection =
@@ -1223,6 +1262,7 @@ const getActionButtons = (app: Application) => {
     showCompanyCommissionField ||
     showAdministrationFeesField ||
     showTransactionIdField ||
+    showPoliceNumberField ||
     showPaymentInstructionsField;
 
   const statusValue = editFormData ? getFormValue(editFormData.status) : '';
@@ -1255,11 +1295,16 @@ const getActionButtons = (app: Application) => {
 
   const showProofOfPaymentInfo = isPersistentlyVisible('proofOfPaymentInfo') || hasExistingValue(editingApp?.proofOfPayment);
   const showTransactionIdInfo = isPersistentlyVisible('transactionIdInfo') || hasExistingValue(editingApp?.transactionId);
+  const showPoliceNumberInfo = isPersistentlyVisible('policeNumberInfo') || hasExistingValue(editingApp?.policeNumber);
   const showYellowCardInfo = isPersistentlyVisible('yellowCardInfo') || hasExistingValue(editingApp?.yellowCard);
   const showPastInsuranceCertificateInfo =
     isPersistentlyVisible('pastInsuranceCertificateInfo') || hasExistingValue(editingApp?.pastInsuranceCertificate);
   const showAgentInfoSection =
-    showProofOfPaymentInfo || showTransactionIdInfo || showYellowCardInfo || showPastInsuranceCertificateInfo;
+    showProofOfPaymentInfo ||
+    showTransactionIdInfo ||
+    showPoliceNumberInfo ||
+    showYellowCardInfo ||
+    showPastInsuranceCertificateInfo;
 
   // ── Download helpers ──────────────────────────────────────────────────────
 
@@ -1278,6 +1323,7 @@ const getActionButtons = (app: Application) => {
     insuranceEndDate: formatDateUTC(app.insuranceEndAt),
     commission: app.agentCommission ?? 0,
     plateNumber: isVehicleCategory(app.insuranceCategory) ? (app.vehicle?.plateNumber || 'N/A') : '',
+    policeNumber: formatPoliceNumberDisplay(app),
   });
 
   const EXPORT_HEADERS = [
@@ -1290,6 +1336,7 @@ const getActionButtons = (app: Application) => {
     'Insurance End Date',
     'Commission (RWF)',
     'Plate Number',
+    'Police Number',
   ];
 
   const handleDownloadPDF = async () => {
@@ -1343,6 +1390,7 @@ const getActionButtons = (app: Application) => {
           r.insuranceEndDate,
           `${r.commission.toLocaleString()} RWF`,
           r.plateNumber,
+          r.policeNumber,
         ];
       });
 
@@ -1362,6 +1410,7 @@ const getActionButtons = (app: Application) => {
           6: { cellWidth: 22, halign: 'center' },  // Insurance End Date
           7: { cellWidth: 26, halign: 'right' },   // Commission
           8: { cellWidth: 20 },                    // Plate Number
+          9: { cellWidth: 22 },                    // Police Number
         },
         alternateRowStyles: { fillColor: [245, 245, 245] },
         margin: { top: 10, right: 8, bottom: 12, left: 8 },
@@ -1398,6 +1447,7 @@ const getActionButtons = (app: Application) => {
             r.insuranceEndDate,
             r.commission.toString(),
             r.plateNumber,
+            r.policeNumber,
           ];
           return cells.map((c) => (String(c).includes(',') ? `"${c}"` : c)).join(',');
         }),
@@ -2076,6 +2126,10 @@ const getActionButtons = (app: Application) => {
                       <p className="font-semibold">{selectedApp.vehicle.plateNumber}</p>
                     </div>
                   )}
+                  <div>
+                    <p className="text-sm text-gray-500">Chassis number</p>
+                    <p className="font-semibold">{formatChasisNumberDisplay(selectedApp)}</p>
+                  </div>
                 </div>
               )}
 
@@ -2268,6 +2322,10 @@ const getActionButtons = (app: Application) => {
                       <p className="text-xs text-gray-500">{selectedApp.transactionId}</p>
                     </div>
                   )}
+                  <div className="bg-white p-3 rounded border">
+                    <p className="text-sm font-medium">Police number</p>
+                    <p className="text-xs text-gray-500">{formatPoliceNumberDisplay(selectedApp)}</p>
+                  </div>
                 </div>
               </div>
             )}
@@ -2368,9 +2426,10 @@ const getActionButtons = (app: Application) => {
                         <label className="block text-xs font-medium mb-1">Full Name</label>
                         <input
                           type="text"
+                          name="fullName"
                           value={clientFullNameValue}
-                          disabled
-                          className="w-full py-1.5 px-2 text-xs rounded-lg bg-gray-100 border border-gray-300 text-gray-600"
+                          onChange={handleEditInputChange}
+                          className="w-full py-1.5 px-2 text-xs rounded-lg focus:outline-none border border-gray-300 focus:border-[var(--main-blue)]"
                         />
                       </div>
                     )}
@@ -2495,6 +2554,19 @@ const getActionButtons = (app: Application) => {
                         />
                       </div>
                     )}
+                    {showChasisNumber && (
+                      <div>
+                        <label className="block text-xs font-medium mb-1">Chassis Number</label>
+                        <input
+                          type="text"
+                          name="chasisNumber"
+                          value={chasisNumberValue}
+                          onChange={handleEditInputChange}
+                          placeholder="Enter vehicle chassis"
+                          className="w-full py-1.5 px-2 text-xs rounded-lg border border-gray-300 focus:border-[var(--main-blue)] focus:ring-1 focus:ring-[var(--main-blue)] outline-none"
+                        />
+                      </div>
+                    )}
                     {showVehicleType && (
                       <div>
                         <label className="block text-xs font-medium mb-1">Vehicle Type</label>
@@ -2541,14 +2613,15 @@ const getActionButtons = (app: Application) => {
                     )}
                     {showComesaField && (
                       <div className="md:col-span-2">
-                        <label className="flex items-center space-x-2">
+                        <label className="flex items-center space-x-2 cursor-pointer">
                           <input
                             type="checkbox"
-                            checked
-                            disabled
-                            className="rounded h-3 border-gray-300 bg-gray-100"
+                            name="isCOMESA"
+                            checked={Boolean(editFormData?.isCOMESA)}
+                            onChange={handleEditInputChange}
+                            className="rounded h-3 border-gray-300 text-[var(--main-blue)] focus:ring-[var(--main-blue)]"
                           />
-                          <span className="text-xs font-medium text-gray-600">Ext. Territorial (COMESA)</span>
+                          <span className="text-xs font-medium text-gray-700">Ext. Territorial (COMESA)</span>
                         </label>
                       </div>
                     )}
@@ -2694,6 +2767,18 @@ const getActionButtons = (app: Application) => {
                         />
                       </div>
                     )}
+                    {showPoliceNumberField && (
+                      <div>
+                        <label className="block text-xs font-medium mb-1">Police number</label>
+                        <input
+                          type="text"
+                          name="policeNumber"
+                          value={policeNumberValue}
+                          onChange={handleEditInputChange}
+                          className="w-full py-1.5 px-2 text-xs rounded-lg focus:outline-none border border-gray-300 focus:border-[var(--main-blue)]"
+                        />
+                      </div>
+                    )}
                     {showPaymentInstructionsField && (
                       <div className="md:col-span-2">
                         <label className="block text-xs font-medium mb-1">Payment Instructions</label>
@@ -2820,6 +2905,12 @@ const getActionButtons = (app: Application) => {
                       <div className="bg-white p-2 rounded border">
                         <p className="text-xs font-medium">Transaction ID</p>
                         <p className="text-[10px] text-gray-500">{editingApp.transactionId}</p>
+                      </div>
+                    )}
+                    {showPoliceNumberInfo && (
+                      <div className="bg-white p-2 rounded border">
+                        <p className="text-xs font-medium">Police number</p>
+                        <p className="text-[10px] text-gray-500">{formatPoliceNumberDisplay(editingApp)}</p>
                       </div>
                     )}
                     {showYellowCardInfo && (

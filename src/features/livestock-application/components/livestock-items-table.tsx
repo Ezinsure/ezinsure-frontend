@@ -6,7 +6,9 @@ import { Button } from '@/components/ui/button';
 import {
   LIVESTOCK_ANIMAL_CATEGORY_OPTIONS,
   LIVESTOCK_ANIMAL_TYPE_OPTIONS,
+  LIVESTOCK_BREED_OPTIONS,
 } from '@/features/livestock-application/constants';
+import { OwnerTableCells, OwnerTableHeaders } from '@/features/livestock-application/components/tables/livestock-owner-table-columns';
 import { LivestockSelect, LivestockTextField } from '@/features/livestock-application/components/form-controls';
 import { LIVESTOCK_FORM_LABELS } from '@/features/livestock-application/labels';
 import type { LivestockAnimalRow } from '@/features/livestock-application/types';
@@ -126,23 +128,32 @@ export function LivestockItemsTable({
       )}
 
       <div className="w-full max-w-full overflow-x-auto rounded-xl border border-slate-200">
-        <table className={`w-full text-sm ${showOwnerColumns ? 'min-w-[110rem]' : 'min-w-[92rem]'}`}>
+        <table
+          className={`w-full text-sm ${
+            showOwnerColumns ? 'min-w-[136rem]' : 'min-w-[100rem]'
+          }`}
+        >
           <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
             <tr>
               <th className="px-3 py-2 text-left w-10">#</th>
-              {showOwnerColumns && (
-                <>
-                  <th className="px-3 py-2 text-left min-w-[11rem]">{LIVESTOCK_FORM_LABELS.fields.ownerName}</th>
-                  <th className="px-3 py-2 text-left min-w-[10rem]">{LIVESTOCK_FORM_LABELS.fields.ownerPhone}</th>
-                </>
-              )}
+              <OwnerTableHeaders showOwnerColumns={showOwnerColumns} />
               <th className="px-3 py-2 text-left min-w-[11rem]">{LIVESTOCK_FORM_LABELS.fields.animalType}</th>
               <th className="px-3 py-2 text-left min-w-[10rem]">{LIVESTOCK_FORM_LABELS.fields.animalCategory}</th>
-              <th className="px-3 py-2 text-left min-w-[7rem]">{LIVESTOCK_FORM_LABELS.fields.animalAge}</th>
-              <th className="px-3 py-2 text-left min-w-[13rem]">{idFieldLabel}</th>
+              <th className="px-3 py-2 text-left min-w-[9rem]">{LIVESTOCK_FORM_LABELS.fields.animalAge}</th>
+              <th className="px-3 py-2 text-left min-w-[13rem]">
+                <span className="inline-flex flex-wrap items-center gap-2">
+                  {idFieldLabel}
+                  {!isPoultryTable && (
+                    <span className="rounded-md bg-emerald-100 px-1.5 py-0.5 text-[10px] font-bold normal-case tracking-normal text-emerald-800">
+                      Chip
+                    </span>
+                  )}
+                </span>
+              </th>
               <th className="px-3 py-2 text-left min-w-[10rem]">{LIVESTOCK_FORM_LABELS.fields.breed}</th>
               <th className="px-3 py-2 text-left min-w-[9rem]">{LIVESTOCK_FORM_LABELS.fields.color}</th>
               <th className="px-3 py-2 text-left min-w-[10rem]">{LIVESTOCK_FORM_LABELS.fields.productivity}</th>
+              <th className="px-3 py-2 text-left min-w-[14rem]">{LIVESTOCK_FORM_LABELS.fields.vaccinationInfo}</th>
               <th className="px-3 py-2 text-left min-w-[11rem]">{LIVESTOCK_FORM_LABELS.fields.sumAssured}</th>
               <th className="px-3 py-2 w-14" />
             </tr>
@@ -151,29 +162,14 @@ export function LivestockItemsTable({
             {items.map((item, index) => (
               <tr key={item.id} className="align-top bg-white">
                 <td className="px-3 py-2 text-slate-500">{index + 1}</td>
-                {showOwnerColumns && (
-                  <>
-                    <td className="px-2 py-2">
-                      <LivestockTextField
-                        fieldName="ownerName"
-                        value={item.ownerName || ''}
-                        onChange={(v) => onUpdate(item.id, { ownerName: v })}
-                        error={errors[`livestockItems.${index}.ownerName`]}
-                        disabled={disabled}
-                        hideLabel
-                      />
-                    </td>
-                    <td className="px-2 py-2">
-                      <LivestockTextField
-                        fieldName="ownerPhone"
-                        value={item.ownerPhone || ''}
-                        onChange={(v) => onUpdate(item.id, { ownerPhone: v })}
-                        disabled={disabled}
-                        hideLabel
-                      />
-                    </td>
-                  </>
-                )}
+                <OwnerTableCells
+                  item={item}
+                  index={index}
+                  errors={errors}
+                  disabled={disabled}
+                  showOwnerColumns={showOwnerColumns}
+                  onUpdate={(patch) => onUpdate(item.id, patch)}
+                />
                 <td className="px-2 py-2 min-w-[11rem]">
                   {fixedAnimalType ? (
                     <span className="inline-flex rounded-lg bg-slate-100 px-3 py-2 text-sm font-medium text-slate-800">
@@ -201,10 +197,9 @@ export function LivestockItemsTable({
                     hideLabel
                   />
                 </td>
-                <td className="px-2 py-2 min-w-[7rem]">
+                <td className="px-2 py-2 min-w-[9rem]">
                   <LivestockTextField
                     fieldName="animalAge"
-                    type="number"
                     value={item.animalAge}
                     onChange={(v) => onUpdate(item.id, { animalAge: v })}
                     disabled={disabled}
@@ -223,10 +218,11 @@ export function LivestockItemsTable({
                   />
                 </td>
                 <td className="px-2 py-2 min-w-[10rem]">
-                  <LivestockTextField
+                  <LivestockSelect
                     fieldName="breed"
                     value={item.breed}
                     onChange={(v) => onUpdate(item.id, { breed: v })}
+                    options={LIVESTOCK_BREED_OPTIONS}
                     disabled={disabled}
                     hideLabel
                   />
@@ -245,6 +241,15 @@ export function LivestockItemsTable({
                     fieldName="productivity"
                     value={item.productivity}
                     onChange={(v) => onUpdate(item.id, { productivity: v })}
+                    disabled={disabled}
+                    hideLabel
+                  />
+                </td>
+                <td className="px-2 py-2 min-w-[14rem]">
+                  <LivestockTextField
+                    fieldName="vaccinationInfo"
+                    value={item.vaccinationInfo || ''}
+                    onChange={(v) => onUpdate(item.id, { vaccinationInfo: v })}
                     disabled={disabled}
                     hideLabel
                   />

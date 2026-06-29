@@ -12,6 +12,7 @@ import type { LivestockApplicationFormValues, LivestockApplicationStepId } from 
 export interface LivestockValidationContext {
   lineTableVariant?: FormProfile['lineTableVariant'];
   showOwnerColumns?: boolean;
+  lockedAnimalType?: string;
 }
 
 function flatValues(values: LivestockApplicationFormValues): Record<string, string> {
@@ -32,6 +33,7 @@ const rulesByStep: Partial<Record<LivestockApplicationStepId, ValidationRules>> 
     ownerName: { required: true, minLength: 2 },
     nationalId: { required: true, minLength: 5 },
     ownerPhone: { required: true, pattern: validationPatterns.phone },
+    ownerGender: { required: true },
   },
   applicantAddress: {
     applicantDistrict: { required: true },
@@ -93,6 +95,12 @@ function validateLivestockDetails(
         errors[`${prefix}.ownerPhone`] = 'Telefone y’umuhinzi irakenewe';
       } else if (!validationPatterns.phone.test(item.ownerPhone.replace(/\s/g, ''))) {
         errors[`${prefix}.ownerPhone`] = 'Andika telefone neza';
+      }
+      if (!item.ownerNationalId?.trim()) {
+        errors[`${prefix}.ownerNationalId`] = 'Indangamuntu y’umuhinzi irakenewe';
+      }
+      if (!item.ownerGender) {
+        errors[`${prefix}.ownerGender`] = 'Hitamo igitsina';
       }
     }
 

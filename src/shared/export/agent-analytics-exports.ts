@@ -33,6 +33,7 @@ export interface AgentApplicationExportRow {
   agentCommission: number;
   status: string;
   submittedAt: string;
+  policeNumber: string;
 }
 
 const AGENT_ANALYTICS_COLUMNS: ExportColumn<AgentAnalyticsExportRow>[] = [
@@ -57,6 +58,7 @@ const AGENT_APPLICATION_COLUMNS: ExportColumn<AgentApplicationExportRow>[] = [
   { header: 'Amount (RWF)', getValue: (r) => formatRwfExportNumber(r.amount), pdfWidth: 26 },
   { header: 'Commission (RWF)', getValue: (r) => formatRwfExportNumber(r.agentCommission), pdfWidth: 28 },
   { header: 'Status', getValue: (r) => formatApplicationStatus(r.status), pdfWidth: 28 },
+  { header: 'Police Number', getValue: (r) => r.policeNumber || '—', pdfWidth: 24 },
   { header: 'Submitted', getValue: (r) => formatExportDate(r.submittedAt), pdfWidth: 24 },
 ];
 

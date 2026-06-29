@@ -9,12 +9,20 @@ export interface ResolvedOwner {
   id?: string;
   name: string;
   phone: string;
+  nationalId?: string;
+  gender?: 'male' | 'female';
 }
 
 export function resolvePackagePrimaryOwner(
   record: Record<string, unknown>,
 ): ResolvedOwner | undefined {
-  const owner = record.owner as { _id?: string; name?: string; phone?: string } | null | undefined;
+  const owner = record.owner as {
+    _id?: string;
+    name?: string;
+    phone?: string;
+    nationalId?: string;
+    gender?: 'male' | 'female';
+  } | null | undefined;
   if (!owner || typeof owner !== 'object') return undefined;
   const name = String(owner.name ?? '').trim();
   if (!name) return undefined;
@@ -22,6 +30,8 @@ export function resolvePackagePrimaryOwner(
     id: owner._id ? String(owner._id) : undefined,
     name,
     phone: String(owner.phone ?? '').trim(),
+    nationalId: owner.nationalId ? String(owner.nationalId).trim() : undefined,
+    gender: owner.gender,
   };
 }
 
@@ -29,13 +39,21 @@ export function resolvePackageOwnersList(record: Record<string, unknown>): Resol
   if (!Array.isArray(record.owners)) return [];
   const owners: ResolvedOwner[] = [];
   for (const item of record.owners) {
-    const owner = item as { _id?: string; name?: string; phone?: string };
+    const owner = item as {
+      _id?: string;
+      name?: string;
+      phone?: string;
+      nationalId?: string;
+      gender?: 'male' | 'female';
+    };
     const name = String(owner.name ?? '').trim();
     if (!name) continue;
     owners.push({
       id: owner._id ? String(owner._id) : undefined,
       name,
       phone: String(owner.phone ?? '').trim(),
+      nationalId: owner.nationalId ? String(owner.nationalId).trim() : undefined,
+      gender: owner.gender,
     });
   }
   return owners;
@@ -104,7 +122,16 @@ export function mapInsuredLinesFromRecord(record: Record<string, unknown>): Insu
 
       return mapApiLineRecord({
         ...animal,
-        ...(owner ? { owner: { name: owner.name, phone: owner.phone } } : {}),
+        ...(owner
+          ? {
+              owner: {
+                name: owner.name,
+                phone: owner.phone,
+                ...(owner.nationalId ? { nationalId: owner.nationalId } : {}),
+                ...(owner.gender ? { gender: owner.gender } : {}),
+              },
+            }
+          : {}),
       });
     });
   }
