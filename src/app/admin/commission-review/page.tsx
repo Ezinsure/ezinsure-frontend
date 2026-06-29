@@ -20,7 +20,7 @@ import {
 import { getVehicleManufactureYearValidationError } from '@/utils/vehicle-year';
 import { formatDateUTC } from '@/utils/date-formatter';
 import { formatPoliceNumberDisplay } from '@/utils/police-number';
-import { formatChasisNumberDisplay } from '@/utils/chasis-number';
+import { formatChasisNumberDisplay, resolveChasisNumber } from '@/utils/chasis-number';
 
 interface Application {
   _id: string;
@@ -547,6 +547,7 @@ const buildInitialVisibility = (app: Application, formData: Record<string, strin
   clientIdentification: hasExistingValue(app.client?.identificationNumber || app.client?.nationalID || ''),
   insuranceCategory: hasExistingValue(formData.insuranceCategory),
   plateNumber: hasExistingValue(formData.plateNumber),
+  chasisNumber: hasExistingValue(formData.chasisNumber),
   vehicleType: hasExistingValue(formData.vehicleType),
   vehicleAge: hasExistingValue(formData.vehicleAge),
   vehicleUse: hasExistingValue(formData.vehicleUse),
@@ -594,6 +595,7 @@ const getActionButtons = (app: Application) => {
               insuranceProvider: app.insuranceProvider || '',
               // Vehicle Information (Readonly)
               plateNumber: app.vehicle?.plateNumber || '',
+              chasisNumber: resolveChasisNumber(app),
               vehicleType: app.vehicle?.vehicleType || '',
               vehicleAge: app.vehicle?.vehicleAge || '',
               vehicleUse: app.vehicle?.vehicleUse || '',
@@ -883,6 +885,16 @@ const getActionButtons = (app: Application) => {
     setIsSubmittingEdit(true);
     try {
       const formDataToSend = new FormData();
+
+      const clientId = editingApp.client?._id || editingApp.clientId || '';
+      if (clientId) {
+        formDataToSend.set('clientId', clientId);
+      }
+
+      const vehicleId = editingApp.vehicle?._id || editingApp.vehicleId || '';
+      if (vehicleId) {
+        formDataToSend.set('vehicleId', vehicleId);
+      }
       
       // Add only changed fields
       Object.entries(changedFields).forEach(([key, value]) => {
@@ -1187,6 +1199,7 @@ const getActionButtons = (app: Application) => {
 
   const insuranceCategoryValue = editFormData ? getFormValue(editFormData.insuranceCategory) : '';
   const plateNumberValue = editFormData ? getFormValue(editFormData.plateNumber) : '';
+  const chasisNumberValue = editFormData ? getFormValue(editFormData.chasisNumber) : '';
   const vehicleTypeValue = editFormData ? getFormValue(editFormData.vehicleType) : '';
   const vehicleAgeValue = editFormData ? getFormValue(editFormData.vehicleAge) : '';
   const vehicleUseValue = editFormData ? getFormValue(editFormData.vehicleUse) : '';
@@ -1201,6 +1214,7 @@ const getActionButtons = (app: Application) => {
 
   const showInsuranceCategory = isPersistentlyVisible('insuranceCategory') || hasExistingValue(insuranceCategoryValue);
   const showPlateNumber = isPersistentlyVisible('plateNumber') || (isVehicleInsurance && hasExistingValue(plateNumberValue));
+  const showChasisNumber = isPersistentlyVisible('chasisNumber') || isVehicleInsurance;
   const showVehicleType = isPersistentlyVisible('vehicleType') || (isVehicleInsurance && hasExistingValue(vehicleTypeValue));
   const showVehicleAge = isPersistentlyVisible('vehicleAge') || (isVehicleInsurance && hasExistingValue(vehicleAgeValue));
   const showVehicleUse = isPersistentlyVisible('vehicleUse') || (isVehicleInsurance && hasExistingValue(vehicleUseValue));
@@ -1213,6 +1227,7 @@ const getActionButtons = (app: Application) => {
   const showInsuranceDetailsSection =
     showInsuranceCategory ||
     showPlateNumber ||
+    showChasisNumber ||
     showVehicleType ||
     showVehicleAge ||
     showVehicleUse ||
@@ -2536,6 +2551,19 @@ const getActionButtons = (app: Application) => {
                           value={plateNumberValue}
                           disabled
                           className="w-full py-1.5 px-2 text-xs rounded-lg bg-gray-100 border border-gray-300 text-gray-600"
+                        />
+                      </div>
+                    )}
+                    {showChasisNumber && (
+                      <div>
+                        <label className="block text-xs font-medium mb-1">Chassis Number</label>
+                        <input
+                          type="text"
+                          name="chasisNumber"
+                          value={chasisNumberValue}
+                          onChange={handleEditInputChange}
+                          placeholder="Enter vehicle chassis"
+                          className="w-full py-1.5 px-2 text-xs rounded-lg border border-gray-300 focus:border-[var(--main-blue)] focus:ring-1 focus:ring-[var(--main-blue)] outline-none"
                         />
                       </div>
                     )}

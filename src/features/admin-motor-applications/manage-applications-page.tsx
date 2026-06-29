@@ -30,7 +30,7 @@ import {
   type PerformedByFilter,
 } from '@/utils/application-performed-by-filter';
 import { formatPoliceNumberDisplay, resolvePoliceNumber } from '@/utils/police-number';
-import { formatChasisNumberDisplay } from '@/utils/chasis-number';
+import { formatChasisNumberDisplay, resolveChasisNumber } from '@/utils/chasis-number';
 
 export default function ManageApplicationsPage() {
   const { showToast, ToastContainer } = useToast();
@@ -194,6 +194,7 @@ export default function ManageApplicationsPage() {
     clientIdentification: hasExistingValue(app.client?.identificationNumber || app.client?.nationalID || app.nationalID || ''),
     insuranceCategory: hasExistingValue(formData.insuranceCategory),
     plateNumber: hasExistingValue(formData.plateNumber),
+    chasisNumber: hasExistingValue(formData.chasisNumber),
     vehicleType: hasExistingValue(formData.vehicleType),
     vehicleAge: hasExistingValue(formData.vehicleAge),
     vehicleUse: hasExistingValue(formData.vehicleUse),
@@ -332,6 +333,17 @@ export default function ManageApplicationsPage() {
     setIsSubmittingEdit(true);
     try {
       const formDataToSend = new FormData();
+
+      const clientId = editingApp.client?._id || (editingApp as { clientId?: string }).clientId || '';
+      if (clientId) {
+        formDataToSend.set('clientId', clientId);
+      }
+
+      const vehicleId =
+        editingApp.vehicle?._id || (editingApp as { vehicleId?: string }).vehicleId || '';
+      if (vehicleId) {
+        formDataToSend.set('vehicleId', vehicleId);
+      }
 
       // Only include assignment fields when the admin is actively (re)assigning.
       // This ensures the payload matches what `/admin/motor/new-application` sends.
@@ -956,6 +968,7 @@ const getActionButtons = (app: Application) => {
             insuranceDuration: app.insuranceDuration || '',
             insuranceProvider: app.insuranceProvider || '',
             plateNumber: app.vehicle?.plateNumber || '',
+            chasisNumber: resolveChasisNumber(app),
             vehicleType: app.vehicle?.vehicleType || app.vehicleType || '',
             vehicleAge: app.vehicle?.vehicleAge || app.vehicleAge || '',
             vehicleUse: app.vehicle?.vehicleUse || app.vehicleUse || '',
@@ -1204,6 +1217,7 @@ const getActionButtons = (app: Application) => {
 
   const insuranceCategoryValue = editFormData ? getFormValue(editFormData.insuranceCategory) : '';
   const plateNumberValue = editFormData ? getFormValue(editFormData.plateNumber) : '';
+  const chasisNumberValue = editFormData ? getFormValue(editFormData.chasisNumber) : '';
   const vehicleTypeValue = editFormData ? getFormValue(editFormData.vehicleType) : '';
   const vehicleAgeValue = editFormData ? getFormValue(editFormData.vehicleAge) : '';
   const vehicleUseValue = editFormData ? getFormValue(editFormData.vehicleUse) : '';
@@ -1255,6 +1269,7 @@ const getActionButtons = (app: Application) => {
   const showInsuranceCategory = isPersistentlyVisible('insuranceCategory') || hasExistingValue(insuranceCategoryValue);
   const showPlateNumber =
     isPersistentlyVisible('plateNumber') || (isVehicleInsurance && hasExistingValue(plateNumberValue));
+  const showChasisNumber = isPersistentlyVisible('chasisNumber') || isVehicleInsurance;
   const showVehicleType =
     isPersistentlyVisible('vehicleType') || (isVehicleInsurance && hasExistingValue(vehicleTypeValue));
   const showVehicleAge =
@@ -1273,6 +1288,7 @@ const getActionButtons = (app: Application) => {
   const showInsuranceDetailsSection =
     showInsuranceCategory ||
     showPlateNumber ||
+    showChasisNumber ||
     showVehicleType ||
     showVehicleAge ||
     showVehicleUse ||
@@ -3193,6 +3209,19 @@ const getActionButtons = (app: Application) => {
                           value={plateNumberValue}
                           disabled
                           className="w-full py-1.5 px-2 text-xs rounded-lg bg-gray-100 border border-gray-300 text-gray-600"
+                        />
+                      </div>
+                    )}
+                    {showChasisNumber && (
+                      <div>
+                        <label className="block text-xs font-medium mb-1">Chassis Number</label>
+                        <input
+                          type="text"
+                          name="chasisNumber"
+                          value={chasisNumberValue}
+                          onChange={handleEditInputChange}
+                          placeholder="Enter vehicle chassis"
+                          className="w-full py-1.5 px-2 text-xs rounded-lg border border-gray-300 focus:border-[var(--main-blue)] focus:ring-1 focus:ring-[var(--main-blue)] outline-none"
                         />
                       </div>
                     )}
