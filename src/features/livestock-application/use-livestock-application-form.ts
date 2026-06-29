@@ -295,6 +295,32 @@ export function useLivestockApplicationForm(
       policyStartDate: values.policyStartDate,
       policyEndDate: values.policyEndDate,
       ...(isCattle && values.girinka ? { girinka: values.girinka } : {}),
+      ...(values.farmingExperience.trim()
+        ? { farmingExperience: values.farmingExperience.trim() }
+        : {}),
+      ...(values.previousIncidents.trim()
+        ? { previousIncidents: values.previousIncidents.trim() }
+        : {}),
+      veterinarySupport: {
+        hasVeterinarian: values.hasVeterinarian.trim(),
+        veterinarianAvailability: values.veterinarianAvailability.trim(),
+      },
+      diseaseInfo: {
+        knownDiseases: values.knownDiseases.trim(),
+      },
+      bankLoan: {
+        hasLoan: values.hasLoan.trim(),
+        ...(values.financialInstitutionName.trim()
+          ? { financialInstitutionName: values.financialInstitutionName.trim() }
+          : {}),
+        ...(values.institutionLocation.trim()
+          ? { institutionLocation: values.institutionLocation.trim() }
+          : {}),
+        ...(values.loanAccountNumber.trim()
+          ? { loanAccountNumber: values.loanAccountNumber.trim() }
+          : {}),
+        ...(values.loanAmount.trim() ? { loanAmount: values.loanAmount.trim() } : {}),
+      },
       owner: isMulti
         ? undefined
         : {
@@ -342,9 +368,7 @@ export function useLivestockApplicationForm(
             ? {
                 name: item.ownerName || '',
                 phone: item.ownerPhone || '',
-                ...(item.ownerNationalId?.trim()
-                  ? { nationalId: item.ownerNationalId.trim() }
-                  : {}),
+                nationalId: item.ownerNationalId?.trim() || '',
                 ...(item.ownerGender ? { gender: item.ownerGender } : {}),
               }
             : undefined,

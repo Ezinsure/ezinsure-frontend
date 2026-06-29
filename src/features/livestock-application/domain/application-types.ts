@@ -73,6 +73,8 @@ export interface CreateLivestockApplicationPayload {
   };
   /** Cattle applications — Girinka programme participation */
   girinka?: 'yes' | 'no';
+  farmingExperience?: string;
+  previousIncidents?: string;
   livestockLocation: {
     province?: string;
     district: string;

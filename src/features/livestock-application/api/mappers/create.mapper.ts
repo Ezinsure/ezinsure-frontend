@@ -72,16 +72,71 @@ function mapLine(
     mapped.owner = {
       name: line.owner.name.trim(),
       phone: line.owner.phone.trim(),
+      nationalId: line.owner.nationalId?.trim() ?? '',
     };
-    if (line.owner.nationalId?.trim()) {
-      mapped.owner.nationalId = line.owner.nationalId.trim();
-    }
     if (line.owner.gender) {
       mapped.owner.gender = line.owner.gender;
     }
   }
 
   return mapped;
+}
+
+function mapVeterinarySupport(
+  support: CreateLivestockApplicationPayload['veterinarySupport'],
+): NewLivestockApplicationBody['veterinarySupport'] | undefined {
+  if (!support) return undefined;
+  const hasVeterinarian = String(support.hasVeterinarian ?? '').trim();
+  const veterinarianAvailability = String(support.veterinarianAvailability ?? '').trim();
+  if (!hasVeterinarian && !veterinarianAvailability) return undefined;
+  return {
+    hasVeterinarian,
+    veterinarianAvailability,
+  };
+}
+
+function mapDiseaseInfo(
+  disease: CreateLivestockApplicationPayload['diseaseInfo'],
+): NewLivestockApplicationBody['diseaseInfo'] | undefined {
+  if (!disease) return undefined;
+  const knownDiseases = String(disease.knownDiseases ?? '').trim();
+  if (!knownDiseases) return undefined;
+  return { knownDiseases };
+}
+
+function mapBankLoan(
+  loan: CreateLivestockApplicationPayload['bankLoan'],
+): NewLivestockApplicationBody['bankLoan'] | undefined {
+  if (!loan) return undefined;
+  const hasLoan = String(loan.hasLoan ?? '').trim();
+  if (!hasLoan) return undefined;
+  const mapped: NonNullable<NewLivestockApplicationBody['bankLoan']> = { hasLoan };
+  const financialInstitutionName = String(loan.financialInstitutionName ?? '').trim();
+  const institutionLocation = String(loan.institutionLocation ?? '').trim();
+  const loanAccountNumber = String(loan.loanAccountNumber ?? '').trim();
+  const loanAmount = String(loan.loanAmount ?? '').trim();
+  if (financialInstitutionName) mapped.financialInstitutionName = financialInstitutionName;
+  if (institutionLocation) mapped.institutionLocation = institutionLocation;
+  if (loanAccountNumber) mapped.loanAccountNumber = loanAccountNumber;
+  if (loanAmount) mapped.loanAmount = loanAmount;
+  return mapped;
+}
+
+function mapVeterinarianVerification(
+  verification: CreateLivestockApplicationPayload['veterinarianVerification'],
+): NewLivestockApplicationBody['veterinarianVerification'] | undefined {
+  if (!verification) return undefined;
+  const veterinarianLicenseNumber = verification.veterinarianLicenseNumber.trim();
+  const veterinarianSignatureName = verification.veterinarianSignatureName.trim();
+  const insuranceAgentCode = verification.insuranceAgentCode?.trim();
+  if (!veterinarianLicenseNumber && !veterinarianSignatureName && !insuranceAgentCode) {
+    return undefined;
+  }
+  return {
+    veterinarianLicenseNumber,
+    veterinarianSignatureName,
+    ...(insuranceAgentCode ? { insuranceAgentCode } : {}),
+  };
 }
 
 /**
@@ -98,11 +153,13 @@ export function toNewApplicationBody(
     policyEndDate: payload.policyEndDate,
     livestockLocation: mapLivestockLocation(payload.livestockLocation),
     premiumTotals: {
+      premiumPercentage: payload.premiumTotals.premiumPercentage,
       premiumRateAmount: payload.premiumTotals.premiumRateAmount,
       farmerContributionAmount: payload.premiumTotals.farmerContributionAmount,
       governmentContribution: payload.premiumTotals.governmentContribution,
       companyCommission: payload.premiumTotals.companyCommission,
       veterinaryCommission: payload.premiumTotals.veterinaryCommission,
+      totalSumAssured: payload.premiumTotals.totalSumAssured,
     },
     lines: payload.lines.map((line) => mapLine(line, payload.ownerMode)),
   };
@@ -121,6 +178,36 @@ export function toNewApplicationBody(
 
   if (payload.girinka) {
     body.girinka = payload.girinka;
+  }
+
+  const farmingExperience = payload.farmingExperience?.trim();
+  if (farmingExperience) {
+    body.farmingExperience = farmingExperience;
+  }
+
+  const previousIncidents = payload.previousIncidents?.trim();
+  if (previousIncidents) {
+    body.previousIncidents = previousIncidents;
+  }
+
+  const veterinarySupport = mapVeterinarySupport(payload.veterinarySupport);
+  if (veterinarySupport) {
+    body.veterinarySupport = veterinarySupport;
+  }
+
+  const diseaseInfo = mapDiseaseInfo(payload.diseaseInfo);
+  if (diseaseInfo) {
+    body.diseaseInfo = diseaseInfo;
+  }
+
+  const bankLoan = mapBankLoan(payload.bankLoan);
+  if (bankLoan) {
+    body.bankLoan = bankLoan;
+  }
+
+  const veterinarianVerification = mapVeterinarianVerification(payload.veterinarianVerification);
+  if (veterinarianVerification) {
+    body.veterinarianVerification = veterinarianVerification;
   }
 
   return body;

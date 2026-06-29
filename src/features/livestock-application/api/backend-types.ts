@@ -28,6 +28,8 @@ export interface NewLivestockApplicationBody {
     province?: string;
   };
   girinka?: 'yes' | 'no';
+  farmingExperience?: string;
+  previousIncidents?: string;
   livestockLocation: {
     district: string;
     sector: string;
@@ -35,12 +37,33 @@ export interface NewLivestockApplicationBody {
     village: string;
     province?: string;
   };
+  veterinarySupport?: {
+    hasVeterinarian: string;
+    veterinarianAvailability: string;
+  };
+  diseaseInfo?: {
+    knownDiseases: string;
+  };
+  bankLoan?: {
+    hasLoan: string;
+    financialInstitutionName?: string;
+    institutionLocation?: string;
+    loanAccountNumber?: string;
+    loanAmount?: string;
+  };
+  veterinarianVerification?: {
+    insuranceAgentCode?: string;
+    veterinarianLicenseNumber: string;
+    veterinarianSignatureName: string;
+  };
   premiumTotals: {
+    premiumPercentage: number;
     premiumRateAmount: number;
     farmerContributionAmount: number;
     governmentContribution: number;
     companyCommission: number;
     veterinaryCommission: number;
+    totalSumAssured: number;
   };
   lines: Array<{
     lineType: 'INDIVIDUAL' | 'LOT';
@@ -48,7 +71,7 @@ export interface NewLivestockApplicationBody {
     unitValue: number;
     sumAssured: number;
     tekanaEligible: boolean;
-    owner?: { name: string; phone: string; nationalId?: string; gender?: 'male' | 'female' };
+    owner?: { name: string; phone: string; nationalId: string; gender?: 'male' | 'female' };
     animal: Record<string, string>;
   }>;
 }
