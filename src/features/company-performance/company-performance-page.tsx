@@ -16,6 +16,7 @@ import {
 import { MainLayout } from '@/components/ui/main-layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { DataExportActions } from '@/components/ui/data-export-actions';
 import { useToast } from '@/components/ui/toast';
 import { useAuth } from '@/context/AuthContext';
 import { formatDateUTC } from '@/utils/date-formatter';
@@ -31,6 +32,11 @@ import {
 import { MotorApplicationDetailsModal } from '@/features/admin-motor-applications/motor-application-details-modal';
 import { MotorApplicationEditModal } from '@/features/admin-motor-applications/motor-application-edit-modal';
 import type { Application } from '@/features/admin-motor-applications/types';
+import {
+  exportCompanyPerformanceToExcel,
+  exportCompanyPerformanceToPdf,
+  type CompanyPerformanceExportRow,
+} from '@/shared/export/company-performance-exports';
 
 function pageCopy(role: CompanyPerformanceViewRole) {
   if (role === 'finance') {
@@ -161,6 +167,61 @@ export default function CompanyPerformancePage({
       setCurrentPage(totalPages);
     }
   }, [currentPage, totalPages]);
+
+  const exportRows = useMemo<CompanyPerformanceExportRow[]>(
+    () =>
+      filteredApplications.map((app) => ({
+        applicationNumber: app.applicationNumber,
+        clientName: app.clientName,
+        channel: app.channelLabel,
+        performerName: app.channel === 'admin' ? app.performerName : '—',
+        insuranceCategory: app.insuranceCategory,
+        status: app.status,
+        submittedAt: app.submittedAt,
+        companyCommission: app.companyCommission,
+        administrationFees: app.administrationFees,
+      })),
+    [filteredApplications],
+  );
+
+  const exportParams = useMemo(
+    () => ({
+      rows: exportRows,
+      startDate,
+      endDate,
+      searchQuery,
+      statusFilter: selectedStatus,
+    }),
+    [exportRows, startDate, endDate, searchQuery, selectedStatus],
+  );
+
+  const handleExportExcel = useCallback(async () => {
+    if (exportRows.length === 0) {
+      showToast('No applications to export for the current filters', 'error');
+      return;
+    }
+    try {
+      await exportCompanyPerformanceToExcel(exportParams);
+      showToast('Company performance exported to Excel', 'success');
+    } catch (error) {
+      console.error('Excel export failed:', error);
+      showToast('Failed to export Excel file', 'error');
+    }
+  }, [exportParams, exportRows.length, showToast]);
+
+  const handleExportPdf = useCallback(async () => {
+    if (exportRows.length === 0) {
+      showToast('No applications to export for the current filters', 'error');
+      return;
+    }
+    try {
+      await exportCompanyPerformanceToPdf(exportParams);
+      showToast('Company performance exported to PDF', 'success');
+    } catch (error) {
+      console.error('PDF export failed:', error);
+      showToast('Failed to export PDF file', 'error');
+    }
+  }, [exportParams, exportRows.length, showToast]);
 
   return (
     <MainLayout>
@@ -299,14 +360,20 @@ export default function CompanyPerformancePage({
         </section>
 
         <section className="rounded-2xl border border-slate-200 bg-white shadow-sm">
-          <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3 sm:px-6">
+          <div className="flex flex-col gap-3 border-b border-slate-100 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6">
             <div className="flex items-center gap-2">
               <Users className="h-4 w-4 text-slate-500" aria-hidden />
               <h2 className="text-sm font-semibold text-slate-900">Applications</h2>
+              <p className="text-xs text-slate-500">
+                {filteredApplications.length} result{filteredApplications.length === 1 ? '' : 's'}
+              </p>
             </div>
-            <p className="text-xs text-slate-500">
-              {filteredApplications.length} result{filteredApplications.length === 1 ? '' : 's'}
-            </p>
+            <DataExportActions
+              disabled={isLoading || exportRows.length === 0}
+              onExportExcel={handleExportExcel}
+              onExportPdf={handleExportPdf}
+              className="shrink-0 justify-end"
+            />
           </div>
 
           {isLoading ? (
