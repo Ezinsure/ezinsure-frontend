@@ -15,6 +15,7 @@ import {
   getSonarwaBillingTotal,
   type MonthlyCommissionSummary,
 } from '@/utils/monthly-commission-summary';
+import { parseRevenueAnalyticsPayload, type RevenueChartDataPoint } from '@/utils/revenue-analytics';
 
 // Define types for the data
 interface Application {
@@ -62,23 +63,7 @@ interface InsuranceDistributionAPI {
   count: number;
 }
 
-// Define interfaces for revenue and daily metrics
-interface RevenueAnalyticsAPIResponse {
-  month: string;
-  totalRevenue?: number;
-  totalApplications?: number;
-  totalAgents?: number;
-  conversionRate?: number;
-}
-
-interface RevenueDataPoint {
-  month: string;
-  revenue?: number;
-  agents?: number;
-  clients?: number;
-  applications?: number;
-  conversion?: number;
-}
+// Define interfaces for daily metrics
 
 interface DailyMetric {
   day: string;
@@ -270,7 +255,7 @@ const SuperAdminDashboard = () => {
   // State for revenue and daily metrics loading and data
   const [isRevenueLoading, setIsRevenueLoading] = useState(true);
   const [isDailyMetricsLoading, setIsDailyMetricsLoading] = useState(true);
-  const [revenueData, setRevenueData] = useState<RevenueDataPoint[]>([]);
+  const [revenueData, setRevenueData] = useState<RevenueChartDataPoint[]>([]);
   const [dailyMetrics, setDailyMetrics] = useState<DailyMetric[]>([]);
   
   // Daily metrics date state (single date)
@@ -559,15 +544,7 @@ const SuperAdminDashboard = () => {
     })
       .then(res => res.json())
       .then(data => {
-        // Transform the data to match the chart's expected structure
-        const transformedData = (data.data || []).map((item: RevenueAnalyticsAPIResponse) => ({
-          month: item.month,
-          revenue: item.totalRevenue || 0,
-          applications: item.totalApplications || 0,
-          agents: item.totalAgents || 0,
-          conversion: item.conversionRate || 0
-        }));
-        setRevenueData(transformedData);
+        setRevenueData(parseRevenueAnalyticsPayload(data));
       })
       .catch((error) => {
         console.error('Error fetching revenue analytics:', error);
@@ -624,7 +601,7 @@ const SuperAdminDashboard = () => {
               />
               <span className="text-sm text-gray-700">
                 {entry.dataKey === 'revenue' ? 
-                  `Revenue: ${entry.value?.toLocaleString()} RWF` : 
+                  `Company commission: ${entry.value?.toLocaleString()} RWF` : 
                   entry.dataKey === 'applications' ?
                   `Applications: ${entry.value?.toLocaleString()}` :
                   `${entry.name || entry.dataKey}: ${entry.value}`
@@ -885,7 +862,7 @@ const SuperAdminDashboard = () => {
                           strokeWidth={2.5}
                           dot={{ r: 4, strokeWidth: 2, fill: '#fff', stroke: CHART_COLORS.primary }}
                           activeDot={{ r: 5 }}
-                          name="Revenue"
+                          name="Company commission"
                           fill="url(#revenueGradient)"
                         />
                       )}
