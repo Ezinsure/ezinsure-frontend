@@ -4,6 +4,8 @@ import { LIVESTOCK_VET_ENDPOINTS } from '@/features/livestock-application/api/en
 import type { ApiFetch } from '@/features/livestock-application/api/http';
 import { requestJson, unwrapEntityPayload } from '@/features/livestock-application/api/http';
 import { patchCachedLivestockApplicationRow } from '@/features/livestock-application/api/livestock-application-session-cache';
+import { patchLivestockWorkflowState } from '@/features/livestock-application/api/workflow-session';
+import { LIVESTOCK_WORKFLOW_DEMO_MODE } from '@/features/livestock-application/utils/workflow-demo-mode';
 
 export interface UploadPaymentProofResult {
   status: string;
@@ -20,6 +22,12 @@ export interface VerifyLivestockPaymentPayload {
 export interface VerifyLivestockPaymentResult {
   status: string;
   paidStatus?: string;
+}
+
+function simulateDelay(): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, 350);
+  });
 }
 
 function parseUploadPaymentProofResponse(payload: unknown): UploadPaymentProofResult {
@@ -41,11 +49,53 @@ function parseUploadPaymentProofResponse(payload: unknown): UploadPaymentProofRe
   };
 }
 
+async function simulateUploadLivestockPaymentProof(
+  applicationId: string,
+  payload: UploadPaymentProofPayload,
+): Promise<UploadPaymentProofResult> {
+  await simulateDelay();
+  void resolvePaymentProofFileType(payload.proofOfPayment);
+
+  const documentUrl = URL.createObjectURL(payload.proofOfPayment);
+  const submittedAt = new Date().toISOString();
+  const result: UploadPaymentProofResult = {
+    status: 'SUBMITTED',
+    expectedAmount: payload.amount,
+    documentUrl,
+    transactionId: payload.transactionId,
+  };
+
+  patchLivestockWorkflowState(applicationId, {
+    status: 'PAYMENT_PROOF_SUBMITTED',
+    paymentProof: {
+      status: 'SUBMITTED',
+      expectedAmount: payload.amount,
+      documentUrl,
+      transactionId: payload.transactionId,
+      submittedAt,
+    },
+  });
+
+  patchCachedLivestockApplicationRow(applicationId, {
+    paidStatus: 'SUBMITTED',
+    paymentProofStatus: 'SUBMITTED',
+    status: 'PAYMENT_PROOF_SUBMITTED',
+    proofOfPayment: documentUrl,
+    transactionId: payload.transactionId,
+  });
+
+  return result;
+}
+
 export async function uploadLivestockPaymentProof(
   apiFetch: ApiFetch,
   applicationId: string,
   payload: UploadPaymentProofPayload,
 ): Promise<UploadPaymentProofResult> {
+  if (LIVESTOCK_WORKFLOW_DEMO_MODE) {
+    return simulateUploadLivestockPaymentProof(applicationId, payload);
+  }
+
   const formData = new FormData();
   const file = payload.proofOfPayment;
   formData.append('proofOfPayment', file, file.name || 'payment-proof');
@@ -90,11 +140,52 @@ function parseVerifyPaymentResponse(payload: unknown): VerifyLivestockPaymentRes
   };
 }
 
+async function simulateVerifyLivestockPaymentProof(
+  applicationId: string,
+  payload: VerifyLivestockPaymentPayload,
+): Promise<VerifyLivestockPaymentResult> {
+  await simulateDelay();
+  void LIVESTOCK_VET_ENDPOINTS.verifyPayment(applicationId);
+
+  if (payload.action === 'approve') {
+    patchLivestockWorkflowState(applicationId, {
+      status: 'PAYMENT_VERIFIED',
+      paymentProof: {
+        status: 'VERIFIED',
+        verifiedAt: new Date().toISOString(),
+      },
+    });
+    patchCachedLivestockApplicationRow(applicationId, {
+      status: 'PAYMENT_VERIFIED',
+      paidStatus: 'VERIFIED',
+      paymentProofStatus: 'VERIFIED',
+    });
+    return { status: 'PAYMENT_VERIFIED', paidStatus: 'VERIFIED' };
+  }
+
+  patchLivestockWorkflowState(applicationId, {
+    status: 'PAYMENT_PROOF_REQUIRED',
+    paymentProof: {
+      status: 'REJECTED',
+    },
+  });
+  patchCachedLivestockApplicationRow(applicationId, {
+    status: 'PAYMENT_PROOF_REQUIRED',
+    paidStatus: 'REJECTED',
+    paymentProofStatus: 'REJECTED',
+  });
+  return { status: 'PAYMENT_PROOF_REQUIRED', paidStatus: 'REJECTED' };
+}
+
 export async function verifyLivestockPaymentProof(
   apiFetch: ApiFetch,
   applicationId: string,
   payload: VerifyLivestockPaymentPayload,
 ): Promise<VerifyLivestockPaymentResult> {
+  if (LIVESTOCK_WORKFLOW_DEMO_MODE) {
+    return simulateVerifyLivestockPaymentProof(applicationId, payload);
+  }
+
   const response = await requestJson<unknown>(
     apiFetch,
     LIVESTOCK_VET_ENDPOINTS.verifyPayment(applicationId),
@@ -114,12 +205,20 @@ export async function verifyLivestockPaymentProof(
   const result = parseVerifyPaymentResponse(response);
 
   if (payload.action === 'approve') {
+    patchLivestockWorkflowState(applicationId, {
+      status: 'PAYMENT_VERIFIED',
+      paymentProof: { status: 'VERIFIED', verifiedAt: new Date().toISOString() },
+    });
     patchCachedLivestockApplicationRow(applicationId, {
       status: 'PAYMENT_VERIFIED',
       paidStatus: 'VERIFIED',
       paymentProofStatus: 'VERIFIED',
     });
   } else {
+    patchLivestockWorkflowState(applicationId, {
+      status: 'PAYMENT_PROOF_REQUIRED',
+      paymentProof: { status: 'REJECTED' },
+    });
     patchCachedLivestockApplicationRow(applicationId, {
       status: 'PAYMENT_PROOF_REQUIRED',
       paidStatus: 'REJECTED',

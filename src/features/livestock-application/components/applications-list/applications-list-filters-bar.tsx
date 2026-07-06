@@ -61,7 +61,8 @@ export function ApplicationsListFiltersBar({
   const financeQuickFilters: { label: string; patch: Partial<ApplicationsListFilters> }[] = [
     { label: 'Payment pending', patch: { paymentStatus: 'PENDING', status: 'ALL' } },
     { label: 'Proof submitted', patch: { paymentStatus: 'SUBMITTED', status: 'ALL' } },
-    { label: 'Verified', patch: { paymentStatus: 'VERIFIED', status: 'ALL' } },
+    { label: 'Commission review', patch: { paymentStatus: 'ALL', status: 'PENDING_COMMISSION_REVIEW' } },
+    { label: 'Ready to pay', patch: { paymentStatus: 'ALL', status: 'READY_TO_BE_PAID' } },
     { label: 'All payments', patch: { paymentStatus: 'ALL' } },
   ];
 

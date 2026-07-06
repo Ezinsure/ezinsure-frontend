@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { FileInput } from '@/components/ui/file-input';
@@ -23,12 +24,28 @@ export function SubsidySignedUploadModal({
   existingDocumentUrl,
   onSubmit,
 }: SubsidySignedUploadModalProps) {
+  const [mounted, setMounted] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
   const [resetTrigger, setResetTrigger] = useState(0);
   const [submitting, setSubmitting] = useState(false);
 
-  if (!open) return null;
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    setFile(null);
+    setFileError(null);
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = previous;
+    };
+  }, [open]);
+
+  if (!mounted || !open) return null;
 
   const handleFileChange = (next: File | null) => {
     if (next) {
@@ -59,8 +76,8 @@ export function SubsidySignedUploadModal({
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4">
+  return createPortal(
+    <div className="fixed inset-0 z-[300] flex items-center justify-center bg-slate-900/50 p-4">
       <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-6 shadow-xl">
         <h3 className="text-lg font-semibold text-slate-900">Upload signed nkunganire document</h3>
         <p className="mt-1 text-sm text-slate-600">
@@ -106,6 +123,7 @@ export function SubsidySignedUploadModal({
           </Button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

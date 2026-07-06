@@ -122,7 +122,7 @@ export function PaymentProofUploadModal({
   };
 
   return createPortal(
-    <div className="fixed inset-0 z-[220] flex items-center justify-center p-4 sm:p-6">
+    <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 sm:p-6">
       <button
         type="button"
         className="absolute inset-0 bg-slate-900/60 backdrop-blur-[2px]"

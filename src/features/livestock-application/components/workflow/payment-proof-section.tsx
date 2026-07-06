@@ -1,8 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { AlertCircle, CheckCircle2, Eye, FileUp, Loader2, Receipt, ShieldCheck } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { CheckCircle2, FileUp, Receipt, ShieldCheck } from 'lucide-react';
 import {
   PaymentProofUploadModal,
   type PaymentProofUploadPayload,
@@ -16,6 +15,12 @@ import type {
 } from '@/features/livestock-application/domain/application-types';
 import { canAdminReviewLivestockPayment } from '@/features/livestock-application/utils/application-timeline';
 import { formatRwfDisplay } from '@/features/livestock-application/utils/format-rwf';
+import { resolveWorkflowActionVisible } from '@/features/livestock-application/utils/workflow-demo-mode';
+import {
+  WorkflowDocumentAction,
+  WorkflowPrimaryAction,
+  WorkflowStepActions,
+} from '@/features/livestock-application/components/workflow/workflow-step-actions';
 
 interface PaymentProofSectionProps {
   application: LivestockApplicationPackage;
@@ -33,47 +38,36 @@ export function PaymentProofSection({
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [reviewModalOpen, setReviewModalOpen] = useState(false);
   const [note, setNote] = useState<string | null>(null);
-  const { upload, isUploading, error: uploadError, clearError: clearUploadError } =
-    useUploadLivestockPaymentProof();
-  const {
-    verify,
-    isVerifying,
-    error: verifyError,
-    clearError: clearVerifyError,
-  } = useVerifyLivestockPaymentProof();
+  const { upload, isUploading } = useUploadLivestockPaymentProof();
+  const { verify, isVerifying } = useVerifyLivestockPaymentProof();
   const { paymentProof } = application;
 
-  const canUpload =
-    viewRole === 'vet' && (paymentProof.status === 'PENDING' || paymentProof.status === 'REJECTED');
+  const canUpload = resolveWorkflowActionVisible(
+    viewRole === 'vet',
+    paymentProof.status === 'PENDING' || paymentProof.status === 'REJECTED',
+  );
 
-  const canReview = viewRole === 'admin' && canAdminReviewLivestockPayment(application);
+  const canReview = resolveWorkflowActionVisible(
+    viewRole === 'admin',
+    canAdminReviewLivestockPayment(application),
+  );
 
   const handleUploadSubmit = async (payload: PaymentProofUploadPayload) => {
-    setNote(null);
-    clearUploadError();
-    try {
-      await upload(application._id, {
-        amount: payload.amount,
-        proofOfPayment: payload.proofOfPayment,
-        transactionId: payload.transactionId,
-        notes: payload.notes,
-      });
-      setUploadModalOpen(false);
-      setNote('Payment proof submitted successfully. An administrator will review the receipt.');
-      onUpdated?.();
-    } catch {
-      // upload hook sets error state
-    }
+    await upload(application._id, {
+      amount: payload.amount,
+      proofOfPayment: payload.proofOfPayment,
+      transactionId: payload.transactionId,
+      notes: payload.notes,
+    });
+    setNote('Payment proof submitted successfully. An administrator will review the receipt.');
+    onUpdated?.();
   };
 
   const handleReviewSubmit = async (payload: {
     action: 'approve' | 'reject';
     reasonForPaymentRejection?: string;
   }) => {
-    setNote(null);
-    clearVerifyError();
     await verify(application._id, payload);
-    setReviewModalOpen(false);
     setNote(
       payload.action === 'approve'
         ? 'Payment verified. The application can proceed to the next workflow step.'
@@ -81,8 +75,6 @@ export function PaymentProofSection({
     );
     onUpdated?.();
   };
-
-  const activeError = uploadError || verifyError;
 
   return (
     <>
@@ -131,63 +123,34 @@ export function PaymentProofSection({
           </div>
         </dl>
 
-        <div className="mt-6 flex flex-wrap gap-3">
+        <WorkflowStepActions className="mt-6">
           {canUpload && (
-            <Button
-              type="button"
-              variant="primary"
-              disabled={isUploading}
+            <WorkflowPrimaryAction
+              loading={isUploading}
+              icon={<FileUp className="mr-2 h-4 w-4" />}
               onClick={() => setUploadModalOpen(true)}
             >
-              {isUploading ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <FileUp className="mr-2 h-4 w-4" />
-              )}
               Upload payment proof
-            </Button>
+            </WorkflowPrimaryAction>
           )}
 
           {canReview && (
-            <Button
-              type="button"
-              variant="primary"
-              disabled={isVerifying}
+            <WorkflowPrimaryAction
+              loading={isVerifying}
+              icon={<ShieldCheck className="mr-2 h-4 w-4" />}
               onClick={() => setReviewModalOpen(true)}
             >
-              {isVerifying ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <ShieldCheck className="mr-2 h-4 w-4" />
-              )}
               Review payment
-            </Button>
+            </WorkflowPrimaryAction>
           )}
 
           {paymentProof.documentUrl && onViewDocument && (
-            <Button
-              type="button"
-              variant="outline"
+            <WorkflowDocumentAction
+              label="View payment proof"
               onClick={() => onViewDocument('Payment proof', paymentProof.documentUrl!)}
-            >
-              <Eye className="mr-2 h-4 w-4" />
-              View payment proof
-            </Button>
+            />
           )}
-        </div>
-
-        {activeError && (
-          <div
-            className="mt-4 flex gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900"
-            role="alert"
-          >
-            <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-red-600" aria-hidden />
-            <div>
-              <p className="font-semibold text-red-950">Could not complete payment action</p>
-              <p className="mt-1 leading-relaxed text-red-800">{activeError}</p>
-            </div>
-          </div>
-        )}
+        </WorkflowStepActions>
 
         {note && (
           <div className="mt-4 flex gap-3 rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
@@ -200,10 +163,7 @@ export function PaymentProofSection({
       {canUpload && (
         <PaymentProofUploadModal
           open={uploadModalOpen}
-          onClose={() => {
-            clearUploadError();
-            setUploadModalOpen(false);
-          }}
+          onClose={() => setUploadModalOpen(false)}
           applicationNumber={application.applicationNumber}
           ownerSummary={application.ownerSummary}
           expectedAmount={paymentProof.expectedAmount}
@@ -217,10 +177,7 @@ export function PaymentProofSection({
       {canReview && (
         <PaymentProofReviewModal
           open={reviewModalOpen}
-          onClose={() => {
-            clearVerifyError();
-            setReviewModalOpen(false);
-          }}
+          onClose={() => setReviewModalOpen(false)}
           applicationNumber={application.applicationNumber}
           ownerSummary={application.ownerSummary}
           expectedAmount={paymentProof.expectedAmount}

@@ -1,0 +1,188 @@
+'use client';
+
+import { useState } from 'react';
+import { CheckCircle2, Stamp } from 'lucide-react';
+import { reviewSonarwaSubsidy } from '@/features/livestock-application/api/commission-workflow-api';
+import { SonarwaSubsidyReviewModal } from '@/features/livestock-application/components/modals/sonarwa-subsidy-review-modal';
+import type {
+  LivestockApplicationPackage,
+  LivestockApplicationViewRole,
+} from '@/features/livestock-application/domain/application-types';
+import { resolveSubsidyEligibility } from '@/features/livestock-application/utils/subsidy-eligibility';
+import { canAdminReviewSonarwaSubsidy } from '@/features/livestock-application/utils/workflow-rules';
+import {
+  resolveWorkflowActionVisible,
+  showAllLivestockWorkflowActions,
+} from '@/features/livestock-application/utils/workflow-demo-mode';
+import { WorkflowStepCard } from '@/features/livestock-application/components/workflow/workflow-step-card';
+import {
+  WorkflowDocumentAction,
+  WorkflowPrimaryAction,
+  WorkflowStepActions,
+} from '@/features/livestock-application/components/workflow/workflow-step-actions';
+
+interface SonarwaReviewSectionProps {
+  application: LivestockApplicationPackage;
+  viewRole?: LivestockApplicationViewRole;
+  onUpdated?: () => void;
+  onViewDocument?: (name: string, path: string) => void;
+}
+
+export function SonarwaReviewSection({
+  application,
+  viewRole = 'vet',
+  onUpdated,
+  onViewDocument,
+}: SonarwaReviewSectionProps) {
+  const [modalOpen, setModalOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [note, setNote] = useState<string | null>(null);
+
+  const eligibility = resolveSubsidyEligibility(application);
+  const isApproved =
+    application.subsidyCase.status === 'SONARWA_APPROVED' ||
+    application.status === 'PENDING_COMMISSION_REVIEW' ||
+    application.status === 'READY_TO_BE_PAID' ||
+    application.status === 'PAID';
+  const canReview = resolveWorkflowActionVisible(
+    viewRole === 'admin',
+    canAdminReviewSonarwaSubsidy(application, viewRole) && !isApproved,
+  );
+  const isRejected = application.subsidyCase.status === 'REJECTED';
+
+  const insuranceIssued =
+    showAllLivestockWorkflowActions() ||
+    application.status === 'INSURANCE_ISSUED' ||
+    Boolean(application.issuedDocuments?.insuranceCertificate) ||
+    [
+      'SUBSIDY_DOC_REQUIRED',
+      'SUBSIDY_SECTOR_PENDING',
+      'SUBSIDY_SECTOR_SIGNED',
+      'SUBSIDY_VET_SIGNED',
+      'SUBSIDY_SONARWA_APPROVED',
+      'PENDING_COMMISSION_REVIEW',
+      'READY_TO_BE_PAID',
+      'PAID',
+    ].includes(application.status);
+
+  if (!insuranceIssued) return null;
+
+  const stepState = isApproved
+    ? 'completed'
+    : isRejected
+      ? 'current'
+      : canReview
+        ? 'current'
+        : 'upcoming';
+
+  const handleReview = async (payload: Parameters<typeof reviewSonarwaSubsidy>[1]) => {
+    setLoading(true);
+    setNote(null);
+    try {
+      await reviewSonarwaSubsidy(application._id, payload);
+      setModalOpen(false);
+      setNote(
+        payload.action === 'approve'
+          ? 'SONARWA approved. Application moved to pending commission review.'
+          : 'SONARWA rejected the nkunganire document. The veterinarian must re-upload a corrected scan.',
+      );
+      onUpdated?.();
+    } catch (err) {
+      setNote(err instanceof Error ? err.message : 'Could not complete SONARWA review.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <>
+      <section className="rounded-2xl border border-teal-200 bg-gradient-to-br from-teal-50/60 to-white p-6 shadow-sm">
+        <div className="flex items-start gap-3">
+          <div className="rounded-xl bg-teal-100 p-3">
+            <Stamp className="h-6 w-6 text-teal-800" />
+          </div>
+          <div className="flex-1">
+            <h2 className="text-lg font-semibold text-slate-900">SONARWA review</h2>
+            <p className="mt-1 text-sm text-slate-600">
+              SONARWA representative verifies the nkunganire document (or Tekana-eligible skip) before
+              commission review.
+              {viewRole === 'admin' &&
+                ' Until the SONARWA portal is available, administrators act on behalf of SONARWA here.'}
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-6">
+          <WorkflowStepCard
+            stepNumber={eligibility.required ? 4 : 3}
+            title={
+              isApproved
+                ? 'SONARWA approved'
+                : isRejected
+                  ? 'SONARWA rejected — corrections needed'
+                  : 'Awaiting SONARWA verification'
+            }
+            description={
+              isApproved
+                ? `Approved ${application.subsidyCase.sonarwaApprovedAt ? new Date(application.subsidyCase.sonarwaApprovedAt).toLocaleString() : ''}. Ready for commission review.`
+                : eligibility.required
+                  ? 'Review the sector-signed nkunganire scan uploaded by the veterinarian.'
+                  : eligibility.reason
+            }
+            state={stepState}
+            badge={
+              isApproved ? 'Completed' : canReview ? 'Action required' : isRejected ? 'Rejected' : undefined
+            }
+          >
+            <WorkflowStepActions>
+              {canReview && viewRole === 'admin' && (
+                <WorkflowPrimaryAction
+                  loading={loading}
+                  icon={<CheckCircle2 className="mr-2 h-4 w-4" />}
+                  onClick={() => setModalOpen(true)}
+                >
+                  Review & approve
+                </WorkflowPrimaryAction>
+              )}
+
+              {application.subsidyCase.uploadedSignedDocumentUrl && onViewDocument && (
+                <WorkflowDocumentAction
+                  label="View signed nkunganire"
+                  onClick={() =>
+                    onViewDocument(
+                      'Nkunganire (signed)',
+                      application.subsidyCase.uploadedSignedDocumentUrl!,
+                    )
+                  }
+                />
+              )}
+            </WorkflowStepActions>
+
+            {isRejected && application.subsidyCase.sonarwaRejectionReason && (
+              <p className="mt-3 rounded-lg border border-red-100 bg-red-50 px-3 py-2 text-sm text-red-800">
+                {application.subsidyCase.sonarwaRejectionReason}
+              </p>
+            )}
+          </WorkflowStepCard>
+        </div>
+
+        {note && (
+          <p className="mt-4 rounded-lg border border-teal-100 bg-teal-50 px-3 py-2 text-sm text-teal-900">
+            {note}
+          </p>
+        )}
+      </section>
+
+      <SonarwaSubsidyReviewModal
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        applicationNumber={application.applicationNumber}
+        ownerSummary={application.ownerSummary}
+        signedDocumentUrl={application.subsidyCase.uploadedSignedDocumentUrl}
+        skipSectorReason={!eligibility.required ? eligibility.reason : undefined}
+        onSubmit={handleReview}
+        onViewDocument={onViewDocument}
+      />
+    </>
+  );
+}

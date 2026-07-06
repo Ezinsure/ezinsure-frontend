@@ -66,6 +66,41 @@ export const LIVESTOCK_ADMIN_ENDPOINTS = {
     });
     return `/getAllApplications?${search.toString()}`;
   },
+
+  /** PUT multipart — issue livestock policy documents after payment verified. */
+  issueInsurance: (applicationId: string): string =>
+    `/issueLivestockInsurance/${encodeURIComponent(applicationId)}`,
+
+  /** POST — verify payment proof (approve/reject). Alias of vet verify when scoped to admin. */
+  verifyPaymentProof: (applicationId: string): string =>
+    `/verifyLivestockPayment/${encodeURIComponent(applicationId)}`,
+
+  /** POST — approve or reject signed nkunganire on behalf of SONARWA. */
+  reviewSonarwaSubsidy: (applicationId: string): string =>
+    `/reviewLivestockSubsidySonarwa/${encodeURIComponent(applicationId)}`,
+
+  /** PUT — move application to ready-to-be-paid after commission review. */
+  approveCommission: (applicationId: string): string =>
+    `/approveLivestockCommission/${encodeURIComponent(applicationId)}`,
+
+  /** PUT — mark veterinary commission as paid. */
+  markCommissionPaid: (applicationId: string): string =>
+    `/markLivestockCommissionPaid/${encodeURIComponent(applicationId)}`,
+} as const;
+
+/** Nkunganire / sector subsidy workflow (vet-facing). */
+export const LIVESTOCK_SUBSIDY_ENDPOINTS = {
+  /** POST — generate nkunganire Excel/PDF template. */
+  generateDocument: (applicationId: string): string =>
+    `/generateLivestockSubsidyDocument/${encodeURIComponent(applicationId)}`,
+
+  /** GET — download animal list for sector signing (Excel). */
+  downloadAnimalList: (applicationId: string): string =>
+    `/downloadLivestockSubsidyAnimalList/${encodeURIComponent(applicationId)}`,
+
+  /** PUT multipart — upload sector-signed nkunganire scan. */
+  uploadSignedDocument: (applicationId: string): string =>
+    `/uploadLivestockSignedSubsidy/${encodeURIComponent(applicationId)}`,
 } as const;
 
 /** Wide date range used only when detail endpoint is unavailable. */
