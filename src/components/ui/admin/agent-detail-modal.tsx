@@ -13,7 +13,7 @@ import {
   exportAgentApplicationsToPdf,
   type AgentApplicationExportRow,
 } from '@/shared/export/agent-analytics-exports';
-import { formatPoliceNumberDisplay } from '@/utils/police-number';
+import { formatPoliceNumberForExport } from '@/utils/police-number';
 
 const INSURANCE_COLORS: Record<string, string> = {
   'Car Insurance': '#2563EB',
@@ -672,7 +672,7 @@ export default function AgentDetailModal({ isOpen, onClose, agentId, agentName, 
         agentCommission: app.agentCommission || 0,
         status: app.status,
         submittedAt: app.submittedAt,
-        policeNumber: formatPoliceNumberDisplay(app),
+        policeNumber: formatPoliceNumberForExport(app),
       })),
     [filteredTableApplications],
   );

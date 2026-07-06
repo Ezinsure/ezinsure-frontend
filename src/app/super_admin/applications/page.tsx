@@ -8,7 +8,7 @@ import { useToast } from '@/components/ui/toast';
 import { DocumentViewer } from '@/components/ui/document-viewer';
 import { useAuth } from '@/context/AuthContext';
 import { formatDateUTC, formatTime } from '@/utils/date-formatter';
-import { formatPoliceNumberDisplay } from '@/utils/police-number';
+import { formatPoliceNumberDisplay, formatPoliceNumberForExport } from '@/utils/police-number';
 import { formatChasisNumberDisplay } from '@/utils/chasis-number';
 import {
   matchesPerformedByFilter,
@@ -510,7 +510,7 @@ export default function SuperAdminApplicationsPage() {
           app.amount ? app.amount.toString() : '0',
           app.companyCommission ? app.companyCommission.toString() : '0',
           app.agentCommission ? app.agentCommission.toString() : '0',
-          formatPoliceNumberDisplay(app),
+          formatPoliceNumberForExport(app),
           formatDateUTC(app.submittedAt),
           app.status.replace('_', ' '),
           clientAddress,

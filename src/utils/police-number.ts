@@ -16,3 +16,10 @@ export function formatPoliceNumberDisplay(
   const value = resolvePoliceNumber(source);
   return value || emptyLabel;
 }
+
+/** Raw value for Excel/CSV exports — empty string when absent (no placeholder). */
+export function formatPoliceNumberForExport(
+  source?: PoliceNumberSource | null,
+): string {
+  return resolvePoliceNumber(source);
+}

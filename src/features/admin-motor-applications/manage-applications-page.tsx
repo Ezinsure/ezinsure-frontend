@@ -29,7 +29,7 @@ import {
   performedByFilterLabel,
   type PerformedByFilter,
 } from '@/utils/application-performed-by-filter';
-import { formatPoliceNumberDisplay, resolvePoliceNumber } from '@/utils/police-number';
+import { formatPoliceNumberDisplay, formatPoliceNumberForExport, resolvePoliceNumber } from '@/utils/police-number';
 import { formatChasisNumberDisplay, resolveChasisNumber } from '@/utils/chasis-number';
 
 export default function ManageApplicationsPage() {
@@ -1598,7 +1598,7 @@ const getActionButtons = (app: Application) => {
           app.amount ? app.amount.toString() : '0',
           app.companyCommission ? app.companyCommission.toString() : '0',
           app.agentCommission ? app.agentCommission.toString() : '0',
-          formatPoliceNumberDisplay(app),
+          formatPoliceNumberForExport(app),
           formatDateForExcel(app.submittedAt),
           (app.status || '').replace('_', ' '),
           clientAddress,

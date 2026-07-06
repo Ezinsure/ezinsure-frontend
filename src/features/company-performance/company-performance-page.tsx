@@ -20,6 +20,7 @@ import { DataExportActions } from '@/components/ui/data-export-actions';
 import { useToast } from '@/components/ui/toast';
 import { useAuth } from '@/context/AuthContext';
 import { formatDateUTC } from '@/utils/date-formatter';
+import { formatPoliceNumberForExport } from '@/utils/police-number';
 import { fetchCompanyPerformanceApplications } from '@/features/company-performance/company-performance-api';
 import type {
   CompanyPerformanceApplication,
@@ -178,6 +179,7 @@ export default function CompanyPerformancePage({
         insuranceCategory: app.insuranceCategory,
         status: app.status,
         submittedAt: app.submittedAt,
+        policeNumber: formatPoliceNumberForExport(app.application),
         companyCommission: app.companyCommission,
         administrationFees: app.administrationFees,
       })),

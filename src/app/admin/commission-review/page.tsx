@@ -19,7 +19,7 @@ import {
 } from '@/utils/administration-fees';
 import { getVehicleManufactureYearValidationError } from '@/utils/vehicle-year';
 import { formatDateUTC } from '@/utils/date-formatter';
-import { formatPoliceNumberDisplay } from '@/utils/police-number';
+import { formatPoliceNumberDisplay, formatPoliceNumberForExport } from '@/utils/police-number';
 import { formatChasisNumberDisplay, resolveChasisNumber } from '@/utils/chasis-number';
 
 interface Application {
@@ -1447,7 +1447,7 @@ const getActionButtons = (app: Application) => {
             r.insuranceEndDate,
             r.commission.toString(),
             r.plateNumber,
-            r.policeNumber,
+            formatPoliceNumberForExport(app),
           ];
           return cells.map((c) => (String(c).includes(',') ? `"${c}"` : c)).join(',');
         }),
