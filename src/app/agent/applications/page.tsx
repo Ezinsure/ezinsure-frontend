@@ -26,7 +26,7 @@ import {
   performedByFilterLabel,
   type PerformedByFilter,
 } from '@/utils/application-performed-by-filter';
-import { formatPoliceNumberDisplay } from '@/utils/police-number';
+import { formatPoliceNumberDisplay, formatPoliceNumberForExport } from '@/utils/police-number';
 import { formatChasisNumberDisplay } from '@/utils/chasis-number';
 
 interface Application {
@@ -1461,7 +1461,7 @@ export default function AgentApplicationsPage() {
           app.companyCommission ? app.companyCommission.toString() : '0',
           app.agentCommissionPaymentStatus || 'N/A',
           (app.status || '').replace('_', ' '),
-          formatPoliceNumberDisplay(app),
+          formatPoliceNumberForExport(app),
           formatDateForExcel(app.submittedAt),
           formatDateForExcel(app.insuranceEndAt),
           createdBy,

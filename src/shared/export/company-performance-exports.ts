@@ -17,6 +17,7 @@ export interface CompanyPerformanceExportRow {
   insuranceCategory: string;
   status: string;
   submittedAt: string;
+  policeNumber: string;
   companyCommission: number;
   administrationFees: number;
 }
@@ -42,6 +43,7 @@ const COMPANY_PERFORMANCE_COLUMNS: ExportColumn<CompanyPerformanceExportRow>[] =
   { header: 'Performed by', getValue: (r) => r.performerName, pdfWidth: 30 },
   { header: 'Category', getValue: (r) => r.insuranceCategory, pdfWidth: 28 },
   { header: 'Status', getValue: (r) => formatApplicationStatus(r.status), pdfWidth: 30 },
+  { header: 'Police Number', getValue: (r) => r.policeNumber, pdfWidth: 24 },
   { header: 'Submitted', getValue: (r) => formatExportDate(r.submittedAt), pdfWidth: 24 },
   {
     header: 'Company commission (RWF)',

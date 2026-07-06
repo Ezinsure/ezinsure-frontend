@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { DocumentViewer } from '@/components/ui/document-viewer';
 import { formatDateUTC } from '@/utils/date-formatter';
+import { formatPoliceNumberForExport } from '@/utils/police-number';
 
 // Helper functions for dates
 const getTodayDate = () => {
@@ -50,6 +51,7 @@ interface ExpiringApplication {
   submittedAt: string;
   insuranceEndAt: string;
   insuranceIssuedAt?: string;
+  policeNumber?: string;
   agent?: {
     _id: string;
     fullName: string;
@@ -406,7 +408,7 @@ export default function ExpiringInsurancePage() {
 
   // Export to CSV
   const handleExportCSV = () => {
-    const headers = ['Application Number', 'Client Name', 'Email', 'Phone', 'Vehicle Type', 'Plate Number', 'Insurance Category', 'Insurance End Date', 'Days Until Expiration', 'Amount (RWF)'];
+    const headers = ['Application Number', 'Client Name', 'Email', 'Phone', 'Vehicle Type', 'Plate Number', 'Police Number', 'Insurance Category', 'Insurance End Date', 'Days Until Expiration', 'Amount (RWF)'];
     const rows = filteredAndSortedApplications.map(app => {
       const daysUntil = getDaysUntilExpiration(app.insuranceEndAt);
       return [
@@ -416,6 +418,7 @@ export default function ExpiringInsurancePage() {
         app.client.phoneNumber,
         app.vehicle?.vehicleType || 'N/A',
         app.vehicle?.plateNumber || 'N/A',
+        formatPoliceNumberForExport(app),
         app.insuranceCategory,
         formatDateUTC(app.insuranceEndAt),
         daysUntil !== null ? daysUntil.toString() : 'N/A',

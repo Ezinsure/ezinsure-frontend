@@ -7,6 +7,7 @@ import {
   formatRwfExportNumber,
   sanitizeFilenameSegment,
 } from '@/shared/export/formatters';
+import { formatPoliceNumberForExport } from '@/utils/police-number';
 
 /** Row shape used by the agent analytics table */
 export interface AgentAnalyticsExportRow {
@@ -58,7 +59,7 @@ const AGENT_APPLICATION_COLUMNS: ExportColumn<AgentApplicationExportRow>[] = [
   { header: 'Amount (RWF)', getValue: (r) => formatRwfExportNumber(r.amount), pdfWidth: 26 },
   { header: 'Commission (RWF)', getValue: (r) => formatRwfExportNumber(r.agentCommission), pdfWidth: 28 },
   { header: 'Status', getValue: (r) => formatApplicationStatus(r.status), pdfWidth: 28 },
-  { header: 'Police Number', getValue: (r) => r.policeNumber || '—', pdfWidth: 24 },
+  { header: 'Police Number', getValue: (r) => formatPoliceNumberForExport(r), pdfWidth: 24 },
   { header: 'Submitted', getValue: (r) => formatExportDate(r.submittedAt), pdfWidth: 24 },
 ];
 
