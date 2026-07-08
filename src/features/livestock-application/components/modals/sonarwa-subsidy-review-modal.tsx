@@ -115,7 +115,7 @@ export function SonarwaSubsidyReviewModal({
               htmlFor="sonarwa-rejection-reason"
               className="text-sm font-medium text-slate-700"
             >
-              Rejection reason (required if rejecting)
+              Rejection reason (rejectionReason)
             </label>
             <textarea
               id="sonarwa-rejection-reason"

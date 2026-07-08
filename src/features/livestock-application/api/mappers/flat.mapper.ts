@@ -22,12 +22,12 @@ import {
 } from '@/features/livestock-application/api/mappers/owners.mapper';
 import { mapApplicationExtensionFields } from '@/features/livestock-application/api/mappers/application-meta.mapper';
 import {
-  computePremiumPercentage,
   mapLegacyStatus,
-  mapSubsidyStatus,
   normalizeInsuranceProvider,
   subsidyRequiredFromStatus,
 } from '@/features/livestock-application/api/mappers/status.mapper';
+import { buildSubsidyCaseFromRecord } from '@/features/livestock-application/api/mappers/subsidy-case.mapper';
+import { readPackageTotals } from '@/features/livestock-application/api/mappers/totals.mapper';
 
 /** GET /getVeterinaryApplications & /getAllApplications row (animals[], no nested lines[]). */
 export function isFlatListApplicationRecord(record: Record<string, unknown>): boolean {
@@ -39,30 +39,11 @@ export function isFlatListApplicationRecord(record: Record<string, unknown>): bo
   );
 }
 
-function readTotals(record: Record<string, unknown>) {
-  const premiumRateAmount = Number(record.premiumRateAmount ?? 0);
-  const farmerContributionAmount = Number(record.farmerContributionAmount ?? 0);
-  const governmentContribution = Number(record.governmentContribution ?? 0);
-  const companyCommission = Math.round(Number(record.companyCommission ?? 0));
-  const veterinaryCommission = Math.round(Number(record.veterinaryCommission ?? 0));
-  const totalSumAssured = Number(record.totalSumAssured ?? 0);
-
-  return {
-    premiumRateAmount,
-    farmerContributionAmount,
-    governmentContribution,
-    companyCommission,
-    veterinaryCommission,
-    totalSumAssured,
-    premiumPercentage: computePremiumPercentage(premiumRateAmount, totalSumAssured),
-  };
-}
-
 export function mapFlatApplicationToListItem(
   record: Record<string, unknown>,
 ): LivestockApplicationListItem {
   const location = extractLivestockLocation(record);
-  const totals = readTotals(record);
+  const totals = readPackageTotals(record);
   const statusRaw = String(record.status ?? '');
   const subsidyStatus = String(record.subsidyStatus ?? '');
   const paidStatus = String(record.paidStatus ?? '');
@@ -107,10 +88,9 @@ export function mapFlatApplicationToPackage(
   record: Record<string, unknown>,
 ): LivestockApplicationPackage {
   const listItem = mapFlatApplicationToListItem(record);
-  const totals = readTotals(record);
+  const totals = readPackageTotals(record);
   const location = extractLivestockLocation(record);
   const submittedAt = listItem.submittedAt;
-  const subsidyStatus = String(record.subsidyStatus ?? '');
 
   const lines = mapInsuredLinesFromRecord(record);
   const ownersList = resolvePackageOwnersList(record);
@@ -138,11 +118,9 @@ export function mapFlatApplicationToPackage(
     policyEndDate: String(record.policyEndDate ?? '').slice(0, 10),
     totals,
     paymentProof: mapPaymentProofFromRecord(record, totals.farmerContributionAmount),
-    subsidyCase: {
-      required: subsidyRequiredFromStatus(subsidyStatus),
-      status: mapSubsidyStatus(subsidyStatus),
-    },
+    subsidyCase: buildSubsidyCaseFromRecord(record),
     lines,
+    issuedDocuments: record.issuedDocuments as LivestockApplicationPackage['issuedDocuments'],
     ...mapApplicationExtensionFields(record),
   };
 }

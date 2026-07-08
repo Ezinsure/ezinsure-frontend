@@ -22,6 +22,7 @@ import {
 } from '@/features/livestock-application/utils/workflow-demo-mode';
 import { WorkflowStepCard } from '@/features/livestock-application/components/workflow/workflow-step-card';
 import { WorkflowPrimaryAction, WorkflowStepActions } from '@/features/livestock-application/components/workflow/workflow-step-actions';
+import { useApiClient } from '@/utils/apiClient';
 
 interface CommissionWorkflowSectionProps {
   application: LivestockApplicationPackage;
@@ -36,6 +37,9 @@ export function CommissionWorkflowSection({
 }: CommissionWorkflowSectionProps) {
   const [loading, setLoading] = useState<'approve' | 'paid' | null>(null);
   const [note, setNote] = useState<string | null>(null);
+  const [approvalNotes, setApprovalNotes] = useState('');
+  const [paymentReference, setPaymentReference] = useState('');
+  const { apiFetch } = useApiClient();
 
   const showSection =
     showAllLivestockWorkflowActions() ||
@@ -65,7 +69,9 @@ export function CommissionWorkflowSection({
     setLoading('approve');
     setNote(null);
     try {
-      await approveLivestockCommission(application._id);
+      await approveLivestockCommission(apiFetch, application._id, {
+        notes: approvalNotes.trim() || undefined,
+      });
       setNote('Commission approved. Application is ready to be paid.');
       onUpdated?.();
     } catch (err) {
@@ -79,7 +85,9 @@ export function CommissionWorkflowSection({
     setLoading('paid');
     setNote(null);
     try {
-      await markLivestockCommissionPaid(application._id);
+      await markLivestockCommissionPaid(apiFetch, application._id, {
+        paymentReference: paymentReference.trim() || undefined,
+      });
       setNote('Veterinary commission marked as paid.');
       onUpdated?.();
     } catch (err) {
@@ -122,15 +130,34 @@ export function CommissionWorkflowSection({
           badge={isPendingReview && canApprove ? 'Action required' : undefined}
         >
           {canApprove && (
-            <WorkflowStepActions>
-              <WorkflowPrimaryAction
-                loading={loading === 'approve'}
-                icon={<CheckCircle2 className="mr-2 h-4 w-4" />}
-                onClick={() => void handleApproveCommission()}
-              >
-                Approve & mark ready to pay
-              </WorkflowPrimaryAction>
-            </WorkflowStepActions>
+            <div className="space-y-3">
+              <div>
+                <label
+                  htmlFor="commission-approval-notes"
+                  className="mb-1.5 block text-sm font-medium text-slate-700"
+                >
+                  Notes <span className="font-normal text-slate-400">(optional)</span>
+                </label>
+                <textarea
+                  id="commission-approval-notes"
+                  rows={2}
+                  value={approvalNotes}
+                  onChange={(event) => setApprovalNotes(event.target.value)}
+                  disabled={loading !== null}
+                  placeholder="Finance review notes sent to the API as notes…"
+                  className="w-full resize-none rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:bg-slate-50"
+                />
+              </div>
+              <WorkflowStepActions>
+                <WorkflowPrimaryAction
+                  loading={loading === 'approve'}
+                  icon={<CheckCircle2 className="mr-2 h-4 w-4" />}
+                  onClick={() => void handleApproveCommission()}
+                >
+                  Approve & mark ready to pay
+                </WorkflowPrimaryAction>
+              </WorkflowStepActions>
+            </div>
           )}
         </WorkflowStepCard>
 
@@ -148,15 +175,34 @@ export function CommissionWorkflowSection({
           badge={isReady && canPay ? 'Action required' : isPaid ? 'Completed' : undefined}
         >
           {canPay && (
-            <WorkflowStepActions>
-              <WorkflowPrimaryAction
-                loading={loading === 'paid'}
-                icon={<Banknote className="mr-2 h-4 w-4" />}
-                onClick={() => void handleMarkPaid()}
-              >
-                Mark commission as paid
-              </WorkflowPrimaryAction>
-            </WorkflowStepActions>
+            <div className="space-y-3">
+              <div>
+                <label
+                  htmlFor="commission-payment-reference"
+                  className="mb-1.5 block text-sm font-medium text-slate-700"
+                >
+                  Payment reference <span className="font-normal text-slate-400">(optional)</span>
+                </label>
+                <input
+                  id="commission-payment-reference"
+                  type="text"
+                  value={paymentReference}
+                  onChange={(event) => setPaymentReference(event.target.value)}
+                  disabled={loading !== null}
+                  placeholder="Bank transfer or MoMo reference"
+                  className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:bg-slate-50"
+                />
+              </div>
+              <WorkflowStepActions>
+                <WorkflowPrimaryAction
+                  loading={loading === 'paid'}
+                  icon={<Banknote className="mr-2 h-4 w-4" />}
+                  onClick={() => void handleMarkPaid()}
+                >
+                  Mark commission as paid
+                </WorkflowPrimaryAction>
+              </WorkflowStepActions>
+            </div>
           )}
         </WorkflowStepCard>
       </div>

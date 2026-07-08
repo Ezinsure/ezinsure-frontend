@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { FileCheck2, ShieldCheck } from 'lucide-react';
-import { issueLivestockInsurance } from '@/features/livestock-application/api/insurance-issue-api';
+import { useIssueLivestockInsurance } from '@/features/livestock-application/hooks/use-issue-livestock-insurance';
 import { IssueLivestockInsuranceModal } from '@/features/livestock-application/components/modals/issue-livestock-insurance-modal';
 import type {
   LivestockApplicationPackage,
@@ -31,8 +31,8 @@ export function InsuranceIssueSection({
   onViewDocument,
 }: InsuranceIssueSectionProps) {
   const [modalOpen, setModalOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
   const [note, setNote] = useState<string | null>(null);
+  const { issue, isIssuing } = useIssueLivestockInsurance();
 
   const canIssue = resolveWorkflowActionVisible(
     viewRole === 'admin',
@@ -51,18 +51,15 @@ export function InsuranceIssueSection({
 
   const stepState = isIssued ? 'completed' : canIssue ? 'current' : 'upcoming';
 
-  const handleIssue = async (payload: Parameters<typeof issueLivestockInsurance>[1]) => {
-    setLoading(true);
+  const handleIssue = async (payload: Parameters<typeof issue>[1]) => {
     setNote(null);
     try {
-      await issueLivestockInsurance(application._id, payload);
+      await issue(application._id, payload);
       setModalOpen(false);
       setNote('Insurance issued. The veterinarian can now complete nkunganire (if required) or proceed to SONARWA review.');
       onUpdated?.();
     } catch (err) {
       setNote(err instanceof Error ? err.message : 'Could not issue insurance.');
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -99,7 +96,7 @@ export function InsuranceIssueSection({
             <WorkflowStepActions>
               {canIssue && !isIssued && (
                 <WorkflowPrimaryAction
-                  loading={loading}
+                  loading={isIssuing}
                   icon={<FileCheck2 className="mr-2 h-4 w-4" />}
                   onClick={() => setModalOpen(true)}
                 >

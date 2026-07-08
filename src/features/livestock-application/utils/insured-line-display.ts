@@ -90,6 +90,15 @@ export function aggregateOwnersFromPackage(
   return fromLines;
 }
 
+export function ownerLineKey(line: InsuredLinePayload): string {
+  return (
+    line.owner?.id?.trim() ||
+    line.owner?.phone?.trim() ||
+    line.owner?.name?.trim() ||
+    'unknown'
+  );
+}
+
 export function aggregateOwnersFromLines(
   lines: InsuredLinePayload[],
   ownerMode: LivestockOwnerMode,
@@ -113,7 +122,7 @@ export function aggregateOwnersFromLines(
   for (const line of lines) {
     const name = line.owner?.name?.trim() || 'Unknown owner';
     const phone = line.owner?.phone?.trim();
-    const key = phone || name;
+    const key = ownerLineKey(line);
     const existing = map.get(key);
     if (existing) {
       existing.lineCount += line.lineType === 'LOT' ? 1 : line.quantity;
@@ -207,10 +216,7 @@ export function filterLinesByOwner(
 ): InsuredLinePayload[] {
   if (!ownerKey) return lines;
   if (ownerKey === 'primary') return lines;
-  return lines.filter((line) => {
-    const key = line.owner?.phone?.trim() || line.owner?.name?.trim() || '';
-    return key === ownerKey;
-  });
+  return lines.filter((line) => ownerLineKey(line) === ownerKey);
 }
 
 export function isPoultryApplication(application: LivestockApplicationPackage): boolean {

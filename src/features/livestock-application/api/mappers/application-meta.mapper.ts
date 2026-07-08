@@ -1,4 +1,8 @@
 import type { LivestockApplicationPackage } from '@/features/livestock-application/domain/application-types';
+import {
+  normalizeOwnerRecord,
+  parseOwnerGender,
+} from '@/features/livestock-application/api/mappers/owner-fields';
 
 function str(value: unknown): string | undefined {
   const s = String(value ?? '').trim();
@@ -12,32 +16,53 @@ function parseGirinka(value: unknown): 'yes' | 'no' | undefined {
   return undefined;
 }
 
-function parseGender(value: unknown): 'male' | 'female' | undefined {
-  const normalized = String(value ?? '').toLowerCase();
-  if (normalized === 'male') return 'male';
-  if (normalized === 'female') return 'female';
-  return undefined;
+function buildApplicantAddress(
+  record: Record<string, unknown>,
+  owner?: Record<string, unknown>,
+): LivestockApplicationPackage['applicantAddress'] | undefined {
+  const province = str(record.applicantProvince ?? owner?.province);
+  const district = str(record.applicantDistrict ?? owner?.district ?? record.district);
+  const sector = str(record.applicantSector ?? owner?.sector ?? record.sector);
+  const cell = str(record.applicantCell ?? owner?.cell ?? record.cell);
+  const village = str(record.applicantVillage ?? owner?.village ?? record.village);
+
+  if (!district && !sector && !cell && !village) return undefined;
+
+  return {
+    province,
+    district: district ?? '',
+    sector: sector ?? '',
+    cell: cell ?? '',
+    village: village ?? '',
+  };
 }
 
 /** Map optional application-level fields from API records into the detail package. */
 export function mapApplicationExtensionFields(
   record: Record<string, unknown>,
 ): Partial<LivestockApplicationPackage> {
-  const owner = record.owner as { gender?: string; nationalId?: string } | undefined;
+  const ownerRaw = record.owner;
+  const owner =
+    ownerRaw && typeof ownerRaw === 'object'
+      ? (ownerRaw as Record<string, unknown>)
+      : undefined;
+  const normalizedOwner = owner ? normalizeOwnerRecord(owner) : undefined;
   const veterinary = record.veterinarySupport as Record<string, string> | undefined;
   const disease = record.diseaseInfo as Record<string, string> | undefined;
   const bankLoan = record.bankLoan as Record<string, string> | undefined;
   const verification = record.veterinarianVerification as Record<string, string> | undefined;
 
-  const applicantDistrict = str(record.applicantDistrict ?? record.district);
-  const applicantSector = str(record.applicantSector ?? record.sector);
-  const applicantCell = str(record.applicantCell ?? record.cell);
-  const applicantVillage = str(record.applicantVillage ?? record.village);
-
   return {
     girinka: parseGirinka(record.girinka),
-    ownerGender: parseGender(owner?.gender ?? record.ownerGender),
-    nationalId: str(owner?.nationalId ?? record.nationalId ?? record.nationalID),
+    ownerGender:
+      normalizedOwner?.gender ??
+      parseOwnerGender(record.ownerGender ?? owner?.ownerGender ?? owner?.gender),
+    nationalId: str(
+      normalizedOwner?.nationalId ??
+        record.nationalId ??
+        record.nationalID ??
+        owner?.ownerNationalId,
+    ),
     farmingExperience: str(record.farmingExperience),
     previousIncidents: str(record.previousIncidents),
     hasVeterinarian: str(veterinary?.hasVeterinarian ?? record.hasVeterinarian),
@@ -52,24 +77,13 @@ export function mapApplicationExtensionFields(
     institutionLocation: str(bankLoan?.institutionLocation ?? record.institutionLocation),
     loanAccountNumber: str(bankLoan?.loanAccountNumber ?? record.loanAccountNumber),
     loanAmount: str(bankLoan?.loanAmount ?? record.loanAmount),
-    insuranceAgentCode: str(
-      verification?.insuranceAgentCode ?? record.insuranceAgentCode,
-    ),
+    insuranceAgentCode: str(verification?.insuranceAgentCode ?? record.insuranceAgentCode),
     veterinarianLicenseNumber: str(
       verification?.veterinarianLicenseNumber ?? record.veterinarianLicenseNumber,
     ),
     veterinarianSignatureName: str(
       verification?.veterinarianSignatureName ?? record.veterinarianSignatureName,
     ),
-    applicantAddress:
-      applicantDistrict && applicantSector && applicantCell && applicantVillage
-        ? {
-            province: str(record.applicantProvince),
-            district: applicantDistrict,
-            sector: applicantSector,
-            cell: applicantCell,
-            village: applicantVillage,
-          }
-        : undefined,
+    applicantAddress: buildApplicantAddress(record, owner),
   };
 }

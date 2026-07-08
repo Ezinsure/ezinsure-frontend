@@ -5,12 +5,13 @@ import { Download, FileSpreadsheet, Upload } from 'lucide-react';
 import { SubsidySignedUploadModal } from '@/features/livestock-application/components/modals/subsidy-signed-upload-modal';
 import {
   generateSubsidyDocument,
-  uploadSignedSubsidyDocument,
 } from '@/features/livestock-application/api/subsidy-api';
+import { useUploadSignedSubsidyDocument } from '@/features/livestock-application/hooks/use-upload-signed-subsidy';
 import { downloadNkunganireSubsidyExcel } from '@/features/livestock-application/export/subsidy-nkunganire-export';
 import type {
   LivestockApplicationPackage,
   LivestockApplicationViewRole,
+  UploadSignedSubsidyPayload,
 } from '@/features/livestock-application/domain/application-types';
 import { SUBSIDY_STATUS_LABELS } from '@/features/livestock-application/domain/application-status';
 import { resolveSubsidyEligibility } from '@/features/livestock-application/utils/subsidy-eligibility';
@@ -47,6 +48,7 @@ export function SubsidyWorkflowSection({
   const [loading, setLoading] = useState(false);
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [note, setNote] = useState<string | null>(null);
+  const { upload: uploadSigned, isUploading } = useUploadSignedSubsidyDocument();
   const eligibility = resolveSubsidyEligibility(application);
   const { subsidyCase } = application;
 
@@ -118,20 +120,14 @@ export function SubsidyWorkflowSection({
     }
   };
 
-  const handleUploadSigned = async (payload: {
-    signedDocument: File;
-    signedBy: 'SECTOR';
-  }) => {
-    setLoading(true);
+  const handleUploadSigned = async (payload: UploadSignedSubsidyPayload) => {
     setNote(null);
     try {
-      await uploadSignedSubsidyDocument(application._id, payload);
+      await uploadSigned(application._id, payload);
       setNote('Signed nkunganire uploaded. SONARWA will verify the document next.');
       onUpdated?.();
     } catch (err) {
       setNote(err instanceof Error ? err.message : 'Could not upload signed document.');
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -207,7 +203,7 @@ export function SubsidyWorkflowSection({
             {viewRole === 'vet' && (
               <WorkflowStepActions>
                 <WorkflowPrimaryAction
-                  loading={loading}
+                  loading={isUploading}
                   icon={<Upload className="mr-2 h-4 w-4" />}
                   onClick={() => setUploadModalOpen(true)}
                 >

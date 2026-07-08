@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { CheckCircle2, Stamp } from 'lucide-react';
-import { reviewSonarwaSubsidy } from '@/features/livestock-application/api/commission-workflow-api';
+import { useReviewSonarwaSubsidy } from '@/features/livestock-application/hooks/use-review-sonarwa-subsidy';
 import { SonarwaSubsidyReviewModal } from '@/features/livestock-application/components/modals/sonarwa-subsidy-review-modal';
 import type {
   LivestockApplicationPackage,
@@ -35,8 +35,8 @@ export function SonarwaReviewSection({
   onViewDocument,
 }: SonarwaReviewSectionProps) {
   const [modalOpen, setModalOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
   const [note, setNote] = useState<string | null>(null);
+  const { review, isReviewing } = useReviewSonarwaSubsidy();
 
   const eligibility = resolveSubsidyEligibility(application);
   const isApproved =
@@ -75,11 +75,10 @@ export function SonarwaReviewSection({
         ? 'current'
         : 'upcoming';
 
-  const handleReview = async (payload: Parameters<typeof reviewSonarwaSubsidy>[1]) => {
-    setLoading(true);
+  const handleReview = async (payload: Parameters<typeof review>[1]) => {
     setNote(null);
     try {
-      await reviewSonarwaSubsidy(application._id, payload);
+      await review(application._id, payload);
       setModalOpen(false);
       setNote(
         payload.action === 'approve'
@@ -89,8 +88,6 @@ export function SonarwaReviewSection({
       onUpdated?.();
     } catch (err) {
       setNote(err instanceof Error ? err.message : 'Could not complete SONARWA review.');
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -137,7 +134,7 @@ export function SonarwaReviewSection({
             <WorkflowStepActions>
               {canReview && viewRole === 'admin' && (
                 <WorkflowPrimaryAction
-                  loading={loading}
+                  loading={isReviewing}
                   icon={<CheckCircle2 className="mr-2 h-4 w-4" />}
                   onClick={() => setModalOpen(true)}
                 >

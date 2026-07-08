@@ -20,6 +20,7 @@ import { ApplicationInfoTabs } from '@/features/livestock-application/components
 import { ApplicationStatusTimeline } from '@/features/livestock-application/components/workflow/application-status-timeline';
 import {
   ownerModeLabel,
+  poultryProductTypeLabel,
   speciesGroupLabel,
 } from '@/features/livestock-application/domain/form-profiles';
 import type {
@@ -94,6 +95,18 @@ export function LivestockApplicationDetailView({
 
   const metrics: { label: string; value: string }[] = [
     { label: 'Owner(s)', value: application.ownerSummary },
+    { label: 'Insurance type', value: application.insuranceType ?? '—' },
+    { label: 'Species', value: speciesGroupLabel(application.speciesGroup) },
+    ...(application.poultryProductType
+      ? [
+          {
+            label: 'Poultry product',
+            value: poultryProductTypeLabel(application.poultryProductType),
+          },
+        ]
+      : []),
+    { label: 'Owner mode', value: ownerModeLabel(application.ownerMode) },
+    { label: 'Premium rate', value: `${application.totals.premiumPercentage}%` },
     { label: 'Sum assured', value: formatRwfDisplay(totals.totalSumAssured) },
     { label: 'Premium 100%', value: formatRwfDisplay(totals.premiumRateAmount) },
     { label: 'Farmer 60%', value: formatRwfDisplay(totals.farmerContributionAmount) },

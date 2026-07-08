@@ -35,6 +35,10 @@ export const LIVESTOCK_VET_ENDPOINTS = {
   uploadProofOfPayment: (applicationId: string): string =>
     `/uploadProofOfPayment/${encodeURIComponent(applicationId)}`,
 
+  /** GET — full application detail (preferred). */
+  getVeterinaryApplicationById: (applicationId: string): string =>
+    `/getVeterinaryApplicationById/${encodeURIComponent(applicationId)}`,
+
   getApplicationById: (applicationId: string): string =>
     `/getVeterinaryApplication/${encodeURIComponent(applicationId)}`,
 

@@ -12,6 +12,7 @@ import {
   isPoultryApplication,
   lineSecondaryLabel,
   lineTableLabel,
+  ownerLineKey,
 } from '@/features/livestock-application/utils/insured-line-display';
 import { formatRwfDisplay } from '@/features/livestock-application/utils/format-rwf';
 
@@ -44,8 +45,7 @@ export function InsuredLinesSection({
     const result = ownerFilterKey
       ? withIndex.filter(({ line }) => {
           if (ownerFilterKey === 'primary') return true;
-          const key = line.owner?.phone?.trim() || line.owner?.name?.trim() || '';
-          return key === ownerFilterKey;
+          return ownerLineKey(line) === ownerFilterKey;
         })
       : withIndex;
     const q = search.trim().toLowerCase();

@@ -22,6 +22,12 @@ import {
   isFlatListApplicationRecord,
   mapFlatApplicationToPackage,
 } from '@/features/livestock-application/api/mappers/flat.mapper';
+import { mapApplicationExtensionFields } from '@/features/livestock-application/api/mappers/application-meta.mapper';
+import {
+  extractLivestockLocation,
+} from '@/features/livestock-application/utils/application-location';
+import { buildSubsidyCaseFromRecord } from '@/features/livestock-application/api/mappers/subsidy-case.mapper';
+import { readPackageTotals } from '@/features/livestock-application/api/mappers/totals.mapper';
 import {
   computePremiumPercentage,
   mapLegacyStatus,
@@ -30,7 +36,6 @@ import {
   normalizeInsuranceProvider,
   subsidyRequiredFromStatus,
 } from '@/features/livestock-application/api/mappers/status.mapper';
-import { mapApplicationExtensionFields } from '@/features/livestock-application/api/mappers/application-meta.mapper';
 
 function mapVeterinaryApplicationToPackage(app: VeterinaryApplication): LivestockApplicationPackage {
   const premiumRate = app.premiumRateAmount ?? 0;
@@ -118,14 +123,7 @@ function mapGenericPackageObject(o: Record<string, unknown>): LivestockApplicati
       : rawLines.map((line) => mapApiLineRecord(line as Record<string, unknown>));
   const ownersList = resolvePackageOwnersList(o);
   const primaryOwner = resolvePackagePrimaryOwner(o);
-  const totals = o.totals as LivestockApplicationPackage['totals'] | undefined;
-  const premiumRate = totals?.premiumRateAmount ?? Number(o.premiumRateAmount ?? 0);
-  const farmer = totals?.farmerContributionAmount ?? Number(o.farmerContributionAmount ?? 0);
-  const gov = totals?.governmentContribution ?? Number(o.governmentContribution ?? 0);
-  const sumAssured =
-    totals?.totalSumAssured ??
-    lines.reduce((s, l) => s + (l.sumAssured ?? 0), 0) ??
-    Number(o.sumAssured ?? 0);
+  const totals = readPackageTotals(o);
 
   const submittedAt = String(o.submittedAt ?? new Date().toISOString());
   const paymentProof = o.paymentProof as LivestockApplicationPackage['paymentProof'] | undefined;
@@ -138,6 +136,8 @@ function mapGenericPackageObject(o: Record<string, unknown>): LivestockApplicati
     speciesGroup: (o.speciesGroup as LivestockSpeciesGroup) ?? inferSpeciesGroup(),
     ownerMode: (o.ownerMode as LivestockOwnerMode) ?? 'SINGLE_OWNER',
     poultryProductType: o.poultryProductType as LivestockApplicationPackage['poultryProductType'],
+    insuranceType: o.insuranceType ? String(o.insuranceType) : undefined,
+    livestockLocation: extractLivestockLocation(o),
     status: isLivestockApplicationStatus(String(o.status ?? ''))
       ? (o.status as LivestockApplicationStatus)
       : mapLegacyStatus(
@@ -155,20 +155,9 @@ function mapGenericPackageObject(o: Record<string, unknown>): LivestockApplicati
     lineCount: typeof o.lineCount === 'number' ? o.lineCount : lines.length || 1,
     policyStartDate: String(o.policyStartDate ?? '').slice(0, 10),
     policyEndDate: String(o.policyEndDate ?? '').slice(0, 10),
-    totals: totals ?? {
-      premiumPercentage: computePremiumPercentage(premiumRate, sumAssured),
-      premiumRateAmount: premiumRate,
-      farmerContributionAmount: farmer,
-      governmentContribution: gov,
-      companyCommission: Math.round(Number(o.companyCommission ?? 0)),
-      veterinaryCommission: Math.round(Number(o.veterinaryCommission ?? 0)),
-      totalSumAssured: sumAssured,
-    },
-    paymentProof: paymentProof ?? mapPaymentProofFromRecord(o, farmer),
-    subsidyCase: subsidyCase ?? {
-      required: subsidyRequiredFromStatus(String(o.subsidyStatus ?? '')),
-      status: mapSubsidyStatus(String(o.subsidyStatus ?? '')),
-    },
+    totals,
+    paymentProof: paymentProof ?? mapPaymentProofFromRecord(o, totals.farmerContributionAmount),
+    subsidyCase: buildSubsidyCaseFromRecord(o, subsidyCase),
     lines: lines.length > 0 ? lines : [],
     issuedDocuments: o.issuedDocuments as LivestockApplicationPackage['issuedDocuments'],
     ...mapApplicationExtensionFields(o),

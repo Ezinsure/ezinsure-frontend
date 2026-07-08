@@ -9,7 +9,10 @@ import { ApplicationsListTable } from '@/features/livestock-application/componen
 import type { ApplicationsListRowActionHandlers } from '@/features/livestock-application/components/applications-list/applications-list-row-actions';
 import { LivestockApplicationDetailPanel } from '@/features/livestock-application/components/livestock-application-detail-panel';
 import { LivestockApplicationsPagination } from '@/features/livestock-application/components/shared/livestock-applications-pagination';
-import { useLivestockApplicationsList } from '@/features/livestock-application/hooks/use-livestock-applications';
+import {
+  useLivestockApplicationDetail,
+  useLivestockApplicationsList,
+} from '@/features/livestock-application/hooks/use-livestock-applications';
 import type { LivestockApplicationViewRole } from '@/features/livestock-application/domain/application-types';
 import type { LivestockApplicationListItem } from '@/features/livestock-application/domain/application-types';
 import {
@@ -18,7 +21,6 @@ import {
   hasActiveListFilters,
   type ApplicationsListFilters,
 } from '@/features/livestock-application/utils/applications-list-filters';
-import { resolveApplicationPackageById } from '@/features/livestock-application/utils/resolve-application-package';
 import { useAuth } from '@/context/AuthContext';
 
 const getDefaultStartDate = (): string => {
@@ -82,10 +84,15 @@ export default function LivestockApplicationsListPage({
   const [filters, setFilters] = useState<ApplicationsListFilters>(() =>
     getDefaultApplicationsListFilters(viewRole),
   );
-  const [detailVersion, setDetailVersion] = useState(0);
   const isVet = viewRole === 'vet';
   const listScope = isVet ? 'vet' : 'all';
   const vetId = isVet ? user?._id : undefined;
+  const {
+    application: panelApplication,
+    isLoading: panelLoading,
+    error: panelError,
+    reload: reloadPanelApplication,
+  } = useLivestockApplicationDetail(openFromUrl, { scope: listScope });
   const {
     applications,
     meta,
@@ -103,16 +110,10 @@ export default function LivestockApplicationsListPage({
 
   const filtersActive = hasActiveListFilters(filters, viewRole);
 
-  const panelApplication = useMemo(() => {
-    if (!openFromUrl) return null;
-    void detailVersion;
-    return resolveApplicationPackageById(openFromUrl);
-  }, [openFromUrl, detailVersion]);
-
   const handleApplicationUpdated = useCallback(() => {
     void load(startDate, endDate, pageNumber, pageSize);
-    setDetailVersion((v) => v + 1);
-  }, [endDate, load, pageNumber, pageSize, startDate]);
+    void reloadPanelApplication();
+  }, [endDate, load, pageNumber, pageSize, reloadPanelApplication, startDate]);
 
   useEffect(() => {
     if (isVet && !vetId) return;
@@ -211,8 +212,10 @@ export default function LivestockApplicationsListPage({
       </div>
 
       <LivestockApplicationDetailPanel
-        isOpen={panelApplication !== null}
+        isOpen={Boolean(openFromUrl)}
         application={panelApplication}
+        isLoading={panelLoading}
+        error={panelError}
         viewRole={viewRole}
         onClose={closeApplicationPanel}
         onUpdated={handleApplicationUpdated}

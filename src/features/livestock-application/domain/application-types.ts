@@ -114,7 +114,7 @@ export interface InsuredLinePayload {
   premiumRate: number;
   farmerContribution: number;
   governmentContribution: number;
-  owner?: { name: string; phone: string; nationalId?: string; gender?: 'male' | 'female' };
+  owner?: { id?: string; name: string; phone: string; nationalId?: string; gender?: 'male' | 'female' };
   animal: {
     species: string;
     animalCategory?: string;

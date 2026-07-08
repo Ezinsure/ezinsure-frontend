@@ -1,7 +1,9 @@
 import type { LivestockIssuedDocuments } from '@/features/livestock-application/domain/application-types';
 import { LIVESTOCK_ADMIN_ENDPOINTS } from '@/features/livestock-application/api/endpoints';
-import { LIVESTOCK_WORKFLOW_DEMO_MODE } from '@/features/livestock-application/utils/workflow-demo-mode';
-import { patchLivestockWorkflowState } from '@/features/livestock-application/api/workflow-session';
+import type { ApiFetch } from '@/features/livestock-application/api/http';
+import { requestJson, unwrapEntityPayload } from '@/features/livestock-application/api/http';
+import { syncLivestockWorkflowCache } from '@/features/livestock-application/api/workflow-cache-sync';
+import { isLivestockWorkflowApiLive } from '@/features/livestock-application/utils/workflow-demo-mode';
 
 function simulateDelay(): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, 350));
@@ -24,19 +26,24 @@ function fileToObjectUrl(file: File): string {
   return URL.createObjectURL(file);
 }
 
-/**
- * Issue livestock insurance / upload contract documents.
- * Backend: PUT `LIVESTOCK_ADMIN_ENDPOINTS.issueInsurance(id)` (multipart).
- * Until the API is live, state is persisted in session workflow patches for UI review.
- */
-export async function issueLivestockInsurance(
+function parseIssueInsuranceResponse(payload: unknown): IssueLivestockInsuranceResult {
+  const data = unwrapEntityPayload(payload);
+  const row =
+    data && typeof data === 'object' ? (data as Record<string, unknown>) : (payload as Record<string, unknown>);
+
+  const issuedDocuments = (row.issuedDocuments ?? {}) as LivestockIssuedDocuments;
+
+  return {
+    status: 'INSURANCE_ISSUED',
+    issuedDocuments,
+  };
+}
+
+async function simulateIssueLivestockInsurance(
   applicationId: string,
   payload: IssueLivestockInsurancePayload,
 ): Promise<IssueLivestockInsuranceResult> {
-  void LIVESTOCK_ADMIN_ENDPOINTS.issueInsurance(applicationId);
-  if (LIVESTOCK_WORKFLOW_DEMO_MODE) {
-    await simulateDelay();
-  }
+  await simulateDelay();
 
   const issuedDocuments: LivestockIssuedDocuments = {
     insuranceCertificate: fileToObjectUrl(payload.insuranceCertificate),
@@ -46,10 +53,50 @@ export async function issueLivestockInsurance(
     invoice: payload.invoice ? fileToObjectUrl(payload.invoice) : undefined,
   };
 
-  patchLivestockWorkflowState(applicationId, {
+  const result: IssueLivestockInsuranceResult = {
     status: 'INSURANCE_ISSUED',
     issuedDocuments,
+  };
+
+  syncLivestockWorkflowCache(applicationId, result);
+  return result;
+}
+
+/**
+ * Issue livestock insurance / upload policy documents.
+ * Backend: PUT `/issueLivestockInsurance/{id}` (multipart).
+ */
+export async function issueLivestockInsurance(
+  apiFetch: ApiFetch,
+  applicationId: string,
+  payload: IssueLivestockInsurancePayload,
+): Promise<IssueLivestockInsuranceResult> {
+  if (!isLivestockWorkflowApiLive('issueInsurance')) {
+    return simulateIssueLivestockInsurance(applicationId, payload);
+  }
+
+  const formData = new FormData();
+  formData.append('insuranceCertificate', payload.insuranceCertificate, payload.insuranceCertificate.name);
+  if (payload.contract) formData.append('contract', payload.contract, payload.contract.name);
+  if (payload.receipt) formData.append('receipt', payload.receipt, payload.receipt.name);
+  if (payload.ebm) formData.append('ebm', payload.ebm, payload.ebm.name);
+  if (payload.invoice) formData.append('invoice', payload.invoice, payload.invoice.name);
+
+  const response = await requestJson<unknown>(
+    apiFetch,
+    LIVESTOCK_ADMIN_ENDPOINTS.issueInsurance(applicationId),
+    {
+      method: 'PUT',
+      body: formData,
+    },
+    'issue-insurance',
+  );
+
+  const result = parseIssueInsuranceResponse(response);
+  syncLivestockWorkflowCache(applicationId, {
+    status: result.status,
+    issuedDocuments: result.issuedDocuments,
   });
 
-  return { status: 'INSURANCE_ISSUED', issuedDocuments };
+  return result;
 }

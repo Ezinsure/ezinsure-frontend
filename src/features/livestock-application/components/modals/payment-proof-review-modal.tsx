@@ -173,7 +173,7 @@ export function PaymentProofReviewModal({
               htmlFor="payment-rejection-reason"
               className="block text-sm font-medium text-slate-800"
             >
-              Action required reason
+              Action required reason (reasonForPaymentRejection)
             </label>
             <p className="mt-1 text-xs text-slate-500">
               Required only when sending back to the veterinarian for a corrected payment proof.

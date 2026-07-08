@@ -111,26 +111,26 @@ export function IssueLivestockInsuranceModal({
           </p>
 
           <FileInput
-            label="Insurance certificate *"
+            label="Insurance certificate (insuranceCertificate) *"
             name="insuranceCertificate"
             accept=".pdf,.jpg,.jpeg,.png"
             onChange={setCertificate}
           />
           <FileInput
-            label="Contract"
+            label="Contract (contract)"
             name="contract"
             accept=".pdf,.jpg,.jpeg,.png"
             onChange={setContract}
           />
           <FileInput
-            label="Receipt"
+            label="Receipt (receipt)"
             name="receipt"
             accept=".pdf,.jpg,.jpeg,.png"
             onChange={setReceipt}
           />
-          <FileInput label="EBM" name="ebm" accept=".pdf,.jpg,.jpeg,.png" onChange={setEbm} />
+          <FileInput label="EBM (ebm)" name="ebm" accept=".pdf,.jpg,.jpeg,.png" onChange={setEbm} />
           <FileInput
-            label="Invoice / quotation"
+            label="Invoice (invoice)"
             name="invoice"
             accept=".pdf,.jpg,.jpeg,.png"
             onChange={setInvoice}

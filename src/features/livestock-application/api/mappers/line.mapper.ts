@@ -49,6 +49,7 @@ export function buildOwnerSummary(o: Record<string, unknown>, lines: unknown[]):
 export function mapApiLineRecord(line: Record<string, unknown>): InsuredLinePayload {
   const animal = (line.animal as Record<string, unknown> | undefined) ?? line;
   const owner = line.owner as {
+    id?: string;
     name?: string;
     phone?: string;
     nationalId?: string;
@@ -79,6 +80,7 @@ export function mapApiLineRecord(line: Record<string, unknown>): InsuredLinePayl
     ...(ownerName || ownerPhone || ownerNationalId || ownerGender
       ? {
           owner: {
+            ...(owner?.id ? { id: owner.id } : {}),
             name: ownerName,
             phone: ownerPhone,
             ...(ownerNationalId ? { nationalId: ownerNationalId } : {}),
