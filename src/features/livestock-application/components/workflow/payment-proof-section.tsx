@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { CheckCircle2, FileUp, Receipt, ShieldCheck } from 'lucide-react';
+import { FileUp, Receipt, ShieldCheck } from 'lucide-react';
 import {
   PaymentProofUploadModal,
   type PaymentProofUploadPayload,
@@ -15,7 +15,9 @@ import type {
 } from '@/features/livestock-application/domain/application-types';
 import { canAdminReviewLivestockPayment } from '@/features/livestock-application/utils/application-timeline';
 import { formatRwfDisplay } from '@/features/livestock-application/utils/format-rwf';
+import { formatWorkflowActionError } from '@/features/livestock-application/utils/workflow-action-feedback';
 import { resolveWorkflowActionVisible } from '@/features/livestock-application/utils/workflow-demo-mode';
+import { useWorkflowToast } from '@/features/livestock-application/components/workflow/workflow-toast-context';
 import {
   WorkflowDocumentAction,
   WorkflowPrimaryAction,
@@ -37,7 +39,7 @@ export function PaymentProofSection({
 }: PaymentProofSectionProps) {
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [reviewModalOpen, setReviewModalOpen] = useState(false);
-  const [note, setNote] = useState<string | null>(null);
+  const toast = useWorkflowToast();
   const { upload, isUploading } = useUploadLivestockPaymentProof();
   const { verify, isVerifying } = useVerifyLivestockPaymentProof();
   const { paymentProof } = application;
@@ -53,27 +55,51 @@ export function PaymentProofSection({
   );
 
   const handleUploadSubmit = async (payload: PaymentProofUploadPayload) => {
-    await upload(application._id, {
-      amount: payload.amount,
-      proofOfPayment: payload.proofOfPayment,
-      transactionId: payload.transactionId,
-      notes: payload.notes,
-    });
-    setNote('Payment proof submitted successfully. An administrator will review the receipt.');
-    onUpdated?.();
+    try {
+      await upload(application._id, {
+        amount: payload.amount,
+        proofOfPayment: payload.proofOfPayment,
+        transactionId: payload.transactionId,
+        notes: payload.notes,
+      });
+      toast.showSuccess(
+        'Payment proof submitted successfully. An administrator will review the receipt.',
+      );
+      onUpdated?.();
+    } catch (err) {
+      toast.showError(
+        formatWorkflowActionError(
+          err,
+          'We could not upload your payment proof. Please try again.',
+          'payment-proof',
+        ),
+      );
+      throw err;
+    }
   };
 
   const handleReviewSubmit = async (payload: {
     action: 'approve' | 'reject';
     reasonForPaymentRejection?: string;
   }) => {
-    await verify(application._id, payload);
-    setNote(
-      payload.action === 'approve'
-        ? 'Payment verified. The application can proceed to the next workflow step.'
-        : 'Payment rejected and sent back to the veterinarian with your feedback.',
-    );
-    onUpdated?.();
+    try {
+      await verify(application._id, payload);
+      toast.showSuccess(
+        payload.action === 'approve'
+          ? 'Payment verified. The application can proceed to the next workflow step.'
+          : 'Payment rejected and sent back to the veterinarian with your feedback.',
+      );
+      onUpdated?.();
+    } catch (err) {
+      toast.showError(
+        formatWorkflowActionError(
+          err,
+          'We could not complete the payment review. Please try again.',
+          'payment-proof',
+        ),
+      );
+      throw err;
+    }
   };
 
   return (
@@ -90,7 +116,8 @@ export function PaymentProofSection({
               {viewRole === 'vet' && ' Upload the farmer receipt once payment is complete.'}
               {viewRole === 'admin' && ' Review the uploaded proof and approve or reject it.'}
               {viewRole === 'super_admin' && ' Review the uploaded proof and approve or reject it.'}
-              {viewRole !== 'vet' && viewRole !== 'admin' && ' Track payment proof status here.'}
+              {viewRole !== 'vet' && viewRole !== 'admin' && viewRole !== 'super_admin' &&
+                ' Track payment proof status here.'}
             </p>
           </div>
         </div>
@@ -152,13 +179,6 @@ export function PaymentProofSection({
             />
           )}
         </WorkflowStepActions>
-
-        {note && (
-          <div className="mt-4 flex gap-3 rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
-            <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" aria-hidden />
-            <p>{note}</p>
-          </div>
-        )}
       </section>
 
       {canUpload && (

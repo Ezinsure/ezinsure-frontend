@@ -26,7 +26,7 @@ export const Toast = ({ message, type, onClose }: ToastProps) => {
 
   return (
     <div 
-      className={`fixed bottom-4 right-4 px-6 py-3 rounded-lg text-white shadow-lg z-50 transition-all duration-300 ${
+      className={`fixed bottom-4 right-4 z-[400] px-6 py-3 rounded-lg text-white shadow-lg transition-all duration-300 ${
         isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'
       } ${bgColor}`}
     >

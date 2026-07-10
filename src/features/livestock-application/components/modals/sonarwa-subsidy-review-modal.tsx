@@ -63,6 +63,8 @@ export function SonarwaSubsidyReviewModal({
         rejectionReason: action === 'reject' ? rejectionReason.trim() : undefined,
       });
       onClose();
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : 'Could not complete SONARWA review.');
     } finally {
       setSubmittingAction(null);
     }

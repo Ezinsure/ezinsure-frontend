@@ -45,6 +45,7 @@ import {
   isWorkflowSection,
   type ApplicationDetailSectionId,
 } from '@/features/livestock-application/utils/application-detail-sections';
+import { WorkflowToastProvider } from '@/features/livestock-application/components/workflow/workflow-toast-context';
 
 export interface LivestockApplicationDetailViewProps {
   application: LivestockApplicationPackage;
@@ -344,7 +345,7 @@ export function LivestockApplicationDetailView({
   );
 
   return (
-    <>
+    <WorkflowToastProvider>
       {isPanel ? (
         <div className="flex h-full min-h-0 flex-col">
           <div className="flex shrink-0 items-center gap-3 border-b border-slate-200 bg-white px-4 py-3 sm:px-6">
@@ -386,6 +387,6 @@ export function LivestockApplicationDetailView({
           onClose={() => setViewingDocument(null)}
         />
       )}
-    </>
+    </WorkflowToastProvider>
   );
 }

@@ -11,6 +11,7 @@ import type {
   LivestockApplicationViewRole,
 } from '@/features/livestock-application/domain/application-types';
 import { formatRwfDisplay } from '@/features/livestock-application/utils/format-rwf';
+import { formatWorkflowActionError } from '@/features/livestock-application/utils/workflow-action-feedback';
 import {
   canManageCommissionWorkflow,
   canMarkCommissionPaid,
@@ -20,6 +21,7 @@ import {
   resolveWorkflowActionVisible,
   showAllLivestockWorkflowActions,
 } from '@/features/livestock-application/utils/workflow-demo-mode';
+import { useWorkflowToast } from '@/features/livestock-application/components/workflow/workflow-toast-context';
 import { WorkflowStepCard } from '@/features/livestock-application/components/workflow/workflow-step-card';
 import { WorkflowPrimaryAction, WorkflowStepActions } from '@/features/livestock-application/components/workflow/workflow-step-actions';
 import { useApiClient } from '@/utils/apiClient';
@@ -36,7 +38,7 @@ export function CommissionWorkflowSection({
   onUpdated,
 }: CommissionWorkflowSectionProps) {
   const [loading, setLoading] = useState<'approve' | 'paid' | null>(null);
-  const [note, setNote] = useState<string | null>(null);
+  const toast = useWorkflowToast();
   const [approvalNotes, setApprovalNotes] = useState('');
   const [paymentReference, setPaymentReference] = useState('');
   const { apiFetch } = useApiClient();
@@ -67,15 +69,20 @@ export function CommissionWorkflowSection({
 
   const handleApproveCommission = async () => {
     setLoading('approve');
-    setNote(null);
     try {
       await approveLivestockCommission(apiFetch, application._id, {
         notes: approvalNotes.trim() || undefined,
       });
-      setNote('Commission approved. Application is ready to be paid.');
+      toast.showSuccess('Commission approved. Application is ready to be paid.');
       onUpdated?.();
     } catch (err) {
-      setNote(err instanceof Error ? err.message : 'Could not approve commission.');
+      toast.showError(
+        formatWorkflowActionError(
+          err,
+          'We could not approve the commission. Please try again.',
+          'commission-approve',
+        ),
+      );
     } finally {
       setLoading(null);
     }
@@ -83,15 +90,20 @@ export function CommissionWorkflowSection({
 
   const handleMarkPaid = async () => {
     setLoading('paid');
-    setNote(null);
     try {
       await markLivestockCommissionPaid(apiFetch, application._id, {
         paymentReference: paymentReference.trim() || undefined,
       });
-      setNote('Veterinary commission marked as paid.');
+      toast.showSuccess('Veterinary commission marked as paid.');
       onUpdated?.();
     } catch (err) {
-      setNote(err instanceof Error ? err.message : 'Could not mark as paid.');
+      toast.showError(
+        formatWorkflowActionError(
+          err,
+          'We could not mark the commission as paid. Please try again.',
+          'commission-paid',
+        ),
+      );
     } finally {
       setLoading(null);
     }
@@ -210,12 +222,6 @@ export function CommissionWorkflowSection({
       {!isFinanceView && viewRole === 'vet' && (
         <p className="mt-4 text-xs text-slate-500">
           Finance will process your commission after SONARWA approval. You will see status updates here.
-        </p>
-      )}
-
-      {note && (
-        <p className="mt-4 rounded-lg border border-orange-100 bg-orange-50 px-3 py-2 text-sm text-orange-900">
-          {note}
         </p>
       )}
     </section>

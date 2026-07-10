@@ -9,7 +9,9 @@ import type {
   LivestockApplicationViewRole,
 } from '@/features/livestock-application/domain/application-types';
 import { canAdminIssueLivestockInsurance } from '@/features/livestock-application/utils/workflow-rules';
+import { formatWorkflowActionError } from '@/features/livestock-application/utils/workflow-action-feedback';
 import { resolveWorkflowActionVisible, showAllLivestockWorkflowActions } from '@/features/livestock-application/utils/workflow-demo-mode';
+import { useWorkflowToast } from '@/features/livestock-application/components/workflow/workflow-toast-context';
 import { WorkflowStepCard } from '@/features/livestock-application/components/workflow/workflow-step-card';
 import {
   WorkflowDocumentAction,
@@ -31,7 +33,7 @@ export function InsuranceIssueSection({
   onViewDocument,
 }: InsuranceIssueSectionProps) {
   const [modalOpen, setModalOpen] = useState(false);
-  const [note, setNote] = useState<string | null>(null);
+  const toast = useWorkflowToast();
   const { issue, isIssuing } = useIssueLivestockInsurance();
 
   const canIssue = resolveWorkflowActionVisible(
@@ -52,14 +54,21 @@ export function InsuranceIssueSection({
   const stepState = isIssued ? 'completed' : canIssue ? 'current' : 'upcoming';
 
   const handleIssue = async (payload: Parameters<typeof issue>[1]) => {
-    setNote(null);
     try {
       await issue(application._id, payload);
-      setModalOpen(false);
-      setNote('Insurance issued. The veterinarian can now complete nkunganire (if required) or proceed to SONARWA review.');
+      toast.showSuccess(
+        'Insurance issued. The veterinarian can now complete nkunganire (if required) or proceed to SONARWA review.',
+      );
       onUpdated?.();
     } catch (err) {
-      setNote(err instanceof Error ? err.message : 'Could not issue insurance.');
+      toast.showError(
+        formatWorkflowActionError(
+          err,
+          'We could not issue insurance. Please check the certificate file and try again.',
+          'issue-insurance',
+        ),
+      );
+      throw err;
     }
   };
 
@@ -125,12 +134,6 @@ export function InsuranceIssueSection({
             </WorkflowStepActions>
           </WorkflowStepCard>
         </div>
-
-        {note && (
-          <p className="mt-4 rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-sm text-blue-900">
-            {note}
-          </p>
-        )}
       </section>
 
       <IssueLivestockInsuranceModal

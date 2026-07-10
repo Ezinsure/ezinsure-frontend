@@ -10,10 +10,12 @@ import type {
 } from '@/features/livestock-application/domain/application-types';
 import { resolveSubsidyEligibility } from '@/features/livestock-application/utils/subsidy-eligibility';
 import { canAdminReviewSonarwaSubsidy } from '@/features/livestock-application/utils/workflow-rules';
+import { formatWorkflowActionError } from '@/features/livestock-application/utils/workflow-action-feedback';
 import {
   resolveWorkflowActionVisible,
   showAllLivestockWorkflowActions,
 } from '@/features/livestock-application/utils/workflow-demo-mode';
+import { useWorkflowToast } from '@/features/livestock-application/components/workflow/workflow-toast-context';
 import { WorkflowStepCard } from '@/features/livestock-application/components/workflow/workflow-step-card';
 import {
   WorkflowDocumentAction,
@@ -35,7 +37,7 @@ export function SonarwaReviewSection({
   onViewDocument,
 }: SonarwaReviewSectionProps) {
   const [modalOpen, setModalOpen] = useState(false);
-  const [note, setNote] = useState<string | null>(null);
+  const toast = useWorkflowToast();
   const { review, isReviewing } = useReviewSonarwaSubsidy();
 
   const eligibility = resolveSubsidyEligibility(application);
@@ -76,18 +78,23 @@ export function SonarwaReviewSection({
         : 'upcoming';
 
   const handleReview = async (payload: Parameters<typeof review>[1]) => {
-    setNote(null);
     try {
       await review(application._id, payload);
-      setModalOpen(false);
-      setNote(
+      toast.showSuccess(
         payload.action === 'approve'
           ? 'SONARWA approved. Application moved to pending commission review.'
           : 'SONARWA rejected the nkunganire document. The veterinarian must re-upload a corrected scan.',
       );
       onUpdated?.();
     } catch (err) {
-      setNote(err instanceof Error ? err.message : 'Could not complete SONARWA review.');
+      toast.showError(
+        formatWorkflowActionError(
+          err,
+          'We could not complete the SONARWA review. Please try again.',
+          'sonarwa-review',
+        ),
+      );
+      throw err;
     }
   };
 
@@ -162,12 +169,6 @@ export function SonarwaReviewSection({
             )}
           </WorkflowStepCard>
         </div>
-
-        {note && (
-          <p className="mt-4 rounded-lg border border-teal-100 bg-teal-50 px-3 py-2 text-sm text-teal-900">
-            {note}
-          </p>
-        )}
       </section>
 
       <SonarwaSubsidyReviewModal

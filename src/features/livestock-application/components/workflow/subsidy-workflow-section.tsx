@@ -19,10 +19,12 @@ import {
   canVetDownloadSubsidyDocument,
   canVetUploadSignedSubsidy,
 } from '@/features/livestock-application/utils/workflow-rules';
+import { formatWorkflowActionError } from '@/features/livestock-application/utils/workflow-action-feedback';
 import {
   resolveWorkflowActionVisible,
   showAllLivestockWorkflowActions,
 } from '@/features/livestock-application/utils/workflow-demo-mode';
+import { useWorkflowToast } from '@/features/livestock-application/components/workflow/workflow-toast-context';
 import { WorkflowStepCard } from '@/features/livestock-application/components/workflow/workflow-step-card';
 import {
   WorkflowDocumentAction,
@@ -47,7 +49,7 @@ export function SubsidyWorkflowSection({
   const [downloading, setDownloading] = useState(false);
   const [loading, setLoading] = useState(false);
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
-  const [note, setNote] = useState<string | null>(null);
+  const toast = useWorkflowToast();
   const { upload: uploadSigned, isUploading } = useUploadSignedSubsidyDocument();
   const eligibility = resolveSubsidyEligibility(application);
   const { subsidyCase } = application;
@@ -95,13 +97,20 @@ export function SubsidyWorkflowSection({
 
   const handleGenerate = async () => {
     setLoading(true);
-    setNote(null);
     try {
       const res = await generateSubsidyDocument(application._id);
-      setNote(`Nkunganire template generated (${res.templateVersion}). Download the animal list and take it to the sector for signing.`);
+      toast.showSuccess(
+        `Nkunganire template generated (${res.templateVersion}). Download the animal list and take it to the sector for signing.`,
+      );
       onUpdated?.();
     } catch (err) {
-      setNote(err instanceof Error ? err.message : 'Could not generate document.');
+      toast.showError(
+        formatWorkflowActionError(
+          err,
+          'We could not generate the nkunganire template. Please try again.',
+          'subsidy-upload',
+        ),
+      );
     } finally {
       setLoading(false);
     }
@@ -109,25 +118,38 @@ export function SubsidyWorkflowSection({
 
   const handleDownloadNkunganire = async () => {
     setDownloading(true);
-    setNote(null);
     try {
       await downloadNkunganireSubsidyExcel(application);
-      setNote('Nkunganire Excel downloaded with prefilled district, owners, and animal lines.');
+      toast.showSuccess(
+        'Nkunganire Excel downloaded with prefilled district, owners, and animal lines.',
+      );
     } catch (err) {
-      setNote(err instanceof Error ? err.message : 'Could not download nkunganire form.');
+      toast.showError(
+        formatWorkflowActionError(
+          err,
+          'We could not download the nkunganire form. Please try again.',
+          'subsidy-upload',
+        ),
+      );
     } finally {
       setDownloading(false);
     }
   };
 
   const handleUploadSigned = async (payload: UploadSignedSubsidyPayload) => {
-    setNote(null);
     try {
       await uploadSigned(application._id, payload);
-      setNote('Signed nkunganire uploaded. SONARWA will verify the document next.');
+      toast.showSuccess('Signed nkunganire uploaded. SONARWA will verify the document next.');
       onUpdated?.();
     } catch (err) {
-      setNote(err instanceof Error ? err.message : 'Could not upload signed document.');
+      toast.showError(
+        formatWorkflowActionError(
+          err,
+          'We could not upload the signed nkunganire document. Please check the file and try again.',
+          'subsidy-upload',
+        ),
+      );
+      throw err;
     }
   };
 
@@ -223,12 +245,6 @@ export function SubsidyWorkflowSection({
             )}
           </WorkflowStepCard>
         </div>
-
-        {note && (
-          <p className="mt-4 rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-sm text-blue-900">
-            {note}
-          </p>
-        )}
       </section>
 
       <SubsidySignedUploadModal
