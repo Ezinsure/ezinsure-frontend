@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { FileUp, Receipt, ShieldCheck } from 'lucide-react';
+import { useAuth } from '@/context/AuthContext';
 import {
   PaymentProofUploadModal,
   type PaymentProofUploadPayload,
@@ -16,6 +17,10 @@ import type {
 import { canAdminReviewLivestockPayment } from '@/features/livestock-application/utils/application-timeline';
 import { formatRwfDisplay } from '@/features/livestock-application/utils/format-rwf';
 import { formatWorkflowActionError } from '@/features/livestock-application/utils/workflow-action-feedback';
+import {
+  canUploadLivestockPaymentProofRole,
+  isPaymentProofUploadStatusEligible,
+} from '@/features/livestock-application/utils/workflow-rules';
 import { resolveWorkflowActionVisible } from '@/features/livestock-application/utils/workflow-demo-mode';
 import { useWorkflowToast } from '@/features/livestock-application/components/workflow/workflow-toast-context';
 import {
@@ -40,13 +45,14 @@ export function PaymentProofSection({
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [reviewModalOpen, setReviewModalOpen] = useState(false);
   const toast = useWorkflowToast();
+  const { user } = useAuth();
   const { upload, isUploading } = useUploadLivestockPaymentProof();
   const { verify, isVerifying } = useVerifyLivestockPaymentProof();
   const { paymentProof } = application;
 
   const canUpload = resolveWorkflowActionVisible(
-    viewRole === 'vet',
-    paymentProof.status === 'PENDING' || paymentProof.status === 'REJECTED',
+    canUploadLivestockPaymentProofRole(application, viewRole, user?._id),
+    isPaymentProofUploadStatusEligible(application),
   );
 
   const canReview = resolveWorkflowActionVisible(
@@ -114,10 +120,9 @@ export function PaymentProofSection({
             <p className="mt-1 text-sm text-slate-600">
               One receipt for the whole application — farmer share (60%) for all animals combined.
               {viewRole === 'vet' && ' Upload the farmer receipt once payment is complete.'}
-              {viewRole === 'admin' && ' Review the uploaded proof and approve or reject it.'}
-              {viewRole === 'super_admin' && ' Review the uploaded proof and approve or reject it.'}
-              {viewRole !== 'vet' && viewRole !== 'admin' && viewRole !== 'super_admin' &&
-                ' Track payment proof status here.'}
+              {(viewRole === 'admin' || viewRole === 'super_admin') &&
+                ' Upload payment proof when pending or rejected, or review and verify submitted receipts.'}
+              {viewRole === 'finance' && ' Track payment proof status here.'}
             </p>
           </div>
         </div>

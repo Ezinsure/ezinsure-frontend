@@ -84,7 +84,7 @@ export function ApplicationsListTable({
                 <td className="px-4 py-4">
                   <LivestockApplicationStatusBadge status={app.status} />
                 </td>
-                <td className="px-4 py-4 text-right">
+                <td className="relative px-4 py-4 text-right">
                   <ApplicationsListRowActions app={app} handlers={rowActions} />
                 </td>
               </tr>

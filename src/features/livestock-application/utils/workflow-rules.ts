@@ -16,6 +16,45 @@ function isFinanceRole(role: LivestockApplicationViewRole): boolean {
   return FINANCE_ROLES.has(role);
 }
 
+const PAYMENT_UPLOAD_APPLICATION_STATUSES = new Set<LivestockApplicationPackage['status']>([
+  'SUBMITTED',
+  'PAYMENT_PROOF_REQUIRED',
+  'PAYMENT_PROOF_SUBMITTED',
+]);
+
+/** Application status + paidStatus gates for PUT /uploadProofOfPayment/{id}. */
+export function isPaymentProofUploadStatusEligible(
+  application: LivestockApplicationPackage,
+): boolean {
+  if (!PAYMENT_UPLOAD_APPLICATION_STATUSES.has(application.status)) return false;
+
+  const paidStatus = application.paymentProof.status;
+  return paidStatus === 'PENDING' || paidStatus === 'REJECTED';
+}
+
+/** VETERINARY (own application) or ADMIN may upload payment proof. */
+export function canUploadLivestockPaymentProofRole(
+  application: LivestockApplicationPackage,
+  role: LivestockApplicationViewRole,
+  currentUserId?: string,
+): boolean {
+  if (role === 'admin' || role === 'super_admin') return true;
+  if (role !== 'vet') return false;
+  if (currentUserId && application.vetId && application.vetId !== currentUserId) return false;
+  return true;
+}
+
+export function canUploadLivestockPaymentProof(
+  application: LivestockApplicationPackage,
+  role: LivestockApplicationViewRole,
+  currentUserId?: string,
+): boolean {
+  return (
+    canUploadLivestockPaymentProofRole(application, role, currentUserId) &&
+    isPaymentProofUploadStatusEligible(application)
+  );
+}
+
 export function canAdminIssueLivestockInsurance(
   application: LivestockApplicationPackage,
   role: LivestockApplicationViewRole,

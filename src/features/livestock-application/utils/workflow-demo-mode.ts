@@ -8,6 +8,7 @@ export const LIVESTOCK_WORKFLOW_DEMO_MODE = true;
 /** Endpoints wired to the real backend (always call API even when demo mode is on). */
 export const LIVESTOCK_WORKFLOW_LIVE = {
   applicationDetail: true,
+  uploadPaymentProof: true,
   issueInsurance: true,
   uploadSignedSubsidy: true,
   reviewSonarwaSubsidy: true,

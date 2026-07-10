@@ -8,7 +8,6 @@ import { syncLivestockWorkflowCache } from '@/features/livestock-application/api
 import { patchLivestockWorkflowState } from '@/features/livestock-application/api/workflow-session';
 import {
   isLivestockWorkflowApiLive,
-  LIVESTOCK_WORKFLOW_DEMO_MODE,
 } from '@/features/livestock-application/utils/workflow-demo-mode';
 
 export interface UploadPaymentProofResult {
@@ -46,11 +45,40 @@ function parseUploadPaymentProofResponse(payload: unknown): UploadPaymentProofRe
       : undefined;
 
   return {
-    status: String(row.status ?? 'SUBMITTED'),
+    status: String(row.status ?? 'PAYMENT_PROOF_SUBMITTED'),
     expectedAmount: Number(row.expectedAmount ?? row.amount ?? 0),
     documentUrl,
     transactionId: String(row.transactionId ?? ''),
   };
+}
+
+function applyPaymentProofUploadCache(
+  applicationId: string,
+  payload: UploadPaymentProofPayload,
+  result: UploadPaymentProofResult,
+): void {
+  const submittedAt = new Date().toISOString();
+  const documentUrl = result.documentUrl;
+  const transactionId = result.transactionId || payload.transactionId;
+
+  patchLivestockWorkflowState(applicationId, {
+    status: 'PAYMENT_PROOF_SUBMITTED',
+    paymentProof: {
+      status: 'SUBMITTED',
+      expectedAmount: result.expectedAmount || payload.amount,
+      documentUrl,
+      transactionId,
+      submittedAt,
+    },
+  });
+
+  patchCachedLivestockApplicationRow(applicationId, {
+    paidStatus: 'SUBMITTED',
+    paymentProofStatus: 'SUBMITTED',
+    status: 'PAYMENT_PROOF_SUBMITTED',
+    ...(documentUrl ? { proofOfPayment: documentUrl } : {}),
+    ...(transactionId ? { transactionId } : {}),
+  });
 }
 
 async function simulateUploadLivestockPaymentProof(
@@ -61,33 +89,14 @@ async function simulateUploadLivestockPaymentProof(
   void resolvePaymentProofFileType(payload.proofOfPayment);
 
   const documentUrl = URL.createObjectURL(payload.proofOfPayment);
-  const submittedAt = new Date().toISOString();
   const result: UploadPaymentProofResult = {
-    status: 'SUBMITTED',
+    status: 'PAYMENT_PROOF_SUBMITTED',
     expectedAmount: payload.amount,
     documentUrl,
     transactionId: payload.transactionId,
   };
 
-  patchLivestockWorkflowState(applicationId, {
-    status: 'PAYMENT_PROOF_SUBMITTED',
-    paymentProof: {
-      status: 'SUBMITTED',
-      expectedAmount: payload.amount,
-      documentUrl,
-      transactionId: payload.transactionId,
-      submittedAt,
-    },
-  });
-
-  patchCachedLivestockApplicationRow(applicationId, {
-    paidStatus: 'SUBMITTED',
-    paymentProofStatus: 'SUBMITTED',
-    status: 'PAYMENT_PROOF_SUBMITTED',
-    proofOfPayment: documentUrl,
-    transactionId: payload.transactionId,
-  });
-
+  applyPaymentProofUploadCache(applicationId, payload, result);
   return result;
 }
 
@@ -96,16 +105,15 @@ export async function uploadLivestockPaymentProof(
   applicationId: string,
   payload: UploadPaymentProofPayload,
 ): Promise<UploadPaymentProofResult> {
-  if (LIVESTOCK_WORKFLOW_DEMO_MODE) {
+  if (!isLivestockWorkflowApiLive('uploadPaymentProof')) {
     return simulateUploadLivestockPaymentProof(applicationId, payload);
   }
 
   const formData = new FormData();
   const file = payload.proofOfPayment;
   formData.append('proofOfPayment', file, file.name || 'payment-proof');
-  formData.append('transactionId', payload.transactionId);
   formData.append('amount', String(payload.amount));
-  formData.append('fileType', resolvePaymentProofFileType(file));
+  formData.append('transactionId', payload.transactionId.trim());
   if (payload.notes?.trim()) {
     formData.append('notes', payload.notes.trim());
   }
@@ -121,14 +129,8 @@ export async function uploadLivestockPaymentProof(
   );
 
   const result = parseUploadPaymentProofResponse(response);
-
-  patchCachedLivestockApplicationRow(applicationId, {
-    paidStatus: 'SUBMITTED',
-    paymentProofStatus: 'SUBMITTED',
-    status: 'PAYMENT_PROOF_SUBMITTED',
-    ...(result.documentUrl ? { proofOfPayment: result.documentUrl } : {}),
-    ...(result.transactionId ? { transactionId: result.transactionId } : {}),
-  });
+  syncLivestockWorkflowCache(applicationId, { status: result.status || 'PAYMENT_PROOF_SUBMITTED' });
+  applyPaymentProofUploadCache(applicationId, payload, result);
 
   return result;
 }
