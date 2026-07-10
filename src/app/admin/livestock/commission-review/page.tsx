@@ -1,0 +1,5 @@
+import LivestockCommissionReviewPage from '@/features/livestock-application/livestock-commission-review-page';
+
+export default function AdminLivestockCommissionReviewPage() {
+  return <LivestockCommissionReviewPage viewRole="admin" />;
+}

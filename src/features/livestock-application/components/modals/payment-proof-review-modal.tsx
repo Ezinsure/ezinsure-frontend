@@ -64,7 +64,7 @@ export function PaymentProofReviewModal({
 
   const handleAction = async (action: 'approve' | 'reject') => {
     if (action === 'reject' && !trimmedReason) {
-      setFormError('Please provide a reason when requesting payment action from the veterinarian.');
+      setFormError('Please provide a reason when rejecting the payment proof.');
       return;
     }
     if (action === 'approve' && trimmedReason) {
@@ -173,10 +173,10 @@ export function PaymentProofReviewModal({
               htmlFor="payment-rejection-reason"
               className="block text-sm font-medium text-slate-800"
             >
-              Action required reason (reasonForPaymentRejection)
+              Rejection reason
             </label>
             <p className="mt-1 text-xs text-slate-500">
-              Required only when sending back to the veterinarian for a corrected payment proof.
+              Required when rejecting — sent to the API as <code className="text-xs">reasonForPaymentRejection</code>.
             </p>
             <textarea
               id="payment-rejection-reason"
@@ -213,7 +213,7 @@ export function PaymentProofReviewModal({
             {submittingAction === 'reject' ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             ) : null}
-            Request action
+            Reject payment
           </Button>
           <Button
             type="button"

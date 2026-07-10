@@ -5,6 +5,7 @@ import {
   Users,
   HelpCircle,
   UserCircle,
+  Wallet,
 } from 'lucide-react';
 import type { NavGroup } from '@/shared/navigation/types';
 
@@ -20,6 +21,7 @@ export function getLivestockAdminNavigation(rolePrefix: LivestockAdminRolePrefix
         { href: `${base}/dashboard`, label: 'Dashboard', icon: LayoutDashboard },
         { href: `${base}/import`, label: 'Import from Tekana', icon: Upload },
         { href: `${base}/applications`, label: 'Applications', icon: FileText },
+        { href: `${base}/commission-review`, label: 'Commission Review', icon: Wallet },
       ],
     },
     {

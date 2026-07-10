@@ -11,6 +11,7 @@ export const LIVESTOCK_WORKFLOW_LIVE = {
   issueInsurance: true,
   uploadSignedSubsidy: true,
   reviewSonarwaSubsidy: true,
+  verifyPaymentProof: true,
   approveCommission: true,
   markCommissionPaid: true,
 } as const;

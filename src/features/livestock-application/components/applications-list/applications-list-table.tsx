@@ -3,10 +3,6 @@
 import { Loader2 } from 'lucide-react';
 import { LivestockApplicationStatusBadge } from '@/features/livestock-application/components/shared/application-status-badge';
 import {
-  PaymentStatusBadge,
-  SubsidyStatusBadge,
-} from '@/features/livestock-application/components/shared/workflow-status-badges';
-import {
   ApplicationsListRowActions,
   type ApplicationsListRowActionHandlers,
 } from '@/features/livestock-application/components/applications-list/applications-list-row-actions';
@@ -49,7 +45,7 @@ export function ApplicationsListTable({
             <th className="px-4 py-3">Owner(s)</th>
             <th className="px-4 py-3">Coverage</th>
             <th className="px-4 py-3">Value & premium</th>
-            <th className="px-4 py-3">Workflow</th>
+            <th className="px-4 py-3">Status</th>
             <th className="px-4 py-3 text-right">Actions</th>
           </tr>
         </thead>
@@ -86,7 +82,7 @@ export function ApplicationsListTable({
                   <ValueCell app={app} />
                 </td>
                 <td className="px-4 py-4">
-                  <WorkflowCell app={app} />
+                  <LivestockApplicationStatusBadge status={app.status} />
                 </td>
                 <td className="px-4 py-4 text-right">
                   <ApplicationsListRowActions app={app} handlers={rowActions} />
@@ -138,18 +134,6 @@ function ValueCell({ app }: { app: LivestockApplicationListItem }) {
       <p className="text-xs text-slate-500">
         Premium {formatRwfDisplay(app.totals.premiumRateAmount)}
       </p>
-    </div>
-  );
-}
-
-function WorkflowCell({ app }: { app: LivestockApplicationListItem }) {
-  return (
-    <div className="flex max-w-[14rem] flex-col items-start gap-1.5">
-      <LivestockApplicationStatusBadge status={app.status} />
-      <div className="flex flex-wrap gap-1">
-        <PaymentStatusBadge status={app.paymentProofStatus} />
-        <SubsidyStatusBadge status={app.subsidyStatus} />
-      </div>
     </div>
   );
 }

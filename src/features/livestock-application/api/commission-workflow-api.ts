@@ -1,8 +1,11 @@
 import { LIVESTOCK_ADMIN_ENDPOINTS } from '@/features/livestock-application/api/endpoints';
 import type { ApiFetch } from '@/features/livestock-application/api/http';
 import { requestJson, unwrapEntityPayload } from '@/features/livestock-application/api/http';
+import { mapFlatApplicationToListItem } from '@/features/livestock-application/api/mappers/flat.mapper';
+import { extractApplicationsRawRows } from '@/features/livestock-application/api/mappers/guards';
 import { syncLivestockWorkflowCache } from '@/features/livestock-application/api/workflow-cache-sync';
 import { patchLivestockWorkflowState } from '@/features/livestock-application/api/workflow-session';
+import type { LivestockApplicationListItem } from '@/features/livestock-application/domain/application-types';
 import { isLivestockWorkflowApiLive } from '@/features/livestock-application/utils/workflow-demo-mode';
 
 function simulateDelay(): Promise<void> {
@@ -127,6 +130,81 @@ export interface MarkCommissionPaidPayload {
 
 export interface MarkCommissionPaidResult {
   status: 'PAID';
+}
+
+export interface LivestockCommissionReviewQueue {
+  items: LivestockApplicationListItem[];
+  count: number;
+  totalVeterinaryCommission: number;
+}
+
+function readCommissionQueueMeta(payload: unknown, itemCount: number): {
+  count: number;
+  totalVeterinaryCommission: number;
+} {
+  const root =
+    payload && typeof payload === 'object' ? (payload as Record<string, unknown>) : {};
+  const nested =
+    root.data && typeof root.data === 'object' && !Array.isArray(root.data)
+      ? (root.data as Record<string, unknown>)
+      : root;
+
+  const count = Number(nested.count ?? nested.total ?? root.count ?? root.total ?? itemCount);
+  const totalVeterinaryCommission = Number(
+    nested.totalVeterinaryCommission ??
+      nested.totalAgentCommission ??
+      nested.veterinaryCommission ??
+      root.totalVeterinaryCommission ??
+      root.totalAgentCommission ??
+      0,
+  );
+
+  return {
+    count: Number.isFinite(count) ? count : itemCount,
+    totalVeterinaryCommission: Number.isFinite(totalVeterinaryCommission)
+      ? totalVeterinaryCommission
+      : 0,
+  };
+}
+
+function mapCommissionReviewRows(payload: unknown): LivestockApplicationListItem[] {
+  const rows = extractApplicationsRawRows(payload);
+  return rows
+    .filter((row): row is Record<string, unknown> => Boolean(row) && typeof row === 'object')
+    .map((row) => mapFlatApplicationToListItem(row));
+}
+
+/**
+ * Applications in `PENDING_COMMISSION_REVIEW` awaiting finance/admin approval.
+ * Backend: GET `/getVeterinaryApplicationsPendingAdminReview`.
+ */
+export async function fetchLivestockApplicationsPendingAdminReview(
+  apiFetch: ApiFetch,
+): Promise<LivestockCommissionReviewQueue> {
+  const response = await requestJson<unknown>(
+    apiFetch,
+    LIVESTOCK_ADMIN_ENDPOINTS.applicationsPendingAdminReview(),
+    { method: 'GET' },
+    'list',
+  );
+
+  const items = mapCommissionReviewRows(response);
+  const meta = readCommissionQueueMeta(response, items.length);
+
+  if (meta.totalVeterinaryCommission <= 0) {
+    meta.totalVeterinaryCommission = items.reduce(
+      (sum, item) => sum + (item.veterinaryCommission ?? 0),
+      0,
+    );
+  }
+
+  return {
+    items: items.slice().sort(
+      (a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime(),
+    ),
+    count: meta.count || items.length,
+    totalVeterinaryCommission: meta.totalVeterinaryCommission,
+  };
 }
 
 /**

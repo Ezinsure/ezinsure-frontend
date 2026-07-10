@@ -48,7 +48,7 @@ export function PaymentProofSection({
   );
 
   const canReview = resolveWorkflowActionVisible(
-    viewRole === 'admin',
+    viewRole === 'admin' || viewRole === 'super_admin',
     canAdminReviewLivestockPayment(application),
   );
 
@@ -71,7 +71,7 @@ export function PaymentProofSection({
     setNote(
       payload.action === 'approve'
         ? 'Payment verified. The application can proceed to the next workflow step.'
-        : 'Payment sent back to the veterinarian with your feedback.',
+        : 'Payment rejected and sent back to the veterinarian with your feedback.',
     );
     onUpdated?.();
   };
@@ -88,7 +88,8 @@ export function PaymentProofSection({
             <p className="mt-1 text-sm text-slate-600">
               One receipt for the whole application — farmer share (60%) for all animals combined.
               {viewRole === 'vet' && ' Upload the farmer receipt once payment is complete.'}
-              {viewRole === 'admin' && ' Review the uploaded proof and approve or request corrections.'}
+              {viewRole === 'admin' && ' Review the uploaded proof and approve or reject it.'}
+              {viewRole === 'super_admin' && ' Review the uploaded proof and approve or reject it.'}
               {viewRole !== 'vet' && viewRole !== 'admin' && ' Track payment proof status here.'}
             </p>
           </div>

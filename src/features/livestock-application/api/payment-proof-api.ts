@@ -4,8 +4,12 @@ import { LIVESTOCK_VET_ENDPOINTS } from '@/features/livestock-application/api/en
 import type { ApiFetch } from '@/features/livestock-application/api/http';
 import { requestJson, unwrapEntityPayload } from '@/features/livestock-application/api/http';
 import { patchCachedLivestockApplicationRow } from '@/features/livestock-application/api/livestock-application-session-cache';
+import { syncLivestockWorkflowCache } from '@/features/livestock-application/api/workflow-cache-sync';
 import { patchLivestockWorkflowState } from '@/features/livestock-application/api/workflow-session';
-import { LIVESTOCK_WORKFLOW_DEMO_MODE } from '@/features/livestock-application/utils/workflow-demo-mode';
+import {
+  isLivestockWorkflowApiLive,
+  LIVESTOCK_WORKFLOW_DEMO_MODE,
+} from '@/features/livestock-application/utils/workflow-demo-mode';
 
 export interface UploadPaymentProofResult {
   status: string;
@@ -182,7 +186,7 @@ export async function verifyLivestockPaymentProof(
   applicationId: string,
   payload: VerifyLivestockPaymentPayload,
 ): Promise<VerifyLivestockPaymentResult> {
-  if (LIVESTOCK_WORKFLOW_DEMO_MODE) {
+  if (!isLivestockWorkflowApiLive('verifyPaymentProof')) {
     return simulateVerifyLivestockPaymentProof(applicationId, payload);
   }
 
@@ -194,8 +198,8 @@ export async function verifyLivestockPaymentProof(
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         action: payload.action,
-        ...(payload.action === 'reject' && payload.reasonForPaymentRejection
-          ? { reasonForPaymentRejection: payload.reasonForPaymentRejection.trim() }
+        ...(payload.action === 'reject'
+          ? { reasonForPaymentRejection: payload.reasonForPaymentRejection?.trim() ?? '' }
           : {}),
       }),
     },
@@ -203,28 +207,28 @@ export async function verifyLivestockPaymentProof(
   );
 
   const result = parseVerifyPaymentResponse(response);
+  const nextStatus =
+    result.status ||
+    (payload.action === 'approve' ? 'PAYMENT_VERIFIED' : 'PAYMENT_PROOF_REQUIRED');
+  const nextPaidStatus =
+    result.paidStatus || (payload.action === 'approve' ? 'VERIFIED' : 'REJECTED');
+  const paymentProofStatus = payload.action === 'approve' ? 'VERIFIED' : 'REJECTED';
 
-  if (payload.action === 'approve') {
-    patchLivestockWorkflowState(applicationId, {
-      status: 'PAYMENT_VERIFIED',
-      paymentProof: { status: 'VERIFIED', verifiedAt: new Date().toISOString() },
-    });
-    patchCachedLivestockApplicationRow(applicationId, {
-      status: 'PAYMENT_VERIFIED',
-      paidStatus: 'VERIFIED',
-      paymentProofStatus: 'VERIFIED',
-    });
-  } else {
-    patchLivestockWorkflowState(applicationId, {
-      status: 'PAYMENT_PROOF_REQUIRED',
-      paymentProof: { status: 'REJECTED' },
-    });
-    patchCachedLivestockApplicationRow(applicationId, {
-      status: 'PAYMENT_PROOF_REQUIRED',
-      paidStatus: 'REJECTED',
-      paymentProofStatus: 'REJECTED',
-    });
-  }
+  syncLivestockWorkflowCache(applicationId, { status: nextStatus });
+  patchLivestockWorkflowState(applicationId, {
+    paymentProof: {
+      status: paymentProofStatus,
+      ...(payload.action === 'approve' ? { verifiedAt: new Date().toISOString() } : {}),
+    },
+  });
+  patchCachedLivestockApplicationRow(applicationId, {
+    status: nextStatus,
+    paidStatus: nextPaidStatus,
+    paymentProofStatus,
+  });
 
-  return result;
+  return {
+    status: nextStatus,
+    paidStatus: nextPaidStatus,
+  };
 }

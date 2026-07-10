@@ -51,7 +51,7 @@ export const LIVESTOCK_VET_ENDPOINTS = {
   createApplication: (): string => '/newApplication',
 
   verifyPayment: (applicationId: string): string =>
-    `/verifyPayment/${encodeURIComponent(applicationId)}`,
+    `/veterinary/verifyPayment/${encodeURIComponent(applicationId)}`,
 } as const;
 
 /** Admin / finance / super admin — all vet applications in date range. */
@@ -75,9 +75,9 @@ export const LIVESTOCK_ADMIN_ENDPOINTS = {
   issueInsurance: (applicationId: string): string =>
     `/issueLivestockInsurance/${encodeURIComponent(applicationId)}`,
 
-  /** POST — verify payment proof (approve/reject). Alias of vet verify when scoped to admin. */
+  /** POST — verify payment proof (approve/reject). Same route as vet verify. */
   verifyPaymentProof: (applicationId: string): string =>
-    `/verifyLivestockPayment/${encodeURIComponent(applicationId)}`,
+    `/veterinary/verifyPayment/${encodeURIComponent(applicationId)}`,
 
   /** POST — approve or reject signed nkunganire on behalf of SONARWA. */
   reviewSonarwaSubsidy: (applicationId: string): string =>
@@ -90,6 +90,9 @@ export const LIVESTOCK_ADMIN_ENDPOINTS = {
   /** PUT — mark veterinary commission as paid. */
   markCommissionPaid: (applicationId: string): string =>
     `/markLivestockCommissionPaid/${encodeURIComponent(applicationId)}`,
+
+  /** GET — applications awaiting commission review (admin / finance / super admin). */
+  applicationsPendingAdminReview: (): string => '/getVeterinaryApplicationsPendingAdminReview',
 } as const;
 
 /** Nkunganire / sector subsidy workflow (vet-facing). */
