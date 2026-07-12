@@ -79,7 +79,7 @@ export const LIVESTOCK_ADMIN_ENDPOINTS = {
   verifyPaymentProof: (applicationId: string): string =>
     `/veterinary/verifyPayment/${encodeURIComponent(applicationId)}`,
 
-  /** POST — approve or reject signed nkunganire on behalf of SONARWA. */
+  /** PUT — approve or reject signed nkunganire on behalf of SONARWA. */
   reviewSonarwaSubsidy: (applicationId: string): string =>
     `/reviewLivestockSubsidySonarwa/${encodeURIComponent(applicationId)}`,
 

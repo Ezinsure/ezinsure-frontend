@@ -64,7 +64,7 @@ async function simulateReviewSonarwaSubsidy(
 
 /**
  * SONARWA representative reviews signed nkunganire (or Tekana-skip path).
- * Backend: POST `/reviewLivestockSubsidySonarwa/{id}`.
+ * Backend: PUT `/reviewLivestockSubsidySonarwa/{id}`.
  */
 export async function reviewSonarwaSubsidy(
   apiFetch: ApiFetch,
@@ -79,7 +79,7 @@ export async function reviewSonarwaSubsidy(
     apiFetch,
     LIVESTOCK_ADMIN_ENDPOINTS.reviewSonarwaSubsidy(applicationId),
     {
-      method: 'POST',
+      method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         action: payload.action,
