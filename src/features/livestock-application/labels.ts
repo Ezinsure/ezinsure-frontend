@@ -54,7 +54,7 @@ export const LIVESTOCK_FORM_LABELS = {
     animalType: 'Ubwoko bw’itungo',
     animalCategory: 'Icyiciro',
     animalAge: 'Imyaka',
-    chipNumber: 'Eartag No / LOT No',
+    chipNumber: 'Chip / Eartag / LOT No',
     lotNumber: 'Lot No',
     hatcherySource: 'Aho inkoko zavuye (ituragiro)',
     quantity: 'Quantity',

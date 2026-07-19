@@ -25,7 +25,7 @@ export function InsuredLineDetailModal({
   const title =
     line.lineType === 'LOT'
       ? `Lot ${lineIndex + 1} · ${line.quantity} birds`
-      : `Animal ${lineIndex + 1} · ${line.animal.chipNumber || 'No eartag'}`;
+      : `Animal ${lineIndex + 1} · ${line.animal.chipNumber || 'No chip / eartag'}`;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4">

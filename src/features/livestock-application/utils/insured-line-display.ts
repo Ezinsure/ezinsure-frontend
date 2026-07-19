@@ -142,6 +142,13 @@ export function aggregateOwnersFromLines(
   return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
 }
 
+/**
+ * Unified, professional label for the animal identifier column.
+ * Covers cattle/pig chip & eartag numbers and poultry lot numbers so the
+ * heading is consistent everywhere an insured line is displayed.
+ */
+export const INSURED_LINE_IDENTIFIER_LABEL = 'Chip / eartag / lot';
+
 export function lineTableLabel(line: InsuredLinePayload, index: number): string {
   if (line.lineType === 'LOT') {
     return line.animal.hatcherySource || `Lot ${index + 1}`;
@@ -176,7 +183,9 @@ export function buildLineDetailFields(line: InsuredLinePayload): { label: string
     });
   }
   fields.push({ label: 'Species', value: line.animal.species });
-  if (line.animal.chipNumber) fields.push({ label: 'Eartag / lot ID', value: line.animal.chipNumber });
+  if (line.animal.chipNumber) {
+    fields.push({ label: INSURED_LINE_IDENTIFIER_LABEL, value: line.animal.chipNumber });
+  }
   if (line.animal.hatcherySource) fields.push({ label: 'Hatchery source', value: line.animal.hatcherySource });
   if (line.animal.poultryProductType) {
     fields.push({
