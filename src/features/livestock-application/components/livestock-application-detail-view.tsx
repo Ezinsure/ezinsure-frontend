@@ -4,23 +4,16 @@ import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, X } from 'lucide-react';
 import { DocumentViewer } from '@/components/ui/document-viewer';
-import { ApplicationDocumentsGrid } from '@/features/livestock-application/components/shared/application-documents-grid';
-import { ApplicationFormDetailsSection } from '@/features/livestock-application/components/shared/application-form-details-section';
-import { ApplicationOwnersSection } from '@/features/livestock-application/components/shared/application-owners-section';
 import { LivestockApplicationStatusBadge } from '@/features/livestock-application/components/shared/application-status-badge';
-import { InsuredLinesSection } from '@/features/livestock-application/components/shared/insured-lines-section';
+import { ApplicationReviewDetails } from '@/features/livestock-application/components/shared/application-review-details';
 import { PaymentProofSection } from '@/features/livestock-application/components/workflow/payment-proof-section';
 import { InsuranceIssueSection } from '@/features/livestock-application/components/workflow/insurance-issue-section';
 import { SubsidyWorkflowSection } from '@/features/livestock-application/components/workflow/subsidy-workflow-section';
 import { SonarwaReviewSection } from '@/features/livestock-application/components/workflow/sonarwa-review-section';
 import { CommissionWorkflowSection } from '@/features/livestock-application/components/workflow/commission-workflow-section';
-import { WorkflowOverviewBanner } from '@/features/livestock-application/components/workflow/workflow-overview-banner';
 import { ApplicationWorkflowNav } from '@/features/livestock-application/components/workflow/application-workflow-nav';
-import { ApplicationInfoTabs } from '@/features/livestock-application/components/workflow/application-info-tabs';
-import { ApplicationStatusTimeline } from '@/features/livestock-application/components/workflow/application-status-timeline';
 import {
   ownerModeLabel,
-  poultryProductTypeLabel,
   speciesGroupLabel,
 } from '@/features/livestock-application/domain/form-profiles';
 import type {
@@ -31,15 +24,9 @@ import {
   PaymentStatusBadge,
   SubsidyStatusBadge,
 } from '@/features/livestock-application/components/shared/workflow-status-badges';
-import {
-  formatLocationFull,
-  formatPolicyDate,
-  formatSubmittedDateTime,
-} from '@/features/livestock-application/utils/application-location';
-import { formatRwfDisplay } from '@/features/livestock-application/utils/format-rwf';
+import { formatSubmittedDateTime } from '@/features/livestock-application/utils/application-location';
 import { insuranceProviderLabel } from '@/shared/insurance-providers';
 import {
-  APPLICATION_INFO_ITEMS,
   buildWorkflowStepsNav,
   DEFAULT_DETAIL_SECTION,
   isWorkflowSection,
@@ -55,19 +42,6 @@ export interface LivestockApplicationDetailViewProps {
   backLabel?: string;
   onClose?: () => void;
   onUpdated?: () => void;
-}
-
-function MetricCard({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="min-w-0 rounded-xl bg-slate-50 p-3 sm:p-4">
-      <dt className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 sm:text-xs">
-        {label}
-      </dt>
-      <dd className="mt-1 break-words text-sm font-semibold leading-snug text-slate-900">
-        {value}
-      </dd>
-    </div>
-  );
 }
 
 export function LivestockApplicationDetailView({
@@ -90,115 +64,19 @@ export function LivestockApplicationDetailView({
     () => buildWorkflowStepsNav(viewRole, application),
     [viewRole, application],
   );
-  const applicationInfoItems = APPLICATION_INFO_ITEMS;
+  const isPanel = layout === 'panel';
+  const onWorkflowStep = isWorkflowSection(activeSection);
 
   useEffect(() => {
-    if (
-      isWorkflowSection(activeSection) &&
-      !workflowSteps.some((step) => step.id === activeSection)
-    ) {
+    if (onWorkflowStep && !workflowSteps.some((step) => step.id === activeSection)) {
       setActiveSection(DEFAULT_DETAIL_SECTION);
     }
-  }, [activeSection, workflowSteps]);
-  const { totals } = application;
-  const locationLabel = application.livestockLocation
-    ? formatLocationFull(application.livestockLocation)
-    : null;
-  const isPanel = layout === 'panel';
-
-  const metrics: { label: string; value: string }[] = [
-    { label: 'Owner(s)', value: application.ownerSummary },
-    { label: 'Insurance type', value: application.insuranceType ?? '—' },
-    { label: 'Species', value: speciesGroupLabel(application.speciesGroup) },
-    ...(application.poultryProductType
-      ? [
-          {
-            label: 'Poultry product',
-            value: poultryProductTypeLabel(application.poultryProductType),
-          },
-        ]
-      : []),
-    { label: 'Owner mode', value: ownerModeLabel(application.ownerMode) },
-    { label: 'Premium rate', value: `${application.totals.premiumPercentage}%` },
-    { label: 'Sum assured', value: formatRwfDisplay(totals.totalSumAssured) },
-    { label: 'Premium 100%', value: formatRwfDisplay(totals.premiumRateAmount) },
-    { label: 'Farmer 60%', value: formatRwfDisplay(totals.farmerContributionAmount) },
-    { label: 'Nkunganire 40%', value: formatRwfDisplay(totals.governmentContribution) },
-    { label: 'Vet commission', value: formatRwfDisplay(totals.veterinaryCommission) },
-    {
-      label: 'Policy period',
-      value: `${formatPolicyDate(application.policyStartDate)} → ${formatPolicyDate(application.policyEndDate)}`,
-    },
-    { label: 'Provider', value: insuranceProviderLabel(application.insuranceProvider) },
-    ...(locationLabel ? [{ label: 'Farm location', value: locationLabel }] : []),
-    ...(viewRole !== 'vet' ? [{ label: 'Veterinarian', value: application.vetName }] : []),
-  ];
+  }, [activeSection, onWorkflowStep, workflowSteps]);
 
   const viewDocument = (name: string, path: string) => setViewingDocument({ name, path });
 
-  const sectionContent = (() => {
+  const workflowSectionContent = (() => {
     switch (activeSection) {
-      case 'overview':
-        return (
-          <div className="space-y-6">
-            <WorkflowOverviewBanner application={application} viewRole={viewRole} />
-            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 lg:items-start">
-              <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-                <h2 className="text-lg font-semibold text-slate-900">Application summary</h2>
-                <dl className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  {metrics.map((metric) => (
-                    <MetricCard key={metric.label} label={metric.label} value={metric.value} />
-                  ))}
-                </dl>
-              </section>
-              <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">
-                  Progress
-                </p>
-                <h2 className="mt-1 text-lg font-semibold text-slate-900">Application lifecycle</h2>
-                <p className="mt-1 text-sm text-slate-600">
-                  Track where this package is in the livestock insurance workflow.
-                </p>
-                <div className="mt-5">
-                  <ApplicationStatusTimeline application={application} variant="text" />
-                </div>
-              </section>
-            </div>
-          </div>
-        );
-      case 'documents':
-        return (
-          <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-            <h2 className="text-lg font-semibold text-slate-900">Documents</h2>
-            <p className="mt-1 text-sm text-slate-600">
-              Payment proof, nkunganire forms, and issued policy documents.
-            </p>
-            <div className="mt-4 min-w-0">
-              <ApplicationDocumentsGrid
-                application={application}
-                onViewDocument={(doc) => viewDocument(doc.label, doc.path)}
-              />
-            </div>
-          </section>
-        );
-      case 'application-details':
-        return <ApplicationFormDetailsSection application={application} />;
-      case 'owners':
-        return (
-          <ApplicationOwnersSection
-            application={application}
-            selectedOwnerKey={ownerFilterKey}
-            onSelectOwner={setOwnerFilterKey}
-          />
-        );
-      case 'insured-lines':
-        return (
-          <InsuredLinesSection
-            application={application}
-            ownerFilterKey={ownerFilterKey}
-            linesUnavailableNote="Animal line details are not included in the list response yet. Premiums and location above reflect the submitted package."
-          />
-        );
       case 'payment-proof':
         return (
           <PaymentProofSection
@@ -248,9 +126,21 @@ export function LivestockApplicationDetailView({
     }
   })();
 
-  const activeLabel =
-    [...applicationInfoItems, ...workflowSteps].find((item) => item.id === activeSection)
-      ?.label ?? 'Overview';
+  const sectionContent = onWorkflowStep ? (
+    workflowSectionContent
+  ) : (
+    <ApplicationReviewDetails
+      application={application}
+      viewRole={viewRole}
+      ownerFilterKey={ownerFilterKey}
+      onSelectOwner={setOwnerFilterKey}
+      onViewDocument={viewDocument}
+    />
+  );
+
+  const activeLabel = onWorkflowStep
+    ? (workflowSteps.find((item) => item.id === activeSection)?.label ?? 'Workflow step')
+    : 'Application details';
 
   const mainContent = (
     <div
@@ -300,12 +190,6 @@ export function LivestockApplicationDetailView({
           </div>
         </header>
 
-        <ApplicationInfoTabs
-          items={applicationInfoItems}
-          activeSection={activeSection}
-          onSelect={setActiveSection}
-        />
-
         <div className="flex min-h-0 flex-1 overflow-hidden">
           {workflowSteps.length > 0 && (
             <aside className="hidden w-[17rem] shrink-0 lg:block xl:w-[19rem]">
@@ -313,6 +197,8 @@ export function LivestockApplicationDetailView({
                 steps={workflowSteps}
                 activeSection={activeSection}
                 application={application}
+                detailsActive={!onWorkflowStep}
+                onSelectDetails={() => setActiveSection(DEFAULT_DETAIL_SECTION)}
                 onSelect={setActiveSection}
               />
             </aside>
@@ -323,18 +209,17 @@ export function LivestockApplicationDetailView({
               <div className="space-y-3 border-b border-slate-200 bg-white px-4 py-3 lg:hidden">
                 <div>
                   <label htmlFor="workflow-step-select" className="mb-1 block text-xs font-medium text-slate-500">
-                    Workflow step
+                    Jump to
                   </label>
                   <select
                     id="workflow-step-select"
-                    value={isWorkflowSection(activeSection) ? activeSection : ''}
+                    value={onWorkflowStep ? activeSection : DEFAULT_DETAIL_SECTION}
                     onChange={(e) => {
-                      const value = e.target.value as ApplicationDetailSectionId;
-                      if (value) setActiveSection(value);
+                      setActiveSection(e.target.value as ApplicationDetailSectionId);
                     }}
                     className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-800"
                   >
-                    <option value="">Select a workflow step…</option>
+                    <option value={DEFAULT_DETAIL_SECTION}>Application details</option>
                     {workflowSteps.map((item) => (
                       <option key={item.id} value={item.id}>
                         Step {item.stepNumber}: {item.label}
@@ -348,7 +233,7 @@ export function LivestockApplicationDetailView({
             <div className="space-y-4 p-4 sm:p-6">
               <div>
                 <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">
-                  {isWorkflowSection(activeSection) ? 'Workflow step' : 'Application'}
+                  {onWorkflowStep ? 'Workflow step' : 'Application'}
                 </p>
                 <h2 className="mt-1 text-xl font-semibold text-slate-900">{activeLabel}</h2>
               </div>

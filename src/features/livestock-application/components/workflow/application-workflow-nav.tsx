@@ -1,6 +1,6 @@
 'use client';
 
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight, FileText } from 'lucide-react';
 import type {
   ApplicationDetailNavItem,
   ApplicationDetailSectionId,
@@ -12,6 +12,8 @@ interface ApplicationWorkflowNavProps {
   activeSection: ApplicationDetailSectionId;
   application: LivestockApplicationPackage;
   onSelect: (section: ApplicationDetailSectionId) => void;
+  detailsActive?: boolean;
+  onSelectDetails?: () => void;
 }
 
 function stepStateForSection(
@@ -61,13 +63,50 @@ export function ApplicationWorkflowNav({
   activeSection,
   application,
   onSelect,
+  detailsActive = false,
+  onSelectDetails,
 }: ApplicationWorkflowNavProps) {
   return (
     <nav
       className="flex h-full min-h-0 flex-col border-r border-slate-200 bg-slate-50/80"
-      aria-label="Workflow steps"
+      aria-label="Application navigation"
     >
       <div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-4">
+        {onSelectDetails && (
+          <div className="mb-3">
+            <p className="mb-2 px-2 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">
+              Review
+            </p>
+            <button
+              type="button"
+              onClick={onSelectDetails}
+              className={`group flex w-full items-start gap-2 rounded-xl px-2 py-2.5 text-left transition ${
+                detailsActive
+                  ? 'bg-white text-slate-900 shadow-sm ring-1 ring-slate-200'
+                  : 'text-slate-600 hover:bg-white/70 hover:text-slate-900'
+              }`}
+            >
+              <span
+                className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-lg ${
+                  detailsActive ? 'bg-slate-900 text-white' : 'bg-slate-200/80 text-slate-600'
+                }`}
+              >
+                <FileText className="h-3.5 w-3.5" />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm font-semibold leading-snug">Application details</span>
+                <span className="mt-0.5 block text-[11px] leading-snug text-slate-500 group-hover:text-slate-600">
+                  Full submitted form &amp; documents
+                </span>
+              </span>
+              <ChevronRight
+                className={`mt-1 h-4 w-4 shrink-0 transition ${
+                  detailsActive ? 'text-slate-400' : 'text-transparent group-hover:text-slate-300'
+                }`}
+              />
+            </button>
+          </div>
+        )}
         <p className="mb-2 px-2 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">
           Workflow steps
         </p>
