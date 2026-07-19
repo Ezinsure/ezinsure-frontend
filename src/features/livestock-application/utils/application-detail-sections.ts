@@ -126,7 +126,7 @@ const COMMISSION_STATUSES = new Set<LivestockApplicationStatus>([
 function isInsuranceIssued(application: LivestockApplicationPackage): boolean {
   return (
     POST_INSURANCE_STATUSES.has(application.status) ||
-    Boolean(application.issuedDocuments?.insuranceCertificate)
+    Boolean(application.issuedDocuments?.contract)
   );
 }
 

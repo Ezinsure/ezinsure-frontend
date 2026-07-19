@@ -42,7 +42,7 @@ export function InsuranceIssueSection({
   );
   const isIssued =
     application.status === 'INSURANCE_ISSUED' ||
-    Boolean(application.issuedDocuments?.insuranceCertificate);
+    Boolean(application.issuedDocuments?.contract);
   const showSection =
     showAllLivestockWorkflowActions() ||
     application.status === 'PAYMENT_VERIFIED' ||
@@ -84,7 +84,7 @@ export function InsuranceIssueSection({
           <div className="flex-1">
             <h2 className="text-lg font-semibold text-slate-900">Issue insurance</h2>
             <p className="mt-1 text-sm text-slate-600">
-              After payment is verified, upload the contract and certificate to activate the policy.
+              After payment is verified, upload the contract (and receipt if available) to activate the policy.
               {viewRole === 'admin' && ' This unlocks the nkunganire and SONARWA workflow for the vet.'}
             </p>
           </div>
@@ -93,11 +93,11 @@ export function InsuranceIssueSection({
         <div className="mt-6">
           <WorkflowStepCard
             stepNumber={2}
-            title={isIssued ? 'Policy documents issued' : 'Upload contract & certificate'}
+            title={isIssued ? 'Policy documents issued' : 'Upload contract & receipt'}
             description={
               isIssued
                 ? 'Policy documents are on file. The application can proceed to subsidy or SONARWA review.'
-                : 'Insurance certificate is required. Contract, receipt, and EBM are optional.'
+                : 'Contract is required. Receipt is optional.'
             }
             state={stepState}
             badge={isIssued ? 'Completed' : canIssue ? 'Action required' : undefined}
@@ -115,18 +115,16 @@ export function InsuranceIssueSection({
 
               {isIssued && docs && onViewDocument && (
                 <>
-                  {docs.insuranceCertificate && (
-                    <WorkflowDocumentAction
-                      label="Certificate"
-                      onClick={() =>
-                        onViewDocument('Insurance certificate', docs.insuranceCertificate!)
-                      }
-                    />
-                  )}
                   {docs.contract && (
                     <WorkflowDocumentAction
                       label="Contract"
                       onClick={() => onViewDocument('Contract', docs.contract!)}
+                    />
+                  )}
+                  {docs.receipt && (
+                    <WorkflowDocumentAction
+                      label="Receipt"
+                      onClick={() => onViewDocument('Receipt', docs.receipt!)}
                     />
                   )}
                 </>

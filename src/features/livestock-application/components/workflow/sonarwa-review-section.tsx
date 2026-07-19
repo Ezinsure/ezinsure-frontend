@@ -55,7 +55,7 @@ export function SonarwaReviewSection({
   const insuranceIssued =
     showAllLivestockWorkflowActions() ||
     application.status === 'INSURANCE_ISSUED' ||
-    Boolean(application.issuedDocuments?.insuranceCertificate) ||
+    Boolean(application.issuedDocuments?.contract) ||
     [
       'SUBSIDY_DOC_REQUIRED',
       'SUBSIDY_SECTOR_PENDING',

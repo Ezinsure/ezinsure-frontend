@@ -7,11 +7,8 @@ import { Button } from '@/components/ui/button';
 import { FileInput } from '@/components/ui/file-input';
 
 export interface IssueLivestockInsuranceFormPayload {
-  insuranceCertificate: File;
-  contract?: File;
+  contract: File;
   receipt?: File;
-  ebm?: File;
-  invoice?: File;
 }
 
 interface IssueLivestockInsuranceModalProps {
@@ -30,11 +27,8 @@ export function IssueLivestockInsuranceModal({
   onSubmit,
 }: IssueLivestockInsuranceModalProps) {
   const [mounted, setMounted] = useState(false);
-  const [certificate, setCertificate] = useState<File | null>(null);
   const [contract, setContract] = useState<File | null>(null);
   const [receipt, setReceipt] = useState<File | null>(null);
-  const [ebm, setEbm] = useState<File | null>(null);
-  const [invoice, setInvoice] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -44,11 +38,8 @@ export function IssueLivestockInsuranceModal({
 
   useEffect(() => {
     if (!open) return;
-    setCertificate(null);
     setContract(null);
     setReceipt(null);
-    setEbm(null);
-    setInvoice(null);
     setError(null);
     const previous = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
@@ -60,19 +51,16 @@ export function IssueLivestockInsuranceModal({
   if (!mounted || !open) return null;
 
   const handleSubmit = async () => {
-    if (!certificate) {
-      setError('Insurance certificate is required.');
+    if (!contract) {
+      setError('Contract is required.');
       return;
     }
     setSubmitting(true);
     setError(null);
     try {
       await onSubmit({
-        insuranceCertificate: certificate,
-        contract: contract ?? undefined,
+        contract,
         receipt: receipt ?? undefined,
-        ebm: ebm ?? undefined,
-        invoice: invoice ?? undefined,
       });
       onClose();
     } catch (err) {
@@ -106,18 +94,12 @@ export function IssueLivestockInsuranceModal({
 
         <div className="space-y-4 px-6 py-5">
           <p className="rounded-xl border border-blue-100 bg-blue-50 px-3 py-2 text-xs text-blue-900">
-            Payment is verified. Upload the policy contract and certificate so the veterinarian can
-            proceed with nkunganire (if required) or SONARWA review.
+            Payment is verified. Upload the policy contract (and receipt if available) so the
+            veterinarian can proceed with nkunganire (if required) or SONARWA review.
           </p>
 
           <FileInput
-            label="Insurance certificate (insuranceCertificate) *"
-            name="insuranceCertificate"
-            accept=".pdf,.jpg,.jpeg,.png"
-            onChange={setCertificate}
-          />
-          <FileInput
-            label="Contract (contract)"
+            label="Contract (contract) *"
             name="contract"
             accept=".pdf,.jpg,.jpeg,.png"
             onChange={setContract}
@@ -127,13 +109,6 @@ export function IssueLivestockInsuranceModal({
             name="receipt"
             accept=".pdf,.jpg,.jpeg,.png"
             onChange={setReceipt}
-          />
-          <FileInput label="EBM (ebm)" name="ebm" accept=".pdf,.jpg,.jpeg,.png" onChange={setEbm} />
-          <FileInput
-            label="Invoice (invoice)"
-            name="invoice"
-            accept=".pdf,.jpg,.jpeg,.png"
-            onChange={setInvoice}
           />
 
           {error && (
@@ -150,7 +125,7 @@ export function IssueLivestockInsuranceModal({
           <Button
             type="button"
             variant="primary"
-            disabled={!certificate || submitting}
+            disabled={!contract || submitting}
             onClick={() => void handleSubmit()}
           >
             {submitting ? (

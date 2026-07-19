@@ -90,7 +90,7 @@ export function canVetUploadSignedSubsidy(
 
   return (
     postInsuranceStatuses.has(application.status) ||
-    Boolean(application.issuedDocuments?.insuranceCertificate)
+    Boolean(application.issuedDocuments?.contract)
   );
 }
 
