@@ -166,7 +166,9 @@ const [formData, setFormData] = useState({
   emergencyContact2Relationship: '',
   nationalIdDocument: null as File | null,
   criminalRecordCertificate: null as File | null,
+  rcvdLicenceDocument: null as File | null,
   passportPhoto: null as File | null,
+  veterinaryType: '',
     bankName: '', 
   bankAccountNumber: '',
 });
@@ -367,7 +369,9 @@ formDataToSend.append('bankAccountNumber', formData.bankAccountNumber);
   emergencyContact2Relationship: '',
   nationalIdDocument: null,
   criminalRecordCertificate: null,
+  rcvdLicenceDocument: null,
   passportPhoto: null,
+  veterinaryType: '',
   bankName: '', 
   bankAccountNumber: '',
 });

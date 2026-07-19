@@ -126,7 +126,9 @@ const emptyFormData = {
   emergencyContact2Relationship: '',
   nationalIdDocument: null as File | null,
   criminalRecordCertificate: null as File | null,
+  rcvdLicenceDocument: null as File | null,
   passportPhoto: null as File | null,
+  veterinaryType: '',
   bankName: '',
   bankAccountNumber: '',
 };
@@ -286,14 +288,15 @@ export function LivestockUsersPage({ viewerRole }: LivestockUsersPageProps) {
       payload.append('district', formData.district);
       payload.append('sector', formData.sector);
       payload.append('role', VETERINARY_ROLE);
+      payload.append('veterinaryType', formData.veterinaryType);
       payload.append('bankName', formData.bankName);
       payload.append('bankAccountNumber', formData.bankAccountNumber);
 
       if (formData.nationalIdDocument) {
         payload.append('nationalIdDocument', formData.nationalIdDocument);
       }
-      if (formData.criminalRecordCertificate) {
-        payload.append('criminalRecordCertificate', formData.criminalRecordCertificate);
+      if (formData.rcvdLicenceDocument) {
+        payload.append('rcvdLicenceDocument', formData.rcvdLicenceDocument);
       }
       if (formData.passportPhoto) {
         payload.append('passportPhoto', formData.passportPhoto);

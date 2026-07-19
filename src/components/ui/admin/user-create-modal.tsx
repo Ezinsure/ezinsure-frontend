@@ -30,6 +30,10 @@ interface FormData {
   passportPhoto: File | null;
   bankName: string;
   bankAccountNumber: string;
+  /** Veterinarian-only: RCVD (Rwanda Council of Veterinary Doctors) licence document. */
+  rcvdLicenceDocument: File | null;
+  /** Veterinarian-only: 'PRIVATE' or 'SARO' (government vet). */
+  veterinaryType: string;
   [key: string]: string | File | null;
 }
 
@@ -220,6 +224,8 @@ export const UserCreateModal = ({
       rules.passportPhoto = { required: true };
     } else {
       rules.nationalIdDocument = { required: true };
+      rules.rcvdLicenceDocument = { required: true };
+      rules.veterinaryType = { required: true };
     }
 
     return rules;
@@ -276,6 +282,10 @@ export const UserCreateModal = ({
       }
     }
 
+    if (isVeterinaryForm && !formData.rcvdLicenceDocument) {
+      fileErrors.rcvdLicenceDocument = 'RCVD licence document is required';
+    }
+
     if (formData.nationalIdDocument) {
       if (!allowedDocTypes.includes(formData.nationalIdDocument.type)) {
         fileErrors.nationalIdDocument = 'National ID must be PDF, JPEG, or PNG';
@@ -284,7 +294,15 @@ export const UserCreateModal = ({
       }
     }
 
-    if (formData.criminalRecordCertificate) {
+    if (formData.rcvdLicenceDocument) {
+      if (!allowedDocTypes.includes(formData.rcvdLicenceDocument.type)) {
+        fileErrors.rcvdLicenceDocument = 'RCVD licence must be PDF, JPEG, or PNG';
+      } else if (formData.rcvdLicenceDocument.size > maxFileSize) {
+        fileErrors.rcvdLicenceDocument = 'RCVD licence file size must be less than 5MB';
+      }
+    }
+
+    if (!isVeterinaryForm && formData.criminalRecordCertificate) {
       if (!allowedDocTypes.includes(formData.criminalRecordCertificate.type)) {
         fileErrors.criminalRecordCertificate = 'Criminal record must be PDF, JPEG, or PNG';
       } else if (formData.criminalRecordCertificate.size > maxFileSize) {
@@ -543,6 +561,27 @@ export const UserCreateModal = ({
             </div>
           )}
 
+          {isVeterinaryForm && (
+            <div>
+              <label className="block text-sm font-medium mb-1">
+                Veterinarian Type <span className="text-red-500">*</span>
+              </label>
+              <select
+                name="veterinaryType"
+                value={formData.veterinaryType}
+                onChange={handleInputChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[var(--main-blue)] focus:border-[var(--main-blue)]"
+              >
+                <option value="">Select veterinarian type</option>
+                <option value="PRIVATE">Private</option>
+                <option value="SARO">SARO (Government vet)</option>
+              </select>
+              {errors.veterinaryType && (
+                <p className="mt-2 text-sm text-red-600">{errors.veterinaryType}</p>
+              )}
+            </div>
+          )}
+
           <div className="bg-gray-50 p-4 rounded-lg">
             <h4 className="font-medium mb-3">
               {isVeterinaryForm ? 'Documents' : 'Required Documents'}
@@ -558,16 +597,29 @@ export const UserCreateModal = ({
                 onChange={handleFileChange}
                 required
               />
-              <FileUploadField
-                label="Criminal Record Certificate"
-                name="criminalRecordCertificate"
-                accept=".pdf,.jpg,.jpeg,.png"
-                error={errors.criminalRecordCertificate}
-                file={formData.criminalRecordCertificate}
-                description="PDF, JPEG, or PNG up to 5MB"
-                onChange={handleFileChange}
-                required={!isVeterinaryForm}
-              />
+              {isVeterinaryForm ? (
+                <FileUploadField
+                  label="RCVD Licence"
+                  name="rcvdLicenceDocument"
+                  accept=".pdf,.jpg,.jpeg,.png"
+                  error={errors.rcvdLicenceDocument}
+                  file={formData.rcvdLicenceDocument}
+                  description="PDF, JPEG, or PNG up to 5MB"
+                  onChange={handleFileChange}
+                  required
+                />
+              ) : (
+                <FileUploadField
+                  label="Criminal Record Certificate"
+                  name="criminalRecordCertificate"
+                  accept=".pdf,.jpg,.jpeg,.png"
+                  error={errors.criminalRecordCertificate}
+                  file={formData.criminalRecordCertificate}
+                  description="PDF, JPEG, or PNG up to 5MB"
+                  onChange={handleFileChange}
+                  required
+                />
+              )}
             </div>
             <div className="mt-6">
               <FileUploadField
