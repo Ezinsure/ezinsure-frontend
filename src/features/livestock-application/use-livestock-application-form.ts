@@ -21,7 +21,11 @@ import type {
 import { speciesGroupToAnimalType } from '@/features/livestock-application/domain/form-profiles';
 import { computePremiumBreakdownFromForm } from '@/features/livestock-application/utils/premium-calculations';
 import { computePoultryLotAmounts } from '@/features/livestock-application/utils/poultry-calculations';
-import { suggestPremiumPercentage } from '@/features/livestock-application/utils/premium';
+import {
+  formatPremiumPercent,
+  premiumPercentForAnimalType,
+  suggestPremiumPercentage,
+} from '@/features/livestock-application/utils/premium';
 import {
   validateLivestockApplicationStep,
   validateLivestockApplicationStepHasErrors,
@@ -74,6 +78,24 @@ export function useLivestockApplicationForm(
 
   const isReadOnly = mode === 'readonly' || mode === 'review';
   const isReview = mode === 'review';
+
+  // Insurance rate (%) is fixed per species — cattle/poultry 5.5%, pigs 6% —
+  // and is always auto-filled so vets can never accidentally edit it.
+  const enforcedPremiumPercentage = useMemo(() => {
+    if (lockedAnimalType) {
+      return formatPremiumPercent(premiumPercentForAnimalType(lockedAnimalType));
+    }
+    return suggestPremiumPercentage(values.livestockItems);
+  }, [lockedAnimalType, values.livestockItems]);
+
+  useEffect(() => {
+    if (isReadOnly || !enforcedPremiumPercentage) return;
+    setValues((prev) => {
+      if (prev.premiumPercentage === enforcedPremiumPercentage) return prev;
+      lastAutoPremiumRef.current = enforcedPremiumPercentage;
+      return withPremiumAmounts({ ...prev, premiumPercentage: enforcedPremiumPercentage });
+    });
+  }, [enforcedPremiumPercentage, isReadOnly]);
 
   const setField = useCallback(
     <K extends keyof LivestockApplicationFormValues>(

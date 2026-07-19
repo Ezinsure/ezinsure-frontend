@@ -346,7 +346,7 @@ export function ApplicationStepContent({
               value={values.premiumPercentage}
               onChange={(v) => setField('premiumPercentage', v)}
               error={errors.premiumPercentage}
-              disabled={disabled}
+              disabled
             />
             <LivestockTextField
               fieldName="premiumRateAmount"
