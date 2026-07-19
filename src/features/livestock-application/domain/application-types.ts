@@ -250,6 +250,7 @@ export interface LivestockApplicationListItem {
   paidStatus?: string;
   subsidyStatus?: string;
   vetName?: string;
+  vetId?: string;
 }
 
 /** Payment proof upload payload (multipart). */

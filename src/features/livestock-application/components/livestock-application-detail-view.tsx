@@ -20,10 +20,6 @@ import type {
   LivestockApplicationPackage,
   LivestockApplicationViewRole,
 } from '@/features/livestock-application/domain/application-types';
-import {
-  PaymentStatusBadge,
-  SubsidyStatusBadge,
-} from '@/features/livestock-application/components/shared/workflow-status-badges';
 import { formatSubmittedDateTime } from '@/features/livestock-application/utils/application-location';
 import { insuranceProviderLabel } from '@/shared/insurance-providers';
 import {
@@ -184,8 +180,6 @@ export function LivestockApplicationDetailView({
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <LivestockApplicationStatusBadge status={application.status} />
-              <PaymentStatusBadge status={application.paymentProof.status} />
-              <SubsidyStatusBadge status={application.subsidyCase.status} />
             </div>
           </div>
         </header>

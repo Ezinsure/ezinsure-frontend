@@ -81,6 +81,7 @@ export function mapFlatApplicationToListItem(
     paidStatus,
     subsidyStatus,
     vetName: String((record.agent as { fullName?: string } | undefined)?.fullName ?? '').trim() || undefined,
+    vetId: String((record.agent as { _id?: string } | undefined)?._id ?? '').trim() || undefined,
   };
 }
 
