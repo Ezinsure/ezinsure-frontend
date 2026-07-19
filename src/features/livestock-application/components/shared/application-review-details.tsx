@@ -21,10 +21,7 @@ import {
   poultryProductTypeLabel,
   speciesGroupLabel,
 } from '@/features/livestock-application/domain/form-profiles';
-import {
-  formatLocationFull,
-  formatPolicyDate,
-} from '@/features/livestock-application/utils/application-location';
+import { formatPolicyDate } from '@/features/livestock-application/utils/application-location';
 import {
   formatGirinkaDisplay,
   formatOwnerGenderDisplay,
