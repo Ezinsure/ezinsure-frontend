@@ -1,9 +1,10 @@
 /**
- * While livestock workflow APIs are not live, simulate requests locally and keep
- * all workflow actions visible so the full lifecycle can be tested end-to-end.
- * Set to false once all backends are wired — UI will then gate actions by status.
+ * Livestock workflow APIs are live. The UI gates every workflow step and action by
+ * the application's real status and the viewer's role, so only the necessary /
+ * available / next step is shown. Flip back to `true` only to demo the full
+ * lifecycle locally with simulated requests.
  */
-export const LIVESTOCK_WORKFLOW_DEMO_MODE = true;
+export const LIVESTOCK_WORKFLOW_DEMO_MODE = false;
 
 /** Endpoints wired to the real backend (always call API even when demo mode is on). */
 export const LIVESTOCK_WORKFLOW_LIVE = {

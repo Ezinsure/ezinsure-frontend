@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, X } from 'lucide-react';
 import { DocumentViewer } from '@/components/ui/document-viewer';
 import { ApplicationDocumentsGrid } from '@/features/livestock-application/components/shared/application-documents-grid';
@@ -86,8 +86,20 @@ export function LivestockApplicationDetailView({
   );
   const [ownerFilterKey, setOwnerFilterKey] = useState<string | null>(null);
 
-  const workflowSteps = useMemo(() => buildWorkflowStepsNav(viewRole), [viewRole]);
+  const workflowSteps = useMemo(
+    () => buildWorkflowStepsNav(viewRole, application),
+    [viewRole, application],
+  );
   const applicationInfoItems = APPLICATION_INFO_ITEMS;
+
+  useEffect(() => {
+    if (
+      isWorkflowSection(activeSection) &&
+      !workflowSteps.some((step) => step.id === activeSection)
+    ) {
+      setActiveSection(DEFAULT_DETAIL_SECTION);
+    }
+  }, [activeSection, workflowSteps]);
   const { totals } = application;
   const locationLabel = application.livestockLocation
     ? formatLocationFull(application.livestockLocation)
@@ -295,39 +307,43 @@ export function LivestockApplicationDetailView({
         />
 
         <div className="flex min-h-0 flex-1 overflow-hidden">
-          <aside className="hidden w-[17rem] shrink-0 lg:block xl:w-[19rem]">
-            <ApplicationWorkflowNav
-              steps={workflowSteps}
-              activeSection={activeSection}
-              application={application}
-              onSelect={setActiveSection}
-            />
-          </aside>
+          {workflowSteps.length > 0 && (
+            <aside className="hidden w-[17rem] shrink-0 lg:block xl:w-[19rem]">
+              <ApplicationWorkflowNav
+                steps={workflowSteps}
+                activeSection={activeSection}
+                application={application}
+                onSelect={setActiveSection}
+              />
+            </aside>
+          )}
 
           <div className="min-h-0 min-w-0 flex-1 overflow-y-auto">
-            <div className="space-y-3 border-b border-slate-200 bg-white px-4 py-3 lg:hidden">
-              <div>
-                <label htmlFor="workflow-step-select" className="mb-1 block text-xs font-medium text-slate-500">
-                  Workflow step
-                </label>
-                <select
-                  id="workflow-step-select"
-                  value={isWorkflowSection(activeSection) ? activeSection : ''}
-                  onChange={(e) => {
-                    const value = e.target.value as ApplicationDetailSectionId;
-                    if (value) setActiveSection(value);
-                  }}
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-800"
-                >
-                  <option value="">Select a workflow step…</option>
-                  {workflowSteps.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      Step {item.stepNumber}: {item.label}
-                    </option>
-                  ))}
-                </select>
+            {workflowSteps.length > 0 && (
+              <div className="space-y-3 border-b border-slate-200 bg-white px-4 py-3 lg:hidden">
+                <div>
+                  <label htmlFor="workflow-step-select" className="mb-1 block text-xs font-medium text-slate-500">
+                    Workflow step
+                  </label>
+                  <select
+                    id="workflow-step-select"
+                    value={isWorkflowSection(activeSection) ? activeSection : ''}
+                    onChange={(e) => {
+                      const value = e.target.value as ApplicationDetailSectionId;
+                      if (value) setActiveSection(value);
+                    }}
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-800"
+                  >
+                    <option value="">Select a workflow step…</option>
+                    {workflowSteps.map((item) => (
+                      <option key={item.id} value={item.id}>
+                        Step {item.stepNumber}: {item.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
-            </div>
+            )}
 
             <div className="space-y-4 p-4 sm:p-6">
               <div>
