@@ -15,7 +15,7 @@ interface FormData {
   province: string;
   district: string;
   sector: string;
-  role: 'ADMIN' | 'FINANCE' | 'AGENT' | 'SONARWA_REPRESENTATIVE';
+  role: 'ADMIN' | 'FINANCE' | 'AGENT';
   emergencyContact1Name: string;
   emergencyContact1PhoneNumber: string;
   emergencyContact1Relationship: string;
@@ -269,7 +269,7 @@ const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, fieldName: str
         }
       }
     } else {
-      // Optional docs for ADMIN / FINANCE / SONARWA_REPRESENTATIVE — validate type/size if uploaded
+      // Optional docs for ADMIN / FINANCE — validate type/size if uploaded
       const allowedImageTypes = ['image/jpeg', 'image/jpg', 'image/png'];
       const allowedDocTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png'];
       const maxFileSize = 5 * 1024 * 1024;
@@ -521,7 +521,6 @@ useEffect(() => {
               <option value="AGENT">Agent</option>
               <option value="ADMIN">Admin</option>
               <option value="FINANCE">Finance</option>
-              <option value="SONARWA_REPRESENTATIVE">SONARWA Representative</option>
             </select>
           </div>
 

@@ -135,7 +135,7 @@ export default function AdminUsersPage() {
     name: string;
     path: string;
   } | null>(null);
-  const [roleFilter, setRoleFilter] = useState<'all' | 'ADMIN' | 'AGENT' | 'SONARWA_REPRESENTATIVE'>('all');
+  const [roleFilter, setRoleFilter] = useState<'all' | 'ADMIN' | 'AGENT'>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | User['status']>('all');
   const { token } = useAuth();
   const [isDeactivating, setIsDeactivating] = useState(false);
@@ -890,7 +890,6 @@ const handleEditUser = async (updatedUser: User) => {
                   <option value="all">All Roles</option>
                   <option value="ADMIN">Admin</option>
                   <option value="AGENT">Agent</option>
-                  <option value="SONARWA_REPRESENTATIVE">SONARWA Representative</option>
                 </select>
                 <select
                   value={statusFilter}
