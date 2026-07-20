@@ -47,3 +47,21 @@ export const formatErrorMessage = (error: unknown): string => {
   return errorMessage;
 };
 
+/** Extract a user-facing message from a typical API JSON body (`error` or `message`). */
+export function getApiErrorMessage(body: unknown, fallback = 'Request failed'): string {
+  if (typeof body !== 'object' || body === null) return fallback;
+  const record = body as Record<string, unknown>;
+  if (typeof record.error === 'string' && record.error.trim()) return record.error.trim();
+  if (typeof record.message === 'string' && record.message.trim()) return record.message.trim();
+  return fallback;
+}
+
+/** Friendlier copy for raw duplicate-email database errors; pass through clean API messages as-is. */
+export function normalizeMotorApplyErrorMessage(message: string): string {
+  const lower = message.toLowerCase();
+  if (lower.includes('duplicate key') && lower.includes('email')) {
+    return 'This email is already linked to another client. Please use a different email or search for the existing client via their identification number.';
+  }
+  return message;
+}
+

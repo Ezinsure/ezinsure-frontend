@@ -17,7 +17,7 @@ import {
   hasErrors,
 } from '@/components/ui/form-validation';
 import { rwandaProvinces } from '@/utils/rwanda-administrative';
-import { formatErrorMessage } from '@/utils/error-formatter';
+import { formatErrorMessage, getApiErrorMessage, normalizeMotorApplyErrorMessage } from '@/utils/error-formatter';
 import { carUses, motoUses, carTypes, motoTypes } from '@/utils/vehicle-types';
 import { ComboboxField } from '@/components/ui/combobox-field';
 import { calculateAdministrationFeesRwf } from '@/utils/administration-fees';
@@ -830,9 +830,21 @@ export default function AgentApplyPage() {
         });
 
         const data = await response.json();
-        
+
+        if (!response.ok || (typeof data === 'object' && data !== null && 'error' in data && data.error)) {
+          const errorMessage = normalizeMotorApplyErrorMessage(
+            getApiErrorMessage(data, 'Application submission failed'),
+          );
+          throw new Error(errorMessage);
+        }
+
+        const applicationNumber = data?.data?.applicationNumber;
+        if (!applicationNumber) {
+          throw new Error(getApiErrorMessage(data, 'Application submission failed'));
+        }
+
         showToast(
-          `Application submitted successfully! Your application number is ${data.data.applicationNumber}.`,
+          `Application submitted successfully! Your application number is ${applicationNumber}.`,
           'success'
         );
 
@@ -892,10 +904,7 @@ export default function AgentApplyPage() {
 
       } catch (error: unknown) {
         console.error('Application error:', error);
-        let errorMessage = formatErrorMessage(error);
-        if (typeof errorMessage === 'string' && errorMessage.toLowerCase().includes('duplicate key') && errorMessage.toLowerCase().includes('email')) {
-          errorMessage = 'This email is already linked to another client. Please use a different email or search using the identification number to retrieve the existing client.';
-        }
+        const errorMessage = normalizeMotorApplyErrorMessage(formatErrorMessage(error));
         showToast(errorMessage, 'error');
       } finally {
         setIsSubmitting(false);

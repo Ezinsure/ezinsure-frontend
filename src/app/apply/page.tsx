@@ -16,7 +16,7 @@ import {
   hasErrors,
 } from '@/components/ui/form-validation';
 import { rwandaProvinces } from '@/utils/rwanda-administrative';
-import { formatErrorMessage } from '@/utils/error-formatter';
+import { formatErrorMessage, getApiErrorMessage, normalizeMotorApplyErrorMessage } from '@/utils/error-formatter';
 import { getTrackingData, TrackingData } from '@/utils/tracking';
 import { carUses, motoUses, carTypes, motoTypes } from '@/utils/vehicle-types';
 import { ComboboxField } from '@/components/ui/combobox-field';
@@ -670,24 +670,22 @@ export default function ApplyPage() {
           body: formData,
         });
 
-        if (!response.ok) {
-          const errorData = await response.json();
-          console.error('Submission error:', errorData);
-          let errorMessage = errorData.error || errorData.message || 'Application submission failed';
+        const data = await response.json();
 
-          if (typeof errorMessage === 'string' && errorMessage.toLowerCase().includes('duplicate key')) {
-            if (errorMessage.toLowerCase().includes('email')) {
-              errorMessage = 'This email is already linked to another client. Please use a different email or search for the existing client via their identification number.';
-            }
-          }
-
-          throw new Error(errorMessage);
+        if (!response.ok || (typeof data === 'object' && data !== null && 'error' in data && data.error)) {
+          console.error('Submission error:', data);
+          throw new Error(
+            normalizeMotorApplyErrorMessage(getApiErrorMessage(data, 'Application submission failed')),
+          );
         }
 
-        const data = await response.json();
-        
+        const applicationNumber = data?.data?.applicationNumber;
+        if (!applicationNumber) {
+          throw new Error(getApiErrorMessage(data, 'Application submission failed'));
+        }
+
         showToast(
-          `Application submitted successfully! Your application number is ${data.data.applicationNumber}.`,
+          `Application submitted successfully! Your application number is ${applicationNumber}.`,
           'success'
         );
 
@@ -747,7 +745,7 @@ export default function ApplyPage() {
 
       } catch (error: unknown) {
         console.error('Application error:', error);
-        const errorMessage = formatErrorMessage(error);
+        const errorMessage = normalizeMotorApplyErrorMessage(formatErrorMessage(error));
         showToast(errorMessage, 'error');
       } finally {
         setIsSubmitting(false);
