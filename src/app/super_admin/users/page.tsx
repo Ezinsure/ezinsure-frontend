@@ -127,7 +127,7 @@ export default function SuperAdminUsersPage() {
     name: string;
     path: string;
   } | null>(null);
-  const [roleFilter, setRoleFilter] = useState<'all' | 'ADMIN'| 'FINANCE' | 'AGENT' | 'SUPER_ADMIN'>('all');
+  const [roleFilter, setRoleFilter] = useState<'all' | 'ADMIN'| 'FINANCE' | 'AGENT' | 'SUPER_ADMIN' | 'SONARWA_REPRESENTATIVE'>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | User['status']>('all');
   const { token } = useAuth();
   const [isDeactivating, setIsDeactivating] = useState(false);
@@ -147,7 +147,7 @@ export default function SuperAdminUsersPage() {
     province: string;
     district: string;
     sector: string;
-    role: 'ADMIN' | 'AGENT' | 'FINANCE';
+    role: 'ADMIN' | 'AGENT' | 'FINANCE' | 'SONARWA_REPRESENTATIVE';
     emergencyContact1Name: string;
     emergencyContact1PhoneNumber: string;
     emergencyContact1Relationship: string;
@@ -880,6 +880,7 @@ export default function SuperAdminUsersPage() {
                   <option value="ADMIN">Admin</option>
                   <option value="AGENT">Agent</option>
                   <option value="FINANCE">Finance</option>
+                  <option value="SONARWA_REPRESENTATIVE">SONARWA Representative</option>
                   <option value="SUPER_ADMIN">Super Admin</option>
                 </select>
                 <select

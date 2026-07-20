@@ -26,7 +26,9 @@ function stepStateForSection(
     return 'upcoming';
   }
   if (sectionId === 'issue-insurance') {
-    if (application.issuedDocuments?.contract) return 'completed';
+    if (application.issuedDocuments?.insuranceCertificate || application.issuedDocuments?.contract) {
+      return 'completed';
+    }
     if (application.status === 'PAYMENT_VERIFIED') return 'current';
     return 'upcoming';
   }

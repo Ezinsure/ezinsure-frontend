@@ -9,9 +9,17 @@ function simulateDelay(): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, 350));
 }
 
+/**
+ * Matches PUT `/issueLivestockInsurance/{id}` Swagger schema:
+ * - insuranceCertificate: required
+ * - contract / receipt / ebm / invoice: optional
+ */
 export interface IssueLivestockInsurancePayload {
-  contract: File;
+  insuranceCertificate: File;
+  contract?: File;
   receipt?: File;
+  ebm?: File;
+  invoice?: File;
 }
 
 export interface IssueLivestockInsuranceResult {
@@ -43,8 +51,11 @@ async function simulateIssueLivestockInsurance(
   await simulateDelay();
 
   const issuedDocuments: LivestockIssuedDocuments = {
-    contract: fileToObjectUrl(payload.contract),
+    insuranceCertificate: fileToObjectUrl(payload.insuranceCertificate),
+    contract: payload.contract ? fileToObjectUrl(payload.contract) : undefined,
     receipt: payload.receipt ? fileToObjectUrl(payload.receipt) : undefined,
+    ebm: payload.ebm ? fileToObjectUrl(payload.ebm) : undefined,
+    invoice: payload.invoice ? fileToObjectUrl(payload.invoice) : undefined,
   };
 
   const result: IssueLivestockInsuranceResult = {
@@ -70,8 +81,15 @@ export async function issueLivestockInsurance(
   }
 
   const formData = new FormData();
-  formData.append('contract', payload.contract, payload.contract.name);
+  formData.append(
+    'insuranceCertificate',
+    payload.insuranceCertificate,
+    payload.insuranceCertificate.name,
+  );
+  if (payload.contract) formData.append('contract', payload.contract, payload.contract.name);
   if (payload.receipt) formData.append('receipt', payload.receipt, payload.receipt.name);
+  if (payload.ebm) formData.append('ebm', payload.ebm, payload.ebm.name);
+  if (payload.invoice) formData.append('invoice', payload.invoice, payload.invoice.name);
 
   const response = await requestJson<unknown>(
     apiFetch,

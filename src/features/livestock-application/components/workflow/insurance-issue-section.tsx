@@ -26,6 +26,13 @@ interface InsuranceIssueSectionProps {
   onViewDocument?: (name: string, path: string) => void;
 }
 
+function hasIssuedPolicyDocuments(application: LivestockApplicationPackage): boolean {
+  const docs = application.issuedDocuments;
+  return Boolean(
+    docs?.insuranceCertificate || docs?.contract || docs?.receipt || docs?.ebm || docs?.invoice,
+  );
+}
+
 export function InsuranceIssueSection({
   application,
   viewRole = 'vet',
@@ -37,12 +44,11 @@ export function InsuranceIssueSection({
   const { issue, isIssuing } = useIssueLivestockInsurance();
 
   const canIssue = resolveWorkflowActionVisible(
-    viewRole === 'admin',
+    viewRole === 'admin' || viewRole === 'super_admin',
     canAdminIssueLivestockInsurance(application, viewRole),
   );
   const isIssued =
-    application.status === 'INSURANCE_ISSUED' ||
-    Boolean(application.issuedDocuments?.contract);
+    application.status === 'INSURANCE_ISSUED' || hasIssuedPolicyDocuments(application);
   const showSection =
     showAllLivestockWorkflowActions() ||
     application.status === 'PAYMENT_VERIFIED' ||
@@ -84,8 +90,10 @@ export function InsuranceIssueSection({
           <div className="flex-1">
             <h2 className="text-lg font-semibold text-slate-900">Issue insurance</h2>
             <p className="mt-1 text-sm text-slate-600">
-              After payment is verified, upload the contract (and receipt if available) to activate the policy.
-              {viewRole === 'admin' && ' This unlocks the nkunganire and SONARWA workflow for the vet.'}
+              After payment is verified, upload the insurance certificate and optional policy documents
+              to activate the policy.
+              {(viewRole === 'admin' || viewRole === 'super_admin') &&
+                ' This unlocks the nkunganire and SONARWA workflow for the vet.'}
             </p>
           </div>
         </div>
@@ -93,11 +101,11 @@ export function InsuranceIssueSection({
         <div className="mt-6">
           <WorkflowStepCard
             stepNumber={2}
-            title={isIssued ? 'Policy documents issued' : 'Upload contract & receipt'}
+            title={isIssued ? 'Policy documents issued' : 'Upload insurance documents'}
             description={
               isIssued
                 ? 'Policy documents are on file. The application can proceed to subsidy or SONARWA review.'
-                : 'Contract is required. Receipt is optional.'
+                : 'Insurance certificate is required. Contract, receipt, EBM, and invoice are optional.'
             }
             state={stepState}
             badge={isIssued ? 'Completed' : canIssue ? 'Action required' : undefined}
@@ -115,6 +123,14 @@ export function InsuranceIssueSection({
 
               {isIssued && docs && onViewDocument && (
                 <>
+                  {docs.insuranceCertificate && (
+                    <WorkflowDocumentAction
+                      label="Insurance certificate"
+                      onClick={() =>
+                        onViewDocument('Insurance certificate', docs.insuranceCertificate!)
+                      }
+                    />
+                  )}
                   {docs.contract && (
                     <WorkflowDocumentAction
                       label="Contract"
@@ -125,6 +141,18 @@ export function InsuranceIssueSection({
                     <WorkflowDocumentAction
                       label="Receipt"
                       onClick={() => onViewDocument('Receipt', docs.receipt!)}
+                    />
+                  )}
+                  {docs.ebm && (
+                    <WorkflowDocumentAction
+                      label="EBM"
+                      onClick={() => onViewDocument('EBM', docs.ebm!)}
+                    />
+                  )}
+                  {docs.invoice && (
+                    <WorkflowDocumentAction
+                      label="Invoice"
+                      onClick={() => onViewDocument('Invoice', docs.invoice!)}
                     />
                   )}
                 </>

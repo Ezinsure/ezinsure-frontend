@@ -468,6 +468,8 @@ export default function VetAnalyticsPage({ viewRole }: VetAnalyticsPageProps) {
         isOpen={Boolean(selectedVet)}
         vet={selectedVet}
         viewRole={viewRole}
+        startDate={startDate}
+        endDate={endDate}
         periodLabel={periodLabel}
         onClose={() => setSelectedVet(null)}
       />

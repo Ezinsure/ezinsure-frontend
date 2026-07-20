@@ -71,6 +71,12 @@ export const LIVESTOCK_ADMIN_ENDPOINTS = {
     return `/getAllApplications?${search.toString()}`;
   },
 
+  /** GET — aggregated vet performance for analytics (admin / finance / super admin). */
+  veterinaryPerformanceSummary: (startDate: string, endDate: string): string => {
+    const search = new URLSearchParams({ startDate, endDate });
+    return `/getVeterinaryPerformanceSummary?${search.toString()}`;
+  },
+
   /** PUT multipart — issue livestock policy documents after payment verified. */
   issueInsurance: (applicationId: string): string =>
     `/issueLivestockInsurance/${encodeURIComponent(applicationId)}`,

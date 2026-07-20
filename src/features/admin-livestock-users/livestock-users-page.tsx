@@ -117,7 +117,7 @@ const emptyFormData = {
   province: '',
   district: '',
   sector: '',
-  role: VETERINARY_ROLE as 'ADMIN' | 'AGENT' | 'VETERINARY',
+  role: VETERINARY_ROLE as 'ADMIN' | 'AGENT' | 'VETERINARY' | 'SONARWA_REPRESENTATIVE',
   emergencyContact1Name: '',
   emergencyContact1PhoneNumber: '',
   emergencyContact1Relationship: '',

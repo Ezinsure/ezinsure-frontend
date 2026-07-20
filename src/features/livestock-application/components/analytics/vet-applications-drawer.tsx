@@ -1,11 +1,21 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Eye, FileText, Search, Wallet, X, ShieldCheck, Layers } from 'lucide-react';
+import {
+  Eye,
+  FileText,
+  Loader2,
+  Search,
+  Wallet,
+  X,
+  ShieldCheck,
+  Layers,
+} from 'lucide-react';
 import type {
   LivestockApplicationListItem,
+  LivestockApplicationStatus,
   LivestockApplicationViewRole,
 } from '@/features/livestock-application/domain/application-types';
 import {
@@ -18,14 +28,23 @@ import { LivestockApplicationStatusBadge } from '@/features/livestock-applicatio
 import { LivestockApplicationDetailPanel } from '@/features/livestock-application/components/livestock-application-detail-panel';
 import { useLivestockApplicationDetail } from '@/features/livestock-application/hooks/use-livestock-applications';
 import type { VetPerformanceRow } from '@/features/livestock-application/hooks/use-vet-analytics';
+import { createLivestockApplicationsRepositoryForScope } from '@/features/livestock-application/api/livestock-applications.repository';
+import { LivestockApiError } from '@/features/livestock-application/api/http';
+import { useApiClient } from '@/utils/apiClient';
+import { APPLICATION_STATUS_LABELS } from '@/features/livestock-application/domain/application-status';
 
 interface VetApplicationsDrawerProps {
   isOpen: boolean;
   vet: VetPerformanceRow | null;
   viewRole: LivestockApplicationViewRole;
+  startDate: string;
+  endDate: string;
   periodLabel?: string;
   onClose: () => void;
 }
+
+const PAGE_SIZE = 100;
+const MAX_PAGES = 50;
 
 function MiniStat({
   icon,
@@ -49,16 +68,34 @@ function MiniStat({
   );
 }
 
+function toErrorMessage(err: unknown): string {
+  if (err instanceof LivestockApiError) return err.message;
+  if (err instanceof Error) return err.message;
+  return 'Failed to load veterinarian applications.';
+}
+
 export function VetApplicationsDrawer({
   isOpen,
   vet,
   viewRole,
+  startDate,
+  endDate,
   periodLabel,
   onClose,
 }: VetApplicationsDrawerProps) {
+  const { apiFetch } = useApiClient();
+  const repository = useMemo(
+    () => createLivestockApplicationsRepositoryForScope(apiFetch, 'vet'),
+    [apiFetch],
+  );
+
   const [mounted, setMounted] = useState(false);
   const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | LivestockApplicationStatus>('all');
   const [selectedAppId, setSelectedAppId] = useState<string | null>(null);
+  const [applications, setApplications] = useState<LivestockApplicationListItem[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const {
     application,
@@ -67,6 +104,44 @@ export function VetApplicationsDrawer({
     reload,
   } = useLivestockApplicationDetail(selectedAppId, { scope: 'all' });
 
+  const loadApplications = useCallback(async () => {
+    if (!vet?.vetId) {
+      setApplications([]);
+      setError(
+        'This veterinarian has no ID on file, so applications cannot be loaded. Refresh analytics and try again.',
+      );
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+    try {
+      const collected: LivestockApplicationListItem[] = [];
+      for (let pageNumber = 1; pageNumber <= MAX_PAGES; pageNumber += 1) {
+        const res = await repository.list({
+          agentId: vet.vetId,
+          startDate,
+          endDate,
+          pageNumber,
+          pageSize: PAGE_SIZE,
+          scope: 'vet',
+        });
+        collected.push(...res.data);
+        if (res.data.length === 0 || pageNumber >= res.meta.totalPages) break;
+      }
+      setApplications(
+        collected.sort(
+          (a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime(),
+        ),
+      );
+    } catch (err) {
+      setError(toErrorMessage(err));
+      setApplications([]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [repository, vet, startDate, endDate]);
+
   useEffect(() => {
     setMounted(true);
   }, []);
@@ -74,9 +149,14 @@ export function VetApplicationsDrawer({
   useEffect(() => {
     if (!isOpen) {
       setSearch('');
+      setStatusFilter('all');
       setSelectedAppId(null);
+      setApplications([]);
+      setError(null);
+      return;
     }
-  }, [isOpen]);
+    void loadApplications();
+  }, [isOpen, loadApplications]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -87,22 +167,28 @@ export function VetApplicationsDrawer({
     };
   }, [isOpen]);
 
+  const statusOptions = useMemo(() => {
+    const statuses = Array.from(new Set(applications.map((item) => item.status))).sort();
+    return statuses;
+  }, [applications]);
+
   const filteredApps = useMemo(() => {
-    if (!vet) return [];
     const query = search.trim().toLowerCase();
-    if (!query) return vet.applications;
-    return vet.applications.filter((item) => {
+    return applications.filter((item) => {
+      if (statusFilter !== 'all' && item.status !== statusFilter) return false;
+      if (!query) return true;
       const haystack = [
         item.applicationNumber,
         item.ownerSummary,
         speciesGroupLabel(item.speciesGroup),
+        APPLICATION_STATUS_LABELS[item.status] ?? item.status,
       ]
         .filter(Boolean)
         .join(' ')
         .toLowerCase();
       return haystack.includes(query);
     });
-  }, [vet, search]);
+  }, [applications, search, statusFilter]);
 
   if (!mounted) return null;
 
@@ -132,7 +218,6 @@ export function VetApplicationsDrawer({
               aria-modal="true"
               aria-label={`${vet.vetName} applications`}
             >
-              {/* Header */}
               <div className="relative shrink-0 overflow-hidden bg-gradient-to-br from-blue-700 via-indigo-700 to-violet-700 px-5 py-5 sm:px-6">
                 <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/10" />
                 <div className="relative flex items-start justify-between gap-3">
@@ -182,8 +267,7 @@ export function VetApplicationsDrawer({
                 </div>
               </div>
 
-              {/* Search */}
-              <div className="shrink-0 border-b border-slate-200 bg-white px-5 py-3 sm:px-6">
+              <div className="shrink-0 space-y-3 border-b border-slate-200 bg-white px-5 py-3 sm:px-6">
                 <div className="flex h-10 items-center gap-2.5 rounded-lg border border-slate-200 bg-white px-3 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-100">
                   <Search className="h-4 w-4 shrink-0 text-slate-400" aria-hidden />
                   <input
@@ -194,17 +278,43 @@ export function VetApplicationsDrawer({
                     className="min-w-0 flex-1 border-0 bg-transparent text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none"
                   />
                 </div>
+                <label className="flex items-center gap-2 text-sm text-slate-600">
+                  <span className="shrink-0 text-xs font-medium uppercase tracking-wide text-slate-500">
+                    Status
+                  </span>
+                  <select
+                    value={statusFilter}
+                    onChange={(event) =>
+                      setStatusFilter(event.target.value as 'all' | LivestockApplicationStatus)
+                    }
+                    className="h-9 flex-1 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-800 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                  >
+                    <option value="all">All statuses</option>
+                    {statusOptions.map((status) => (
+                      <option key={status} value={status}>
+                        {APPLICATION_STATUS_LABELS[status] ?? status}
+                      </option>
+                    ))}
+                  </select>
+                </label>
               </div>
 
-              {/* List */}
               <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6">
-                {filteredApps.length === 0 ? (
+                {isLoading ? (
+                  <div className="flex min-h-[240px] items-center justify-center">
+                    <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+                  </div>
+                ) : error ? (
+                  <div className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700">
+                    {error}
+                  </div>
+                ) : filteredApps.length === 0 ? (
                   <div className="flex h-full flex-col items-center justify-center gap-3 py-16 text-center">
                     <FileText className="h-10 w-10 text-slate-300" />
                     <p className="text-sm text-slate-500">
-                      {vet.applications.length === 0
+                      {applications.length === 0
                         ? 'No applications for this veterinarian in the selected period.'
-                        : 'No applications match your search.'}
+                        : 'No applications match your filters.'}
                     </p>
                   </div>
                 ) : (
@@ -221,15 +331,14 @@ export function VetApplicationsDrawer({
               </div>
 
               <div className="shrink-0 border-t border-slate-200 bg-white px-5 py-3 text-xs text-slate-500 sm:px-6">
-                Showing {filteredApps.length} of {vet.applications.length} application
-                {vet.applications.length === 1 ? '' : 's'}
+                Showing {filteredApps.length} of {applications.length} application
+                {applications.length === 1 ? '' : 's'}
               </div>
             </motion.div>
           </>
         )}
       </AnimatePresence>
 
-      {/* Nested single-application detail slider — renders on top of this drawer */}
       <LivestockApplicationDetailPanel
         isOpen={Boolean(selectedAppId)}
         application={application}

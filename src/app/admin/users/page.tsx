@@ -135,7 +135,7 @@ export default function AdminUsersPage() {
     name: string;
     path: string;
   } | null>(null);
-  const [roleFilter, setRoleFilter] = useState<'all' | 'ADMIN' | 'AGENT'>('all');
+  const [roleFilter, setRoleFilter] = useState<'all' | 'ADMIN' | 'AGENT' | 'SONARWA_REPRESENTATIVE'>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | User['status']>('all');
   const { token } = useAuth();
   const [isDeactivating, setIsDeactivating] = useState(false);
@@ -157,7 +157,7 @@ const [formData, setFormData] = useState({
   province: '',
   district: '',
   sector: '',
-  role: 'AGENT' as 'ADMIN' | 'AGENT' | 'VETERINARY',
+  role: 'AGENT' as 'ADMIN' | 'AGENT' | 'VETERINARY' | 'SONARWA_REPRESENTATIVE',
   emergencyContact1Name: '',
   emergencyContact1PhoneNumber: '',
   emergencyContact1Relationship: '',
@@ -890,6 +890,7 @@ const handleEditUser = async (updatedUser: User) => {
                   <option value="all">All Roles</option>
                   <option value="ADMIN">Admin</option>
                   <option value="AGENT">Agent</option>
+                  <option value="SONARWA_REPRESENTATIVE">SONARWA Representative</option>
                 </select>
                 <select
                   value={statusFilter}

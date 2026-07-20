@@ -47,7 +47,7 @@ export function SonarwaReviewSection({
     application.status === 'READY_TO_BE_PAID' ||
     application.status === 'PAID';
   const canReview = resolveWorkflowActionVisible(
-    viewRole === 'admin',
+    viewRole === 'admin' || viewRole === 'super_admin',
     canAdminReviewSonarwaSubsidy(application, viewRole) && !isApproved,
   );
   const isRejected = application.subsidyCase.status === 'REJECTED';
@@ -55,7 +55,9 @@ export function SonarwaReviewSection({
   const insuranceIssued =
     showAllLivestockWorkflowActions() ||
     application.status === 'INSURANCE_ISSUED' ||
-    Boolean(application.issuedDocuments?.contract) ||
+    Boolean(
+      application.issuedDocuments?.insuranceCertificate || application.issuedDocuments?.contract,
+    ) ||
     [
       'SUBSIDY_DOC_REQUIRED',
       'SUBSIDY_SECTOR_PENDING',
@@ -110,7 +112,7 @@ export function SonarwaReviewSection({
             <p className="mt-1 text-sm text-slate-600">
               SONARWA representative verifies the nkunganire document (or Tekana-eligible skip) before
               commission review.
-              {viewRole === 'admin' &&
+              {(viewRole === 'admin' || viewRole === 'super_admin') &&
                 ' Until the SONARWA portal is available, administrators act on behalf of SONARWA here.'}
             </p>
           </div>
@@ -139,7 +141,7 @@ export function SonarwaReviewSection({
             }
           >
             <WorkflowStepActions>
-              {canReview && viewRole === 'admin' && (
+              {canReview && (viewRole === 'admin' || viewRole === 'super_admin') && (
                 <WorkflowPrimaryAction
                   loading={isReviewing}
                   icon={<CheckCircle2 className="mr-2 h-4 w-4" />}
