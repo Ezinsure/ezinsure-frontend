@@ -99,9 +99,6 @@ export const LIVESTOCK_ADMIN_ENDPOINTS = {
 
   /** GET — applications awaiting admin review (admin / finance / super admin). */
   applicationsPendingAdminReview: (): string => '/getVeterinaryApplicationsPendingAdminReview',
-
-  /** POST multipart — create a SONARWA representative (livestock admin). */
-  registerSonarwaRepresentative: (): string => '/registerSonarwaRepresentative',
 } as const;
 
 /** Nkunganire / sector subsidy workflow (vet-facing). */

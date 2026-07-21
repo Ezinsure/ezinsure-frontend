@@ -18,7 +18,6 @@ import {
   type LivestockCreatableRole,
   type LivestockUsersViewerRole,
 } from '@/features/admin-livestock-users/config';
-import { LIVESTOCK_ADMIN_ENDPOINTS } from '@/features/livestock-application/api/endpoints';
 import { SONARWA_REPRESENTATIVE_ROLE, VETERINARY_ROLE } from '@/shared/utils/role';
 
 interface LivestockUser {
@@ -289,42 +288,25 @@ export function LivestockUsersPage({ viewerRole }: LivestockUsersPageProps) {
     const roleLabel = livestockCreateRoleLabel(createRoleTarget);
     try {
       const payload = new FormData();
+      payload.append('fullName', formData.fullName);
+      payload.append('email', formData.email);
+      payload.append('phoneNumber', formData.phoneNumber);
+      payload.append('role', createRoleTarget);
 
-      if (createRoleTarget === SONARWA_REPRESENTATIVE_ROLE) {
-        payload.append('fullName', formData.fullName);
-        payload.append('email', formData.email);
-        payload.append('phoneNumber', formData.phoneNumber);
-        payload.append('role', SONARWA_REPRESENTATIVE_ROLE);
-        if (formData.nationalIdDocument) {
-          payload.append('nationalIdDocument', formData.nationalIdDocument);
-        }
-        if (formData.passportPhoto) {
-          payload.append('passportPhoto', formData.passportPhoto);
-        }
-      } else {
-        payload.append('fullName', formData.fullName);
-        payload.append('email', formData.email);
-        payload.append('phoneNumber', formData.phoneNumber);
+      if (createRoleTarget === VETERINARY_ROLE) {
         payload.append('dateOfBirth', formData.dateOfBirth);
         payload.append('address', formData.address);
         payload.append('province', formData.province);
         payload.append('district', formData.district);
         payload.append('sector', formData.sector);
-        payload.append('role', VETERINARY_ROLE);
         payload.append('bankName', formData.bankName);
         payload.append('bankAccountNumber', formData.bankAccountNumber);
 
         if (formData.veterinaryType) {
           payload.append('veterinaryType', formData.veterinaryType);
         }
-        if (formData.nationalIdDocument) {
-          payload.append('nationalIdDocument', formData.nationalIdDocument);
-        }
         if (formData.rcvdLicenceDocument) {
           payload.append('rcvdLicenceDocument', formData.rcvdLicenceDocument);
-        }
-        if (formData.passportPhoto) {
-          payload.append('passportPhoto', formData.passportPhoto);
         }
 
         const hasEmergencyContact1 =
@@ -348,12 +330,14 @@ export function LivestockUsersPage({ viewerRole }: LivestockUsersPageProps) {
         }
       }
 
-      const endpoint =
-        createRoleTarget === SONARWA_REPRESENTATIVE_ROLE
-          ? `${process.env.NEXT_PUBLIC_API_BASE_URL}${LIVESTOCK_ADMIN_ENDPOINTS.registerSonarwaRepresentative()}`
-          : `${process.env.NEXT_PUBLIC_API_BASE_URL}/register`;
+      if (formData.nationalIdDocument) {
+        payload.append('nationalIdDocument', formData.nationalIdDocument);
+      }
+      if (formData.passportPhoto) {
+        payload.append('passportPhoto', formData.passportPhoto);
+      }
 
-      const response = await fetch(endpoint, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/register`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
         body: payload,
