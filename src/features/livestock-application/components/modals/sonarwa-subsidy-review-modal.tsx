@@ -97,7 +97,7 @@ export function SonarwaSubsidyReviewModal({
             </div>
           ) : (
             <p className="rounded-xl border border-violet-100 bg-violet-50 px-3 py-2 text-xs text-violet-900">
-              Verify the sector-signed nkunganire document before approving commission review.
+              Verify the sector-signed nkunganire document before approving admin review.
             </p>
           )}
 

@@ -89,7 +89,7 @@ export const LIVESTOCK_ADMIN_ENDPOINTS = {
   reviewSonarwaSubsidy: (applicationId: string): string =>
     `/reviewLivestockSubsidySonarwa/${encodeURIComponent(applicationId)}`,
 
-  /** PUT — move application to ready-to-be-paid after commission review. */
+  /** PUT — move application to ready-to-be-paid after admin review. */
   approveCommission: (applicationId: string): string =>
     `/approveLivestockCommission/${encodeURIComponent(applicationId)}`,
 
@@ -97,7 +97,7 @@ export const LIVESTOCK_ADMIN_ENDPOINTS = {
   markCommissionPaid: (applicationId: string): string =>
     `/markLivestockCommissionPaid/${encodeURIComponent(applicationId)}`,
 
-  /** GET — applications awaiting commission review (admin / finance / super admin). */
+  /** GET — applications awaiting admin review (admin / finance / super admin). */
   applicationsPendingAdminReview: (): string => '/getVeterinaryApplicationsPendingAdminReview',
 
   /** POST multipart — create a SONARWA representative (livestock admin). */

@@ -26,7 +26,7 @@ function stepStateForSection(
     return 'upcoming';
   }
   if (sectionId === 'issue-insurance') {
-    if (application.issuedDocuments?.insuranceCertificate || application.issuedDocuments?.contract) {
+    if (application.issuedDocuments?.contract) {
       return 'completed';
     }
     if (application.status === 'PAYMENT_VERIFIED') return 'current';
@@ -50,7 +50,7 @@ function stepStateForSection(
   if (sectionId === 'commission') {
     if (application.status === 'PAID') return 'completed';
     if (
-      application.status === 'PENDING_COMMISSION_REVIEW' ||
+      application.status === 'PENDING_ADMIN_REVIEW' ||
       application.status === 'READY_TO_BE_PAID'
     ) {
       return 'current';

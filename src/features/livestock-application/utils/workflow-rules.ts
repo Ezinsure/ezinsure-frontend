@@ -91,7 +91,7 @@ export function canVetUploadSignedSubsidy(
   return (
     postInsuranceStatuses.has(application.status) ||
     Boolean(
-      application.issuedDocuments?.insuranceCertificate || application.issuedDocuments?.contract,
+      application.issuedDocuments?.contract,
     )
   );
 }
@@ -121,14 +121,14 @@ export function canManageCommissionWorkflow(
   application: LivestockApplicationPackage,
   role: LivestockApplicationViewRole,
 ): boolean {
-  return isFinanceRole(role) && application.status === 'PENDING_COMMISSION_REVIEW';
+  return isFinanceRole(role) && application.status === 'PENDING_ADMIN_REVIEW';
 }
 
 export function canMarkReadyToBePaid(
   application: LivestockApplicationPackage,
   role: LivestockApplicationViewRole,
 ): boolean {
-  return isFinanceRole(role) && application.status === 'PENDING_COMMISSION_REVIEW';
+  return isFinanceRole(role) && application.status === 'PENDING_ADMIN_REVIEW';
 }
 
 export function canMarkCommissionPaid(
@@ -145,7 +145,7 @@ export function workflowPhaseLabel(application: LivestockApplicationPackage): st
     return 'Nkunganire (sector)';
   }
   if (canAdminReviewSonarwaSubsidy(application, 'admin')) return 'SONARWA review';
-  if (application.status === 'PENDING_COMMISSION_REVIEW') return 'Commission review';
+  if (application.status === 'PENDING_ADMIN_REVIEW') return 'Admin review';
   if (application.status === 'READY_TO_BE_PAID') return 'Ready to pay';
   if (application.status === 'PAID') return 'Paid';
   return 'In progress';

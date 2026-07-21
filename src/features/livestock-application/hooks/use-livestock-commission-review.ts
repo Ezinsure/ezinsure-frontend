@@ -45,7 +45,7 @@ export function useLivestockCommissionReview(): UseLivestockCommissionReviewResu
         const next = await fetchLivestockApplicationsPendingAdminReview(apiFetch);
         setQueue(next);
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Could not load commission review queue.');
+        setError(err instanceof Error ? err.message : 'Could not load admin review queue.');
         setQueue({ items: [], count: 0, totalVeterinaryCommission: 0 });
       } finally {
         if (!silent) setIsLoading(false);

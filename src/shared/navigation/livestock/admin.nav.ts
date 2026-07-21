@@ -22,7 +22,7 @@ export function getLivestockAdminNavigation(rolePrefix: LivestockAdminRolePrefix
         { href: `${base}/dashboard`, label: 'Dashboard', icon: LayoutDashboard },
         { href: `${base}/import`, label: 'Import from Tekana', icon: Upload },
         { href: `${base}/applications`, label: 'Applications', icon: FileText },
-        { href: `${base}/commission-review`, label: 'Commission Review', icon: Wallet },
+        { href: `${base}/commission-review`, label: 'Admin Review', icon: Wallet },
         { href: `${base}/vet-analytics`, label: 'Vet Analytics', icon: Stethoscope },
       ],
     },

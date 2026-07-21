@@ -1,7 +1,6 @@
 import type {
   InsuredLinePayload,
   LivestockApplicationPackage,
-  LivestockApplicationStatus,
   LivestockOwnerMode,
   LivestockSpeciesGroup,
 } from '@/features/livestock-application/domain/application-types';
@@ -9,7 +8,6 @@ import type { VeterinaryApplication } from '@/features/vet-portal/types';
 import {
   inferSpeciesGroup,
   isLegacyFlatVeterinaryApplication,
-  isLivestockApplicationStatus,
 } from '@/features/livestock-application/api/mappers/guards';
 import { buildOwnerSummary, mapApiLineRecord } from '@/features/livestock-application/api/mappers/line.mapper';
 import {
@@ -34,6 +32,7 @@ import {
   mapPaidStatus,
   mapSubsidyStatus,
   normalizeInsuranceProvider,
+  normalizeLivestockApplicationStatus,
   subsidyRequiredFromStatus,
 } from '@/features/livestock-application/api/mappers/status.mapper';
 
@@ -138,9 +137,8 @@ function mapGenericPackageObject(o: Record<string, unknown>): LivestockApplicati
     poultryProductType: o.poultryProductType as LivestockApplicationPackage['poultryProductType'],
     insuranceType: o.insuranceType ? String(o.insuranceType) : undefined,
     livestockLocation: extractLivestockLocation(o),
-    status: isLivestockApplicationStatus(String(o.status ?? ''))
-      ? (o.status as LivestockApplicationStatus)
-      : mapLegacyStatus(
+    status: normalizeLivestockApplicationStatus(String(o.status ?? ''))
+      ?? mapLegacyStatus(
           String(o.status ?? ''),
           String(o.subsidyStatus ?? subsidyCase?.status ?? ''),
           String(o.paidStatus ?? paymentProof?.status ?? ''),

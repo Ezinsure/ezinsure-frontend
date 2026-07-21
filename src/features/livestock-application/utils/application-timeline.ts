@@ -27,7 +27,7 @@ function isSubsidyOnlyTimelineStatus(status: LivestockApplicationStatus): boolea
 
 function sonarwaReviewComplete(application: LivestockApplicationPackage): boolean {
   return (
-    application.status === 'PENDING_COMMISSION_REVIEW' ||
+    application.status === 'PENDING_ADMIN_REVIEW' ||
     application.status === 'READY_TO_BE_PAID' ||
     application.status === 'PAID' ||
     application.status === 'COMMISSION_APPROVED' ||

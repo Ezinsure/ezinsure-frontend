@@ -28,9 +28,7 @@ interface InsuranceIssueSectionProps {
 
 function hasIssuedPolicyDocuments(application: LivestockApplicationPackage): boolean {
   const docs = application.issuedDocuments;
-  return Boolean(
-    docs?.insuranceCertificate || docs?.contract || docs?.receipt || docs?.ebm || docs?.invoice,
-  );
+  return Boolean(docs?.contract || docs?.receipt);
 }
 
 export function InsuranceIssueSection({
@@ -70,7 +68,7 @@ export function InsuranceIssueSection({
       toast.showError(
         formatWorkflowActionError(
           err,
-          'We could not issue insurance. Please check the certificate file and try again.',
+          'We could not issue insurance. Please check the contract file and try again.',
           'issue-insurance',
         ),
       );
@@ -90,7 +88,7 @@ export function InsuranceIssueSection({
           <div className="flex-1">
             <h2 className="text-lg font-semibold text-slate-900">Issue insurance</h2>
             <p className="mt-1 text-sm text-slate-600">
-              After payment is verified, upload the insurance certificate and optional policy documents
+              After payment is verified, upload the insurance contract and an optional receipt
               to activate the policy.
               {(viewRole === 'admin' || viewRole === 'super_admin') &&
                 ' This unlocks the nkunganire and SONARWA workflow for the vet.'}
@@ -105,7 +103,7 @@ export function InsuranceIssueSection({
             description={
               isIssued
                 ? 'Policy documents are on file. The application can proceed to subsidy or SONARWA review.'
-                : 'Insurance certificate is required. Contract, receipt, EBM, and invoice are optional.'
+                : 'Contract is required. Receipt is optional.'
             }
             state={stepState}
             badge={isIssued ? 'Completed' : canIssue ? 'Action required' : undefined}
@@ -123,14 +121,6 @@ export function InsuranceIssueSection({
 
               {isIssued && docs && onViewDocument && (
                 <>
-                  {docs.insuranceCertificate && (
-                    <WorkflowDocumentAction
-                      label="Insurance certificate"
-                      onClick={() =>
-                        onViewDocument('Insurance certificate', docs.insuranceCertificate!)
-                      }
-                    />
-                  )}
                   {docs.contract && (
                     <WorkflowDocumentAction
                       label="Contract"
@@ -141,18 +131,6 @@ export function InsuranceIssueSection({
                     <WorkflowDocumentAction
                       label="Receipt"
                       onClick={() => onViewDocument('Receipt', docs.receipt!)}
-                    />
-                  )}
-                  {docs.ebm && (
-                    <WorkflowDocumentAction
-                      label="EBM"
-                      onClick={() => onViewDocument('EBM', docs.ebm!)}
-                    />
-                  )}
-                  {docs.invoice && (
-                    <WorkflowDocumentAction
-                      label="Invoice"
-                      onClick={() => onViewDocument('Invoice', docs.invoice!)}
                     />
                   )}
                 </>

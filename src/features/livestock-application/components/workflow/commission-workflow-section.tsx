@@ -45,7 +45,7 @@ export function CommissionWorkflowSection({
 
   const showSection =
     showAllLivestockWorkflowActions() ||
-    application.status === 'PENDING_COMMISSION_REVIEW' ||
+    application.status === 'PENDING_ADMIN_REVIEW' ||
     application.status === 'READY_TO_BE_PAID' ||
     application.status === 'PAID' ||
     application.status === 'COMMISSION_APPROVED' ||
@@ -55,7 +55,7 @@ export function CommissionWorkflowSection({
 
   const isPaid = application.status === 'PAID';
   const isReady = application.status === 'READY_TO_BE_PAID';
-  const isPendingReview = application.status === 'PENDING_COMMISSION_REVIEW';
+  const isPendingReview = application.status === 'PENDING_ADMIN_REVIEW';
 
   const canApprove = resolveWorkflowActionVisible(
     viewRole === 'admin' || viewRole === 'finance',
@@ -130,12 +130,12 @@ export function CommissionWorkflowSection({
       <div className="mt-6 space-y-4">
         <WorkflowStepCard
           stepNumber={5}
-          title="Commission review"
+          title="Admin review"
           description={
             isPendingReview
               ? 'Finance verifies commission amounts before releasing payment.'
               : isReady || isPaid
-                ? 'Commission review completed.'
+                ? 'Admin review completed.'
                 : 'Waiting for SONARWA approval.'
           }
           state={isPendingReview ? 'current' : isReady || isPaid ? 'completed' : 'upcoming'}
@@ -181,7 +181,7 @@ export function CommissionWorkflowSection({
               ? 'Veterinary commission has been disbursed.'
               : isReady
                 ? 'Commission is approved — record payment when the transfer is complete.'
-                : 'Available after commission review is approved.'
+                : 'Available after admin review is approved.'
           }
           state={isPaid ? 'completed' : isReady ? 'current' : 'upcoming'}
           badge={isReady && canPay ? 'Action required' : isPaid ? 'Completed' : undefined}

@@ -46,21 +46,21 @@ function detailHref(role: LivestockApplicationViewRole, applicationId: string): 
 function pageCopy(role: LivestockApplicationViewRole) {
   if (role === 'finance') {
     return {
-      title: 'Livestock commission review',
+      title: 'Livestock admin review',
       subtitle:
         'Review veterinary commissions and mark approved applications as ready to be paid.',
     };
   }
   if (role === 'super_admin') {
     return {
-      title: 'Livestock commission review',
+      title: 'Livestock admin review',
       subtitle: 'Oversee pending veterinary commission approvals across livestock applications.',
     };
   }
   return {
-    title: 'Livestock commission review',
+    title: 'Livestock admin review',
     subtitle:
-      'Applications awaiting commission review after SONARWA approval. Mark each one ready to be paid when amounts are verified.',
+      'Applications awaiting admin review after SONARWA approval. Mark each one ready to be paid when amounts are verified.',
   };
 }
 
@@ -279,7 +279,7 @@ export default function LivestockCommissionReviewPage({
         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <p className="text-sm font-medium text-slate-600">Applications in queue</p>
           <p className="mt-1 text-3xl font-bold text-slate-900">{count}</p>
-          <p className="mt-1 text-xs text-slate-500">Status: Pending commission review</p>
+          <p className="mt-1 text-xs text-slate-500">Status: Pending admin review</p>
         </div>
       </div>
 
@@ -384,7 +384,7 @@ export default function LivestockCommissionReviewPage({
         ) : filteredItems.length === 0 ? (
           <div className="p-10 text-center text-sm text-slate-600">
             {items.length === 0
-              ? 'No livestock applications are waiting for commission review.'
+              ? 'No livestock applications are waiting for admin review.'
               : 'No applications match your filters.'}
           </div>
         ) : (

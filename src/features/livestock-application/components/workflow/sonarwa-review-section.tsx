@@ -43,7 +43,7 @@ export function SonarwaReviewSection({
   const eligibility = resolveSubsidyEligibility(application);
   const isApproved =
     application.subsidyCase.status === 'SONARWA_APPROVED' ||
-    application.status === 'PENDING_COMMISSION_REVIEW' ||
+    application.status === 'PENDING_ADMIN_REVIEW' ||
     application.status === 'READY_TO_BE_PAID' ||
     application.status === 'PAID';
   const canReview = resolveWorkflowActionVisible(
@@ -56,7 +56,7 @@ export function SonarwaReviewSection({
     showAllLivestockWorkflowActions() ||
     application.status === 'INSURANCE_ISSUED' ||
     Boolean(
-      application.issuedDocuments?.insuranceCertificate || application.issuedDocuments?.contract,
+      application.issuedDocuments?.contract,
     ) ||
     [
       'SUBSIDY_DOC_REQUIRED',
@@ -64,7 +64,7 @@ export function SonarwaReviewSection({
       'SUBSIDY_SECTOR_SIGNED',
       'SUBSIDY_VET_SIGNED',
       'SUBSIDY_SONARWA_APPROVED',
-      'PENDING_COMMISSION_REVIEW',
+      'PENDING_ADMIN_REVIEW',
       'READY_TO_BE_PAID',
       'PAID',
     ].includes(application.status);
@@ -84,7 +84,7 @@ export function SonarwaReviewSection({
       await review(application._id, payload);
       toast.showSuccess(
         payload.action === 'approve'
-          ? 'SONARWA approved. Application moved to pending commission review.'
+          ? 'SONARWA approved. Application moved to pending admin review.'
           : 'SONARWA rejected the nkunganire document. The veterinarian must re-upload a corrected scan.',
       );
       onUpdated?.();
@@ -111,7 +111,7 @@ export function SonarwaReviewSection({
             <h2 className="text-lg font-semibold text-slate-900">SONARWA review</h2>
             <p className="mt-1 text-sm text-slate-600">
               SONARWA representative verifies the nkunganire document (or Tekana-eligible skip) before
-              commission review.
+              admin review.
               {(viewRole === 'admin' || viewRole === 'super_admin') &&
                 ' Until the SONARWA portal is available, administrators act on behalf of SONARWA here.'}
             </p>
@@ -130,7 +130,7 @@ export function SonarwaReviewSection({
             }
             description={
               isApproved
-                ? `Approved ${application.subsidyCase.sonarwaApprovedAt ? new Date(application.subsidyCase.sonarwaApprovedAt).toLocaleString() : ''}. Ready for commission review.`
+                ? `Approved ${application.subsidyCase.sonarwaApprovedAt ? new Date(application.subsidyCase.sonarwaApprovedAt).toLocaleString() : ''}. Ready for admin review.`
                 : eligibility.required
                   ? 'Review the sector-signed nkunganire scan uploaded by the veterinarian.'
                   : eligibility.reason

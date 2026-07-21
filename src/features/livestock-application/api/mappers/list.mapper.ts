@@ -1,6 +1,5 @@
 import type {
   LivestockApplicationListItem,
-  LivestockApplicationStatus,
   LivestockOwnerMode,
   LivestockSpeciesGroup,
 } from '@/features/livestock-application/domain/application-types';
@@ -9,7 +8,6 @@ import {
   extractApplicationsRawRows,
   inferSpeciesGroup,
   isLegacyFlatVeterinaryApplication,
-  isLivestockApplicationStatus,
   isLivestockPackageListItem,
   isNewApiApplicationRecord,
 } from '@/features/livestock-application/api/mappers/guards';
@@ -23,6 +21,7 @@ import {
   mapLegacyStatus,
   mapPaidStatus,
   normalizeInsuranceProvider,
+  normalizeLivestockApplicationStatus,
   subsidyRequiredFromStatus,
 } from '@/features/livestock-application/api/mappers/status.mapper';
 
@@ -38,9 +37,8 @@ function mapNewApiApplicationToListItem(o: Record<string, unknown>): LivestockAp
     insuranceProvider: normalizeInsuranceProvider(String(o.insuranceProvider ?? '')),
     speciesGroup: o.speciesGroup as LivestockSpeciesGroup,
     ownerMode: (o.ownerMode as LivestockOwnerMode) ?? 'SINGLE_OWNER',
-    status: isLivestockApplicationStatus(statusRaw)
-      ? statusRaw
-      : mapLegacyStatus(statusRaw, String(o.subsidyStatus ?? ''), String(o.paidStatus ?? '')),
+    status: normalizeLivestockApplicationStatus(statusRaw)
+      ?? mapLegacyStatus(statusRaw, String(o.subsidyStatus ?? ''), String(o.paidStatus ?? '')),
     ownerSummary: buildOwnerSummary(o, lines),
     lineCount: lines.length,
     totals: {
@@ -105,9 +103,8 @@ export function mapToLivestockApplicationListItem(item: unknown): LivestockAppli
       insuranceProvider: normalizeInsuranceProvider(String(o.insuranceProvider ?? '')),
       speciesGroup: (o.speciesGroup as LivestockSpeciesGroup) ?? inferSpeciesGroup(),
       ownerMode: (o.ownerMode as LivestockOwnerMode) ?? 'SINGLE_OWNER',
-      status: isLivestockApplicationStatus(String(o.status ?? ''))
-        ? (o.status as LivestockApplicationStatus)
-        : mapLegacyStatus(String(o.status ?? ''), String(o.subsidyStatus ?? ''), String(o.paidStatus ?? '')),
+      status: normalizeLivestockApplicationStatus(String(o.status ?? ''))
+        ?? mapLegacyStatus(String(o.status ?? ''), String(o.subsidyStatus ?? ''), String(o.paidStatus ?? '')),
       ownerSummary: buildOwnerSummary(o, Array.isArray(o.lines) ? o.lines : []),
       lineCount:
         typeof o.lineCount === 'number'

@@ -34,7 +34,7 @@ const WORKFLOW_ITEMS: ApplicationDetailNavItem[] = [
   {
     id: 'issue-insurance',
     label: 'Issue insurance',
-    description: 'Upload contract and policy certificate',
+    description: 'Upload contract and optional receipt',
     stepNumber: 2,
   },
   {
@@ -46,7 +46,7 @@ const WORKFLOW_ITEMS: ApplicationDetailNavItem[] = [
   {
     id: 'sonarwa',
     label: 'SONARWA review',
-    description: 'Verify nkunganire before commission',
+    description: 'Verify nkunganire before admin review',
     stepNumber: 4,
   },
   {
@@ -110,14 +110,14 @@ const POST_INSURANCE_STATUSES = new Set<LivestockApplicationStatus>([
   'SUBSIDY_SECTOR_SIGNED',
   'SUBSIDY_VET_SIGNED',
   'SUBSIDY_SONARWA_APPROVED',
-  'PENDING_COMMISSION_REVIEW',
+  'PENDING_ADMIN_REVIEW',
   'COMMISSION_APPROVED',
   'READY_TO_BE_PAID',
   'PAID',
 ]);
 
 const COMMISSION_STATUSES = new Set<LivestockApplicationStatus>([
-  'PENDING_COMMISSION_REVIEW',
+  'PENDING_ADMIN_REVIEW',
   'COMMISSION_APPROVED',
   'READY_TO_BE_PAID',
   'PAID',
@@ -127,7 +127,7 @@ function isInsuranceIssued(application: LivestockApplicationPackage): boolean {
   return (
     POST_INSURANCE_STATUSES.has(application.status) ||
     Boolean(
-      application.issuedDocuments?.insuranceCertificate || application.issuedDocuments?.contract,
+      application.issuedDocuments?.contract,
     )
   );
 }

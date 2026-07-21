@@ -58,10 +58,10 @@ export function SubsidyWorkflowSection({
     showAllLivestockWorkflowActions() ||
     application.status === 'INSURANCE_ISSUED' ||
     Boolean(
-      application.issuedDocuments?.insuranceCertificate || application.issuedDocuments?.contract,
+      application.issuedDocuments?.contract,
     ) ||
     application.status.startsWith('SUBSIDY') ||
-    ['PENDING_COMMISSION_REVIEW', 'READY_TO_BE_PAID', 'PAID'].includes(application.status);
+    ['PENDING_ADMIN_REVIEW', 'READY_TO_BE_PAID', 'PAID'].includes(application.status);
 
   if (!insuranceIssued) return null;
 

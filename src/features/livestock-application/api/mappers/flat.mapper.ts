@@ -10,9 +10,6 @@ import {
   formatLocationSummary,
 } from '@/features/livestock-application/utils/application-location';
 import {
-  isLivestockApplicationStatus,
-} from '@/features/livestock-application/api/mappers/guards';
-import {
   countInsuredLines,
   mapInsuredLinesFromRecord,
   mapPaymentProofFromRecord,
@@ -24,6 +21,7 @@ import { mapApplicationExtensionFields } from '@/features/livestock-application/
 import {
   mapLegacyStatus,
   normalizeInsuranceProvider,
+  normalizeLivestockApplicationStatus,
   subsidyRequiredFromStatus,
 } from '@/features/livestock-application/api/mappers/status.mapper';
 import { buildSubsidyCaseFromRecord } from '@/features/livestock-application/api/mappers/subsidy-case.mapper';
@@ -65,9 +63,8 @@ export function mapFlatApplicationToListItem(
     totalSumAssured: totals.totalSumAssured,
     governmentContribution: totals.governmentContribution,
     veterinaryCommission: totals.veterinaryCommission,
-    status: isLivestockApplicationStatus(statusRaw)
-      ? statusRaw
-      : mapLegacyStatus(statusRaw, subsidyStatus, paidStatus),
+    status: normalizeLivestockApplicationStatus(statusRaw)
+      ?? mapLegacyStatus(statusRaw, subsidyStatus, paidStatus),
     ownerSummary: resolveOwnerSummaryFromRecord(record, formatLocationSummary(location)),
     lineCount: countInsuredLines(record),
     totals: {

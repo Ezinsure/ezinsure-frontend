@@ -16,7 +16,7 @@ export const livestockFinanceNavigation: NavGroup[] = [
       items: [
         { href: `${base}/dashboard`, label: 'Dashboard', icon: LayoutDashboard },
         { href: `${base}/applications`, label: 'Applications', icon: FileText },
-        { href: `${base}/commission-review`, label: 'Commission Review', icon: Wallet },
+        { href: `${base}/commission-review`, label: 'Admin Review', icon: Wallet },
         { href: `${base}/vet-analytics`, label: 'Vet Analytics', icon: Stethoscope },
       ],
     },

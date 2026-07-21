@@ -51,7 +51,7 @@ async function simulateReviewSonarwaSubsidy(
     return result;
   }
 
-  const result = { status: 'PENDING_COMMISSION_REVIEW', subsidyStatus: 'SONARWA_APPROVED' };
+  const result = { status: 'PENDING_ADMIN_REVIEW', subsidyStatus: 'SONARWA_APPROVED' };
   syncLivestockWorkflowCache(applicationId, {
     ...result,
     subsidyCase: {
@@ -175,7 +175,7 @@ function mapCommissionReviewRows(payload: unknown): LivestockApplicationListItem
 }
 
 /**
- * Applications in `PENDING_COMMISSION_REVIEW` awaiting finance/admin approval.
+ * Applications in `PENDING_ADMIN_REVIEW` awaiting finance/admin approval.
  * Backend: GET `/getVeterinaryApplicationsPendingAdminReview`.
  */
 export async function fetchLivestockApplicationsPendingAdminReview(
