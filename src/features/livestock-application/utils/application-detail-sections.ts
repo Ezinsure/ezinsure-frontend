@@ -183,6 +183,9 @@ function isWorkflowStepAllowedForRole(
   id: ApplicationDetailSectionId,
   viewRole: LivestockApplicationViewRole,
 ): boolean {
+  if (viewRole === 'sonarwa') {
+    return id === 'sonarwa';
+  }
   if (id === 'issue-insurance' || id === 'sonarwa') {
     return viewRole === 'admin' || viewRole === 'super_admin';
   }

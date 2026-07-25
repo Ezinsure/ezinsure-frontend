@@ -1,6 +1,11 @@
 import type { AppUser } from '@/shared/types/auth';
 import type { ProductLine } from '@/shared/types/product-line';
-import { isVeterinaryRole, normalizeRole } from '@/shared/utils/role';
+import {
+  SONARWA_REPRESENTATIVE_ROLE,
+  isSonarwaRepresentativeRole,
+  isVeterinaryRole,
+  normalizeRole,
+} from '@/shared/utils/role';
 
 export function getAllowedProductLinesForRole(role: string): ProductLine[] {
   const normalized = normalizeRole(role);
@@ -13,6 +18,7 @@ export function getAllowedProductLinesForRole(role: string): ProductLine[] {
     case 'ADMIN':
     case 'SUPER_ADMIN':
     case 'FINANCE':
+    case SONARWA_REPRESENTATIVE_ROLE:
       return ['motor', 'livestock'];
     default:
       return isVeterinaryRole(normalized) ? ['livestock'] : ['motor'];
@@ -20,7 +26,7 @@ export function getAllowedProductLinesForRole(role: string): ProductLine[] {
 }
 
 export function getDefaultProductLineForRole(role: string): ProductLine {
-  if (isVeterinaryRole(role)) {
+  if (isVeterinaryRole(role) || isSonarwaRepresentativeRole(role)) {
     return 'livestock';
   }
   return 'motor';

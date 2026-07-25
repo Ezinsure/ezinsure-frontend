@@ -1,5 +1,9 @@
 import type { ProductLine } from '@/shared/types/product-line';
-import { isVeterinaryRole, normalizeRole } from '@/shared/utils/role';
+import {
+  SONARWA_REPRESENTATIVE_ROLE,
+  isVeterinaryRole,
+  normalizeRole,
+} from '@/shared/utils/role';
 
 const ROLE_SEGMENTS: Record<string, string> = {
   ADMIN: 'admin',
@@ -7,6 +11,7 @@ const ROLE_SEGMENTS: Record<string, string> = {
   SUPER_ADMIN: 'super_admin',
   FINANCE: 'finance',
   VETERINARY: 'vet',
+  [SONARWA_REPRESENTATIVE_ROLE]: 'sonarwa',
 };
 
 export function getRolePathPrefix(role: string): string {
@@ -27,7 +32,12 @@ export function getDashboardPath(role: string, productLine: ProductLine = 'motor
     return `/${prefix}/motor/dashboard`;
   }
 
-  if (normalized === 'ADMIN' || normalized === 'SUPER_ADMIN' || normalized === 'FINANCE') {
+  if (
+    normalized === 'ADMIN' ||
+    normalized === 'SUPER_ADMIN' ||
+    normalized === 'FINANCE' ||
+    normalized === SONARWA_REPRESENTATIVE_ROLE
+  ) {
     return `/${prefix}/${productLine}/dashboard`;
   }
 
@@ -36,7 +46,7 @@ export function getDashboardPath(role: string, productLine: ProductLine = 'motor
 
 /** Parse product line from pathname, or null if legacy/unscoped */
 export function parseProductLineFromPath(pathname: string): ProductLine | null {
-  const match = pathname.match(/^\/(?:admin|super_admin|finance)\/(motor|livestock)(?:\/|$)/);
+  const match = pathname.match(/^\/(?:admin|super_admin|finance|sonarwa)\/(motor|livestock)(?:\/|$)/);
   if (match?.[1] === 'motor' || match?.[1] === 'livestock') {
     return match[1];
   }
@@ -69,5 +79,5 @@ export function resolveProductLineFromPath(
 }
 
 export function isAuthenticatedAppPath(pathname: string): boolean {
-  return /^\/(admin|agent|super_admin|finance|vet)(\/|$)/.test(pathname);
+  return /^\/(admin|agent|super_admin|finance|vet|sonarwa)(\/|$)/.test(pathname);
 }

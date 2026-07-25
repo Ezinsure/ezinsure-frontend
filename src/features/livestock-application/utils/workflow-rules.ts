@@ -1,4 +1,5 @@
 import type {
+  LivestockApplicationListItem,
   LivestockApplicationPackage,
   LivestockApplicationViewRole,
 } from '@/features/livestock-application/domain/application-types';
@@ -7,6 +8,11 @@ import { resolveSubsidyEligibility } from '@/features/livestock-application/util
 
 const ADMIN_ROLES = new Set<LivestockApplicationViewRole>(['admin', 'super_admin']);
 const FINANCE_ROLES = new Set<LivestockApplicationViewRole>(['admin', 'super_admin', 'finance']);
+const SONARWA_REVIEW_ROLES = new Set<LivestockApplicationViewRole>([
+  'admin',
+  'super_admin',
+  'sonarwa',
+]);
 
 function isAdminRole(role: LivestockApplicationViewRole): boolean {
   return ADMIN_ROLES.has(role);
@@ -96,11 +102,23 @@ export function canVetUploadSignedSubsidy(
   );
 }
 
-export function canAdminReviewSonarwaSubsidy(
-  application: LivestockApplicationPackage,
-  role: LivestockApplicationViewRole,
-): boolean {
-  if (!isAdminRole(role)) return false;
+const PAST_SONARWA_STATUSES = new Set([
+  'SUBSIDY_SONARWA_APPROVED',
+  'PENDING_ADMIN_REVIEW',
+  'COMMISSION_APPROVED',
+  'READY_TO_BE_PAID',
+  'PAID',
+]);
+
+export function isAwaitingSonarwaReview(application: LivestockApplicationPackage): boolean {
+  if (
+    application.subsidyCase.status === 'SONARWA_APPROVED' ||
+    application.subsidyCase.status === 'REJECTED' ||
+    PAST_SONARWA_STATUSES.has(application.status) ||
+    Boolean(application.sonarwaReview?.decision)
+  ) {
+    return false;
+  }
 
   const subsidy = resolveSubsidyEligibility(application);
 
@@ -116,6 +134,40 @@ export function canAdminReviewSonarwaSubsidy(
     Boolean(application.subsidyCase.uploadedSignedDocumentUrl)
   );
 }
+
+/** Application has reached SONARWA review or progressed beyond it. */
+export function isAtOrPastSonarwaReview(application: LivestockApplicationPackage): boolean {
+  if (isAwaitingSonarwaReview(application)) return true;
+  if (PAST_SONARWA_STATUSES.has(application.status)) return true;
+  if (application.subsidyCase.status === 'SONARWA_APPROVED') return true;
+  if (application.sonarwaReview?.decision) return true;
+  return false;
+}
+
+export function isListItemAwaitingSonarwaReview(
+  application: LivestockApplicationListItem,
+): boolean {
+  if (!application.subsidyRequired) {
+    return application.status === 'INSURANCE_ISSUED';
+  }
+
+  return (
+    application.status === 'SUBSIDY_SECTOR_SIGNED' ||
+    application.status === 'SUBSIDY_VET_SIGNED' ||
+    application.subsidyStatus === 'SECTOR_SIGNED' ||
+    application.subsidyStatus === 'VET_SIGNED'
+  );
+}
+
+export function canReviewSonarwaSubsidy(
+  application: LivestockApplicationPackage,
+  role: LivestockApplicationViewRole,
+): boolean {
+  return SONARWA_REVIEW_ROLES.has(role) && isAwaitingSonarwaReview(application);
+}
+
+/** @deprecated Use canReviewSonarwaSubsidy. */
+export const canAdminReviewSonarwaSubsidy = canReviewSonarwaSubsidy;
 
 export function canManageCommissionWorkflow(
   application: LivestockApplicationPackage,

@@ -40,10 +40,10 @@ export const Button = ({
     'rounded-lg font-medium transition-all duration-200 flex items-center justify-center cursor-pointer';
   
   const variantClasses = {
-    primary: 'bg-[var(--main-blue)] hover:bg-[var(--secondary-blue)] text-white shadow-sm',
+    primary: 'bg-[var(--portal-primary)] hover:bg-[var(--portal-primary-hover)] text-white shadow-sm',
     secondary: 'bg-[var(--accent-orange)] hover:bg-[var(--light-orange)] text-white shadow-sm',
-    outline: 'border-2 border-[var(--main-blue)] text-[var(--main-blue)] hover:bg-[#E6F0F8]',
-    text: 'text-[var(--main-blue)] hover:bg-[#E6F0F8]',
+    outline: 'border-2 border-[var(--portal-primary)] text-[var(--portal-primary)] hover:bg-[var(--portal-primary-soft)]',
+    text: 'text-[var(--portal-primary)] hover:bg-[var(--portal-primary-soft)]',
     danger: 'bg-[var(--error-red)] hover:bg-[#C62828] text-white shadow-sm'
   };
   

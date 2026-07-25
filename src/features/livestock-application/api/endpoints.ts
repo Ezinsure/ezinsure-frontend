@@ -85,7 +85,7 @@ export const LIVESTOCK_ADMIN_ENDPOINTS = {
   verifyPaymentProof: (applicationId: string): string =>
     `/veterinary/verifyPayment/${encodeURIComponent(applicationId)}`,
 
-  /** PUT — approve or reject signed nkunganire on behalf of SONARWA. */
+  /** PUT multipart — SONARWA approve / approve-with-changes / reject. */
   reviewSonarwaSubsidy: (applicationId: string): string =>
     `/reviewLivestockSubsidySonarwa/${encodeURIComponent(applicationId)}`,
 
@@ -99,6 +99,37 @@ export const LIVESTOCK_ADMIN_ENDPOINTS = {
 
   /** GET — applications awaiting admin review (admin / finance / super admin). */
   applicationsPendingAdminReview: (): string => '/getVeterinaryApplicationsPendingAdminReview',
+} as const;
+
+export type SonarwaReviewScope = 'pending' | 'all';
+
+export interface PaginatedSonarwaListParams extends PaginatedAdminListParams {
+  /** `pending` = awaiting SONARWA decision; `all` = at or past SONARWA review stage. */
+  reviewScope?: SonarwaReviewScope;
+}
+
+/** SONARWA representative livestock queue (server-paginated). */
+export const LIVESTOCK_SONARWA_ENDPOINTS = {
+  /**
+   * GET — livestock applications at or past the SONARWA review stage.
+   * Query: startDate, endDate, pageNumber, pageSize, reviewScope=pending|all
+   */
+  listApplications: ({
+    startDate,
+    endDate,
+    pageSize,
+    pageNumber,
+    reviewScope = 'pending',
+  }: PaginatedSonarwaListParams): string => {
+    const search = new URLSearchParams({
+      startDate,
+      endDate,
+      pageSize: String(pageSize),
+      pageNumber: String(pageNumber),
+      reviewScope,
+    });
+    return `/getSonarwaLivestockApplications?${search.toString()}`;
+  },
 } as const;
 
 /** Nkunganire / sector subsidy workflow (vet-facing). */

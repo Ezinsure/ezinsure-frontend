@@ -13,13 +13,26 @@ function simulateDelay(): Promise<void> {
 }
 
 export interface ReviewSonarwaSubsidyPayload {
-  action: 'approve' | 'reject';
+  /** Clean approval — flow continues to admin review. */
+  action: 'approve' | 'approve_with_changes' | 'reject';
   rejectionReason?: string;
+  /** Required for approve_with_changes — corrected evidence (excl. fraud). */
+  correctionDocument?: File;
+  /** Required for approve_with_changes — vet commission that should be paid. */
+  updatedVeterinaryCommission?: number;
+  /** Required for approve_with_changes — why the commission/doc changed. */
+  changeComment?: string;
 }
 
 export interface ReviewSonarwaSubsidyResult {
   status: string;
   subsidyStatus?: string;
+  sonarwaReview?: {
+    decision?: string;
+    correctionDocumentUrl?: string;
+    updatedVeterinaryCommission?: number;
+    changeComment?: string;
+  };
 }
 
 function parseReviewSonarwaResponse(payload: unknown): ReviewSonarwaSubsidyResult {
@@ -27,9 +40,29 @@ function parseReviewSonarwaResponse(payload: unknown): ReviewSonarwaSubsidyResul
   const row =
     data && typeof data === 'object' ? (data as Record<string, unknown>) : (payload as Record<string, unknown>);
 
+  const nestedReview =
+    row.sonarwaReview && typeof row.sonarwaReview === 'object'
+      ? (row.sonarwaReview as Record<string, unknown>)
+      : undefined;
+
   return {
     status: String(row.status ?? ''),
     subsidyStatus: row.subsidyStatus ? String(row.subsidyStatus) : undefined,
+    sonarwaReview: nestedReview
+      ? {
+          decision: nestedReview.decision ? String(nestedReview.decision) : undefined,
+          correctionDocumentUrl: nestedReview.correctionDocumentUrl
+            ? String(nestedReview.correctionDocumentUrl)
+            : undefined,
+          updatedVeterinaryCommission:
+            nestedReview.updatedVeterinaryCommission != null
+              ? Number(nestedReview.updatedVeterinaryCommission)
+              : undefined,
+          changeComment: nestedReview.changeComment
+            ? String(nestedReview.changeComment)
+            : undefined,
+        }
+      : undefined,
   };
 }
 
@@ -51,6 +84,8 @@ async function simulateReviewSonarwaSubsidy(
     return result;
   }
 
+  const decision =
+    payload.action === 'approve_with_changes' ? 'APPROVED_WITH_CHANGES' : 'APPROVED';
   const result = { status: 'PENDING_ADMIN_REVIEW', subsidyStatus: 'SONARWA_APPROVED' };
   syncLivestockWorkflowCache(applicationId, {
     ...result,
@@ -58,13 +93,29 @@ async function simulateReviewSonarwaSubsidy(
       status: 'SONARWA_APPROVED',
       sonarwaApprovedAt: new Date().toISOString(),
     },
+    sonarwaReview: {
+      decision,
+      reviewedAt: new Date().toISOString(),
+      changeComment: payload.changeComment?.trim(),
+      correctionDocumentUrl:
+        payload.correctionDocument != null
+          ? URL.createObjectURL(payload.correctionDocument)
+          : undefined,
+      updatedVeterinaryCommission: payload.updatedVeterinaryCommission,
+      originalVeterinaryCommission: undefined,
+    },
   });
   return result;
 }
 
 /**
  * SONARWA representative reviews signed nkunganire (or Tekana-skip path).
- * Backend: PUT `/reviewLivestockSubsidySonarwa/{id}`.
+ * Backend: PUT multipart `/reviewLivestockSubsidySonarwa/{id}`.
+ *
+ * Actions:
+ * - `approve` — clean approval
+ * - `approve_with_changes` — corrected document + updated vet commission + comment
+ * - `reject` — send back for correction (legacy / admin path)
  */
 export async function reviewSonarwaSubsidy(
   apiFetch: ApiFetch,
@@ -75,18 +126,31 @@ export async function reviewSonarwaSubsidy(
     return simulateReviewSonarwaSubsidy(applicationId, payload);
   }
 
+  const body = new FormData();
+  body.append('action', payload.action);
+
+  if (payload.action === 'reject' && payload.rejectionReason?.trim()) {
+    body.append('rejectionReason', payload.rejectionReason.trim());
+  }
+
+  if (payload.action === 'approve_with_changes') {
+    if (payload.correctionDocument) {
+      body.append('correctionDocument', payload.correctionDocument);
+    }
+    if (payload.updatedVeterinaryCommission != null) {
+      body.append('updatedVeterinaryCommission', String(payload.updatedVeterinaryCommission));
+    }
+    if (payload.changeComment?.trim()) {
+      body.append('changeComment', payload.changeComment.trim());
+    }
+  }
+
   const response = await requestJson<unknown>(
     apiFetch,
     LIVESTOCK_ADMIN_ENDPOINTS.reviewSonarwaSubsidy(applicationId),
     {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        action: payload.action,
-        ...(payload.action === 'reject' && payload.rejectionReason
-          ? { rejectionReason: payload.rejectionReason.trim() }
-          : {}),
-      }),
+      body,
     },
     'sonarwa-review',
   );
@@ -104,12 +168,23 @@ export async function reviewSonarwaSubsidy(
     return result;
   }
 
+  const decision =
+    payload.action === 'approve_with_changes' ? 'APPROVED_WITH_CHANGES' : 'APPROVED';
+
   syncLivestockWorkflowCache(applicationId, {
     status: result.status,
     subsidyStatus: result.subsidyStatus,
     subsidyCase: {
       status: 'SONARWA_APPROVED',
       sonarwaApprovedAt: new Date().toISOString(),
+    },
+    sonarwaReview: {
+      decision,
+      reviewedAt: new Date().toISOString(),
+      changeComment: payload.changeComment?.trim() ?? result.sonarwaReview?.changeComment,
+      correctionDocumentUrl: result.sonarwaReview?.correctionDocumentUrl,
+      updatedVeterinaryCommission:
+        payload.updatedVeterinaryCommission ?? result.sonarwaReview?.updatedVeterinaryCommission,
     },
   });
 

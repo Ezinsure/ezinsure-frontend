@@ -25,6 +25,7 @@ import {
   subsidyRequiredFromStatus,
 } from '@/features/livestock-application/api/mappers/status.mapper';
 import { buildSubsidyCaseFromRecord } from '@/features/livestock-application/api/mappers/subsidy-case.mapper';
+import { mapSonarwaReviewFromRecord } from '@/features/livestock-application/api/mappers/sonarwa-review.mapper';
 import { readPackageTotals } from '@/features/livestock-application/api/mappers/totals.mapper';
 
 /** GET /getVeterinaryApplications & /getAllApplications row (animals[], no nested lines[]). */
@@ -117,6 +118,7 @@ export function mapFlatApplicationToPackage(
     totals,
     paymentProof: mapPaymentProofFromRecord(record, totals.farmerContributionAmount),
     subsidyCase: buildSubsidyCaseFromRecord(record),
+    sonarwaReview: mapSonarwaReviewFromRecord(record),
     lines,
     issuedDocuments: record.issuedDocuments as LivestockApplicationPackage['issuedDocuments'],
     ...mapApplicationExtensionFields(record),

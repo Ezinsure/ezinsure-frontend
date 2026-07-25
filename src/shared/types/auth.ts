@@ -6,6 +6,7 @@ export const USER_ROLES = [
   'SUPER_ADMIN',
   'FINANCE',
   'VETERINARY',
+  'SONARWA_REPRESENTATIVE',
 ] as const;
 
 export type UserRole = (typeof USER_ROLES)[number];

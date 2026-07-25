@@ -15,6 +15,7 @@ export interface LivestockWorkflowPatch {
   subsidyCase?: Partial<LivestockApplicationPackage['subsidyCase']>;
   subsidyStatus?: string;
   subsidyRequired?: boolean;
+  sonarwaReview?: Partial<NonNullable<LivestockApplicationPackage['sonarwaReview']>>;
 }
 
 function readPatches(): Record<string, LivestockWorkflowPatch> {
@@ -50,6 +51,7 @@ export function patchLivestockWorkflowState(
     issuedDocuments: { ...prev.issuedDocuments, ...patch.issuedDocuments },
     paymentProof: { ...prev.paymentProof, ...patch.paymentProof },
     subsidyCase: { ...prev.subsidyCase, ...patch.subsidyCase },
+    sonarwaReview: { ...prev.sonarwaReview, ...patch.sonarwaReview },
   };
   writePatches(all);
 
@@ -87,6 +89,29 @@ export function applyWorkflowPatch(
       ...patch.subsidyCase,
       required: patch.subsidyCase?.required ?? patch.subsidyRequired ?? pkg.subsidyCase.required,
     },
+    sonarwaReview: patch.sonarwaReview
+      ? {
+          decision: (patch.sonarwaReview.decision ??
+            pkg.sonarwaReview?.decision ??
+            'APPROVED') as NonNullable<LivestockApplicationPackage['sonarwaReview']>['decision'],
+          reviewedAt:
+            patch.sonarwaReview.reviewedAt ??
+            pkg.sonarwaReview?.reviewedAt ??
+            new Date().toISOString(),
+          reviewedByUserId:
+            patch.sonarwaReview.reviewedByUserId ?? pkg.sonarwaReview?.reviewedByUserId,
+          reviewedByName: patch.sonarwaReview.reviewedByName ?? pkg.sonarwaReview?.reviewedByName,
+          changeComment: patch.sonarwaReview.changeComment ?? pkg.sonarwaReview?.changeComment,
+          correctionDocumentUrl:
+            patch.sonarwaReview.correctionDocumentUrl ?? pkg.sonarwaReview?.correctionDocumentUrl,
+          originalVeterinaryCommission:
+            patch.sonarwaReview.originalVeterinaryCommission ??
+            pkg.sonarwaReview?.originalVeterinaryCommission,
+          updatedVeterinaryCommission:
+            patch.sonarwaReview.updatedVeterinaryCommission ??
+            pkg.sonarwaReview?.updatedVeterinaryCommission,
+        }
+      : pkg.sonarwaReview,
   };
 }
 

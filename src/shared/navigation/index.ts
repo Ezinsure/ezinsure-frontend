@@ -7,6 +7,9 @@ import { motorFinanceNavigation } from '@/shared/navigation/motor/finance.nav';
 import { getLivestockAdminNavigation } from '@/shared/navigation/livestock/admin.nav';
 import { livestockFinanceNavigation } from '@/shared/navigation/livestock/finance.nav';
 import { livestockVetNavigation } from '@/shared/navigation/livestock/vet.nav';
+import { livestockSonarwaNavigation } from '@/shared/navigation/livestock/sonarwa.nav';
+import { motorSonarwaNavigation } from '@/shared/navigation/motor/sonarwa.nav';
+import { SONARWA_REPRESENTATIVE_ROLE } from '@/shared/utils/role';
 
 export function getNavigation(role: string, productLine: ProductLine): NavGroup[] {
   if (productLine === 'livestock') {
@@ -19,6 +22,8 @@ export function getNavigation(role: string, productLine: ProductLine): NavGroup[
         return livestockVetNavigation;
       case 'FINANCE':
         return livestockFinanceNavigation;
+      case SONARWA_REPRESENTATIVE_ROLE:
+        return livestockSonarwaNavigation;
       default:
         return [];
     }
@@ -33,6 +38,8 @@ export function getNavigation(role: string, productLine: ProductLine): NavGroup[
       return motorSuperAdminNavigation;
     case 'FINANCE':
       return motorFinanceNavigation;
+    case SONARWA_REPRESENTATIVE_ROLE:
+      return motorSonarwaNavigation;
     default:
       return [];
   }

@@ -16,6 +16,7 @@ export function syncLivestockWorkflowCache(
     issuedDocuments?: LivestockIssuedDocuments;
     uploadedSignedDocumentUrl?: string;
     subsidyCase?: Partial<LivestockApplicationPackage['subsidyCase']>;
+    sonarwaReview?: Partial<NonNullable<LivestockApplicationPackage['sonarwaReview']>>;
   },
 ): void {
   const status = response.status;
@@ -23,6 +24,7 @@ export function syncLivestockWorkflowCache(
   const issuedDocuments = response.issuedDocuments;
   const uploadedSignedDocumentUrl = response.uploadedSignedDocumentUrl;
   const nestedSubsidyCase = response.subsidyCase;
+  const sonarwaReview = response.sonarwaReview;
 
   patchLivestockWorkflowState(applicationId, {
     ...(status ? { status: status as LivestockApplicationStatus } : {}),
@@ -38,6 +40,7 @@ export function syncLivestockWorkflowCache(
           },
         }
       : {}),
+    ...(sonarwaReview ? { sonarwaReview } : {}),
   });
 
   const listPatch: Record<string, unknown> = {};

@@ -9,7 +9,7 @@ import type {
   LivestockApplicationViewRole,
 } from '@/features/livestock-application/domain/application-types';
 import { resolveSubsidyEligibility } from '@/features/livestock-application/utils/subsidy-eligibility';
-import { canAdminReviewSonarwaSubsidy } from '@/features/livestock-application/utils/workflow-rules';
+import { canReviewSonarwaSubsidy } from '@/features/livestock-application/utils/workflow-rules';
 import { formatWorkflowActionError } from '@/features/livestock-application/utils/workflow-action-feedback';
 import {
   resolveWorkflowActionVisible,
@@ -47,8 +47,8 @@ export function SonarwaReviewSection({
     application.status === 'READY_TO_BE_PAID' ||
     application.status === 'PAID';
   const canReview = resolveWorkflowActionVisible(
-    viewRole === 'admin' || viewRole === 'super_admin',
-    canAdminReviewSonarwaSubsidy(application, viewRole) && !isApproved,
+    viewRole === 'admin' || viewRole === 'super_admin' || viewRole === 'sonarwa',
+    canReviewSonarwaSubsidy(application, viewRole) && !isApproved,
   );
   const isRejected = application.subsidyCase.status === 'REJECTED';
 
@@ -82,11 +82,13 @@ export function SonarwaReviewSection({
   const handleReview = async (payload: Parameters<typeof review>[1]) => {
     try {
       await review(application._id, payload);
-      toast.showSuccess(
-        payload.action === 'approve'
-          ? 'SONARWA approved. Application moved to pending admin review.'
-          : 'SONARWA rejected the nkunganire document. The veterinarian must re-upload a corrected scan.',
-      );
+      const message =
+        payload.action === 'approve_with_changes'
+          ? 'SONARWA approved with changes. Application moved to pending admin review.'
+          : payload.action === 'reject'
+            ? 'SONARWA rejected the nkunganire document. The veterinarian must re-upload a corrected scan.'
+            : 'SONARWA approved. Application moved to pending admin review.';
+      toast.showSuccess(message);
       onUpdated?.();
     } catch (err) {
       toast.showError(
@@ -114,6 +116,8 @@ export function SonarwaReviewSection({
               admin review.
               {(viewRole === 'admin' || viewRole === 'super_admin') &&
                 ' Until the SONARWA portal is available, administrators act on behalf of SONARWA here.'}
+              {viewRole === 'sonarwa' &&
+                ' Approve as submitted, or approve with changes when a corrected document and updated veterinary commission are required.'}
             </p>
           </div>
         </div>
@@ -141,7 +145,7 @@ export function SonarwaReviewSection({
             }
           >
             <WorkflowStepActions>
-              {canReview && (viewRole === 'admin' || viewRole === 'super_admin') && (
+              {canReview && (
                 <WorkflowPrimaryAction
                   loading={isReviewing}
                   icon={<CheckCircle2 className="mr-2 h-4 w-4" />}
@@ -180,6 +184,7 @@ export function SonarwaReviewSection({
         ownerSummary={application.ownerSummary}
         signedDocumentUrl={application.subsidyCase.uploadedSignedDocumentUrl}
         skipSectorReason={!eligibility.required ? eligibility.reason : undefined}
+        currentVeterinaryCommission={application.totals.veterinaryCommission}
         onSubmit={handleReview}
         onViewDocument={onViewDocument}
       />

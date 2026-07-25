@@ -17,6 +17,7 @@ function resolveBackHref(role: LivestockApplicationViewRole): string {
   if (role === 'admin') return '/admin/livestock/applications';
   if (role === 'finance') return '/finance/livestock/applications';
   if (role === 'super_admin') return '/super_admin/livestock/applications';
+  if (role === 'sonarwa') return '/sonarwa/livestock/applications';
   return '/vet/livestock/applications';
 }
 
