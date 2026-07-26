@@ -156,6 +156,26 @@ export function PaymentProofSection({
           </div>
         </dl>
 
+        {paymentProof.notes?.trim() && (
+          <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50/80 px-4 py-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Notes</p>
+            <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-slate-800">
+              {paymentProof.notes.trim()}
+            </p>
+          </div>
+        )}
+
+        {application.reasonForPaymentRejection?.trim() && (
+          <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-red-700">
+              Rejection reason
+            </p>
+            <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-red-900">
+              {application.reasonForPaymentRejection.trim()}
+            </p>
+          </div>
+        )}
+
         <WorkflowStepActions className="mt-6">
           {canUpload && (
             <WorkflowPrimaryAction
@@ -208,6 +228,7 @@ export function PaymentProofSection({
           ownerSummary={application.ownerSummary}
           expectedAmount={paymentProof.expectedAmount}
           transactionId={paymentProof.transactionId}
+          notes={paymentProof.notes}
           proofUrl={paymentProof.documentUrl}
           submittedAt={paymentProof.submittedAt ?? application.updatedAt}
           onSubmit={handleReviewSubmit}

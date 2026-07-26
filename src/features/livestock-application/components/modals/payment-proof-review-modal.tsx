@@ -18,6 +18,7 @@ interface PaymentProofReviewModalProps {
   ownerSummary: string;
   expectedAmount: number;
   transactionId?: string;
+  notes?: string;
   proofUrl?: string;
   submittedAt?: string;
   onSubmit: (payload: PaymentProofReviewPayload) => Promise<void>;
@@ -31,6 +32,7 @@ export function PaymentProofReviewModal({
   ownerSummary,
   expectedAmount,
   transactionId,
+  notes,
   proofUrl,
   submittedAt,
   onSubmit,
@@ -153,6 +155,17 @@ export function PaymentProofReviewModal({
                 </div>
               )}
             </dl>
+
+            {notes?.trim() && (
+              <div className="mt-4 rounded-lg border border-slate-200 bg-white px-3 py-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Notes
+                </p>
+                <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-slate-800">
+                  {notes.trim()}
+                </p>
+              </div>
+            )}
 
             {proofUrl && onViewDocument && (
               <Button

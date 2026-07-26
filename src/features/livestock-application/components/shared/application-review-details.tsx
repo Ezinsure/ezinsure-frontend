@@ -7,10 +7,12 @@ import {
   FileText,
   Landmark,
   MapPin,
+  Receipt,
   Stethoscope,
   UserRound,
   Wallet,
 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import type {
   LivestockApplicationPackage,
   LivestockApplicationViewRole,
@@ -297,6 +299,75 @@ export function ApplicationReviewDetails({
           />
         </FieldGrid>
       </SectionCard>
+
+      {/* 8b · Payment proof (visible to all roles) */}
+      {(() => {
+        const { paymentProof } = application;
+        const hasPaymentInfo =
+          paymentProof.status !== 'NOT_REQUIRED' &&
+          (Boolean(paymentProof.documentUrl) ||
+            Boolean(paymentProof.transactionId) ||
+            Boolean(paymentProof.notes?.trim()) ||
+            Boolean(application.reasonForPaymentRejection?.trim()) ||
+            paymentProof.status !== 'PENDING');
+
+        if (!hasPaymentInfo) return null;
+
+        return (
+          <SectionCard
+            icon={<Receipt className="h-6 w-6 text-emerald-700" />}
+            title="Payment proof"
+            description="Farmer payment receipt, transaction reference, and notes."
+          >
+            <FieldGrid>
+              <Field
+                label="Expected amount"
+                value={formatRwfDisplay(paymentProof.expectedAmount)}
+              />
+              <Field
+                label="Status"
+                value={paymentProof.status.replace(/_/g, ' ').toLowerCase()}
+              />
+              <Field label="Transaction ID" value={paymentProof.transactionId} />
+            </FieldGrid>
+
+            {paymentProof.notes?.trim() && (
+              <div className="mt-3 rounded-xl border border-slate-100 bg-slate-50/80 px-4 py-3">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                  Notes
+                </p>
+                <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-slate-800">
+                  {paymentProof.notes.trim()}
+                </p>
+              </div>
+            )}
+
+            {application.reasonForPaymentRejection?.trim() && (
+              <div className="mt-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-red-700">
+                  Rejection reason
+                </p>
+                <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-red-900">
+                  {application.reasonForPaymentRejection.trim()}
+                </p>
+              </div>
+            )}
+
+            {paymentProof.documentUrl && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="mt-4"
+                onClick={() => onViewDocument('Payment proof', paymentProof.documentUrl!)}
+              >
+                <Receipt className="mr-2 h-4 w-4" />
+                View payment proof
+              </Button>
+            )}
+          </SectionCard>
+        );
+      })()}
 
       {/* 9 · Documents */}
       <SectionCard

@@ -68,6 +68,7 @@ function applyPaymentProofUploadCache(
       expectedAmount: result.expectedAmount || payload.amount,
       documentUrl,
       transactionId,
+      notes: payload.notes?.trim() || undefined,
       submittedAt,
     },
   });

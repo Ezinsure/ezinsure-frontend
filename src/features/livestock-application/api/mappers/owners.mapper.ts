@@ -130,11 +130,18 @@ export function resolvePaymentProofDocumentUrl(
 ): string | undefined {
   const proofs = Array.isArray(record.paymentProofs) ? record.paymentProofs : [];
   const latest = proofs.length > 0 ? (proofs[proofs.length - 1] as Record<string, unknown>) : null;
+  const nestedProof =
+    record.paymentProof && typeof record.paymentProof === 'object'
+      ? (record.paymentProof as Record<string, unknown>)
+      : null;
 
   return pickNonemptyString(
+    nestedProof?.documentUrl,
+    nestedProof?.fileUrl,
     record.proofOfPayment,
     record.proofOfPaymentUrl,
     latest?.documentUrl,
+    latest?.fileUrl,
     latest?.proofOfPayment,
     latest?.url,
   );
@@ -146,12 +153,20 @@ export function mapPaymentProofFromRecord(
 ): LivestockApplicationPackage['paymentProof'] {
   const proofs = Array.isArray(record.paymentProofs) ? record.paymentProofs : [];
   const latest = proofs.length > 0 ? (proofs[proofs.length - 1] as Record<string, unknown>) : null;
+  const nestedProof =
+    record.paymentProof && typeof record.paymentProof === 'object'
+      ? (record.paymentProof as Record<string, unknown>)
+      : null;
   const documentUrl = resolvePaymentProofDocumentUrl(record);
   const appStatus = String(record.status ?? '').toUpperCase();
 
   let statusSource: string | undefined;
-  if (latest?.status) {
+  if (latest?.verificationStatus) {
+    statusSource = String(latest.verificationStatus);
+  } else if (latest?.status) {
     statusSource = String(latest.status);
+  } else if (nestedProof?.status) {
+    statusSource = String(nestedProof.status);
   } else if (documentUrl || appStatus === 'PAYMENT_PROOF_SUBMITTED') {
     const paid = String(record.paidStatus ?? '').toUpperCase();
     statusSource =
@@ -160,16 +175,26 @@ export function mapPaymentProofFromRecord(
     statusSource = pickNonemptyString(record.paidStatus, record.paymentProofStatus);
   }
 
+  const notes = pickNonemptyString(latest?.notes, nestedProof?.notes, record.paymentProofNotes);
+  const submittedAt = pickNonemptyString(
+    latest?.uploadedAt,
+    latest?.submittedAt,
+    nestedProof?.submittedAt,
+  );
+  const verifiedAt = pickNonemptyString(latest?.verifiedAt, nestedProof?.verifiedAt);
+
   return {
     status: mapPaidStatus(String(statusSource ?? '')),
-    expectedAmount,
+    expectedAmount: Number(nestedProof?.expectedAmount ?? expectedAmount) || expectedAmount,
     documentUrl,
     transactionId: pickNonemptyString(
       latest?.transactionId,
+      nestedProof?.transactionId,
       record.transactionId,
       record.paymentTransactionId,
     ),
-    submittedAt: latest?.submittedAt ? String(latest.submittedAt) : undefined,
-    verifiedAt: latest?.verifiedAt ? String(latest.verifiedAt) : undefined,
+    ...(notes ? { notes } : {}),
+    submittedAt,
+    verifiedAt,
   };
 }

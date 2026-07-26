@@ -207,9 +207,12 @@ export interface LivestockApplicationPackage {
     expectedAmount: number;
     documentUrl?: string;
     transactionId?: string;
+    notes?: string;
     submittedAt?: string;
     verifiedAt?: string;
   };
+  /** Present when admin rejects a submitted payment proof. */
+  reasonForPaymentRejection?: string;
   subsidyCase: {
     required: boolean;
     status: SubsidyCaseStatus;

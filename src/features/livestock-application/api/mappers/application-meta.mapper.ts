@@ -85,5 +85,6 @@ export function mapApplicationExtensionFields(
       verification?.veterinarianSignatureName ?? record.veterinarianSignatureName,
     ),
     applicantAddress: buildApplicantAddress(record, owner),
+    reasonForPaymentRejection: str(record.reasonForPaymentRejection),
   };
 }

@@ -126,8 +126,8 @@ function mapGenericPackageObject(o: Record<string, unknown>): LivestockApplicati
   const totals = readPackageTotals(o);
 
   const submittedAt = String(o.submittedAt ?? new Date().toISOString());
-  const paymentProof = o.paymentProof as LivestockApplicationPackage['paymentProof'] | undefined;
   const subsidyCase = o.subsidyCase as LivestockApplicationPackage['subsidyCase'] | undefined;
+  const mappedPaymentProof = mapPaymentProofFromRecord(o, totals.farmerContributionAmount);
 
   return {
     _id: String(o._id),
@@ -142,7 +142,7 @@ function mapGenericPackageObject(o: Record<string, unknown>): LivestockApplicati
       ?? mapLegacyStatus(
           String(o.status ?? ''),
           String(o.subsidyStatus ?? subsidyCase?.status ?? ''),
-          String(o.paidStatus ?? paymentProof?.status ?? ''),
+          String(o.paidStatus ?? mappedPaymentProof.status ?? ''),
         ),
     submittedAt,
     updatedAt: String(o.updatedAt ?? submittedAt),
@@ -155,7 +155,7 @@ function mapGenericPackageObject(o: Record<string, unknown>): LivestockApplicati
     policyStartDate: String(o.policyStartDate ?? '').slice(0, 10),
     policyEndDate: String(o.policyEndDate ?? '').slice(0, 10),
     totals,
-    paymentProof: paymentProof ?? mapPaymentProofFromRecord(o, totals.farmerContributionAmount),
+    paymentProof: mappedPaymentProof,
     subsidyCase: buildSubsidyCaseFromRecord(o, subsidyCase),
     sonarwaReview: mapSonarwaReviewFromRecord(o),
     lines: lines.length > 0 ? lines : [],
