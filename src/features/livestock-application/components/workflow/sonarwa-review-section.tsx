@@ -54,8 +54,8 @@ export function SonarwaReviewSection({
   const isRejected =
     application.subsidyCase.status === 'REJECTED' ||
     application.sonarwaReview?.decision === 'REJECTED';
-  const review = application.sonarwaReview;
-  const approvedWithChanges = review?.decision === 'APPROVED_WITH_CHANGES';
+  const sonarwaReviewRecord = application.sonarwaReview;
+  const approvedWithChanges = sonarwaReviewRecord?.decision === 'APPROVED_WITH_CHANGES';
 
   const insuranceIssued =
     showAllLivestockWorkflowActions() ||
@@ -175,10 +175,10 @@ export function SonarwaReviewSection({
               )}
             </WorkflowStepActions>
 
-            {review && (
+            {sonarwaReviewRecord && (
               <div className="mt-4 border-t border-teal-100 pt-4">
                 <SonarwaReviewSummary
-                  review={review}
+                  review={sonarwaReviewRecord}
                   viewRole={viewRole}
                   onViewDocument={onViewDocument}
                   compact
@@ -186,7 +186,7 @@ export function SonarwaReviewSection({
               </div>
             )}
 
-            {!review && isRejected && application.subsidyCase.sonarwaRejectionReason && (
+            {!sonarwaReviewRecord && isRejected && application.subsidyCase.sonarwaRejectionReason && (
               <p className="mt-3 rounded-lg border border-red-100 bg-red-50 px-3 py-2 text-sm text-red-800">
                 {application.subsidyCase.sonarwaRejectionReason}
               </p>

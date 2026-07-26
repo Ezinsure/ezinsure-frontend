@@ -1,19 +1,19 @@
 'use client';
 
-import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import {
   ArrowDown,
   ArrowUp,
   ArrowUpDown,
   CheckCircle2,
-  ExternalLink,
+  Eye,
   Loader2,
   Search,
   Wallet,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/toast';
+import { LivestockApplicationDetailPanel } from '@/features/livestock-application/components/livestock-application-detail-panel';
 import { LivestockApplicationStatusBadge } from '@/features/livestock-application/components/shared/application-status-badge';
 import { LivestockApplicationsPagination } from '@/features/livestock-application/components/shared/livestock-applications-pagination';
 import type { LivestockApplicationListItem } from '@/features/livestock-application/domain/application-types';
@@ -22,6 +22,7 @@ import {
   ownerModeLabel,
   speciesGroupLabel,
 } from '@/features/livestock-application/domain/form-profiles';
+import { useLivestockApplicationDetail } from '@/features/livestock-application/hooks/use-livestock-applications';
 import { useLivestockCommissionReview } from '@/features/livestock-application/hooks/use-livestock-commission-review';
 import { formatLocationSummary } from '@/features/livestock-application/utils/application-location';
 import { formatSubmittedDateTime } from '@/features/livestock-application/utils/application-location';
@@ -36,12 +37,6 @@ type SortField =
   | 'veterinaryCommission';
 
 type SortDirection = 'asc' | 'desc';
-
-function detailHref(role: LivestockApplicationViewRole, applicationId: string): string {
-  if (role === 'finance') return `/finance/livestock/applications/${applicationId}`;
-  if (role === 'super_admin') return `/super_admin/livestock/applications/${applicationId}`;
-  return `/admin/livestock/applications/${applicationId}`;
-}
 
 function pageCopy(role: LivestockApplicationViewRole) {
   if (role === 'finance') {
@@ -95,6 +90,14 @@ export default function LivestockCommissionReviewPage({
   const [itemsPerPage, setItemsPerPage] = useState<number>(25);
   const [selectedApp, setSelectedApp] = useState<LivestockApplicationListItem | null>(null);
   const [approvalNotes, setApprovalNotes] = useState('');
+  const [detailAppId, setDetailAppId] = useState<string | null>(null);
+
+  const {
+    application: detailApplication,
+    isLoading: isDetailLoading,
+    error: detailError,
+    reload: reloadDetail,
+  } = useLivestockApplicationDetail(detailAppId, { scope: 'all' });
 
   const vetOptions = useMemo(() => {
     const map = new Map<string, string>();
@@ -443,13 +446,15 @@ export default function LivestockCommissionReviewPage({
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex justify-end gap-2">
-                        <Link
-                          href={detailHref(viewRole, item._id)}
-                          className="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setDetailAppId(item._id)}
                         >
-                          <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
+                          <Eye className="mr-1.5 h-3.5 w-3.5" />
                           View
-                        </Link>
+                        </Button>
                         <Button
                           type="button"
                           size="sm"
@@ -552,6 +557,19 @@ export default function LivestockCommissionReviewPage({
           </div>
         </div>
       )}
+
+      <LivestockApplicationDetailPanel
+        isOpen={Boolean(detailAppId)}
+        application={detailApplication}
+        isLoading={isDetailLoading}
+        error={detailError}
+        viewRole={viewRole}
+        onClose={() => setDetailAppId(null)}
+        onUpdated={() => {
+          void reloadDetail();
+          void reload();
+        }}
+      />
     </div>
   );
 }
