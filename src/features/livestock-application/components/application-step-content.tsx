@@ -5,6 +5,7 @@ import {
   LivestockTextArea,
   LivestockTextField,
 } from '@/features/livestock-application/components/form-controls';
+import { ApplicationReviewPreview } from '@/features/livestock-application/components/application-review-preview';
 import { LivestockItemsTable } from '@/features/livestock-application/components/livestock-items-table';
 import { PoultryLotsTable } from '@/features/livestock-application/components/tables/poultry-lots-table';
 import type { FormProfile } from '@/features/livestock-application/domain/form-profiles';
@@ -15,8 +16,6 @@ import {
   YES_NO_OPTIONS,
   OWNER_GENDER_OPTIONS,
 } from '@/features/livestock-application/constants';
-import { formatRwfDisplay } from '@/features/livestock-application/utils/format-rwf';
-import { computePremiumBreakdownFromForm } from '@/features/livestock-application/utils/premium-calculations';
 import type {
   LivestockAnimalRow,
   LivestockApplicationFormValues,
@@ -418,116 +417,18 @@ export function ApplicationStepContent({
         </section>
       );
 
-    case 'review': {
-      const premium = computePremiumBreakdownFromForm(values);
+    case 'review':
       return (
         <section className="space-y-4">
-          <h2 className="text-lg font-semibold text-slate-900">{title}</h2>
-          <p className="text-sm text-slate-600">
-            Suzuma amakuru mbere yo kohereza. API ntirakora — kohereza bizerekana payload mu
-            console.
-          </p>
-          <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm space-y-2">
-            <p>
-              <span className="text-slate-500">Usaba:</span>{' '}
-              <strong>{values.ownerName || '—'}</strong>
-            </p>
-            <p>
-              <span className="text-slate-500">Telefone:</span> {values.ownerPhone || '—'}
-            </p>
-            {values.ownerGender && (
-              <p>
-                <span className="text-slate-500">{LIVESTOCK_FORM_LABELS.fields.ownerGender}:</span>{' '}
-                {values.ownerGender === 'male' ? 'GABO' : 'GORE'}
-              </p>
-            )}
-            {values.girinka && (
-              <p>
-                <span className="text-slate-500">{LIVESTOCK_FORM_LABELS.fields.girinka}:</span>{' '}
-                {values.girinka === 'yes' ? 'Yego' : 'Oya'}
-              </p>
-            )}
-            <p>
-              <span className="text-slate-500">Igihe:</span> {values.policyStartDate || '—'} →{' '}
-              {values.policyEndDate || '—'}
-            </p>
-            <p>
-              <span className="text-slate-500">Aho itungo riherereye:</span>{' '}
-              {[values.district, values.sector, values.cell, values.village]
-                .filter(Boolean)
-                .join(' · ') || '—'}
-            </p>
-            <p>
-              <span className="text-slate-500">Amatungo:</span> {values.livestockItems.length}
+          <div>
+            <h2 className="text-lg font-semibold text-slate-900">{title}</h2>
+            <p className="mt-1 text-sm text-slate-600">
+              Reba icyegeranyo cy’ifishi mbere yo kohereza.
             </p>
           </div>
-
-          <div className="rounded-xl border border-slate-200 bg-white p-4 text-sm">
-            <h3 className="mb-3 font-semibold text-slate-900">Ubwishingizi n’amakomisiyo</h3>
-            <dl className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-              <div>
-                <dt className="text-slate-500">{LIVESTOCK_FORM_LABELS.fields.premiumPercentage}</dt>
-                <dd className="font-medium text-slate-900">
-                  {values.premiumPercentage ? `${values.premiumPercentage}%` : '—'}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-slate-500">{LIVESTOCK_FORM_LABELS.fields.premiumRateAmount}</dt>
-                <dd className="font-medium text-slate-900">
-                  {formatRwfDisplay(premium.premiumRateAmount)}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-slate-500">
-                  {LIVESTOCK_FORM_LABELS.fields.farmerContributionAmount}
-                </dt>
-                <dd className="font-medium text-slate-900">
-                  {formatRwfDisplay(premium.farmerContributionAmount)}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-slate-500">
-                  {LIVESTOCK_FORM_LABELS.fields.governmentContribution}
-                </dt>
-                <dd className="font-medium text-slate-900">
-                  {formatRwfDisplay(premium.governmentContribution)}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-slate-500">{LIVESTOCK_FORM_LABELS.fields.companyCommission}</dt>
-                <dd className="font-medium text-slate-900">
-                  {formatRwfDisplay(premium.companyCommission)}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-slate-500">
-                  {LIVESTOCK_FORM_LABELS.fields.veterinaryCommission}
-                </dt>
-                <dd className="font-medium text-slate-900">
-                  {formatRwfDisplay(premium.veterinaryCommission)}
-                </dd>
-              </div>
-            </dl>
-          </div>
-
-          <pre className="max-h-64 overflow-auto rounded-lg bg-white p-3 text-xs text-slate-700 ring-1 ring-slate-200">
-            {JSON.stringify(
-              {
-                ...values,
-                ...premium,
-                premiumRateAmount: Number(premium.premiumRateAmount) || 0,
-                farmerContributionAmount: Number(premium.farmerContributionAmount) || 0,
-                governmentContribution: Number(premium.governmentContribution) || 0,
-                companyCommission: Number(premium.companyCommission) || 0,
-                veterinaryCommission: Number(premium.veterinaryCommission) || 0,
-              },
-              null,
-              2,
-            )}
-          </pre>
+          <ApplicationReviewPreview values={values} formProfile={formProfile} />
         </section>
       );
-    }
 
     default:
       return null;
