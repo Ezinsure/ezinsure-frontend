@@ -31,6 +31,12 @@ export function buildApplicationDocuments(
   if (subsidyCase.uploadedSignedDocumentUrl) {
     docs.push({ label: 'Nkunganire (signed)', path: subsidyCase.uploadedSignedDocumentUrl });
   }
+  if (application.sonarwaReview?.correctionDocumentUrl) {
+    docs.push({
+      label: 'SONARWA correction document',
+      path: application.sonarwaReview.correctionDocumentUrl,
+    });
+  }
   if (issuedDocuments?.insuranceCertificate) {
     docs.push({ label: 'Insurance certificate', path: issuedDocuments.insuranceCertificate });
   }

@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { CheckCircle2, Stamp } from 'lucide-react';
 import { useReviewSonarwaSubsidy } from '@/features/livestock-application/hooks/use-review-sonarwa-subsidy';
 import { SonarwaSubsidyReviewModal } from '@/features/livestock-application/components/modals/sonarwa-subsidy-review-modal';
+import { SonarwaReviewSummary } from '@/features/livestock-application/components/shared/sonarwa-review-summary';
 import type {
   LivestockApplicationPackage,
   LivestockApplicationViewRole,
@@ -50,7 +51,11 @@ export function SonarwaReviewSection({
     viewRole === 'admin' || viewRole === 'super_admin' || viewRole === 'sonarwa',
     canReviewSonarwaSubsidy(application, viewRole) && !isApproved,
   );
-  const isRejected = application.subsidyCase.status === 'REJECTED';
+  const isRejected =
+    application.subsidyCase.status === 'REJECTED' ||
+    application.sonarwaReview?.decision === 'REJECTED';
+  const review = application.sonarwaReview;
+  const approvedWithChanges = review?.decision === 'APPROVED_WITH_CHANGES';
 
   const insuranceIssued =
     showAllLivestockWorkflowActions() ||
@@ -127,7 +132,9 @@ export function SonarwaReviewSection({
             stepNumber={eligibility.required ? 4 : 3}
             title={
               isApproved
-                ? 'SONARWA approved'
+                ? approvedWithChanges
+                  ? 'SONARWA approved with changes'
+                  : 'SONARWA approved'
                 : isRejected
                   ? 'SONARWA rejected — corrections needed'
                   : 'Awaiting SONARWA verification'
@@ -168,7 +175,18 @@ export function SonarwaReviewSection({
               )}
             </WorkflowStepActions>
 
-            {isRejected && application.subsidyCase.sonarwaRejectionReason && (
+            {review && (
+              <div className="mt-4 border-t border-teal-100 pt-4">
+                <SonarwaReviewSummary
+                  review={review}
+                  viewRole={viewRole}
+                  onViewDocument={onViewDocument}
+                  compact
+                />
+              </div>
+            )}
+
+            {!review && isRejected && application.subsidyCase.sonarwaRejectionReason && (
               <p className="mt-3 rounded-lg border border-red-100 bg-red-50 px-3 py-2 text-sm text-red-800">
                 {application.subsidyCase.sonarwaRejectionReason}
               </p>

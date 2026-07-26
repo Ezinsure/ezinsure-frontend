@@ -33,6 +33,8 @@ import { insuranceProviderLabel } from '@/shared/insurance-providers';
 import { ApplicationDocumentsGrid } from '@/features/livestock-application/components/shared/application-documents-grid';
 import { ApplicationOwnersSection } from '@/features/livestock-application/components/shared/application-owners-section';
 import { InsuredLinesSection } from '@/features/livestock-application/components/shared/insured-lines-section';
+import { SonarwaReviewSummary } from '@/features/livestock-application/components/shared/sonarwa-review-summary';
+import { SubsidyDocumentsNotes } from '@/features/livestock-application/components/shared/subsidy-documents-notes';
 import { ApplicationStatusTimeline } from '@/features/livestock-application/components/workflow/application-status-timeline';
 import { WorkflowOverviewBanner } from '@/features/livestock-application/components/workflow/workflow-overview-banner';
 
@@ -146,6 +148,16 @@ export function ApplicationReviewDetails({
               value={formatRwfDisplay(totals.veterinaryCommission)}
             />
             {viewRole !== 'vet' && <Field label="Veterinarian" value={application.vetName} />}
+            {application.insuranceIssuedAt && (
+              <Field
+                label="Insurance issued"
+                value={formatPolicyDate(application.insuranceIssuedAt)}
+              />
+            )}
+            {(viewRole === 'admin' || viewRole === 'super_admin') &&
+              application.insuranceIssuedByName && (
+                <Field label="Issued by" value={application.insuranceIssuedByName} />
+              )}
           </FieldGrid>
         </section>
 
@@ -368,6 +380,29 @@ export function ApplicationReviewDetails({
           </SectionCard>
         );
       })()}
+
+      {/* 8c · Nkunganire signed uploads & notes */}
+      {application.subsidyDocuments && application.subsidyDocuments.length > 0 && (
+        <SectionCard
+          icon={<FileText className="h-6 w-6 text-violet-700" />}
+          title="Nkunganire uploads"
+          description="Signed subsidy documents and upload notes from sector / veterinarian."
+        >
+          <SubsidyDocumentsNotes
+            documents={application.subsidyDocuments}
+            onViewDocument={onViewDocument}
+          />
+        </SectionCard>
+      )}
+
+      {/* 8d · SONARWA review outcome (visible to all roles, including vet) */}
+      {application.sonarwaReview && (
+        <SonarwaReviewSummary
+          review={application.sonarwaReview}
+          viewRole={viewRole}
+          onViewDocument={onViewDocument}
+        />
+      )}
 
       {/* 9 · Documents */}
       <SectionCard

@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Download, FileSpreadsheet, Upload } from 'lucide-react';
 import { SubsidySignedUploadModal } from '@/features/livestock-application/components/modals/subsidy-signed-upload-modal';
+import { SubsidyDocumentsNotes } from '@/features/livestock-application/components/shared/subsidy-documents-notes';
 import {
   generateSubsidyDocument,
 } from '@/features/livestock-application/api/subsidy-api';
@@ -244,6 +245,15 @@ export function SubsidyWorkflowSection({
                   }
                 />
               </WorkflowStepActions>
+            )}
+
+            {application.subsidyDocuments && application.subsidyDocuments.length > 0 && (
+              <div className="mt-4 border-t border-violet-100 pt-4">
+                <SubsidyDocumentsNotes
+                  documents={application.subsidyDocuments}
+                  onViewDocument={onViewDocument}
+                />
+              </div>
             )}
           </WorkflowStepCard>
         </div>

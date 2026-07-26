@@ -25,7 +25,7 @@ import {
   extractLivestockLocation,
 } from '@/features/livestock-application/utils/application-location';
 import { buildSubsidyCaseFromRecord } from '@/features/livestock-application/api/mappers/subsidy-case.mapper';
-import { mapSonarwaReviewFromRecord } from '@/features/livestock-application/api/mappers/sonarwa-review.mapper';
+import { mapSonarwaReviewFromRecord, mapSubsidyDocumentsFromRecord } from '@/features/livestock-application/api/mappers/sonarwa-review.mapper';
 import { readPackageTotals } from '@/features/livestock-application/api/mappers/totals.mapper';
 import {
   computePremiumPercentage,
@@ -158,8 +158,14 @@ function mapGenericPackageObject(o: Record<string, unknown>): LivestockApplicati
     paymentProof: mappedPaymentProof,
     subsidyCase: buildSubsidyCaseFromRecord(o, subsidyCase),
     sonarwaReview: mapSonarwaReviewFromRecord(o),
+    subsidyDocuments: mapSubsidyDocumentsFromRecord(o),
     lines: lines.length > 0 ? lines : [],
     issuedDocuments: o.issuedDocuments as LivestockApplicationPackage['issuedDocuments'],
+    insuranceIssuedAt: o.insuranceIssuedAt ? String(o.insuranceIssuedAt) : undefined,
+    insuranceIssuedByName:
+      o.insuranceIssuedBy && typeof o.insuranceIssuedBy === 'object'
+        ? String((o.insuranceIssuedBy as { fullName?: unknown }).fullName ?? '').trim() || undefined
+        : undefined,
     ...mapApplicationExtensionFields(o),
   };
 }

@@ -50,6 +50,16 @@ export type LivestockApplicationStatus =
 
 export type PaymentProofStatus = 'NOT_REQUIRED' | 'PENDING' | 'SUBMITTED' | 'VERIFIED' | 'REJECTED';
 
+/** Uploaded signed nkunganire scan history (sector / vet). */
+export interface SubsidyDocumentRecord {
+  id?: string;
+  status?: string;
+  signedBy?: 'SECTOR' | 'VET' | string;
+  uploadedSignedDocumentUrl?: string;
+  notes?: string;
+  createdAt?: string;
+}
+
 export type SubsidyCaseStatus =
   | 'NOT_REQUIRED'
   | 'DOC_GENERATED'
@@ -226,15 +236,18 @@ export interface LivestockApplicationPackage {
     animalListExportUrl?: string;
   };
   /**
-   * Populated after SONARWA review. Present when decision is APPROVED or
-   * APPROVED_WITH_CHANGES. UI display of correction fields can follow once
-   * the backend ships this shape.
+   * Populated after SONARWA review. Present when decision is APPROVED,
+   * APPROVED_WITH_CHANGES, or REJECTED.
    */
   sonarwaReview?: SonarwaReviewRecord;
+  /** Signed nkunganire upload history (sector / vet), including notes. */
+  subsidyDocuments?: SubsidyDocumentRecord[];
   lines: InsuredLinePayload[];
   policyStartDate: string;
   policyEndDate: string;
   issuedDocuments?: LivestockIssuedDocuments;
+  insuranceIssuedAt?: string;
+  insuranceIssuedByName?: string;
 }
 
 /** Paginated applications list response. */
