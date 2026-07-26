@@ -13,7 +13,16 @@ export function isLivestockApplicationStatus(value: string): value is LivestockA
 export function isLivestockPackageListItem(item: unknown): item is LivestockApplicationListItem {
   if (typeof item !== 'object' || item === null) return false;
   const o = item as Record<string, unknown>;
-  return typeof o.speciesGroup === 'string' && typeof o.lineCount === 'number';
+  if (typeof o.speciesGroup !== 'string' || typeof o.lineCount !== 'number') return false;
+
+  // Must already be UI-normalized. Flat API rows (e.g. SONARWA list) also expose
+  // speciesGroup + lineCount but keep amounts at the top level without `totals`.
+  const totals = o.totals;
+  return (
+    typeof totals === 'object' &&
+    totals !== null &&
+    typeof (totals as { farmerContributionAmount?: unknown }).farmerContributionAmount === 'number'
+  );
 }
 
 /** GET /getVeterinaryApplications — package documents (speciesGroup + lines[]). */

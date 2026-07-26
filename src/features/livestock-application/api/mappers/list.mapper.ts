@@ -155,8 +155,14 @@ export function extractApplicationsListPaginationMeta(
       ? (root.pagination as Record<string, unknown>)
       : null;
 
+  const meta =
+    root?.meta && typeof root.meta === 'object'
+      ? (root.meta as Record<string, unknown>)
+      : null;
+
   const total = Number(
     pagination?.totalCount ??
+      meta?.total ??
       root?.total ??
       root?.totalCount ??
       root?.totalRecords ??
@@ -164,13 +170,16 @@ export function extractApplicationsListPaginationMeta(
       fallback.dataLength,
   );
   const pageSize =
-    Number(pagination?.pageSize ?? root?.pageSize ?? root?.limit ?? fallback.pageSize) ||
-    fallback.pageSize;
+    Number(
+      pagination?.pageSize ?? meta?.pageSize ?? root?.pageSize ?? root?.limit ?? fallback.pageSize,
+    ) || fallback.pageSize;
   const pageNumber =
-    Number(pagination?.pageNumber ?? root?.pageNumber ?? root?.page ?? fallback.pageNumber) ||
-    fallback.pageNumber;
+    Number(
+      pagination?.pageNumber ?? meta?.pageNumber ?? root?.pageNumber ?? root?.page ?? fallback.pageNumber,
+    ) || fallback.pageNumber;
   const totalPages = Number(
     pagination?.totalPages ??
+      meta?.totalPages ??
       root?.totalPages ??
       Math.max(1, Math.ceil((Number.isFinite(total) ? total : fallback.dataLength) / pageSize)),
   );

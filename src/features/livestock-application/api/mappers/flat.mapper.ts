@@ -78,8 +78,14 @@ export function mapFlatApplicationToListItem(
     subsidyRequired: subsidyRequiredFromStatus(subsidyStatus),
     paidStatus,
     subsidyStatus,
-    vetName: String((record.agent as { fullName?: string } | undefined)?.fullName ?? '').trim() || undefined,
-    vetId: String((record.agent as { _id?: string } | undefined)?._id ?? '').trim() || undefined,
+    vetName:
+      String(record.vetName ?? '').trim() ||
+      String((record.agent as { fullName?: string } | undefined)?.fullName ?? '').trim() ||
+      undefined,
+    vetId:
+      String(record.vetId ?? '').trim() ||
+      String((record.agent as { _id?: string } | undefined)?._id ?? '').trim() ||
+      undefined,
   };
 }
 

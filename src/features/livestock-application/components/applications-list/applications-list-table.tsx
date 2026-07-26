@@ -129,10 +129,10 @@ function ValueCell({ app }: { app: LivestockApplicationListItem }) {
         {formatRwfDisplay(app.totalSumAssured ?? 0)}
       </p>
       <p className="text-xs text-emerald-700">
-        Farmer {formatRwfDisplay(app.totals.farmerContributionAmount)}
+        Farmer {formatRwfDisplay(app.totals?.farmerContributionAmount ?? 0)}
       </p>
       <p className="text-xs text-slate-500">
-        Premium {formatRwfDisplay(app.totals.premiumRateAmount)}
+        Premium {formatRwfDisplay(app.totals?.premiumRateAmount ?? 0)}
       </p>
     </div>
   );
