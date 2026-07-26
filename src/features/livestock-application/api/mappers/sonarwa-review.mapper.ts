@@ -107,26 +107,28 @@ export function mapSubsidyDocumentsFromRecord(
   const raw = Array.isArray(record.subsidyDocuments) ? record.subsidyDocuments : [];
   if (raw.length === 0) return undefined;
 
-  return raw
-    .map((item) => {
-      if (!item || typeof item !== 'object') return null;
-      const doc = item as Record<string, unknown>;
-      const uploadedSignedDocumentUrl = pickString(
-        doc.uploadedSignedDocumentUrl,
-        doc.documentUrl,
-        doc.fileUrl,
-      );
-      const notes = pickString(doc.notes);
-      if (!uploadedSignedDocumentUrl && !notes) return null;
+  const documents = raw.flatMap((item): SubsidyDocumentRecord[] => {
+    if (!item || typeof item !== 'object') return [];
+    const doc = item as Record<string, unknown>;
+    const uploadedSignedDocumentUrl = pickString(
+      doc.uploadedSignedDocumentUrl,
+      doc.documentUrl,
+      doc.fileUrl,
+    );
+    const notes = pickString(doc.notes);
+    if (!uploadedSignedDocumentUrl && !notes) return [];
 
-      return {
+    return [
+      {
         id: pickString(doc._id, doc.id),
         status: pickString(doc.status),
         signedBy: pickString(doc.signedBy),
         uploadedSignedDocumentUrl,
         notes,
         createdAt: pickString(doc.createdAt, doc.uploadedAt),
-      } satisfies SubsidyDocumentRecord;
-    })
-    .filter((doc): doc is SubsidyDocumentRecord => doc !== null);
+      },
+    ];
+  });
+
+  return documents.length > 0 ? documents : undefined;
 }
