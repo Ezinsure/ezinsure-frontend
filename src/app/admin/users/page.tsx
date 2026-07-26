@@ -8,6 +8,7 @@ import { useToast } from '@/components/ui/toast';
 import { UserCreateModal } from '@/components/ui/admin/user-create-modal';
 import { UserViewModal } from '@/components/ui/admin/user-view-modal';
 import { UserEditModal } from '@/components/ui/admin/user-edit-modal';
+import { UserTableActions } from '@/components/ui/admin/user-table-actions';
 import { useAuth } from '@/context/AuthContext';
 import { DocumentViewer } from '@/components/ui/document-viewer';
 import { ArrowUpDown, ArrowUp, ArrowDown, Calendar, Download, FileText } from 'lucide-react';
@@ -1067,14 +1068,14 @@ const handleEditUser = async (updatedUser: User) => {
                         <SortIcon field="createdAt" />
                       </button>
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Actions
                     </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
                   {paginatedUsers.map((user) => (
-                    <tr key={user._id} className="hover:bg-gray-50">
+                    <tr key={user._id} className="transition-colors hover:bg-slate-50">
                       {/* <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-[var(--main-blue)]">
                         #{user._id}
                       </td> */}
@@ -1099,54 +1100,18 @@ const handleEditUser = async (updatedUser: User) => {
                       <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
                         {formatDate(user.createdAt)}
                       </td>
-                      <td className="px-4 py-4 whitespace-nowrap text-sm font-medium">
-                        <div className="flex flex-wrap gap-2">
-                          <Button
-                            variant="outline"
-                            onClick={() => {
-                              setSelectedUser(user);
-                            }}
-                          >
-                            View
-                          </Button>
-                          {user.status === 'ACTIVE' && (
-                            <>
-                              <Button
-                                variant="outline"
-                                onClick={() => {
-                                  setSelectedUser(user);
-                                  setIsEditingUser(true);
-                                }}
-                              >
-                                Edit
-                              </Button>
-                              <Button
-  variant="danger"
-  onClick={() => handleDeleteUser(user._id)}
->
-  Deactivate
-</Button>
-                            </>
-                          )}
-                          {(user.status === 'PENDING' || user.status === 'SENT_FOR_ACTION') && (
-                            <Button
-                              variant="primary"
-                              onClick={() => {
-                                setSelectedUser(user);
-                              }}
-                            >
-                              Review
-                            </Button>
-                          )}
-                          {user.status === 'DEACTIVATED' && (
-                            <Button
-                              variant="primary"
-                              onClick={() => handleStatusChange(user._id, 'ACTIVE')}
-                            >
-                              Activate
-                            </Button>
-                          )}
-                        </div>
+                      <td className="whitespace-nowrap px-4 py-3 text-right">
+                        <UserTableActions
+                          status={user.status}
+                          onView={() => setSelectedUser(user)}
+                          onEdit={() => {
+                            setSelectedUser(user);
+                            setIsEditingUser(true);
+                          }}
+                          onDeactivate={() => handleDeleteUser(user._id)}
+                          onReview={() => setSelectedUser(user)}
+                          onActivate={() => handleStatusChange(user._id, 'ACTIVE')}
+                        />
                       </td>
                     </tr>
                   ))}

@@ -8,6 +8,7 @@ import { useToast } from '@/components/ui/toast';
 import { UserCreateModal } from '@/components/ui/admin/user-create-modal';
 import { UserViewModal } from '@/components/ui/admin/user-view-modal';
 import { UserEditModal } from '@/components/ui/admin/user-edit-modal';
+import { UserTableActions } from '@/components/ui/admin/user-table-actions';
 import { DocumentViewer } from '@/components/ui/document-viewer';
 import { useAuth } from '@/context/AuthContext';
 import {
@@ -803,14 +804,14 @@ export function LivestockUsersPage({ viewerRole }: LivestockUsersPageProps) {
                       </button>
                     </th>
                   ))}
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                  <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">
                     Actions
                   </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
                 {paginatedUsers.map((user, index) => (
-                  <tr key={user._id} className="hover:bg-gray-50">
+                  <tr key={user._id} className="transition-colors hover:bg-slate-50">
                     <td className="whitespace-nowrap px-4 py-4 text-sm font-medium text-[var(--main-blue)]">
                       #{(currentPage - 1) * itemsPerPage + index + 1}
                     </td>
@@ -826,45 +827,22 @@ export function LivestockUsersPage({ viewerRole }: LivestockUsersPageProps) {
                     <td className="whitespace-nowrap px-4 py-4 text-sm text-gray-500">
                       {formatDate(user.createdAt)}
                     </td>
-                    <td className="whitespace-nowrap px-4 py-4 text-sm font-medium">
-                      <div className="flex flex-wrap gap-2">
-                        <Button variant="outline" onClick={() => setSelectedUser(user)}>
-                          View
-                        </Button>
-                        {isLivestockCreatableRole(user.role) && user.status === 'ACTIVE' && (
-                          <>
-                            <Button
-                              variant="outline"
-                              onClick={() => {
-                                setSelectedUser(user);
-                                setIsEditingUser(true);
-                              }}
-                            >
-                              Edit
-                            </Button>
-                            <Button
-                              variant="danger"
-                              onClick={() => {
-                                setUserToDeactivate(user._id);
-                                setIsDeactivating(true);
-                              }}
-                            >
-                              Deactivate
-                            </Button>
-                          </>
-                        )}
-                        {(user.status === 'PENDING' || user.status === 'SENT_FOR_ACTION') &&
-                          isLivestockCreatableRole(user.role) && (
-                            <Button variant="primary" onClick={() => setSelectedUser(user)}>
-                              Review
-                            </Button>
-                          )}
-                        {user.status === 'DEACTIVATED' && isLivestockCreatableRole(user.role) && (
-                          <Button variant="primary" onClick={() => handleStatusChange(user._id, 'ACTIVE')}>
-                            Activate
-                          </Button>
-                        )}
-                      </div>
+                    <td className="whitespace-nowrap px-4 py-3 text-right">
+                      <UserTableActions
+                        status={user.status}
+                        canManage={isLivestockCreatableRole(user.role)}
+                        onView={() => setSelectedUser(user)}
+                        onEdit={() => {
+                          setSelectedUser(user);
+                          setIsEditingUser(true);
+                        }}
+                        onDeactivate={() => {
+                          setUserToDeactivate(user._id);
+                          setIsDeactivating(true);
+                        }}
+                        onReview={() => setSelectedUser(user)}
+                        onActivate={() => handleStatusChange(user._id, 'ACTIVE')}
+                      />
                     </td>
                   </tr>
                 ))}
