@@ -30,6 +30,10 @@ import {
   validateLivestockApplicationStep,
   validateLivestockApplicationStepHasErrors,
 } from '@/features/livestock-application/validation';
+import {
+  type VetVerificationPrefill,
+  withVetVerificationPrefill,
+} from '@/features/livestock-application/utils/vet-form-prefill';
 
 function withPremiumAmounts(
   values: LivestockApplicationFormValues,
@@ -50,12 +54,19 @@ export function useLivestockApplicationForm(
   mode: LivestockApplicationFormMode = 'create',
   formProfile?: FormProfile,
   intake?: ApplicationIntakeSelection,
+  vetPrefill?: VetVerificationPrefill,
 ) {
   const stepIds = formProfile?.stepIds ?? [];
-  const [values, setValues] = useState<LivestockApplicationFormValues>(() => ({
-    ...createInitialLivestockApplicationValues(),
-    ...initialValues,
-  }));
+  const vetPrefillAppliedRef = useRef(false);
+  const [values, setValues] = useState<LivestockApplicationFormValues>(() =>
+    withVetVerificationPrefill(
+      {
+        ...createInitialLivestockApplicationValues(),
+        ...initialValues,
+      },
+      vetPrefill,
+    ),
+  );
   const [stepIndex, setStepIndex] = useState(0);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitMessage, setSubmitMessage] = useState<string | null>(null);
@@ -78,6 +89,12 @@ export function useLivestockApplicationForm(
 
   const isReadOnly = mode === 'readonly' || mode === 'review';
   const isReview = mode === 'review';
+
+  useEffect(() => {
+    if (!vetPrefill || isReadOnly || vetPrefillAppliedRef.current) return;
+    vetPrefillAppliedRef.current = true;
+    setValues((prev) => withVetVerificationPrefill(prev, vetPrefill));
+  }, [isReadOnly, vetPrefill]);
 
   // Insurance rate (%) is fixed per species — cattle/poultry 5.5%, pigs 6% —
   // and is always auto-filled so vets can never accidentally edit it.
@@ -231,17 +248,22 @@ export function useLivestockApplicationForm(
             livestockItems: withLockedAnimalType(parsed.values.livestockItems, lockedAnimalType),
           }
         : parsed.values;
-      setValues({
-        ...loadedValues,
-        ...(intake?.girinka ? { girinka: intake.girinka } : {}),
-      });
+      setValues(
+        withVetVerificationPrefill(
+          {
+            ...loadedValues,
+            ...(intake?.girinka ? { girinka: intake.girinka } : {}),
+          },
+          vetPrefill,
+        ),
+      );
       if (typeof parsed.stepIndex === 'number') setStepIndex(parsed.stepIndex);
       setSubmitMessage('Draft yavanywe.');
       return true;
     } catch {
       return false;
     }
-  }, [intake?.girinka, lockedAnimalType]);
+  }, [intake?.girinka, lockedAnimalType, vetPrefill]);
 
   const validationContext = useMemo(
     () =>
@@ -424,12 +446,13 @@ export function useLivestockApplicationForm(
     if (lockedAnimalType) {
       initial.livestockItems = withLockedAnimalType(initial.livestockItems, lockedAnimalType);
     }
-    setValues(initial);
+    vetPrefillAppliedRef.current = Boolean(vetPrefill);
+    setValues(withVetVerificationPrefill(initial, vetPrefill));
     setStepIndex(0);
     setErrors({});
     setSubmitMessage(null);
     lastAutoPremiumRef.current = '';
-  }, [lockedAnimalType]);
+  }, [lockedAnimalType, vetPrefill]);
 
   return {
     values,

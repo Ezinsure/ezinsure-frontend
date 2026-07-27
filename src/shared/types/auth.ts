@@ -18,6 +18,10 @@ export interface AppUser {
   phoneNumber: string;
   role: UserRole | string;
   agentCode?: string;
+  /** Veterinarian-only: PRIVATE or SARO when returned by the API. */
+  veterinaryType?: 'PRIVATE' | 'SARO' | string;
+  /** Veterinarian licence number when returned by the API. */
+  veterinarianLicenseNumber?: string;
   status: string;
   /** From API when available; otherwise derived from role on the client */
   allowedProductLines?: ProductLine[];

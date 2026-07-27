@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/toast';
+import { useAuth } from '@/context/AuthContext';
 import { ApplicationStepContent } from '@/features/livestock-application/components/application-step-content';
 import { ApplicationStepProgress } from '@/features/livestock-application/components/shared/application-step-progress';
 import type { CreateApplicationResult } from '@/features/livestock-application/api/backend-types';
@@ -14,6 +15,7 @@ import { LIVESTOCK_APPLICATION_DRAFT_KEY } from '@/features/livestock-applicatio
 import { LIVESTOCK_FORM_LABELS } from '@/features/livestock-application/labels';
 import type { LivestockApplicationFormMode, LivestockApplicationFormValues } from '@/features/livestock-application/types';
 import { useLivestockApplicationForm } from '@/features/livestock-application/use-livestock-application-form';
+import { resolveVetVerificationPrefill } from '@/features/livestock-application/utils/vet-form-prefill';
 
 interface LivestockApplicationFormProps {
   mode?: LivestockApplicationFormMode;
@@ -59,8 +61,10 @@ export function LivestockApplicationForm({
   onSubmitted,
 }: LivestockApplicationFormProps) {
   const { showToast, ToastContainer } = useToast();
+  const { user } = useAuth();
+  const vetPrefill = useMemo(() => resolveVetVerificationPrefill(user), [user]);
   const { submit, isSubmitting, clearError } = useCreateLivestockApplication();
-  const form = useLivestockApplicationForm(initialValues, mode, formProfile, intake);
+  const form = useLivestockApplicationForm(initialValues, mode, formProfile, intake, vetPrefill);
   const {
     values,
     setField,

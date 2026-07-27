@@ -52,6 +52,8 @@ interface LivestockUser {
   }>;
   bankName?: string;
   bankAccountNumber?: string;
+  veterinaryType?: string;
+  rcvdLicenceDocument?: string;
 }
 
 type UserSortField = 'fullName' | 'email' | 'role' | 'status' | 'createdAt';
