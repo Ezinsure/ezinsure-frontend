@@ -135,3 +135,11 @@ export function speciesGroupToAnimalType(group: LivestockSpeciesGroup): string {
 export function ownerModeLabel(mode: LivestockOwnerMode): string {
   return mode === 'SINGLE_OWNER' ? 'Same owner for all animals' : 'Different owners';
 }
+
+export function poultryProductTypeLabel(
+  type: 'EGG_LAYER' | 'MEAT' | undefined,
+): string {
+  if (type === 'EGG_LAYER') return 'Egg layer (12 months)';
+  if (type === 'MEAT') return 'Meat (12 weeks)';
+  return '—';
+}

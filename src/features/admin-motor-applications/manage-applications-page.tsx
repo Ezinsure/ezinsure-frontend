@@ -34,7 +34,9 @@ import { formatChasisNumberDisplay, resolveChasisNumber } from '@/utils/chasis-n
 
 export default function ManageApplicationsPage() {
   const { showToast, ToastContainer } = useToast();
-  const { token } = useAuth();
+  const { token, user } = useAuth();
+  const isFinance = String(user?.role ?? '').toUpperCase() === 'FINANCE';
+  const showActionsColumn = !isFinance;
   const [applications, setApplications] = useState<Application[]>([]);
   const [selectedApp, setSelectedApp] = useState<Application | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -1867,7 +1869,9 @@ const getActionButtons = (app: Application) => {
         <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase tracking-wider">Agent Commission</th>
         <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase tracking-wider">Date</th>
         <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase tracking-wider">Status</th>
-        <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+        {showActionsColumn && (
+          <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+        )}
   </tr>
 </thead>
                 <tbody className="divide-y divide-gray-200">
@@ -1928,11 +1932,13 @@ const getActionButtons = (app: Application) => {
     <td className="px-4 py-4 text-sm whitespace-nowrap">
       {getStatusBadge(app.status)}
     </td>
-    <td className="px-4 py-4 text-sm whitespace-nowrap font-medium">
-      <div className="flex flex-nowrap items-center gap-2">
-        {getActionButtons(app)}
-      </div>
-    </td>
+    {showActionsColumn && (
+      <td className="px-4 py-4 text-sm whitespace-nowrap font-medium">
+        <div className="flex flex-nowrap items-center gap-2">
+          {getActionButtons(app)}
+        </div>
+      </td>
+    )}
   </tr>
 ))}
                 </tbody>

@@ -190,7 +190,7 @@ export const DocumentViewer = ({
   if (!mounted) return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-[230] flex items-center justify-center bg-black/50">
+    <div className="fixed inset-0 z-[310] flex items-center justify-center bg-black/50">
       <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-4xl mx-4 h-[90vh] flex flex-col">
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-lg font-semibold">Viewing: {documentName}</h3>

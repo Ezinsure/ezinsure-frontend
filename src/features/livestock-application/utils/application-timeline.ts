@@ -6,6 +6,7 @@ import {
   APPLICATION_STATUS_LABELS,
   STATUS_TIMELINE_ORDER,
 } from '@/features/livestock-application/domain/application-status';
+import { resolveSubsidyEligibility } from '@/features/livestock-application/utils/subsidy-eligibility';
 
 export type TimelineStepState = 'completed' | 'current' | 'upcoming';
 
@@ -15,79 +16,117 @@ export interface ApplicationTimelineStep {
   state: TimelineStepState;
 }
 
-const SUBSIDY_TIMELINE_STATUSES = new Set<LivestockApplicationStatus>([
+const SUBSIDY_ONLY_TIMELINE_STATUSES = new Set<LivestockApplicationStatus>([
   'SUBSIDY_DOC_REQUIRED',
   'SUBSIDY_SECTOR_SIGNED',
-  'SUBSIDY_SONARWA_APPROVED',
 ]);
 
-function isSubsidyTimelineStatus(status: LivestockApplicationStatus): boolean {
-  return SUBSIDY_TIMELINE_STATUSES.has(status) || status.startsWith('SUBSIDY');
+function isSubsidyOnlyTimelineStatus(status: LivestockApplicationStatus): boolean {
+  return SUBSIDY_ONLY_TIMELINE_STATUSES.has(status) || status.startsWith('SUBSIDY_SECTOR');
+}
+
+function sonarwaReviewComplete(application: LivestockApplicationPackage): boolean {
+  return (
+    application.status === 'PENDING_ADMIN_REVIEW' ||
+    application.status === 'READY_TO_BE_PAID' ||
+    application.status === 'PAID' ||
+    application.status === 'COMMISSION_APPROVED' ||
+    application.subsidyCase.status === 'SONARWA_APPROVED'
+  );
 }
 
 function mapStatusToTimelineIndex(
-  status: LivestockApplicationStatus,
-  paymentProofStatus: LivestockApplicationPackage['paymentProof']['status'],
-  hasProofDocument: boolean,
+  application: LivestockApplicationPackage,
 ): number {
-  const direct = STATUS_TIMELINE_ORDER.indexOf(status);
-  if (direct !== -1) return direct;
+  const { status, paymentProof } = application;
+  const hasProofDocument = Boolean(paymentProof.documentUrl?.trim());
 
   if (status === 'SUBSIDY_SECTOR_PENDING') {
     return STATUS_TIMELINE_ORDER.indexOf('SUBSIDY_DOC_REQUIRED');
   }
-  if (status === 'SUBSIDY_VET_SIGNED') {
+
+  if (status === 'SUBSIDY_SECTOR_SIGNED' || status === 'SUBSIDY_VET_SIGNED') {
+    if (!sonarwaReviewComplete(application)) {
+      return STATUS_TIMELINE_ORDER.indexOf('SUBSIDY_SONARWA_APPROVED');
+    }
     return STATUS_TIMELINE_ORDER.indexOf('SUBSIDY_SECTOR_SIGNED');
   }
+
+  const direct = STATUS_TIMELINE_ORDER.indexOf(status);
+  if (direct !== -1) return direct;
 
   if (status === 'DRAFT') return -1;
 
   if (status === 'SUBMITTED') {
-    if (hasProofDocument || paymentProofStatus === 'SUBMITTED') {
+    if (hasProofDocument || paymentProof.status === 'SUBMITTED') {
       return STATUS_TIMELINE_ORDER.indexOf('PAYMENT_PROOF_SUBMITTED');
     }
-    if (paymentProofStatus === 'VERIFIED') {
+    if (paymentProof.status === 'VERIFIED') {
       return STATUS_TIMELINE_ORDER.indexOf('PAYMENT_VERIFIED');
     }
     return STATUS_TIMELINE_ORDER.indexOf('PAYMENT_PROOF_REQUIRED');
   }
 
   if (status === 'REJECTED' || status === 'CANCELLED') {
-    if (paymentProofStatus === 'REJECTED') {
+    if (paymentProof.status === 'REJECTED') {
       return STATUS_TIMELINE_ORDER.indexOf('PAYMENT_PROOF_SUBMITTED');
     }
     return STATUS_TIMELINE_ORDER.indexOf('SUBMITTED');
   }
 
-  if (hasProofDocument || paymentProofStatus === 'SUBMITTED') {
+  if (status === 'INSURANCE_ISSUED' && !sonarwaReviewComplete(application)) {
+    const subsidyRequired = resolveSubsidyEligibility(application).required;
+    if (!subsidyRequired) {
+      return STATUS_TIMELINE_ORDER.indexOf('SUBSIDY_SONARWA_APPROVED');
+    }
+    if (
+      application.subsidyCase.status === 'DOC_GENERATED' ||
+      application.subsidyCase.status === 'SECTOR_PENDING'
+    ) {
+      return STATUS_TIMELINE_ORDER.indexOf('SUBSIDY_DOC_REQUIRED');
+    }
+    return STATUS_TIMELINE_ORDER.indexOf('INSURANCE_ISSUED');
+  }
+
+  if (hasProofDocument || paymentProof.status === 'SUBMITTED') {
     return STATUS_TIMELINE_ORDER.indexOf('PAYMENT_PROOF_SUBMITTED');
   }
 
-  if (paymentProofStatus === 'VERIFIED') {
+  if (paymentProof.status === 'VERIFIED') {
     return STATUS_TIMELINE_ORDER.indexOf('PAYMENT_VERIFIED');
   }
 
-  if (paymentProofStatus === 'PENDING') {
+  if (paymentProof.status === 'PENDING') {
     return STATUS_TIMELINE_ORDER.indexOf('PAYMENT_PROOF_REQUIRED');
   }
 
   return STATUS_TIMELINE_ORDER.indexOf('SUBMITTED');
 }
 
+function timelineLabel(
+  status: LivestockApplicationStatus,
+  application: LivestockApplicationPackage,
+  state: TimelineStepState,
+): string {
+  if (
+    status === 'SUBSIDY_SONARWA_APPROVED' &&
+    state === 'current' &&
+    !sonarwaReviewComplete(application)
+  ) {
+    return 'SONARWA review';
+  }
+  return APPLICATION_STATUS_LABELS[status];
+}
+
 /** Derive timeline steps from the live application package (status + payment + subsidy). */
 export function resolveApplicationTimelineSteps(
   application: LivestockApplicationPackage,
 ): ApplicationTimelineStep[] {
-  const hasProofDocument = Boolean(application.paymentProof.documentUrl?.trim());
-  const currentIdx = mapStatusToTimelineIndex(
-    application.status,
-    application.paymentProof.status,
-    hasProofDocument,
-  );
-  const subsidyRequired = application.subsidyCase.required;
+  const currentIdx = mapStatusToTimelineIndex(application);
+  const subsidyRequired = resolveSubsidyEligibility(application).required;
 
   return STATUS_TIMELINE_ORDER.flatMap((status, index) => {
-    if (!subsidyRequired && isSubsidyTimelineStatus(status)) {
+    if (!subsidyRequired && isSubsidyOnlyTimelineStatus(status)) {
       return [];
     }
 
@@ -105,7 +144,7 @@ export function resolveApplicationTimelineSteps(
     return [
       {
         status,
-        label: APPLICATION_STATUS_LABELS[status],
+        label: timelineLabel(status, application, state),
         state,
       },
     ];

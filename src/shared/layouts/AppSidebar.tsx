@@ -60,7 +60,7 @@ export function AppSidebar({
           {!collapsed && (
             <Link
               href="/"
-              className="min-w-0 truncate text-lg font-bold text-[var(--main-blue)]"
+              className="min-w-0 truncate text-lg font-bold text-[var(--portal-primary)]"
             >
               EZ<span className="text-[var(--accent-orange)]">INSURE</span>
             </Link>
@@ -117,7 +117,7 @@ export function AppSidebar({
                         title={collapsed ? item.label : undefined}
                         className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
                           active
-                            ? 'bg-[var(--main-blue)] text-white'
+                            ? 'bg-[var(--portal-primary)] text-white'
                             : 'text-gray-700 hover:bg-gray-100'
                         }`}
                       >

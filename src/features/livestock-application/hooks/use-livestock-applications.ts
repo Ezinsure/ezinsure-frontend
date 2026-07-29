@@ -14,8 +14,6 @@ import {
   type LivestockApplicationsRepository,
   type LivestockListScope,
 } from '@/features/livestock-application/api/livestock-applications.repository';
-import { getCachedLivestockApplicationRow } from '@/features/livestock-application/api/livestock-application-session-cache';
-import { mapToLivestockApplicationPackage } from '@/features/livestock-application/api/mappers';
 import { useAuth } from '@/context/AuthContext';
 import { useApiClient } from '@/utils/apiClient';
 
@@ -141,34 +139,34 @@ export function useLivestockApplicationsList(options: UseLivestockApplicationsLi
 }
 
 export interface UseLivestockApplicationDetailOptions {
-  preferListCache?: boolean;
   scope?: LivestockListScope;
 }
 
 export function useLivestockApplicationDetail(
-  applicationId: string,
+  applicationId: string | null | undefined,
   options?: UseLivestockApplicationDetailOptions,
 ) {
   const { user } = useAuth();
   const scope = options?.scope ?? 'vet';
+  const resolvedId = applicationId?.trim() ?? '';
   const repository = useLivestockRepository(scope);
-  const [application, setApplication] = useState<LivestockApplicationPackage | null>(() => {
-    if (!options?.preferListCache || typeof window === 'undefined') return null;
-    const cached = getCachedLivestockApplicationRow(applicationId);
-    return cached ? mapToLivestockApplicationPackage(cached) : null;
-  });
-  const [isLoading, setIsLoading] = useState(() => {
-    if (!options?.preferListCache || typeof window === 'undefined') return true;
-    return !getCachedLivestockApplicationRow(applicationId);
-  });
+  const [application, setApplication] = useState<LivestockApplicationPackage | null>(null);
+  const [isLoading, setIsLoading] = useState(Boolean(resolvedId));
   const [error, setError] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
+    if (!resolvedId) {
+      setApplication(null);
+      setIsLoading(false);
+      setError(null);
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
     try {
       const data = await repository.getById({
-        applicationId,
+        applicationId: resolvedId,
         agentId: scope === 'vet' ? user?._id : undefined,
         scope,
       });
@@ -181,14 +179,11 @@ export function useLivestockApplicationDetail(
     } finally {
       setIsLoading(false);
     }
-  }, [applicationId, repository, scope, user?._id]);
+  }, [resolvedId, repository, scope, user?._id]);
 
   useEffect(() => {
-    if (options?.preferListCache && getCachedLivestockApplicationRow(applicationId)) {
-      return;
-    }
     void reload();
-  }, [applicationId, options?.preferListCache, reload]);
+  }, [reload]);
 
   return { application, isLoading, error, reload };
 }

@@ -6,6 +6,14 @@ import type {
 import type { InsuranceProviderId } from '@/shared/insurance-providers';
 import { isLivestockApplicationStatus } from '@/features/livestock-application/api/mappers/guards';
 
+/** Normalize API status values, including legacy aliases. */
+export function normalizeLivestockApplicationStatus(status?: string): LivestockApplicationStatus | undefined {
+  const u = (status ?? '').toUpperCase();
+  if (u === 'PENDING_COMMISSION_REVIEW') return 'PENDING_ADMIN_REVIEW';
+  if (isLivestockApplicationStatus(u)) return u;
+  return undefined;
+}
+
 export function mapPaidStatus(paidStatus?: string): PaymentProofStatus {
   const u = (paidStatus ?? '').toUpperCase();
   if (u === 'VERIFIED' || u === 'PAID') return 'VERIFIED';
@@ -20,7 +28,10 @@ export function mapLegacyStatus(
   subsidyStatus?: string,
   paidStatus?: string,
 ): LivestockApplicationStatus {
-  if (status && isLivestockApplicationStatus(status)) return status;
+  if (status) {
+    const normalized = normalizeLivestockApplicationStatus(status);
+    if (normalized) return normalized;
+  }
 
   const s = (status ?? '').toUpperCase();
   const sub = (subsidyStatus ?? '').toUpperCase();

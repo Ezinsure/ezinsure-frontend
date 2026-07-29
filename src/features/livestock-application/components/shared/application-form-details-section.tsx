@@ -4,7 +4,15 @@ import type { ReactNode } from 'react';
 import { ClipboardList } from 'lucide-react';
 import type { LivestockApplicationPackage } from '@/features/livestock-application/domain/application-types';
 import { LIVESTOCK_FORM_LABELS } from '@/features/livestock-application/labels';
-import { formatLocationFull } from '@/features/livestock-application/utils/application-location';
+import {
+  ownerModeLabel,
+  poultryProductTypeLabel,
+  speciesGroupLabel,
+} from '@/features/livestock-application/domain/form-profiles';
+import {
+  formatLocationFull,
+  formatPolicyDate,
+} from '@/features/livestock-application/utils/application-location';
 import {
   formatGirinkaDisplay,
   formatOwnerGenderDisplay,
@@ -58,6 +66,35 @@ export function ApplicationFormDetailsSection({ application }: ApplicationFormDe
       </div>
 
       <div className="mt-6 space-y-8">
+        <DetailBlock title="Package & policy">
+          <DetailField label="Application number" value={application.applicationNumber} />
+          <DetailField label="Insurance type" value={application.insuranceType} />
+          <DetailField label="Species" value={speciesGroupLabel(application.speciesGroup)} />
+          {application.poultryProductType && (
+            <DetailField
+              label="Poultry product"
+              value={poultryProductTypeLabel(application.poultryProductType)}
+            />
+          )}
+          <DetailField label="Owner mode" value={ownerModeLabel(application.ownerMode)} />
+          <DetailField
+            label={labels.premiumPercentage}
+            value={
+              application.totals.premiumPercentage
+                ? `${application.totals.premiumPercentage}%`
+                : undefined
+            }
+          />
+          <DetailField
+            label="Policy start"
+            value={formatPolicyDate(application.policyStartDate)}
+          />
+          <DetailField
+            label="Policy end"
+            value={formatPolicyDate(application.policyEndDate)}
+          />
+        </DetailBlock>
+
         <DetailBlock title="Policy & experience">
           <DetailField label={labels.farmingExperience} value={application.farmingExperience} />
           <DetailField

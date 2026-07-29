@@ -8,15 +8,18 @@ import { useToast } from '@/components/ui/toast';
 import { UserCreateModal } from '@/components/ui/admin/user-create-modal';
 import { UserViewModal } from '@/components/ui/admin/user-view-modal';
 import { UserEditModal } from '@/components/ui/admin/user-edit-modal';
+import { UserTableActions } from '@/components/ui/admin/user-table-actions';
 import { DocumentViewer } from '@/components/ui/document-viewer';
 import { useAuth } from '@/context/AuthContext';
 import {
   formatLivestockUserRole,
   getLivestockWorkspaceRoles,
   getUsersListEndpoint,
+  livestockCreateRoleLabel,
+  type LivestockCreatableRole,
   type LivestockUsersViewerRole,
 } from '@/features/admin-livestock-users/config';
-import { VETERINARY_ROLE } from '@/shared/utils/role';
+import { SONARWA_REPRESENTATIVE_ROLE, VETERINARY_ROLE } from '@/shared/utils/role';
 
 interface LivestockUser {
   _id: string;
@@ -49,12 +52,18 @@ interface LivestockUser {
   }>;
   bankName?: string;
   bankAccountNumber?: string;
+  veterinaryType?: string;
+  rcvdLicenceDocument?: string;
 }
 
 type UserSortField = 'fullName' | 'email' | 'role' | 'status' | 'createdAt';
 type SortDirection = 'asc' | 'desc';
 
-type RoleFilter = 'all' | 'VETERINARY' | 'ADMIN';
+type RoleFilter = 'all' | typeof VETERINARY_ROLE | typeof SONARWA_REPRESENTATIVE_ROLE | 'ADMIN';
+
+function isLivestockCreatableRole(role: string): role is LivestockCreatableRole {
+  return role === VETERINARY_ROLE || role === SONARWA_REPRESENTATIVE_ROLE;
+}
 
 interface DeactivationModalProps {
   isOpen: boolean;
@@ -117,7 +126,7 @@ const emptyFormData = {
   province: '',
   district: '',
   sector: '',
-  role: VETERINARY_ROLE as 'ADMIN' | 'AGENT' | 'VETERINARY',
+  role: VETERINARY_ROLE as 'ADMIN' | 'AGENT' | 'VETERINARY' | 'SONARWA_REPRESENTATIVE',
   emergencyContact1Name: '',
   emergencyContact1PhoneNumber: '',
   emergencyContact1Relationship: '',
@@ -126,7 +135,9 @@ const emptyFormData = {
   emergencyContact2Relationship: '',
   nationalIdDocument: null as File | null,
   criminalRecordCertificate: null as File | null,
+  rcvdLicenceDocument: null as File | null,
   passportPhoto: null as File | null,
+  veterinaryType: '',
   bankName: '',
   bankAccountNumber: '',
 };
@@ -145,6 +156,8 @@ export function LivestockUsersPage({ viewerRole }: LivestockUsersPageProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [isCreatingUser, setIsCreatingUser] = useState(false);
+  const [createRoleTarget, setCreateRoleTarget] = useState<LivestockCreatableRole>(VETERINARY_ROLE);
+  const [isCreateMenuOpen, setIsCreateMenuOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<LivestockUser | null>(null);
   const [isEditingUser, setIsEditingUser] = useState(false);
   const [viewingDocument, setViewingDocument] = useState<{ name: string; path: string } | null>(null);
@@ -275,48 +288,56 @@ export function LivestockUsersPage({ viewerRole }: LivestockUsersPageProps) {
 
   const handleCreateUser = async () => {
     setIsLoading(true);
+    const roleLabel = livestockCreateRoleLabel(createRoleTarget);
     try {
       const payload = new FormData();
       payload.append('fullName', formData.fullName);
       payload.append('email', formData.email);
       payload.append('phoneNumber', formData.phoneNumber);
-      payload.append('dateOfBirth', formData.dateOfBirth);
-      payload.append('address', formData.address);
-      payload.append('province', formData.province);
-      payload.append('district', formData.district);
-      payload.append('sector', formData.sector);
-      payload.append('role', VETERINARY_ROLE);
-      payload.append('bankName', formData.bankName);
-      payload.append('bankAccountNumber', formData.bankAccountNumber);
+      payload.append('role', createRoleTarget);
+
+      if (createRoleTarget === VETERINARY_ROLE) {
+        payload.append('dateOfBirth', formData.dateOfBirth);
+        payload.append('address', formData.address);
+        payload.append('province', formData.province);
+        payload.append('district', formData.district);
+        payload.append('sector', formData.sector);
+        payload.append('bankName', formData.bankName);
+        payload.append('bankAccountNumber', formData.bankAccountNumber);
+
+        if (formData.veterinaryType) {
+          payload.append('veterinaryType', formData.veterinaryType);
+        }
+        if (formData.rcvdLicenceDocument) {
+          payload.append('rcvdLicenceDocument', formData.rcvdLicenceDocument);
+        }
+
+        const hasEmergencyContact1 =
+          formData.emergencyContact1Name.trim() ||
+          formData.emergencyContact1PhoneNumber.trim() ||
+          formData.emergencyContact1Relationship.trim();
+        const hasEmergencyContact2 =
+          formData.emergencyContact2Name.trim() ||
+          formData.emergencyContact2PhoneNumber.trim() ||
+          formData.emergencyContact2Relationship.trim();
+
+        if (hasEmergencyContact1) {
+          payload.append('emergencyContacts1Name', formData.emergencyContact1Name);
+          payload.append('emergencyContacts1Phone', formData.emergencyContact1PhoneNumber);
+          payload.append('emergencyContacts1Relationship', formData.emergencyContact1Relationship);
+        }
+        if (hasEmergencyContact2) {
+          payload.append('emergencyContacts2Name', formData.emergencyContact2Name);
+          payload.append('emergencyContacts2Phone', formData.emergencyContact2PhoneNumber);
+          payload.append('emergencyContacts2Relationship', formData.emergencyContact2Relationship);
+        }
+      }
 
       if (formData.nationalIdDocument) {
         payload.append('nationalIdDocument', formData.nationalIdDocument);
       }
-      if (formData.criminalRecordCertificate) {
-        payload.append('criminalRecordCertificate', formData.criminalRecordCertificate);
-      }
       if (formData.passportPhoto) {
         payload.append('passportPhoto', formData.passportPhoto);
-      }
-
-      const hasEmergencyContact1 =
-        formData.emergencyContact1Name.trim() ||
-        formData.emergencyContact1PhoneNumber.trim() ||
-        formData.emergencyContact1Relationship.trim();
-      const hasEmergencyContact2 =
-        formData.emergencyContact2Name.trim() ||
-        formData.emergencyContact2PhoneNumber.trim() ||
-        formData.emergencyContact2Relationship.trim();
-
-      if (hasEmergencyContact1) {
-        payload.append('emergencyContacts1Name', formData.emergencyContact1Name);
-        payload.append('emergencyContacts1Phone', formData.emergencyContact1PhoneNumber);
-        payload.append('emergencyContacts1Relationship', formData.emergencyContact1Relationship);
-      }
-      if (hasEmergencyContact2) {
-        payload.append('emergencyContacts2Name', formData.emergencyContact2Name);
-        payload.append('emergencyContacts2Phone', formData.emergencyContact2PhoneNumber);
-        payload.append('emergencyContacts2Relationship', formData.emergencyContact2Relationship);
       }
 
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/register`, {
@@ -326,11 +347,15 @@ export function LivestockUsersPage({ viewerRole }: LivestockUsersPageProps) {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to create veterinarian');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(
+          (errorData as { message?: string; error?: string }).message ||
+            (errorData as { error?: string }).error ||
+            `Failed to create ${roleLabel.toLowerCase()}`,
+        );
       }
 
-      showToast('Veterinarian created successfully', 'success');
+      showToast(`${roleLabel} created successfully`, 'success');
       setIsCreatingUser(false);
       setFormData(emptyFormData);
       await fetchUsers();
@@ -338,11 +363,20 @@ export function LivestockUsersPage({ viewerRole }: LivestockUsersPageProps) {
       const message =
         error && typeof error === 'object' && 'message' in error
           ? String((error as { message?: string }).message)
-          : 'Failed to create veterinarian';
+          : `Failed to create ${roleLabel.toLowerCase()}`;
       showToast(message, 'error');
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const openCreateModal = (role: LivestockCreatableRole) => {
+    setCreateRoleTarget(role);
+    setFormData({ ...emptyFormData, role });
+    setErrors({});
+    setIsCreateMenuOpen(false);
+    setIsCreatingUser(true);
+    setSelectedUser(null);
   };
 
   const handleStatusChange = async (
@@ -608,8 +642,8 @@ export function LivestockUsersPage({ viewerRole }: LivestockUsersPageProps) {
         <h1 className="mb-2 text-3xl font-bold">Manage Users</h1>
         <p className="text-gray-600">
           {viewerRole === 'SUPER_ADMIN'
-            ? 'Manage veterinarians and livestock workspace admins'
-            : 'Create and manage veterinarians for the livestock insurance workspace'}
+            ? 'Manage veterinarians, SONARWA representatives, and livestock workspace admins'
+            : 'Create and manage veterinarians and SONARWA representatives for the livestock insurance workspace'}
         </p>
       </div>
 
@@ -625,17 +659,16 @@ export function LivestockUsersPage({ viewerRole }: LivestockUsersPageProps) {
             />
           </div>
           <div className="flex flex-col gap-3 md:flex-row md:items-center">
-            {viewerRole === 'SUPER_ADMIN' && (
-              <select
-                value={roleFilter}
-                onChange={(e) => setRoleFilter(e.target.value as RoleFilter)}
-                className="rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-[var(--main-blue)] focus:outline-none focus:ring-[var(--main-blue)]"
-              >
-                <option value="all">All Roles</option>
-                <option value={VETERINARY_ROLE}>Veterinarian</option>
-                <option value="ADMIN">Admin</option>
-              </select>
-            )}
+            <select
+              value={roleFilter}
+              onChange={(e) => setRoleFilter(e.target.value as RoleFilter)}
+              className="rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-[var(--main-blue)] focus:outline-none focus:ring-[var(--main-blue)]"
+            >
+              <option value="all">All Roles</option>
+              <option value={VETERINARY_ROLE}>Veterinarian</option>
+              <option value={SONARWA_REPRESENTATIVE_ROLE}>SONARWA Representative</option>
+              {viewerRole === 'SUPER_ADMIN' && <option value="ADMIN">Admin</option>}
+            </select>
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)}
@@ -684,16 +717,55 @@ export function LivestockUsersPage({ viewerRole }: LivestockUsersPageProps) {
             <Download className="mr-1 h-3.5 w-3.5" />
             Export CSV
           </Button>
-          <Button
-            variant="primary"
-            onClick={() => {
-              setFormData(emptyFormData);
-              setIsCreatingUser(true);
-              setSelectedUser(null);
-            }}
-          >
-            Create Veterinarian
-          </Button>
+          <div className="relative">
+            <Button
+              variant="primary"
+              type="button"
+              onClick={() => setIsCreateMenuOpen((open) => !open)}
+              aria-expanded={isCreateMenuOpen}
+              aria-haspopup="menu"
+            >
+              Create user
+              <ArrowDown className="ml-2 h-3.5 w-3.5" />
+            </Button>
+            {isCreateMenuOpen && (
+              <>
+                <button
+                  type="button"
+                  className="fixed inset-0 z-10 cursor-default"
+                  aria-label="Close create menu"
+                  onClick={() => setIsCreateMenuOpen(false)}
+                />
+                <div
+                  role="menu"
+                  className="absolute right-0 z-20 mt-2 w-64 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg"
+                >
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="block w-full px-4 py-3 text-left text-sm text-slate-800 transition hover:bg-slate-50"
+                    onClick={() => openCreateModal(VETERINARY_ROLE)}
+                  >
+                    <span className="font-medium">Veterinarian</span>
+                    <span className="mt-0.5 block text-xs text-slate-500">
+                      Includes RCVD licence and vet type
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="block w-full border-t border-slate-100 px-4 py-3 text-left text-sm text-slate-800 transition hover:bg-slate-50"
+                    onClick={() => openCreateModal(SONARWA_REPRESENTATIVE_ROLE)}
+                  >
+                    <span className="font-medium">SONARWA Representative</span>
+                    <span className="mt-0.5 block text-xs text-slate-500">
+                      Name, email, phone, national ID · passport optional
+                    </span>
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </div>
 
@@ -734,14 +806,14 @@ export function LivestockUsersPage({ viewerRole }: LivestockUsersPageProps) {
                       </button>
                     </th>
                   ))}
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                  <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">
                     Actions
                   </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
                 {paginatedUsers.map((user, index) => (
-                  <tr key={user._id} className="hover:bg-gray-50">
+                  <tr key={user._id} className="transition-colors hover:bg-slate-50">
                     <td className="whitespace-nowrap px-4 py-4 text-sm font-medium text-[var(--main-blue)]">
                       #{(currentPage - 1) * itemsPerPage + index + 1}
                     </td>
@@ -757,45 +829,22 @@ export function LivestockUsersPage({ viewerRole }: LivestockUsersPageProps) {
                     <td className="whitespace-nowrap px-4 py-4 text-sm text-gray-500">
                       {formatDate(user.createdAt)}
                     </td>
-                    <td className="whitespace-nowrap px-4 py-4 text-sm font-medium">
-                      <div className="flex flex-wrap gap-2">
-                        <Button variant="outline" onClick={() => setSelectedUser(user)}>
-                          View
-                        </Button>
-                        {user.role === VETERINARY_ROLE && user.status === 'ACTIVE' && (
-                          <>
-                            <Button
-                              variant="outline"
-                              onClick={() => {
-                                setSelectedUser(user);
-                                setIsEditingUser(true);
-                              }}
-                            >
-                              Edit
-                            </Button>
-                            <Button
-                              variant="danger"
-                              onClick={() => {
-                                setUserToDeactivate(user._id);
-                                setIsDeactivating(true);
-                              }}
-                            >
-                              Deactivate
-                            </Button>
-                          </>
-                        )}
-                        {(user.status === 'PENDING' || user.status === 'SENT_FOR_ACTION') &&
-                          user.role === VETERINARY_ROLE && (
-                            <Button variant="primary" onClick={() => setSelectedUser(user)}>
-                              Review
-                            </Button>
-                          )}
-                        {user.status === 'DEACTIVATED' && user.role === VETERINARY_ROLE && (
-                          <Button variant="primary" onClick={() => handleStatusChange(user._id, 'ACTIVE')}>
-                            Activate
-                          </Button>
-                        )}
-                      </div>
+                    <td className="whitespace-nowrap px-4 py-3 text-right">
+                      <UserTableActions
+                        status={user.status}
+                        canManage={isLivestockCreatableRole(user.role)}
+                        onView={() => setSelectedUser(user)}
+                        onEdit={() => {
+                          setSelectedUser(user);
+                          setIsEditingUser(true);
+                        }}
+                        onDeactivate={() => {
+                          setUserToDeactivate(user._id);
+                          setIsDeactivating(true);
+                        }}
+                        onReview={() => setSelectedUser(user)}
+                        onActivate={() => handleStatusChange(user._id, 'ACTIVE')}
+                      />
                     </td>
                   </tr>
                 ))}
@@ -830,16 +879,19 @@ export function LivestockUsersPage({ viewerRole }: LivestockUsersPageProps) {
 
       <UserCreateModal
         isOpen={isCreatingUser}
-        onClose={() => setIsCreatingUser(false)}
+        onClose={() => {
+          setIsCreatingUser(false);
+          setFormData(emptyFormData);
+        }}
         onCreate={handleCreateUser}
         isLoading={isLoading}
         errors={errors}
         formData={formData}
         setFormData={setFormData}
         setErrors={setErrors}
-        fixedRole={VETERINARY_ROLE}
-        title="Create Veterinarian"
-        submitLabel="Create Veterinarian"
+        fixedRole={createRoleTarget}
+        title={`Create ${livestockCreateRoleLabel(createRoleTarget)}`}
+        submitLabel={`Create ${livestockCreateRoleLabel(createRoleTarget)}`}
       />
 
       {selectedUser && !isEditingUser && (

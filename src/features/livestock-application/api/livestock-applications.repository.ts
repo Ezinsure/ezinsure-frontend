@@ -20,6 +20,7 @@ import {
   requestJson,
   unwrapEntityPayload,
 } from '@/features/livestock-application/api/http';
+import { isLivestockWorkflowApiLive } from '@/features/livestock-application/utils/workflow-demo-mode';
 import {
   extractApplicationsListPaginationMeta,
   mapApplicationsListResponse,
@@ -61,6 +62,21 @@ async function tryFetchApplicationRecord(
   apiFetch: ApiFetch,
   applicationId: string,
 ): Promise<unknown | null> {
+  if (isLivestockWorkflowApiLive('applicationDetail')) {
+    try {
+      const response = await requestJson<unknown>(
+        apiFetch,
+        LIVESTOCK_VET_ENDPOINTS.getVeterinaryApplicationById(applicationId),
+        { method: 'GET' },
+        'application-detail',
+      );
+      const data = unwrapEntityPayload(response);
+      if (data && typeof data === 'object') return data;
+    } catch {
+      /* fall through to legacy paths */
+    }
+  }
+
   const paths = [
     LIVESTOCK_VET_ENDPOINTS.getApplicationById(applicationId),
     LIVESTOCK_VET_ENDPOINTS.getApplicationByQuery(applicationId),
@@ -177,6 +193,14 @@ function createBackendRepository(
     },
 
     async getById({ applicationId, agentId, scope = listScope }) {
+      if (isLivestockWorkflowApiLive('applicationDetail')) {
+        const raw = await tryFetchApplicationRecord(apiFetch, applicationId);
+        if (raw) {
+          cacheLivestockApplicationRows([raw]);
+          return mapToLivestockApplicationPackage(raw);
+        }
+      }
+
       const cached = getCachedLivestockApplicationRow(applicationId);
       if (cached) {
         return mapToLivestockApplicationPackage(cached);

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
+import { AlertCircle, Loader2 } from 'lucide-react';
 import type {
   LivestockApplicationPackage,
   LivestockApplicationViewRole,
@@ -12,6 +13,8 @@ import { LivestockApplicationDetailView } from '@/features/livestock-application
 interface LivestockApplicationDetailPanelProps {
   isOpen: boolean;
   application: LivestockApplicationPackage | null;
+  isLoading?: boolean;
+  error?: string | null;
   viewRole?: LivestockApplicationViewRole;
   onClose: () => void;
   onUpdated?: () => void;
@@ -23,6 +26,8 @@ interface LivestockApplicationDetailPanelProps {
 export function LivestockApplicationDetailPanel({
   isOpen,
   application,
+  isLoading = false,
+  error = null,
   viewRole = 'vet',
   onClose,
   onUpdated,
@@ -46,7 +51,7 @@ export function LivestockApplicationDetailPanel({
 
   return createPortal(
     <AnimatePresence>
-      {isOpen && application && (
+      {isOpen && (
         <>
           <motion.button
             type="button"
@@ -67,16 +72,39 @@ export function LivestockApplicationDetailPanel({
             className="fixed inset-0 z-[201] flex flex-col overflow-hidden bg-white shadow-2xl sm:inset-auto sm:bottom-0 sm:right-0 sm:top-0 sm:w-full sm:max-w-[min(100%,40rem)] md:max-w-[min(100%,52rem)] lg:max-w-[min(100%,68rem)] xl:max-w-[min(100%,84rem)] 2xl:max-w-[min(100%,92rem)]"
             role="dialog"
             aria-modal="true"
-            aria-label={`Application ${application.applicationNumber}`}
+            aria-label="Application details"
           >
-            <LivestockApplicationDetailView
-              application={application}
-              viewRole={viewRole}
-              layout="panel"
-              backLabel="Back to all applications"
-              onClose={onClose}
-              onUpdated={onUpdated}
-            />
+            {isLoading && (
+              <div className="flex flex-1 flex-col items-center justify-center gap-3 p-8">
+                <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+                <p className="text-sm text-slate-600">Loading application details…</p>
+              </div>
+            )}
+
+            {!isLoading && error && (
+              <div className="flex flex-1 flex-col items-center justify-center gap-3 p-8 text-center">
+                <AlertCircle className="h-8 w-8 text-red-500" />
+                <p className="max-w-md text-sm text-red-700">{error}</p>
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="mt-2 text-sm font-medium text-blue-600 hover:underline"
+                >
+                  Back to applications
+                </button>
+              </div>
+            )}
+
+            {!isLoading && !error && application && (
+              <LivestockApplicationDetailView
+                application={application}
+                viewRole={viewRole}
+                layout="panel"
+                backLabel="Back to all applications"
+                onClose={onClose}
+                onUpdated={onUpdated}
+              />
+            )}
           </motion.div>
         </>
       )}

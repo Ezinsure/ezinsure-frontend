@@ -46,6 +46,7 @@ function enrichOwners(application: LivestockApplicationPackage): AggregatedOwner
   return aggregated.map((owner) => {
     const matched = ownersList.find(
       (entry) =>
+        (entry.id && entry.id === owner.key) ||
         (entry.phone && entry.phone === owner.phone) ||
         (entry.name && entry.name === owner.name),
     );

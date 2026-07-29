@@ -62,10 +62,38 @@ const MESSAGE_REWRITES: Array<{ test: RegExp; message: string }> = [
   },
 ];
 
-export type LivestockErrorContext = 'payment-proof' | 'list' | 'create' | 'general';
+export type LivestockErrorContext =
+  | 'payment-proof'
+  | 'issue-insurance'
+  | 'subsidy-upload'
+  | 'sonarwa-review'
+  | 'commission-approve'
+  | 'commission-paid'
+  | 'application-detail'
+  | 'list'
+  | 'create'
+  | 'general';
 
 function fallbackForContext(context: LivestockErrorContext): string {
   if (context === 'payment-proof') return PAYMENT_PROOF_FALLBACK;
+  if (context === 'issue-insurance') {
+    return 'We could not issue insurance. Please check the certificate file and try again.';
+  }
+  if (context === 'subsidy-upload') {
+    return 'We could not upload the signed nkunganire document. Please check the file and try again.';
+  }
+  if (context === 'sonarwa-review') {
+    return 'We could not complete the SONARWA review. Please try again.';
+  }
+  if (context === 'commission-approve') {
+    return 'We could not approve the commission. Please try again.';
+  }
+  if (context === 'commission-paid') {
+    return 'We could not mark the commission as paid. Please try again.';
+  }
+  if (context === 'application-detail') {
+    return 'We could not load this application. Please refresh and try again.';
+  }
   if (context === 'list') return 'We could not load applications. Please refresh or widen the date range.';
   if (context === 'create') return 'We could not submit the application. Please review the form and try again.';
   return GENERAL_FALLBACK;
@@ -85,9 +113,19 @@ export function humanizeLivestockApiError(
     return 'You do not have permission to perform this action.';
   }
   if (status === 404) {
-    return context === 'payment-proof'
-      ? 'This application was not found. Refresh the list and try again.'
-      : 'The requested record was not found.';
+    if (context === 'payment-proof') {
+      return 'This application was not found. Refresh the list and try again.';
+    }
+    if (context === 'application-detail') {
+      return 'This application was not found. It may have been removed or you may not have access.';
+    }
+    return 'The requested record was not found.';
+  }
+  if (status === 409) {
+    return 'This action is not allowed for the current application status. Refresh the page and try again.';
+  }
+  if (status === 422) {
+    return 'This application does not meet the requirements for this step. Refresh and review the workflow status.';
   }
   if (status === 413) {
     return 'This file is too large. Please upload a smaller JPG, PNG, or PDF.';

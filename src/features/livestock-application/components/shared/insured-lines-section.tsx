@@ -9,9 +9,11 @@ import type {
   LivestockApplicationPackage,
 } from '@/features/livestock-application/domain/application-types';
 import {
+  INSURED_LINE_IDENTIFIER_LABEL,
   isPoultryApplication,
   lineSecondaryLabel,
   lineTableLabel,
+  ownerLineKey,
 } from '@/features/livestock-application/utils/insured-line-display';
 import { formatRwfDisplay } from '@/features/livestock-application/utils/format-rwf';
 
@@ -44,8 +46,7 @@ export function InsuredLinesSection({
     const result = ownerFilterKey
       ? withIndex.filter(({ line }) => {
           if (ownerFilterKey === 'primary') return true;
-          const key = line.owner?.phone?.trim() || line.owner?.name?.trim() || '';
-          return key === ownerFilterKey;
+          return ownerLineKey(line) === ownerFilterKey;
         })
       : withIndex;
     const q = search.trim().toLowerCase();
@@ -159,7 +160,7 @@ export function InsuredLinesSection({
                 type="search"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search eartag, breed, owner…"
+                placeholder="Search chip / eartag / lot, breed, owner…"
                 className="w-full rounded-xl border border-slate-200 py-2 pl-10 pr-3 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100"
               />
             </div>
@@ -185,7 +186,7 @@ export function InsuredLinesSection({
             <thead className="bg-slate-50/80 text-left text-xs uppercase tracking-wide text-slate-500">
               <tr>
                 <th className="px-4 py-3 w-12">#</th>
-                <th className="px-4 py-3">{isPoultry ? 'Lot / hatchery' : 'Eartag'}</th>
+                <th className="px-4 py-3">{INSURED_LINE_IDENTIFIER_LABEL}</th>
                 {isMultiOwner && <th className="px-4 py-3">Owner</th>}
                 <th className="px-4 py-3">{isPoultry ? 'Quantity' : 'Breed / type'}</th>
                 <th className="px-4 py-3">Sum assured</th>

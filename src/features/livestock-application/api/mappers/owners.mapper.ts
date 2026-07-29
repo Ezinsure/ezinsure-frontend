@@ -3,58 +3,28 @@ import type {
   LivestockApplicationPackage,
 } from '@/features/livestock-application/domain/application-types';
 import { mapApiLineRecord } from '@/features/livestock-application/api/mappers/line.mapper';
+import {
+  normalizeOwnerRecord,
+  type NormalizedOwnerFields,
+} from '@/features/livestock-application/api/mappers/owner-fields';
 import { mapPaidStatus } from '@/features/livestock-application/api/mappers/status.mapper';
 
-export interface ResolvedOwner {
-  id?: string;
-  name: string;
-  phone: string;
-  nationalId?: string;
-  gender?: 'male' | 'female';
-}
+export type ResolvedOwner = NormalizedOwnerFields;
 
 export function resolvePackagePrimaryOwner(
   record: Record<string, unknown>,
 ): ResolvedOwner | undefined {
-  const owner = record.owner as {
-    _id?: string;
-    name?: string;
-    phone?: string;
-    nationalId?: string;
-    gender?: 'male' | 'female';
-  } | null | undefined;
+  const owner = record.owner;
   if (!owner || typeof owner !== 'object') return undefined;
-  const name = String(owner.name ?? '').trim();
-  if (!name) return undefined;
-  return {
-    id: owner._id ? String(owner._id) : undefined,
-    name,
-    phone: String(owner.phone ?? '').trim(),
-    nationalId: owner.nationalId ? String(owner.nationalId).trim() : undefined,
-    gender: owner.gender,
-  };
+  return normalizeOwnerRecord(owner as Record<string, unknown>) ?? undefined;
 }
 
 export function resolvePackageOwnersList(record: Record<string, unknown>): ResolvedOwner[] {
   if (!Array.isArray(record.owners)) return [];
   const owners: ResolvedOwner[] = [];
   for (const item of record.owners) {
-    const owner = item as {
-      _id?: string;
-      name?: string;
-      phone?: string;
-      nationalId?: string;
-      gender?: 'male' | 'female';
-    };
-    const name = String(owner.name ?? '').trim();
-    if (!name) continue;
-    owners.push({
-      id: owner._id ? String(owner._id) : undefined,
-      name,
-      phone: String(owner.phone ?? '').trim(),
-      nationalId: owner.nationalId ? String(owner.nationalId).trim() : undefined,
-      gender: owner.gender,
-    });
+    const normalized = normalizeOwnerRecord(item as Record<string, unknown>);
+    if (normalized) owners.push(normalized);
   }
   return owners;
 }
@@ -125,6 +95,7 @@ export function mapInsuredLinesFromRecord(record: Record<string, unknown>): Insu
         ...(owner
           ? {
               owner: {
+                ...(owner.id ? { id: owner.id } : {}),
                 name: owner.name,
                 phone: owner.phone,
                 ...(owner.nationalId ? { nationalId: owner.nationalId } : {}),
@@ -159,11 +130,18 @@ export function resolvePaymentProofDocumentUrl(
 ): string | undefined {
   const proofs = Array.isArray(record.paymentProofs) ? record.paymentProofs : [];
   const latest = proofs.length > 0 ? (proofs[proofs.length - 1] as Record<string, unknown>) : null;
+  const nestedProof =
+    record.paymentProof && typeof record.paymentProof === 'object'
+      ? (record.paymentProof as Record<string, unknown>)
+      : null;
 
   return pickNonemptyString(
+    nestedProof?.documentUrl,
+    nestedProof?.fileUrl,
     record.proofOfPayment,
     record.proofOfPaymentUrl,
     latest?.documentUrl,
+    latest?.fileUrl,
     latest?.proofOfPayment,
     latest?.url,
   );
@@ -175,25 +153,48 @@ export function mapPaymentProofFromRecord(
 ): LivestockApplicationPackage['paymentProof'] {
   const proofs = Array.isArray(record.paymentProofs) ? record.paymentProofs : [];
   const latest = proofs.length > 0 ? (proofs[proofs.length - 1] as Record<string, unknown>) : null;
+  const nestedProof =
+    record.paymentProof && typeof record.paymentProof === 'object'
+      ? (record.paymentProof as Record<string, unknown>)
+      : null;
   const documentUrl = resolvePaymentProofDocumentUrl(record);
   const appStatus = String(record.status ?? '').toUpperCase();
 
-  const statusSource =
-    latest?.status ??
-    (documentUrl || appStatus === 'PAYMENT_PROOF_SUBMITTED' ? 'SUBMITTED' : undefined) ??
-    record.paidStatus ??
-    record.paymentProofStatus;
+  let statusSource: string | undefined;
+  if (latest?.verificationStatus) {
+    statusSource = String(latest.verificationStatus);
+  } else if (latest?.status) {
+    statusSource = String(latest.status);
+  } else if (nestedProof?.status) {
+    statusSource = String(nestedProof.status);
+  } else if (documentUrl || appStatus === 'PAYMENT_PROOF_SUBMITTED') {
+    const paid = String(record.paidStatus ?? '').toUpperCase();
+    statusSource =
+      paid === 'VERIFIED' || appStatus === 'PAYMENT_VERIFIED' ? 'VERIFIED' : 'SUBMITTED';
+  } else {
+    statusSource = pickNonemptyString(record.paidStatus, record.paymentProofStatus);
+  }
+
+  const notes = pickNonemptyString(latest?.notes, nestedProof?.notes, record.paymentProofNotes);
+  const submittedAt = pickNonemptyString(
+    latest?.uploadedAt,
+    latest?.submittedAt,
+    nestedProof?.submittedAt,
+  );
+  const verifiedAt = pickNonemptyString(latest?.verifiedAt, nestedProof?.verifiedAt);
 
   return {
     status: mapPaidStatus(String(statusSource ?? '')),
-    expectedAmount,
+    expectedAmount: Number(nestedProof?.expectedAmount ?? expectedAmount) || expectedAmount,
     documentUrl,
     transactionId: pickNonemptyString(
       latest?.transactionId,
+      nestedProof?.transactionId,
       record.transactionId,
       record.paymentTransactionId,
     ),
-    submittedAt: latest?.submittedAt ? String(latest.submittedAt) : undefined,
-    verifiedAt: latest?.verifiedAt ? String(latest.verifiedAt) : undefined,
+    ...(notes ? { notes } : {}),
+    submittedAt,
+    verifiedAt,
   };
 }

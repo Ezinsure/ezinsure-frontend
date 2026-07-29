@@ -14,6 +14,18 @@
   --success-green: #43a047;
   --light-gray: #F5F5F5;
   --mid-gray: #E0E0E0;
+  --portal-primary: var(--main-blue);
+  --portal-primary-hover: var(--secondary-blue);
+  --portal-primary-soft: #E6F0F8;
+}
+
+[data-portal="sonarwa"] {
+  --sonarwa-primary: #8B1E2D;
+  --sonarwa-primary-hover: #6E1724;
+  --sonarwa-soft: #F8EEF0;
+  --portal-primary: var(--sonarwa-primary);
+  --portal-primary-hover: var(--sonarwa-primary-hover);
+  --portal-primary-soft: var(--sonarwa-soft);
 }
 
 body {

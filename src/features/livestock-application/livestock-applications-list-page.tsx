@@ -9,7 +9,10 @@ import { ApplicationsListTable } from '@/features/livestock-application/componen
 import type { ApplicationsListRowActionHandlers } from '@/features/livestock-application/components/applications-list/applications-list-row-actions';
 import { LivestockApplicationDetailPanel } from '@/features/livestock-application/components/livestock-application-detail-panel';
 import { LivestockApplicationsPagination } from '@/features/livestock-application/components/shared/livestock-applications-pagination';
-import { useLivestockApplicationsList } from '@/features/livestock-application/hooks/use-livestock-applications';
+import {
+  useLivestockApplicationDetail,
+  useLivestockApplicationsList,
+} from '@/features/livestock-application/hooks/use-livestock-applications';
 import type { LivestockApplicationViewRole } from '@/features/livestock-application/domain/application-types';
 import type { LivestockApplicationListItem } from '@/features/livestock-application/domain/application-types';
 import {
@@ -18,7 +21,10 @@ import {
   hasActiveListFilters,
   type ApplicationsListFilters,
 } from '@/features/livestock-application/utils/applications-list-filters';
-import { resolveApplicationPackageById } from '@/features/livestock-application/utils/resolve-application-package';
+import {
+  isAwaitingSonarwaReview,
+  isListItemAwaitingSonarwaReview,
+} from '@/features/livestock-application/utils/workflow-rules';
 import { useAuth } from '@/context/AuthContext';
 
 const getDefaultStartDate = (): string => {
@@ -32,6 +38,15 @@ const getTodayDate = (): string => {
 };
 
 function listConfig(role: LivestockApplicationViewRole) {
+  if (role === 'sonarwa') {
+    return {
+      title: 'Applications awaiting review',
+      subtitle:
+        'Review livestock applications that have reached the SONARWA verification stage.',
+      detailBase: '/sonarwa/livestock/applications',
+      showNewButton: false,
+    };
+  }
   if (role === 'admin') {
     return {
       title: 'Livestock applications',
@@ -82,10 +97,15 @@ export default function LivestockApplicationsListPage({
   const [filters, setFilters] = useState<ApplicationsListFilters>(() =>
     getDefaultApplicationsListFilters(viewRole),
   );
-  const [detailVersion, setDetailVersion] = useState(0);
   const isVet = viewRole === 'vet';
   const listScope = isVet ? 'vet' : 'all';
   const vetId = isVet ? user?._id : undefined;
+  const {
+    application: panelApplication,
+    isLoading: panelLoading,
+    error: panelError,
+    reload: reloadPanelApplication,
+  } = useLivestockApplicationDetail(openFromUrl, { scope: listScope });
   const {
     applications,
     meta,
@@ -103,16 +123,24 @@ export default function LivestockApplicationsListPage({
 
   const filtersActive = hasActiveListFilters(filters, viewRole);
 
-  const panelApplication = useMemo(() => {
-    if (!openFromUrl) return null;
-    void detailVersion;
-    return resolveApplicationPackageById(openFromUrl);
-  }, [openFromUrl, detailVersion]);
-
   const handleApplicationUpdated = useCallback(() => {
     void load(startDate, endDate, pageNumber, pageSize);
-    setDetailVersion((v) => v + 1);
-  }, [endDate, load, pageNumber, pageSize, startDate]);
+    if (viewRole === 'sonarwa') {
+      router.replace(config.detailBase, { scroll: false });
+      return;
+    }
+    void reloadPanelApplication();
+  }, [
+    config.detailBase,
+    endDate,
+    load,
+    pageNumber,
+    pageSize,
+    reloadPanelApplication,
+    router,
+    startDate,
+    viewRole,
+  ]);
 
   useEffect(() => {
     if (isVet && !vetId) return;
@@ -140,14 +168,23 @@ export default function LivestockApplicationsListPage({
     [openApplication],
   );
 
-  const filtered = useMemo(
-    () => applyApplicationsListFilters(applications, filters),
-    [applications, filters],
-  );
+  const filtered = useMemo(() => {
+    const visibleApplications =
+      viewRole === 'sonarwa'
+        ? applications.filter(isListItemAwaitingSonarwaReview)
+        : applications;
+    return applyApplicationsListFilters(visibleApplications, filters);
+  }, [applications, filters, viewRole]);
 
   const emptyMessage = filtersActive
     ? 'No matches on this page. Try another page, widen the date range, or clear filters.'
-    : 'No applications in this period. Try widening the date range above.';
+    : viewRole === 'sonarwa'
+      ? 'There are no applications awaiting SONARWA review in this period.'
+      : 'No applications in this period. Try widening the date range above.';
+  const panelAccessDenied =
+    viewRole === 'sonarwa' &&
+    panelApplication !== null &&
+    !isAwaitingSonarwaReview(panelApplication);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white p-6 lg:p-8">
@@ -211,8 +248,14 @@ export default function LivestockApplicationsListPage({
       </div>
 
       <LivestockApplicationDetailPanel
-        isOpen={panelApplication !== null}
-        application={panelApplication}
+        isOpen={Boolean(openFromUrl)}
+        application={panelAccessDenied ? null : panelApplication}
+        isLoading={panelLoading}
+        error={
+          panelAccessDenied
+            ? 'This application is not currently awaiting SONARWA review.'
+            : panelError
+        }
         viewRole={viewRole}
         onClose={closeApplicationPanel}
         onUpdated={handleApplicationUpdated}

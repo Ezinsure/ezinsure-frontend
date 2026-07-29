@@ -6,6 +6,7 @@ import { Menu } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useWorkspace } from '@/context/WorkspaceContext';
 import { WorkspaceSwitcher } from '@/shared/layouts/WorkspaceSwitcher';
+import { isSonarwaRepresentativeRole } from '@/shared/utils/role';
 
 interface AppTopBarProps {
   onOpenMobileSidebar: () => void;
@@ -18,6 +19,9 @@ export function AppTopBar({ onOpenMobileSidebar }: AppTopBarProps) {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   if (!user) return null;
+  const profileHref = isSonarwaRepresentativeRole(user.role)
+    ? '/sonarwa/livestock/profile'
+    : buildPath('/profile');
 
   const getUserInitials = () => {
     if (!user.fullName) return '?';
@@ -54,7 +58,7 @@ export function AppTopBar({ onOpenMobileSidebar }: AppTopBarProps) {
         <button
           type="button"
           onClick={() => setIsProfileOpen((open) => !open)}
-          className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--main-blue)] text-sm font-medium text-white hover:bg-[var(--secondary-blue)]"
+          className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--portal-primary)] text-sm font-medium text-white hover:bg-[var(--portal-primary-hover)]"
           aria-expanded={isProfileOpen}
           aria-label="Account menu"
         >
@@ -75,7 +79,7 @@ export function AppTopBar({ onOpenMobileSidebar }: AppTopBarProps) {
                 <p className="text-xs text-gray-500">{user.email}</p>
               </div>
               <Link
-                href={buildPath('/profile')}
+                href={profileHref}
                 className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
                 onClick={() => setIsProfileOpen(false)}
               >

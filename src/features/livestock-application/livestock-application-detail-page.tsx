@@ -11,13 +11,13 @@ export interface LivestockApplicationDetailPageProps {
   viewRole?: LivestockApplicationViewRole;
   backHref?: string;
   backLabel?: string;
-  preferListCache?: boolean;
 }
 
 function resolveBackHref(role: LivestockApplicationViewRole): string {
   if (role === 'admin') return '/admin/livestock/applications';
   if (role === 'finance') return '/finance/livestock/applications';
   if (role === 'super_admin') return '/super_admin/livestock/applications';
+  if (role === 'sonarwa') return '/sonarwa/livestock/applications';
   return '/vet/livestock/applications';
 }
 
@@ -26,10 +26,10 @@ export default function LivestockApplicationDetailPage({
   viewRole = 'vet',
   backHref,
   backLabel = 'All applications',
-  preferListCache = false,
 }: LivestockApplicationDetailPageProps) {
+  const scope = viewRole === 'vet' ? 'vet' : 'all';
   const { application, isLoading, error, reload } = useLivestockApplicationDetail(applicationId, {
-    preferListCache,
+    scope,
   });
 
   if (isLoading) {
@@ -43,12 +43,7 @@ export default function LivestockApplicationDetailPage({
   if (error || !application) {
     return (
       <div className="p-8 text-center">
-        <p className="text-red-600">
-          {error ??
-            (preferListCache
-              ? 'Application not found in your session. Open it from the applications list first.'
-              : 'Not found')}
-        </p>
+        <p className="text-red-600">{error ?? 'Application not found.'}</p>
         <Link
           href={backHref ?? resolveBackHref(viewRole)}
           className="mt-4 inline-block text-blue-600"

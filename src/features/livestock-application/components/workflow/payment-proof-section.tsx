@@ -1,8 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { AlertCircle, CheckCircle2, Eye, FileUp, Loader2, Receipt, ShieldCheck } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { FileUp, Receipt, ShieldCheck } from 'lucide-react';
+import { useAuth } from '@/context/AuthContext';
 import {
   PaymentProofUploadModal,
   type PaymentProofUploadPayload,
@@ -16,6 +16,18 @@ import type {
 } from '@/features/livestock-application/domain/application-types';
 import { canAdminReviewLivestockPayment } from '@/features/livestock-application/utils/application-timeline';
 import { formatRwfDisplay } from '@/features/livestock-application/utils/format-rwf';
+import { formatWorkflowActionError } from '@/features/livestock-application/utils/workflow-action-feedback';
+import {
+  canUploadLivestockPaymentProofRole,
+  isPaymentProofUploadStatusEligible,
+} from '@/features/livestock-application/utils/workflow-rules';
+import { resolveWorkflowActionVisible } from '@/features/livestock-application/utils/workflow-demo-mode';
+import { useWorkflowToast } from '@/features/livestock-application/components/workflow/workflow-toast-context';
+import {
+  WorkflowDocumentAction,
+  WorkflowPrimaryAction,
+  WorkflowStepActions,
+} from '@/features/livestock-application/components/workflow/workflow-step-actions';
 
 interface PaymentProofSectionProps {
   application: LivestockApplicationPackage;
@@ -32,25 +44,23 @@ export function PaymentProofSection({
 }: PaymentProofSectionProps) {
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [reviewModalOpen, setReviewModalOpen] = useState(false);
-  const [note, setNote] = useState<string | null>(null);
-  const { upload, isUploading, error: uploadError, clearError: clearUploadError } =
-    useUploadLivestockPaymentProof();
-  const {
-    verify,
-    isVerifying,
-    error: verifyError,
-    clearError: clearVerifyError,
-  } = useVerifyLivestockPaymentProof();
+  const toast = useWorkflowToast();
+  const { user } = useAuth();
+  const { upload, isUploading } = useUploadLivestockPaymentProof();
+  const { verify, isVerifying } = useVerifyLivestockPaymentProof();
   const { paymentProof } = application;
 
-  const canUpload =
-    viewRole === 'vet' && (paymentProof.status === 'PENDING' || paymentProof.status === 'REJECTED');
+  const canUpload = resolveWorkflowActionVisible(
+    canUploadLivestockPaymentProofRole(application, viewRole, user?._id),
+    isPaymentProofUploadStatusEligible(application),
+  );
 
-  const canReview = viewRole === 'admin' && canAdminReviewLivestockPayment(application);
+  const canReview = resolveWorkflowActionVisible(
+    viewRole === 'admin' || viewRole === 'super_admin',
+    canAdminReviewLivestockPayment(application),
+  );
 
   const handleUploadSubmit = async (payload: PaymentProofUploadPayload) => {
-    setNote(null);
-    clearUploadError();
     try {
       await upload(application._id, {
         amount: payload.amount,
@@ -58,11 +68,19 @@ export function PaymentProofSection({
         transactionId: payload.transactionId,
         notes: payload.notes,
       });
-      setUploadModalOpen(false);
-      setNote('Payment proof submitted successfully. An administrator will review the receipt.');
+      toast.showSuccess(
+        'Payment proof submitted successfully. An administrator will review the receipt.',
+      );
       onUpdated?.();
-    } catch {
-      // upload hook sets error state
+    } catch (err) {
+      toast.showError(
+        formatWorkflowActionError(
+          err,
+          'We could not upload your payment proof. Please try again.',
+          'payment-proof',
+        ),
+      );
+      throw err;
     }
   };
 
@@ -70,19 +88,25 @@ export function PaymentProofSection({
     action: 'approve' | 'reject';
     reasonForPaymentRejection?: string;
   }) => {
-    setNote(null);
-    clearVerifyError();
-    await verify(application._id, payload);
-    setReviewModalOpen(false);
-    setNote(
-      payload.action === 'approve'
-        ? 'Payment verified. The application can proceed to the next workflow step.'
-        : 'Payment sent back to the veterinarian with your feedback.',
-    );
-    onUpdated?.();
+    try {
+      await verify(application._id, payload);
+      toast.showSuccess(
+        payload.action === 'approve'
+          ? 'Payment verified. The application can proceed to the next workflow step.'
+          : 'Payment rejected and sent back to the veterinarian with your feedback.',
+      );
+      onUpdated?.();
+    } catch (err) {
+      toast.showError(
+        formatWorkflowActionError(
+          err,
+          'We could not complete the payment review. Please try again.',
+          'payment-proof',
+        ),
+      );
+      throw err;
+    }
   };
-
-  const activeError = uploadError || verifyError;
 
   return (
     <>
@@ -96,8 +120,9 @@ export function PaymentProofSection({
             <p className="mt-1 text-sm text-slate-600">
               One receipt for the whole application — farmer share (60%) for all animals combined.
               {viewRole === 'vet' && ' Upload the farmer receipt once payment is complete.'}
-              {viewRole === 'admin' && ' Review the uploaded proof and approve or request corrections.'}
-              {viewRole !== 'vet' && viewRole !== 'admin' && ' Track payment proof status here.'}
+              {(viewRole === 'admin' || viewRole === 'super_admin') &&
+                ' Upload payment proof when pending or rejected, or review and verify submitted receipts.'}
+              {viewRole === 'finance' && ' Track payment proof status here.'}
             </p>
           </div>
         </div>
@@ -131,79 +156,60 @@ export function PaymentProofSection({
           </div>
         </dl>
 
-        <div className="mt-6 flex flex-wrap gap-3">
+        {paymentProof.notes?.trim() && (
+          <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50/80 px-4 py-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Notes</p>
+            <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-slate-800">
+              {paymentProof.notes.trim()}
+            </p>
+          </div>
+        )}
+
+        {application.reasonForPaymentRejection?.trim() && (
+          <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-red-700">
+              Rejection reason
+            </p>
+            <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-red-900">
+              {application.reasonForPaymentRejection.trim()}
+            </p>
+          </div>
+        )}
+
+        <WorkflowStepActions className="mt-6">
           {canUpload && (
-            <Button
-              type="button"
-              variant="primary"
-              disabled={isUploading}
+            <WorkflowPrimaryAction
+              loading={isUploading}
+              icon={<FileUp className="mr-2 h-4 w-4" />}
               onClick={() => setUploadModalOpen(true)}
             >
-              {isUploading ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <FileUp className="mr-2 h-4 w-4" />
-              )}
               Upload payment proof
-            </Button>
+            </WorkflowPrimaryAction>
           )}
 
           {canReview && (
-            <Button
-              type="button"
-              variant="primary"
-              disabled={isVerifying}
+            <WorkflowPrimaryAction
+              loading={isVerifying}
+              icon={<ShieldCheck className="mr-2 h-4 w-4" />}
               onClick={() => setReviewModalOpen(true)}
             >
-              {isVerifying ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <ShieldCheck className="mr-2 h-4 w-4" />
-              )}
               Review payment
-            </Button>
+            </WorkflowPrimaryAction>
           )}
 
           {paymentProof.documentUrl && onViewDocument && (
-            <Button
-              type="button"
-              variant="outline"
+            <WorkflowDocumentAction
+              label="View payment proof"
               onClick={() => onViewDocument('Payment proof', paymentProof.documentUrl!)}
-            >
-              <Eye className="mr-2 h-4 w-4" />
-              View payment proof
-            </Button>
+            />
           )}
-        </div>
-
-        {activeError && (
-          <div
-            className="mt-4 flex gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900"
-            role="alert"
-          >
-            <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-red-600" aria-hidden />
-            <div>
-              <p className="font-semibold text-red-950">Could not complete payment action</p>
-              <p className="mt-1 leading-relaxed text-red-800">{activeError}</p>
-            </div>
-          </div>
-        )}
-
-        {note && (
-          <div className="mt-4 flex gap-3 rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
-            <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" aria-hidden />
-            <p>{note}</p>
-          </div>
-        )}
+        </WorkflowStepActions>
       </section>
 
       {canUpload && (
         <PaymentProofUploadModal
           open={uploadModalOpen}
-          onClose={() => {
-            clearUploadError();
-            setUploadModalOpen(false);
-          }}
+          onClose={() => setUploadModalOpen(false)}
           applicationNumber={application.applicationNumber}
           ownerSummary={application.ownerSummary}
           expectedAmount={paymentProof.expectedAmount}
@@ -217,14 +223,12 @@ export function PaymentProofSection({
       {canReview && (
         <PaymentProofReviewModal
           open={reviewModalOpen}
-          onClose={() => {
-            clearVerifyError();
-            setReviewModalOpen(false);
-          }}
+          onClose={() => setReviewModalOpen(false)}
           applicationNumber={application.applicationNumber}
           ownerSummary={application.ownerSummary}
           expectedAmount={paymentProof.expectedAmount}
           transactionId={paymentProof.transactionId}
+          notes={paymentProof.notes}
           proofUrl={paymentProof.documentUrl}
           submittedAt={paymentProof.submittedAt ?? application.updatedAt}
           onSubmit={handleReviewSubmit}

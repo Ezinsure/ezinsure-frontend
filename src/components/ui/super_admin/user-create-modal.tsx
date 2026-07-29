@@ -228,6 +228,8 @@ const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, fieldName: str
   const validateFiles = () => {
     const fileErrors: Errors = {};
 
+    // Agent onboarding requires full document set. Admin / Finance / SONARWA Representative
+    // use the same create-user fields; documents remain optional unless provided.
     if (formData.role === 'AGENT') {
       if (!formData.nationalIdDocument) {
         fileErrors.nationalIdDocument = 'National ID document is required';
@@ -259,6 +261,33 @@ const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, fieldName: str
         }
       }
 
+      if (formData.passportPhoto) {
+        if (!allowedImageTypes.includes(formData.passportPhoto.type)) {
+          fileErrors.passportPhoto = 'Passport photo must be JPEG or PNG';
+        } else if (formData.passportPhoto.size > maxFileSize) {
+          fileErrors.passportPhoto = 'Passport photo file size must be less than 5MB';
+        }
+      }
+    } else {
+      // Optional docs for ADMIN / FINANCE — validate type/size if uploaded
+      const allowedImageTypes = ['image/jpeg', 'image/jpg', 'image/png'];
+      const allowedDocTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png'];
+      const maxFileSize = 5 * 1024 * 1024;
+
+      if (formData.nationalIdDocument) {
+        if (!allowedDocTypes.includes(formData.nationalIdDocument.type)) {
+          fileErrors.nationalIdDocument = 'National ID must be PDF, JPEG, or PNG';
+        } else if (formData.nationalIdDocument.size > maxFileSize) {
+          fileErrors.nationalIdDocument = 'National ID file size must be less than 5MB';
+        }
+      }
+      if (formData.criminalRecordCertificate) {
+        if (!allowedDocTypes.includes(formData.criminalRecordCertificate.type)) {
+          fileErrors.criminalRecordCertificate = 'Criminal record must be PDF, JPEG, or PNG';
+        } else if (formData.criminalRecordCertificate.size > maxFileSize) {
+          fileErrors.criminalRecordCertificate = 'Criminal record file size must be less than 5MB';
+        }
+      }
       if (formData.passportPhoto) {
         if (!allowedImageTypes.includes(formData.passportPhoto.type)) {
           fileErrors.passportPhoto = 'Passport photo must be JPEG or PNG';

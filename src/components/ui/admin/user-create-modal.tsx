@@ -4,7 +4,7 @@ import { ValidationRules, validateForm } from "@/components/ui/form-validation";
 import { AdministrativeDivision, rwandaProvinces } from '@/utils/rwanda-administrative';
 import { rwandaBanks } from '@/utils/rwanda-banks';
 import { useEffect, useMemo, useState } from 'react';
-import { VETERINARY_ROLE } from '@/shared/utils/role';
+import { SONARWA_REPRESENTATIVE_ROLE, VETERINARY_ROLE } from '@/shared/utils/role';
 import { useToast } from "../toast";
 
 // import { useState } from "react";
@@ -18,7 +18,7 @@ interface FormData {
   province: string;
   district: string;
   sector: string;
-  role: 'ADMIN' | 'AGENT' | 'VETERINARY';
+  role: 'ADMIN' | 'AGENT' | 'VETERINARY' | 'SONARWA_REPRESENTATIVE';
   emergencyContact1Name: string;
   emergencyContact1PhoneNumber: string;
   emergencyContact1Relationship: string;
@@ -30,6 +30,10 @@ interface FormData {
   passportPhoto: File | null;
   bankName: string;
   bankAccountNumber: string;
+  /** Veterinarian-only: RCVD (Rwanda Council of Veterinary Doctors) licence document. */
+  rcvdLicenceDocument: File | null;
+  /** Veterinarian-only: 'PRIVATE' or 'SARO' (government vet). */
+  veterinaryType: string;
   [key: string]: string | File | null;
 }
 
@@ -159,8 +163,8 @@ interface UserCreateModalProps {
   formData: FormData;
   setFormData: React.Dispatch<React.SetStateAction<FormData>>;
   setErrors: React.Dispatch<React.SetStateAction<Errors>>;
-  /** When set, role select is hidden; agent requires full onboarding docs, veterinary has a lighter form */
-  fixedRole?: 'AGENT' | 'VETERINARY';
+  /** When set, role select is hidden; agent requires full onboarding docs; veterinary/sonarwa use lighter livestock forms */
+  fixedRole?: 'AGENT' | 'VETERINARY' | 'SONARWA_REPRESENTATIVE';
   title?: string;
   submitLabel?: string;
 }
@@ -184,8 +188,20 @@ export const UserCreateModal = ({
 
   const isVeterinaryForm =
     fixedRole === VETERINARY_ROLE || formData.role === VETERINARY_ROLE;
+  const isSonarwaForm =
+    fixedRole === SONARWA_REPRESENTATIVE_ROLE ||
+    formData.role === SONARWA_REPRESENTATIVE_ROLE;
 
   const validationRules: ValidationRules = useMemo(() => {
+    if (isSonarwaForm) {
+      return {
+        fullName: { required: true, minLength: 3 },
+        email: { required: true, pattern: /^[^\s@]+@[^\s@]+\.[^\s@]+$/ },
+        phoneNumber: { required: true, pattern: /^250\d{9}$/ },
+        nationalIdDocument: { required: true },
+      };
+    }
+
     const rules: ValidationRules = {
       fullName: { required: true, minLength: 3 },
       email: { required: true, pattern: /^[^\s@]+@[^\s@]+\.[^\s@]+$/ },
@@ -208,7 +224,11 @@ export const UserCreateModal = ({
       sector: { required: true },
     };
 
-    if (!isVeterinaryForm) {
+    if (isVeterinaryForm) {
+      rules.nationalIdDocument = { required: true };
+      rules.rcvdLicenceDocument = { required: true };
+      rules.veterinaryType = { required: true };
+    } else {
       rules.emergencyContact1Name = { required: true, minLength: 2 };
       rules.emergencyContact1PhoneNumber = { required: true, pattern: /^250\d{9}$/ };
       rules.emergencyContact1Relationship = { required: true };
@@ -218,12 +238,10 @@ export const UserCreateModal = ({
       rules.nationalIdDocument = { required: true };
       rules.criminalRecordCertificate = { required: true };
       rules.passportPhoto = { required: true };
-    } else {
-      rules.nationalIdDocument = { required: true };
     }
 
     return rules;
-  }, [isVeterinaryForm]);
+  }, [isVeterinaryForm, isSonarwaForm]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -255,7 +273,7 @@ export const UserCreateModal = ({
     const fileErrors: Errors = {};
     const isAgentForm = fixedRole === 'AGENT' || formData.role === 'AGENT';
 
-    if (!isAgentForm && !isVeterinaryForm) {
+    if (!isAgentForm && !isVeterinaryForm && !isSonarwaForm) {
       return fileErrors;
     }
 
@@ -276,6 +294,10 @@ export const UserCreateModal = ({
       }
     }
 
+    if (isVeterinaryForm && !formData.rcvdLicenceDocument) {
+      fileErrors.rcvdLicenceDocument = 'RCVD licence document is required';
+    }
+
     if (formData.nationalIdDocument) {
       if (!allowedDocTypes.includes(formData.nationalIdDocument.type)) {
         fileErrors.nationalIdDocument = 'National ID must be PDF, JPEG, or PNG';
@@ -284,7 +306,15 @@ export const UserCreateModal = ({
       }
     }
 
-    if (formData.criminalRecordCertificate) {
+    if (formData.rcvdLicenceDocument) {
+      if (!allowedDocTypes.includes(formData.rcvdLicenceDocument.type)) {
+        fileErrors.rcvdLicenceDocument = 'RCVD licence must be PDF, JPEG, or PNG';
+      } else if (formData.rcvdLicenceDocument.size > maxFileSize) {
+        fileErrors.rcvdLicenceDocument = 'RCVD licence file size must be less than 5MB';
+      }
+    }
+
+    if (isAgentForm && formData.criminalRecordCertificate) {
       if (!allowedDocTypes.includes(formData.criminalRecordCertificate.type)) {
         fileErrors.criminalRecordCertificate = 'Criminal record must be PDF, JPEG, or PNG';
       } else if (formData.criminalRecordCertificate.size > maxFileSize) {
@@ -386,6 +416,71 @@ export const UserCreateModal = ({
           </button>
         </div>
         <div className="space-y-4">
+          {isSonarwaForm ? (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <Input
+                  label="Full Name"
+                  name="fullName"
+                  value={formData.fullName}
+                  onChange={handleInputChange}
+                  error={errors.fullName}
+                  required
+                />
+                <Input
+                  label="Email"
+                  name="email"
+                  type="email"
+                  value={formData.email}
+                  onChange={handleInputChange}
+                  error={errors.email}
+                  required
+                />
+                <Input
+                  label="Phone Number"
+                  name="phoneNumber"
+                  value={formData.phoneNumber}
+                  onChange={handleInputChange}
+                  error={errors.phoneNumber}
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">Role</label>
+                <p className="rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700">
+                  SONARWA Representative
+                </p>
+              </div>
+
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <h4 className="font-medium mb-3">Documents</h4>
+                <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+                  <FileUploadField
+                    label="National ID"
+                    name="nationalIdDocument"
+                    accept=".pdf,.jpg,.jpeg,.png"
+                    error={errors.nationalIdDocument}
+                    file={formData.nationalIdDocument}
+                    description="PDF, JPEG, or PNG up to 5MB"
+                    onChange={handleFileChange}
+                    required
+                  />
+                  <FileUploadField
+                    label="Recent Passport Photo"
+                    name="passportPhoto"
+                    accept=".jpg,.jpeg,.png"
+                    error={errors.passportPhoto}
+                    file={formData.passportPhoto}
+                    description="Optional · JPEG or PNG up to 5MB"
+                    onChange={handleFileChange}
+                    required={false}
+                  />
+                </div>
+              </div>
+            </>
+          ) : (
+            <>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <Input
               label="Full Name"
@@ -543,6 +638,27 @@ export const UserCreateModal = ({
             </div>
           )}
 
+          {isVeterinaryForm && (
+            <div>
+              <label className="block text-sm font-medium mb-1">
+                Veterinarian Type <span className="text-red-500">*</span>
+              </label>
+              <select
+                name="veterinaryType"
+                value={formData.veterinaryType}
+                onChange={handleInputChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[var(--main-blue)] focus:border-[var(--main-blue)]"
+              >
+                <option value="">Select veterinarian type</option>
+                <option value="PRIVATE">Private</option>
+                <option value="SARO">SARO (Government vet)</option>
+              </select>
+              {errors.veterinaryType && (
+                <p className="mt-2 text-sm text-red-600">{errors.veterinaryType}</p>
+              )}
+            </div>
+          )}
+
           <div className="bg-gray-50 p-4 rounded-lg">
             <h4 className="font-medium mb-3">
               {isVeterinaryForm ? 'Documents' : 'Required Documents'}
@@ -558,16 +674,29 @@ export const UserCreateModal = ({
                 onChange={handleFileChange}
                 required
               />
-              <FileUploadField
-                label="Criminal Record Certificate"
-                name="criminalRecordCertificate"
-                accept=".pdf,.jpg,.jpeg,.png"
-                error={errors.criminalRecordCertificate}
-                file={formData.criminalRecordCertificate}
-                description="PDF, JPEG, or PNG up to 5MB"
-                onChange={handleFileChange}
-                required={!isVeterinaryForm}
-              />
+              {isVeterinaryForm ? (
+                <FileUploadField
+                  label="RCVD Licence"
+                  name="rcvdLicenceDocument"
+                  accept=".pdf,.jpg,.jpeg,.png"
+                  error={errors.rcvdLicenceDocument}
+                  file={formData.rcvdLicenceDocument}
+                  description="PDF, JPEG, or PNG up to 5MB"
+                  onChange={handleFileChange}
+                  required
+                />
+              ) : (
+                <FileUploadField
+                  label="Criminal Record Certificate"
+                  name="criminalRecordCertificate"
+                  accept=".pdf,.jpg,.jpeg,.png"
+                  error={errors.criminalRecordCertificate}
+                  file={formData.criminalRecordCertificate}
+                  description="PDF, JPEG, or PNG up to 5MB"
+                  onChange={handleFileChange}
+                  required
+                />
+              )}
             </div>
             <div className="mt-6">
               <FileUploadField
@@ -675,6 +804,8 @@ export const UserCreateModal = ({
               </div>
             </div>
           </div>
+            </>
+          )}
 
           <div className="flex justify-end gap-2 mt-6">
             <Button

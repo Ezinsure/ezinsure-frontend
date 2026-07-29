@@ -3,10 +3,6 @@
 import { Loader2 } from 'lucide-react';
 import { LivestockApplicationStatusBadge } from '@/features/livestock-application/components/shared/application-status-badge';
 import {
-  PaymentStatusBadge,
-  SubsidyStatusBadge,
-} from '@/features/livestock-application/components/shared/workflow-status-badges';
-import {
   ApplicationsListRowActions,
   type ApplicationsListRowActionHandlers,
 } from '@/features/livestock-application/components/applications-list/applications-list-row-actions';
@@ -49,7 +45,7 @@ export function ApplicationsListTable({
             <th className="px-4 py-3">Owner(s)</th>
             <th className="px-4 py-3">Coverage</th>
             <th className="px-4 py-3">Value & premium</th>
-            <th className="px-4 py-3">Workflow</th>
+            <th className="px-4 py-3">Status</th>
             <th className="px-4 py-3 text-right">Actions</th>
           </tr>
         </thead>
@@ -86,9 +82,9 @@ export function ApplicationsListTable({
                   <ValueCell app={app} />
                 </td>
                 <td className="px-4 py-4">
-                  <WorkflowCell app={app} />
+                  <LivestockApplicationStatusBadge status={app.status} />
                 </td>
-                <td className="px-4 py-4 text-right">
+                <td className="relative px-4 py-4 text-right">
                   <ApplicationsListRowActions app={app} handlers={rowActions} />
                 </td>
               </tr>
@@ -133,23 +129,11 @@ function ValueCell({ app }: { app: LivestockApplicationListItem }) {
         {formatRwfDisplay(app.totalSumAssured ?? 0)}
       </p>
       <p className="text-xs text-emerald-700">
-        Farmer {formatRwfDisplay(app.totals.farmerContributionAmount)}
+        Farmer {formatRwfDisplay(app.totals?.farmerContributionAmount ?? 0)}
       </p>
       <p className="text-xs text-slate-500">
-        Premium {formatRwfDisplay(app.totals.premiumRateAmount)}
+        Premium {formatRwfDisplay(app.totals?.premiumRateAmount ?? 0)}
       </p>
-    </div>
-  );
-}
-
-function WorkflowCell({ app }: { app: LivestockApplicationListItem }) {
-  return (
-    <div className="flex max-w-[14rem] flex-col items-start gap-1.5">
-      <LivestockApplicationStatusBadge status={app.status} />
-      <div className="flex flex-wrap gap-1">
-        <PaymentStatusBadge status={app.paymentProofStatus} />
-        <SubsidyStatusBadge status={app.subsidyStatus} />
-      </div>
     </div>
   );
 }

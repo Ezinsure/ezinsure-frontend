@@ -80,7 +80,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
   
       // For protected routes, redirect to login
-      const protectedRoutePatterns = ['/admin', '/agent', '/super_admin', '/finance', '/vet'];
+      const protectedRoutePatterns = ['/admin', '/agent', '/super_admin', '/finance', '/vet', '/sonarwa'];
       const isProtectedRoute = protectedRoutePatterns.some(pattern => cleanPathname.startsWith(pattern));
   
       if (isProtectedRoute) {

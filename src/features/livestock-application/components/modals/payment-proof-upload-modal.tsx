@@ -122,7 +122,7 @@ export function PaymentProofUploadModal({
   };
 
   return createPortal(
-    <div className="fixed inset-0 z-[220] flex items-center justify-center p-4 sm:p-6">
+    <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 sm:p-6">
       <button
         type="button"
         className="absolute inset-0 bg-slate-900/60 backdrop-blur-[2px]"
@@ -181,7 +181,7 @@ export function PaymentProofUploadModal({
           <div className="mt-5 space-y-4">
             <Input
               name="transactionId"
-              label="Transaction ID / reference"
+              label="Transaction ID / reference (transactionId)"
               value={transactionId}
               onChange={(e) => setTransactionId(e.target.value)}
               placeholder="e.g. MOMO-20260515-12345"
@@ -191,7 +191,7 @@ export function PaymentProofUploadModal({
 
             <Input
               name="amount"
-              label="Amount paid (RWF)"
+              label="Amount paid in RWF (amount)"
               type="number"
               min="1"
               value={amount}
@@ -202,7 +202,7 @@ export function PaymentProofUploadModal({
             />
 
             <FileInput
-              label="Payment proof document"
+              label="Payment proof file (proofOfPayment)"
               name="proofOfPayment"
               accept=".jpg,.jpeg,.png,.pdf"
               onChange={handleFileChange}
@@ -217,7 +217,7 @@ export function PaymentProofUploadModal({
                 htmlFor="payment-proof-notes"
                 className="mb-1.5 block text-sm font-medium text-slate-700"
               >
-                Notes <span className="font-normal text-slate-400">(optional)</span>
+                Notes (notes) <span className="font-normal text-slate-400">(optional)</span>
               </label>
               <textarea
                 id="payment-proof-notes"

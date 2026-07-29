@@ -1,17 +1,17 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, X } from 'lucide-react';
 import { DocumentViewer } from '@/components/ui/document-viewer';
-import { ApplicationDocumentsGrid } from '@/features/livestock-application/components/shared/application-documents-grid';
-import { ApplicationFormDetailsSection } from '@/features/livestock-application/components/shared/application-form-details-section';
-import { ApplicationOwnersSection } from '@/features/livestock-application/components/shared/application-owners-section';
 import { LivestockApplicationStatusBadge } from '@/features/livestock-application/components/shared/application-status-badge';
-import { InsuredLinesSection } from '@/features/livestock-application/components/shared/insured-lines-section';
-import { ApplicationStatusTimeline } from '@/features/livestock-application/components/workflow/application-status-timeline';
+import { ApplicationReviewDetails } from '@/features/livestock-application/components/shared/application-review-details';
 import { PaymentProofSection } from '@/features/livestock-application/components/workflow/payment-proof-section';
+import { InsuranceIssueSection } from '@/features/livestock-application/components/workflow/insurance-issue-section';
 import { SubsidyWorkflowSection } from '@/features/livestock-application/components/workflow/subsidy-workflow-section';
+import { SonarwaReviewSection } from '@/features/livestock-application/components/workflow/sonarwa-review-section';
+import { CommissionWorkflowSection } from '@/features/livestock-application/components/workflow/commission-workflow-section';
+import { ApplicationWorkflowNav } from '@/features/livestock-application/components/workflow/application-workflow-nav';
 import {
   ownerModeLabel,
   speciesGroupLabel,
@@ -20,17 +20,15 @@ import type {
   LivestockApplicationPackage,
   LivestockApplicationViewRole,
 } from '@/features/livestock-application/domain/application-types';
-import {
-  PaymentStatusBadge,
-  SubsidyStatusBadge,
-} from '@/features/livestock-application/components/shared/workflow-status-badges';
-import {
-  formatLocationFull,
-  formatPolicyDate,
-  formatSubmittedDateTime,
-} from '@/features/livestock-application/utils/application-location';
-import { formatRwfDisplay } from '@/features/livestock-application/utils/format-rwf';
+import { formatSubmittedDateTime } from '@/features/livestock-application/utils/application-location';
 import { insuranceProviderLabel } from '@/shared/insurance-providers';
+import {
+  buildWorkflowStepsNav,
+  DEFAULT_DETAIL_SECTION,
+  isWorkflowSection,
+  type ApplicationDetailSectionId,
+} from '@/features/livestock-application/utils/application-detail-sections';
+import { WorkflowToastProvider } from '@/features/livestock-application/components/workflow/workflow-toast-context';
 
 export interface LivestockApplicationDetailViewProps {
   application: LivestockApplicationPackage;
@@ -42,19 +40,6 @@ export interface LivestockApplicationDetailViewProps {
   onUpdated?: () => void;
 }
 
-function MetricCard({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="min-w-0 rounded-xl bg-slate-50 p-3 sm:p-4">
-      <dt className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 sm:text-xs">
-        {label}
-      </dt>
-      <dd className="mt-1 break-words text-sm font-semibold leading-snug text-slate-900">
-        {value}
-      </dd>
-    </div>
-  );
-}
-
 export function LivestockApplicationDetailView({
   application,
   viewRole = 'vet',
@@ -64,52 +49,105 @@ export function LivestockApplicationDetailView({
   onClose,
   onUpdated,
 }: LivestockApplicationDetailViewProps) {
+  const [activeSection, setActiveSection] =
+    useState<ApplicationDetailSectionId>(DEFAULT_DETAIL_SECTION);
   const [viewingDocument, setViewingDocument] = useState<{ name: string; path: string } | null>(
     null,
   );
   const [ownerFilterKey, setOwnerFilterKey] = useState<string | null>(null);
 
-  const { totals } = application;
-  const locationLabel = application.livestockLocation
-    ? formatLocationFull(application.livestockLocation)
-    : null;
-
+  const workflowSteps = useMemo(
+    () => buildWorkflowStepsNav(viewRole, application),
+    [viewRole, application],
+  );
   const isPanel = layout === 'panel';
+  const onWorkflowStep = isWorkflowSection(activeSection);
 
-  const metrics: { label: string; value: string }[] = [
-    { label: 'Owner(s)', value: application.ownerSummary },
-    { label: 'Sum assured', value: formatRwfDisplay(totals.totalSumAssured) },
-    { label: 'Premium 100%', value: formatRwfDisplay(totals.premiumRateAmount) },
-    { label: 'Farmer 60%', value: formatRwfDisplay(totals.farmerContributionAmount) },
-    { label: 'Nkunganire 40%', value: formatRwfDisplay(totals.governmentContribution) },
-    { label: 'Vet commission', value: formatRwfDisplay(totals.veterinaryCommission) },
-    {
-      label: 'Policy period',
-      value: `${formatPolicyDate(application.policyStartDate)} → ${formatPolicyDate(application.policyEndDate)}`,
-    },
-    { label: 'Provider', value: insuranceProviderLabel(application.insuranceProvider) },
-    ...(locationLabel ? [{ label: 'Farm location', value: locationLabel }] : []),
-    ...(viewRole !== 'vet'
-      ? [{ label: 'Veterinarian', value: application.vetName }]
-      : []),
-  ];
+  useEffect(() => {
+    if (onWorkflowStep && !workflowSteps.some((step) => step.id === activeSection)) {
+      setActiveSection(DEFAULT_DETAIL_SECTION);
+    }
+  }, [activeSection, onWorkflowStep, workflowSteps]);
 
-  const scrollBody = (
+  const viewDocument = (name: string, path: string) => setViewingDocument({ name, path });
+
+  const workflowSectionContent = (() => {
+    switch (activeSection) {
+      case 'payment-proof':
+        return (
+          <PaymentProofSection
+            application={application}
+            viewRole={viewRole}
+            onUpdated={onUpdated}
+            onViewDocument={viewDocument}
+          />
+        );
+      case 'issue-insurance':
+        return (
+          <InsuranceIssueSection
+            application={application}
+            viewRole={viewRole}
+            onUpdated={onUpdated}
+            onViewDocument={viewDocument}
+          />
+        );
+      case 'subsidy':
+        return (
+          <SubsidyWorkflowSection
+            application={application}
+            viewRole={viewRole}
+            onUpdated={onUpdated}
+            onViewDocument={viewDocument}
+          />
+        );
+      case 'sonarwa':
+        return (
+          <SonarwaReviewSection
+            application={application}
+            viewRole={viewRole}
+            onUpdated={onUpdated}
+            onViewDocument={viewDocument}
+          />
+        );
+      case 'commission':
+        return (
+          <CommissionWorkflowSection
+            application={application}
+            viewRole={viewRole}
+            onUpdated={onUpdated}
+          />
+        );
+      default:
+        return null;
+    }
+  })();
+
+  const sectionContent = onWorkflowStep ? (
+    workflowSectionContent
+  ) : (
+    <ApplicationReviewDetails
+      application={application}
+      viewRole={viewRole}
+      ownerFilterKey={ownerFilterKey}
+      onSelectOwner={setOwnerFilterKey}
+      onViewDocument={viewDocument}
+    />
+  );
+
+  const activeLabel = onWorkflowStep
+    ? (workflowSteps.find((item) => item.id === activeSection)?.label ?? 'Workflow step')
+    : 'Application details';
+
+  const mainContent = (
     <div
       className={
         isPanel
-          ? 'min-h-0 flex-1 overflow-y-auto overflow-x-hidden bg-gradient-to-b from-slate-50 to-white'
+          ? 'flex min-h-0 flex-1 flex-col overflow-hidden bg-gradient-to-b from-slate-50 to-white'
           : 'min-h-screen bg-gradient-to-b from-slate-50 to-white p-4 sm:p-6 lg:p-8'
       }
     >
-      <div
-        className={
-          isPanel
-            ? 'mx-auto w-full max-w-6xl space-y-6 px-4 py-5 sm:space-y-8 sm:px-6 sm:py-6 lg:px-8'
-            : 'mx-auto max-w-6xl space-y-8'
-        }
-      >
-        {!isPanel && backHref && (
+      {!isPanel && backHref && (
+        <div className="mx-auto mb-4 w-full max-w-7xl">
           <Link
             href={backHref}
             className="inline-flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-slate-900"
@@ -117,101 +155,92 @@ export function LivestockApplicationDetailView({
             <ArrowLeft className="h-4 w-4 shrink-0" />
             {backLabel}
           </Link>
-        )}
+        </div>
+      )}
 
-        <header className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6 lg:p-8">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <div className={isPanel ? 'flex min-h-0 flex-1 flex-col' : 'mx-auto flex w-full max-w-7xl flex-col gap-4'}>
+        <header className="shrink-0 border-b border-slate-200 bg-white px-4 py-4 sm:px-6">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div className="min-w-0 flex-1">
               <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400 sm:text-xs">
                 Livestock application · {insuranceProviderLabel(application.insuranceProvider)}
               </p>
-              <h1 className="mt-1 break-all text-xl font-bold tracking-tight text-slate-900 sm:break-normal sm:text-2xl lg:text-3xl">
+              <h1 className="mt-1 break-all text-xl font-bold tracking-tight text-slate-900 sm:break-normal sm:text-2xl">
                 {application.applicationNumber}
               </h1>
-              <p className="mt-2 text-sm leading-relaxed text-slate-600">
-                {speciesGroupLabel(application.speciesGroup)} ·{' '}
-                {ownerModeLabel(application.ownerMode)}
-                {application.insuranceType ? ` · ${application.insuranceType}` : ''}
+              <p className="mt-1 text-sm text-slate-600">
+                {speciesGroupLabel(application.speciesGroup)} · {ownerModeLabel(application.ownerMode)}
                 {application.lineCount > 0
                   ? ` · ${application.lineCount} insured line${application.lineCount !== 1 ? 's' : ''}`
                   : ''}
               </p>
               <p className="mt-1 text-xs text-slate-500">
                 Submitted {formatSubmittedDateTime(application.submittedAt)}
-                {viewRole !== 'vet' && application.vetName
-                  ? ` · Veterinarian: ${application.vetName}`
-                  : ''}
               </p>
             </div>
-            <div className="flex flex-wrap items-center gap-2 sm:flex-col sm:items-end">
+            <div className="flex flex-wrap items-center gap-2">
               <LivestockApplicationStatusBadge status={application.status} />
-              <PaymentStatusBadge status={application.paymentProof.status} />
-              <SubsidyStatusBadge status={application.subsidyCase.status} />
             </div>
           </div>
-
-          <dl className="mt-6 grid grid-cols-1 gap-3 sm:mt-8 sm:grid-cols-2 sm:gap-4 md:grid-cols-3 lg:grid-cols-4">
-            {metrics.map((metric) => (
-              <MetricCard key={metric.label} label={metric.label} value={metric.value} />
-            ))}
-          </dl>
         </header>
 
-        <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
-          <h2 className="text-base font-semibold text-slate-900 sm:text-lg">Documents</h2>
-          <p className="mt-1 text-sm text-slate-600">
-            Payment proof, nkunganire forms, and issued policy documents.
-          </p>
-          <div className="mt-4 min-w-0">
-            <ApplicationDocumentsGrid
-              application={application}
-              onViewDocument={(doc) => setViewingDocument({ name: doc.label, path: doc.path })}
-            />
-          </div>
-        </section>
+        <div className="flex min-h-0 flex-1 overflow-hidden">
+          {workflowSteps.length > 0 && (
+            <aside className="hidden w-[17rem] shrink-0 lg:block xl:w-[19rem]">
+              <ApplicationWorkflowNav
+                steps={workflowSteps}
+                activeSection={activeSection}
+                application={application}
+                detailsActive={!onWorkflowStep}
+                onSelectDetails={() => setActiveSection(DEFAULT_DETAIL_SECTION)}
+                onSelect={setActiveSection}
+              />
+            </aside>
+          )}
 
-        <ApplicationFormDetailsSection application={application} />
+          <div className="min-h-0 min-w-0 flex-1 overflow-y-auto">
+            {workflowSteps.length > 0 && (
+              <div className="space-y-3 border-b border-slate-200 bg-white px-4 py-3 lg:hidden">
+                <div>
+                  <label htmlFor="workflow-step-select" className="mb-1 block text-xs font-medium text-slate-500">
+                    Jump to
+                  </label>
+                  <select
+                    id="workflow-step-select"
+                    value={onWorkflowStep ? activeSection : DEFAULT_DETAIL_SECTION}
+                    onChange={(e) => {
+                      setActiveSection(e.target.value as ApplicationDetailSectionId);
+                    }}
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-800"
+                  >
+                    <option value={DEFAULT_DETAIL_SECTION}>Application details</option>
+                    {workflowSteps.map((item) => (
+                      <option key={item.id} value={item.id}>
+                        Step {item.stepNumber}: {item.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            )}
 
-        <ApplicationOwnersSection
-          application={application}
-          selectedOwnerKey={ownerFilterKey}
-          onSelectOwner={setOwnerFilterKey}
-        />
-
-        <InsuredLinesSection
-          application={application}
-          ownerFilterKey={ownerFilterKey}
-          linesUnavailableNote="Animal line details are not included in the list response yet. Premiums and location above reflect the submitted package."
-        />
-
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3 lg:gap-8">
-          <div className="space-y-6 lg:col-span-2 lg:space-y-8">
-            <PaymentProofSection
-              application={application}
-              viewRole={viewRole}
-              onUpdated={onUpdated}
-              onViewDocument={(name, path) => setViewingDocument({ name, path })}
-            />
-            <SubsidyWorkflowSection
-              application={application}
-              viewRole={viewRole}
-              onUpdated={onUpdated}
-              onViewDocument={(name, path) => setViewingDocument({ name, path })}
-            />
-          </div>
-          <aside className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
-            <h2 className="text-sm font-semibold text-slate-900">Progress</h2>
-            <div className="mt-4">
-              <ApplicationStatusTimeline application={application} />
+            <div className="space-y-4 p-4 sm:p-6">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">
+                  {onWorkflowStep ? 'Workflow step' : 'Application'}
+                </p>
+                <h2 className="mt-1 text-xl font-semibold text-slate-900">{activeLabel}</h2>
+              </div>
+              {sectionContent}
             </div>
-          </aside>
+          </div>
         </div>
       </div>
     </div>
   );
 
   return (
-    <>
+    <WorkflowToastProvider>
       {isPanel ? (
         <div className="flex h-full min-h-0 flex-col">
           <div className="flex shrink-0 items-center gap-3 border-b border-slate-200 bg-white px-4 py-3 sm:px-6">
@@ -240,10 +269,10 @@ export function LivestockApplicationDetailView({
               </button>
             )}
           </div>
-          {scrollBody}
+          {mainContent}
         </div>
       ) : (
-        scrollBody
+        mainContent
       )}
 
       {viewingDocument && (
@@ -253,6 +282,6 @@ export function LivestockApplicationDetailView({
           onClose={() => setViewingDocument(null)}
         />
       )}
-    </>
+    </WorkflowToastProvider>
   );
 }
