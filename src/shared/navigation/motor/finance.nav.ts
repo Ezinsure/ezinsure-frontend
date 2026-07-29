@@ -7,6 +7,7 @@ import {
   BarChart3,
   ClipboardList,
   Building2,
+  FileText,
 } from 'lucide-react';
 import type { NavGroup } from '@/shared/navigation/types';
 
@@ -16,6 +17,7 @@ export const motorFinanceNavigation: NavGroup[] = [
   {
     items: [
       { href: `${base}/dashboard`, label: 'Dashboard', icon: LayoutDashboard },
+      { href: `${base}/applications`, label: 'Applications', icon: FileText },
       { href: `${base}/agents/analytics`, label: 'Agent Analytics', icon: BarChart3 },
       { href: `${base}/commission-review`, label: 'Commission Review', icon: ClipboardList },
       { href: `${base}/company-performance`, label: 'Company Performance', icon: Building2 },
