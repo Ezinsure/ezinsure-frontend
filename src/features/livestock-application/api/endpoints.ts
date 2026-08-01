@@ -147,6 +147,9 @@ export const LIVESTOCK_SUBSIDY_ENDPOINTS = {
     `/uploadLivestockSignedSubsidy/${encodeURIComponent(applicationId)}`,
 } as const;
 
+/** Livestock finance (vet commission settlement) — owned by livestock-finance feature. */
+export { LIVESTOCK_FINANCE_ENDPOINTS } from '@/features/livestock-finance/endpoints';
+
 /** Wide date range used only when detail endpoint is unavailable. */
 export const LIST_FALLBACK_START_DATE = '2000-01-01';
 
