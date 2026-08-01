@@ -35,14 +35,6 @@ function shouldFallbackToMock(response: Response | null, error: unknown): boolea
 }
 
 function mapVetTotalsRow(row: Record<string, unknown>): LivestockFinanceVetTotals {
-  const districtsRaw = row.districts;
-  let districts: string[] = [];
-  if (Array.isArray(districtsRaw)) {
-    districts = districtsRaw.map(String);
-  } else if (typeof districtsRaw === 'string' && districtsRaw.trim()) {
-    districts = districtsRaw.split(',').map((d) => d.trim()).filter(Boolean);
-  }
-
   const netPremium = Number(row.netPremium ?? row.totalInsurance ?? 0);
   const veterinaryCommission = Number(row.veterinaryCommission ?? row.agentCommission ?? 0);
   const solektraCommission = Number(
@@ -51,6 +43,15 @@ function mapVetTotalsRow(row: Record<string, unknown>): LivestockFinanceVetTotal
   const totalCommission13_5 = Number(
     row.totalCommission13_5 ?? row.totalCommission ?? veterinaryCommission + solektraCommission,
   );
+
+  const district =
+    typeof row.district === 'string'
+      ? row.district
+      : typeof row.districts === 'string'
+        ? row.districts
+        : Array.isArray(row.districts) && typeof row.districts[0] === 'string'
+          ? String(row.districts[0])
+          : undefined;
 
   return {
     vetId: String(row.vetId ?? row._id ?? ''),
@@ -66,7 +67,7 @@ function mapVetTotalsRow(row: Record<string, unknown>): LivestockFinanceVetTotal
     solektraCommission,
     totalCommission13_5,
     applicationsCount: Number(row.applicationsCount ?? row.totalApplications ?? 0),
-    districts,
+    district,
   };
 }
 

@@ -84,7 +84,7 @@ export async function downloadVetCommissionMemoExcel(
     idx + 1,
     vet.name,
     vet.phoneNumber ?? '',
-    vet.districts.join(', '),
+    vet.district ?? '',
     formatRwf(vet.netPremium),
     formatRwf(vet.totalCommission13_5),
     formatRwf(vet.veterinaryCommission),

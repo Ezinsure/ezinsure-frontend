@@ -104,14 +104,14 @@ export default function LivestockPaymentInitiatedView() {
     const q = searchTerm.trim().toLowerCase();
     if (!q) return vets;
     return vets.filter((v) => {
-      const districts = v.districts.join(' ').toLowerCase();
+      const district = String(v.district ?? '').toLowerCase();
       return (
         v.name.toLowerCase().includes(q) ||
         (v.email ?? '').toLowerCase().includes(q) ||
         (v.phoneNumber ?? '').toLowerCase().includes(q) ||
         (v.bankName ?? '').toLowerCase().includes(q) ||
         (v.bankAccountNumber ?? '').toLowerCase().includes(q) ||
-        districts.includes(q)
+        district.includes(q)
       );
     });
   }, [searchTerm, vets]);
@@ -387,7 +387,7 @@ export default function LivestockPaymentInitiatedView() {
                             <tr key={v.vetId} className="hover:bg-indigo-50/40 transition-colors">
                               <td className="px-4 py-3">
                                 <div className="font-semibold text-gray-900">{v.name}</div>
-                                <div className="text-[11px] text-gray-500">{v.districts.join(', ')}</div>
+                                <div className="text-[11px] text-gray-500">{v.district || '—'}</div>
                               </td>
                               <td className="px-4 py-3">
                                 <div className="font-medium text-gray-800">{v.bankName ?? '—'}</div>

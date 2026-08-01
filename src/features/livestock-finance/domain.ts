@@ -16,6 +16,8 @@ export type LivestockFinanceVet = {
   phoneNumber?: string;
   bankName?: string;
   bankAccountNumber?: string;
+  /** Vet profile district (location.district). */
+  district?: string;
 };
 
 export type LivestockFinanceVetTotals = LivestockFinanceVet & {
@@ -30,8 +32,8 @@ export type LivestockFinanceVetTotals = LivestockFinanceVet & {
   /** 13.5% of net premium — total commission pool. */
   totalCommission13_5: number;
   applicationsCount: number;
-  /** Districts covered (may be comma-separated in exports). */
-  districts: string[];
+  /** Vet profile district (location.district). */
+  district?: string;
 };
 
 export type LivestockFinanceApplication = {

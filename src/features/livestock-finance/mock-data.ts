@@ -26,6 +26,7 @@ export const MOCK_VETS: LivestockFinanceVet[] = [
     phoneNumber: '+250788123456',
     bankName: 'BPR',
     bankAccountNumber: '1000123456789',
+    district: 'MUSANZE',
   },
   {
     vetId: 'vet-002',
@@ -34,6 +35,7 @@ export const MOCK_VETS: LivestockFinanceVet[] = [
     phoneNumber: '+250789234567',
     bankName: 'Bank of Kigali',
     bankAccountNumber: '2000987654321',
+    district: 'NYAMASHEKE',
   },
   {
     vetId: 'vet-003',
@@ -42,6 +44,7 @@ export const MOCK_VETS: LivestockFinanceVet[] = [
     phoneNumber: '+250788345678',
     bankName: 'Equity Bank',
     bankAccountNumber: '3000112233445',
+    district: 'RUBAVU',
   },
   {
     vetId: 'vet-004',
@@ -50,6 +53,7 @@ export const MOCK_VETS: LivestockFinanceVet[] = [
     phoneNumber: '+250787456789',
     bankName: 'I&M Bank',
     bankAccountNumber: '4000556677889',
+    district: 'HUYE',
   },
   {
     vetId: 'vet-005',
@@ -58,6 +62,7 @@ export const MOCK_VETS: LivestockFinanceVet[] = [
     phoneNumber: '+250786567890',
     bankName: 'BPR',
     bankAccountNumber: '5000667788990',
+    district: 'GAKENKE',
   },
   {
     vetId: 'vet-006',
@@ -66,6 +71,7 @@ export const MOCK_VETS: LivestockFinanceVet[] = [
     phoneNumber: '+250785678901',
     bankName: 'Bank of Kigali',
     bankAccountNumber: '6000778899001',
+    district: 'KARONGI',
   },
   {
     vetId: 'vet-007',
@@ -74,6 +80,7 @@ export const MOCK_VETS: LivestockFinanceVet[] = [
     phoneNumber: '+250784789012',
     bankName: 'Equity Bank',
     bankAccountNumber: '7000889900112',
+    district: 'RWAMAGANA',
   },
   {
     vetId: 'vet-008',
@@ -82,19 +89,9 @@ export const MOCK_VETS: LivestockFinanceVet[] = [
     phoneNumber: '+250783890123',
     bankName: 'BPR',
     bankAccountNumber: '8000990011223',
+    district: 'MUSANZE',
   },
 ];
-
-const VET_DISTRICTS: Record<string, string[]> = {
-  'vet-001': ['MUSANZE'],
-  'vet-002': ['NYAMASHEKE'],
-  'vet-003': ['RUBAVU', 'NYABIHU'],
-  'vet-004': ['HUYE'],
-  'vet-005': ['GAKENKE'],
-  'vet-006': ['KARONGI'],
-  'vet-007': ['RWAMAGANA'],
-  'vet-008': ['MUSANZE', 'GICUMBI'],
-};
 
 function isoDate(year: number, month: number, day: number): string {
   return new Date(Date.UTC(year, month - 1, day)).toISOString();
@@ -211,7 +208,7 @@ function aggregateVetTotals(
         solektraCommission: 0,
         totalCommission13_5: 0,
         applicationsCount: 0,
-        districts: [...(VET_DISTRICTS[vetId] ?? [])],
+        district: vet.district,
       } satisfies LivestockFinanceVetTotals);
 
     cur.netPremium += Number(app.netPremium ?? 0);
