@@ -1,3 +1,8 @@
+/**
+ * Legacy Excel nkunganire export (MINAGRI template fill).
+ * Prefer {@link downloadNkunganireSubsidyPdf} from `./subsidy-nkunganire-pdf`
+ * for the branded printable form used by vets in the field.
+ */
 import type {
   LivestockApplicationPackage,
   LivestockSpeciesGroup,

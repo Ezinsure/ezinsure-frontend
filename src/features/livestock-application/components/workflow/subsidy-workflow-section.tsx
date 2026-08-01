@@ -1,14 +1,14 @@
 'use client';
 
 import { useState } from 'react';
-import { Download, FileSpreadsheet, Upload } from 'lucide-react';
+import { Download, FileSpreadsheet, FileText, Upload } from 'lucide-react';
 import { SubsidySignedUploadModal } from '@/features/livestock-application/components/modals/subsidy-signed-upload-modal';
 import { SubsidyDocumentsNotes } from '@/features/livestock-application/components/shared/subsidy-documents-notes';
 import {
   generateSubsidyDocument,
 } from '@/features/livestock-application/api/subsidy-api';
 import { useUploadSignedSubsidyDocument } from '@/features/livestock-application/hooks/use-upload-signed-subsidy';
-import { downloadNkunganireSubsidyExcel } from '@/features/livestock-application/export/subsidy-nkunganire-export';
+import { downloadNkunganireSubsidyPdf } from '@/features/livestock-application/export/subsidy-nkunganire-pdf';
 import type {
   LivestockApplicationPackage,
   LivestockApplicationViewRole,
@@ -122,9 +122,9 @@ export function SubsidyWorkflowSection({
   const handleDownloadNkunganire = async () => {
     setDownloading(true);
     try {
-      await downloadNkunganireSubsidyExcel(application);
+      await downloadNkunganireSubsidyPdf(application);
       toast.showSuccess(
-        'Nkunganire Excel downloaded with prefilled district, owners, and animal lines.',
+        'Nkunganire PDF downloaded — ready to print and take to the sector for signing.',
       );
     } catch (err) {
       toast.showError(
@@ -161,7 +161,7 @@ export function SubsidyWorkflowSection({
       <section className="rounded-2xl border border-violet-200 bg-gradient-to-br from-violet-50/80 to-white p-6 shadow-sm">
         <div className="flex items-start gap-3">
           <div className="rounded-xl bg-violet-100 p-3">
-            <FileSpreadsheet className="h-6 w-6 text-violet-700" />
+            <FileText className="h-6 w-6 text-violet-700" />
           </div>
           <div>
             <h2 className="text-lg font-semibold text-slate-900">Nkunganire (40% subsidy)</h2>
@@ -183,8 +183,8 @@ export function SubsidyWorkflowSection({
         <div className="mt-6 space-y-4">
           <WorkflowStepCard
             stepNumber={3}
-            title="Download prefilled nkunganire Excel"
-            description="Official MINAGRI template filled with district, sector, owners, premiums, and animal details."
+            title="Download prefilled nkunganire PDF"
+            description="Branded MINAGRI subsidy form with district, sector, owners, premiums, and animal details — print and take to the sector for signing."
             state={downloadStepState}
             badge={canDownload && !hasGeneratedDoc ? 'Action required' : undefined}
           >
@@ -195,7 +195,7 @@ export function SubsidyWorkflowSection({
                   icon={<Download className="mr-2 h-4 w-4" />}
                   onClick={() => void handleDownloadNkunganire()}
                 >
-                  Download nkunganire form (Excel)
+                  Download nkunganire form (PDF)
                 </WorkflowPrimaryAction>
                 <WorkflowSecondaryAction
                   loading={loading}
