@@ -349,6 +349,7 @@ export default function AdminMyApplicationsPage() {
       filterY += 5;
 
       const totalAmount = filteredApplications.reduce((sum, app) => sum + (app.amount || 0), 0);
+      const totalNetPremium = filteredApplications.reduce((sum, app) => sum + (app.netPremium || 0), 0);
       const totalCompanyCommission = filteredApplications.reduce(
         (sum, app) => sum + (app.companyCommission || 0),
         0
@@ -359,6 +360,8 @@ export default function AdminMyApplicationsPage() {
       );
 
       doc.text(`Total Amount: ${totalAmount.toLocaleString()} RWF`, 14, filterY);
+      filterY += 5;
+      doc.text(`Total Net Premium: ${totalNetPremium.toLocaleString()} RWF`, 14, filterY);
       filterY += 5;
       doc.text(`Total Company Commission: ${totalCompanyCommission.toLocaleString()} RWF`, 14, filterY);
       filterY += 5;
@@ -401,6 +404,7 @@ export default function AdminMyApplicationsPage() {
           formatDateForPDF(app.insuranceEndAt),
           createdBy.length > 22 ? `${createdBy.substring(0, 22)}...` : createdBy,
           app.amount ? `${app.amount.toLocaleString()} RWF` : '0 RWF',
+          app.netPremium != null ? `${Number(app.netPremium).toLocaleString()} RWF` : '0 RWF',
           app.companyCommission ? `${app.companyCommission.toLocaleString()} RWF` : '0 RWF',
           app.agentCommission ? `${app.agentCommission.toLocaleString()} RWF` : '0 RWF',
           formatPoliceNumberDisplay(app),
@@ -419,6 +423,7 @@ export default function AdminMyApplicationsPage() {
             'End Date',
             'Performed By',
             'Amount',
+            'Net Premium',
             'Company Comm.',
             'Agent Comm.',
             'Police Number',
@@ -448,18 +453,19 @@ export default function AdminMyApplicationsPage() {
           valign: 'middle',
         },
         columnStyles: {
-          0: { cellWidth: 8, halign: 'center' },
-          1: { cellWidth: 30, halign: 'left' },
-          2: { cellWidth: 35, halign: 'left' },
-          3: { cellWidth: 25, halign: 'left' },
-          4: { cellWidth: 25, halign: 'left' },
-          5: { cellWidth: 25, halign: 'left' },
-          6: { cellWidth: 25, halign: 'right' },
-          7: { cellWidth: 25, halign: 'right' },
-          8: { cellWidth: 25, halign: 'right' },
-          9: { cellWidth: 22, halign: 'left' },
-          10: { cellWidth: 25, halign: 'center' },
-          11: { cellWidth: 25, halign: 'center' },
+          0: { cellWidth: 7, halign: 'center' },
+          1: { cellWidth: 26, halign: 'left' },
+          2: { cellWidth: 30, halign: 'left' },
+          3: { cellWidth: 20, halign: 'left' },
+          4: { cellWidth: 18, halign: 'left' },
+          5: { cellWidth: 20, halign: 'left' },
+          6: { cellWidth: 20, halign: 'right' },
+          7: { cellWidth: 20, halign: 'right' },
+          8: { cellWidth: 20, halign: 'right' },
+          9: { cellWidth: 20, halign: 'right' },
+          10: { cellWidth: 18, halign: 'left' },
+          11: { cellWidth: 18, halign: 'center' },
+          12: { cellWidth: 18, halign: 'center' },
         },
         alternateRowStyles: {
           fillColor: [245, 245, 245],
@@ -520,6 +526,7 @@ export default function AdminMyApplicationsPage() {
         'Insurance End Date',
         'Performed By',
         'Amount (RWF)',
+        'Net Premium (RWF)',
         'Company Commission (RWF)',
         'Agent Commission (RWF)',
         'Police Number',
@@ -555,6 +562,7 @@ export default function AdminMyApplicationsPage() {
           formatDateForExcel(app.insuranceEndAt),
           createdBy,
           app.amount ? app.amount.toString() : '0',
+          app.netPremium != null ? String(app.netPremium) : '0',
           app.companyCommission ? app.companyCommission.toString() : '0',
           app.agentCommission ? app.agentCommission.toString() : '0',
           formatPoliceNumberForExport(app),

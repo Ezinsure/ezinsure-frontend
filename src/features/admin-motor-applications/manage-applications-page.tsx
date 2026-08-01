@@ -1421,10 +1421,13 @@ const getActionButtons = (app: Application) => {
       
       // Calculate totals
       const totalAmount = filteredApplications.reduce((sum, app) => sum + (app.amount || 0), 0);
+      const totalNetPremium = filteredApplications.reduce((sum, app) => sum + (app.netPremium || 0), 0);
       const totalCompanyCommission = filteredApplications.reduce((sum, app) => sum + (app.companyCommission || 0), 0);
       const totalAgentCommission = filteredApplications.reduce((sum, app) => sum + (app.agentCommission || 0), 0);
       
       doc.text(`Total Amount: ${totalAmount.toLocaleString()} RWF`, 14, filterY);
+      filterY += 5;
+      doc.text(`Total Net Premium: ${totalNetPremium.toLocaleString()} RWF`, 14, filterY);
       filterY += 5;
       doc.text(`Total Company Commission: ${totalCompanyCommission.toLocaleString()} RWF`, 14, filterY);
       filterY += 5;
@@ -1466,6 +1469,7 @@ const getActionButtons = (app: Application) => {
           formatDateForPDF(app.insuranceEndAt),
           createdBy.length > 22 ? createdBy.substring(0, 22) + '...' : createdBy,
           app.amount ? `${app.amount.toLocaleString()} RWF` : '0 RWF',
+          app.netPremium != null ? `${Number(app.netPremium).toLocaleString()} RWF` : '0 RWF',
           app.companyCommission ? `${app.companyCommission.toLocaleString()} RWF` : '0 RWF',
           app.agentCommission ? `${app.agentCommission.toLocaleString()} RWF` : '0 RWF',
           formatPoliceNumberDisplay(app),
@@ -1479,12 +1483,12 @@ const getActionButtons = (app: Application) => {
       // Add table
       autoTable.default(doc, {
         head: [
-          ['#', 'Client Name', 'Email', 'Category', 'End Date', 'Performed By', 'Amount', 'Company Comm.', 'Agent Comm.', 'Police Number', 'Date', 'Status']
+          ['#', 'Client Name', 'Email', 'Category', 'End Date', 'Performed By', 'Amount', 'Net Premium', 'Company Comm.', 'Agent Comm.', 'Police Number', 'Date', 'Status']
         ],
         body: tableData,
         startY: filterY + 10,
         styles: {
-          fontSize: 7,
+          fontSize: 6.5,
           cellPadding: 1,
           overflow: 'linebreak',
           font: 'helvetica',
@@ -1498,23 +1502,24 @@ const getActionButtons = (app: Application) => {
           fillColor: [51, 122, 183], // Lighter blue header
           textColor: [255, 255, 255],
           fontStyle: 'bold',
-          fontSize: 8,
+          fontSize: 7,
           halign: 'center',
           valign: 'middle',
         },
         columnStyles: {
-          0: { cellWidth: 8, halign: 'center' }, // #
-          1: { cellWidth: 30, halign: 'left' }, // Name
-          2: { cellWidth: 35, halign: 'left' }, // Email
-          3: { cellWidth: 25, halign: 'left' }, // Category
-          4: { cellWidth: 25, halign: 'left' }, // End Date
-          5: { cellWidth: 25, halign: 'left' }, // Performed By
-          6: { cellWidth: 25, halign: 'right' }, // Amount
-          7: { cellWidth: 25, halign: 'right' }, // Company Comm
-          8: { cellWidth: 25, halign: 'right' }, // Agent Comm
-          9: { cellWidth: 22, halign: 'left' }, // Police Number
-          10: { cellWidth: 25, halign: 'center' }, // Date
-          11: { cellWidth: 25, halign: 'center' }, // Status
+          0: { cellWidth: 7,halign: 'center' },
+          1: { cellWidth: 26,halign: 'left' },
+          2: { cellWidth: 30,halign: 'left' },
+          3: { cellWidth: 20,halign: 'left' },
+          4: { cellWidth: 18,halign: 'left' },
+          5: { cellWidth: 20,halign: 'left' },
+          6: { cellWidth: 20,halign: 'right' },
+          7: { cellWidth: 20,halign: 'right' },
+          8: { cellWidth: 20,halign: 'right' },
+          9: { cellWidth: 20,halign: 'right' },
+          10: { cellWidth: 18,halign: 'left' },
+          11: { cellWidth: 18,halign: 'center' },
+          12: { cellWidth: 18,halign: 'center' },
         },
         alternateRowStyles: {
           fillColor: [245, 245, 245],
@@ -1572,8 +1577,9 @@ const getActionButtons = (app: Application) => {
       // Prepare headers
       const headers = [
         'Client Name', 'Email', 'Phone', 'Insurance Category', 'Insurance Type', 
-        'Duration', 'Insurance End Date', 'Performed By', 'Amount (RWF)', 'Company Commission (RWF)', 
-        'Agent Commission (RWF)', 'Police Number', 'Date', 'Status', 'Address', 'Province', 'District', 'Sector'
+        'Duration', 'Insurance End Date', 'Performed By', 'Amount (RWF)', 'Net Premium (RWF)',
+        'Company Commission (RWF)', 'Agent Commission (RWF)', 'Police Number', 'Date', 'Status',
+        'Address', 'Province', 'District', 'Sector'
       ];
       
       // Prepare data rows
@@ -1598,6 +1604,7 @@ const getActionButtons = (app: Application) => {
           formatDateForExcel(app.insuranceEndAt),
           createdBy,
           app.amount ? app.amount.toString() : '0',
+          app.netPremium != null ? String(app.netPremium) : '0',
           app.companyCommission ? app.companyCommission.toString() : '0',
           app.agentCommission ? app.agentCommission.toString() : '0',
           formatPoliceNumberForExport(app),

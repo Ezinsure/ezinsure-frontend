@@ -379,6 +379,8 @@ export default function SuperAdminApplicationsPage() {
       
       doc.text(`Total Amount: ${totalAmount.toLocaleString()} RWF`, 14, filterY);
       filterY += 5;
+      doc.text(`Total Net Premium: ${filteredApplications.reduce((sum, app) => sum + (app.netPremium || 0), 0).toLocaleString()} RWF`, 14, filterY);
+      filterY += 5;
       doc.text(`Total Company Commission: ${totalCompanyCommission.toLocaleString()} RWF`, 14, filterY);
       filterY += 5;
       doc.text(`Total Agent Commission: ${totalAgentCommission.toLocaleString()} RWF`, 14, filterY);
@@ -398,6 +400,7 @@ export default function SuperAdminApplicationsPage() {
           formatDateUTC(app.insuranceEndAt),
           createdBy.length > 22 ? createdBy.substring(0, 22) + '...' : createdBy,
           app.amount ? `${app.amount.toLocaleString()} RWF` : '0 RWF',
+          app.netPremium != null ? `${Number(app.netPremium).toLocaleString()} RWF` : '0 RWF',
           app.companyCommission ? `${app.companyCommission.toLocaleString()} RWF` : '0 RWF',
           app.agentCommission ? `${app.agentCommission.toLocaleString()} RWF` : '0 RWF',
           formatPoliceNumberDisplay(app),
@@ -409,7 +412,7 @@ export default function SuperAdminApplicationsPage() {
       // Add table
       autoTable.default(doc, {
         head: [
-          ['#', 'Client Name', 'Email', 'Category', 'End Date', 'Performed By', 'Amount', 'Company Comm.', 'Agent Comm.', 'Police Number', 'Date', 'Status']
+          ['#', 'Client Name', 'Email', 'Category', 'End Date', 'Performed By', 'Amount', 'Net Premium', 'Company Comm.', 'Agent Comm.', 'Police Number', 'Date', 'Status']
         ],
         body: tableData,
         startY: filterY + 10,
@@ -433,18 +436,19 @@ export default function SuperAdminApplicationsPage() {
           valign: 'middle',
         },
         columnStyles: {
-          0: { cellWidth: 8, halign: 'center' }, // #
-          1: { cellWidth: 30, halign: 'left' }, // Name
-          2: { cellWidth: 35, halign: 'left' }, // Email
-          3: { cellWidth: 25, halign: 'left' }, // Category
-          4: { cellWidth: 25, halign: 'left' }, // End Date
-          5: { cellWidth: 25, halign: 'left' }, // Performed By
-          6: { cellWidth: 25, halign: 'right' }, // Amount
-          7: { cellWidth: 25, halign: 'right' }, // Company Comm
-          8: { cellWidth: 25, halign: 'right' }, // Agent Comm
-          9: { cellWidth: 22, halign: 'left' }, // Police Number
-          10: { cellWidth: 25, halign: 'center' }, // Date
-          11: { cellWidth: 25, halign: 'center' }, // Status
+          0: { cellWidth: 7, halign: 'center' },
+          1: { cellWidth: 26, halign: 'left' },
+          2: { cellWidth: 30, halign: 'left' },
+          3: { cellWidth: 20, halign: 'left' },
+          4: { cellWidth: 18, halign: 'left' },
+          5: { cellWidth: 20, halign: 'left' },
+          6: { cellWidth: 20, halign: 'right' },
+          7: { cellWidth: 20, halign: 'right' },
+          8: { cellWidth: 20, halign: 'right' },
+          9: { cellWidth: 20, halign: 'right' },
+          10: { cellWidth: 18, halign: 'left' },
+          11: { cellWidth: 18, halign: 'center' },
+          12: { cellWidth: 18, halign: 'center' },
         },
         alternateRowStyles: {
           fillColor: [245, 245, 245],
@@ -481,7 +485,7 @@ export default function SuperAdminApplicationsPage() {
       // Prepare headers
       const headers = [
         'Client Name', 'Email', 'Phone', 'Insurance Category', 'Insurance Type', 
-        'Duration', 'Insurance End Date', 'Performed By', 'Amount (RWF)', 'Company Commission (RWF)', 
+        'Duration', 'Insurance End Date', 'Performed By', 'Amount (RWF)', 'Net Premium (RWF)', 'Company Commission (RWF)', 
         'Agent Commission (RWF)', 'Police Number', 'Date', 'Status', 'Address', 'Province', 'District', 'Sector',
         'Device Type', 'OS', 'Browser', 'IP Address', 'City', 'Country', 'Region'
       ];
@@ -508,6 +512,7 @@ export default function SuperAdminApplicationsPage() {
           formatDateUTC(app.insuranceEndAt),
           createdBy,
           app.amount ? app.amount.toString() : '0',
+          app.netPremium != null ? String(app.netPremium) : '0',
           app.companyCommission ? app.companyCommission.toString() : '0',
           app.agentCommission ? app.agentCommission.toString() : '0',
           formatPoliceNumberForExport(app),
