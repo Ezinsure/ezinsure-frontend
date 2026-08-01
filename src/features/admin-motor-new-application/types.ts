@@ -81,6 +81,8 @@ export interface ApplicationFormData {
   isNewVehicle: boolean;
   amount: string;
   netPremium: string;
+  /** Commission % of net premium — required when category is not motor/car/bike. */
+  commissionPercentage: string;
   paymentInstructions: string;
   invoice: File | null;
   companyCommission: string;

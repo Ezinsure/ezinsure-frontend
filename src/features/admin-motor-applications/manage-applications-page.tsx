@@ -13,7 +13,9 @@ import { useAuth } from '@/context/AuthContext';
 import { formatDateUTC } from '@/utils/date-formatter';
 import {
   calculateAdministrationFeesRwf,
+  calculateCommissionFromPercentage,
   isMotorVehicleInsuranceCategory,
+  MOTOR_INVOICE_SPLIT_RATE,
 } from '@/utils/administration-fees';
 import { validateInsuranceDuration, normalizeInsuranceDurationPayload } from '@/utils/insurance-duration';
 import { InsuranceDurationField } from '@/components/ui/insurance-duration-field';
@@ -61,6 +63,7 @@ export default function ManageApplicationsPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [invoiceAmount, setInvoiceAmount] = useState('');
   const [netPremium, setNetPremium] = useState('');
+  const [commissionPercentage, setCommissionPercentage] = useState('');
   const [agentCommission, setAgentCommission] = useState('');
   const [companyCommission, setCompanyCommission] = useState('');
   const [administrationFees, setAdministrationFees] = useState('');
@@ -93,12 +96,34 @@ export default function ManageApplicationsPage() {
 
   useEffect(() => {
     const premium = Number(netPremium || 0);
-    const splitCommission = Number.isFinite(premium)
-      ? Math.round(premium * 0.05).toString()
-      : '';
-    setAgentCommission(splitCommission);
-    setCompanyCommission(splitCommission);
-  }, [netPremium]);
+    if (!Number.isFinite(premium)) {
+      setAgentCommission('');
+      setCompanyCommission('');
+      return;
+    }
+
+    const category = selectedApp?.insuranceCategory || '';
+    const isVehicle = isMotorVehicleInsuranceCategory(category);
+    const hasAgent = Boolean(selectedApp?.agent);
+
+    if (isVehicle) {
+      const split = Math.round(premium * MOTOR_INVOICE_SPLIT_RATE).toString();
+      setAgentCommission(hasAgent ? split : '');
+      setCompanyCommission(split);
+      return;
+    }
+
+    const pct = Number(commissionPercentage || 0);
+    const total = calculateCommissionFromPercentage(premium, pct);
+    if (hasAgent) {
+      const half = Math.round(total / 2).toString();
+      setAgentCommission(half);
+      setCompanyCommission(half);
+    } else {
+      setAgentCommission('');
+      setCompanyCommission(String(total));
+    }
+  }, [netPremium, commissionPercentage, selectedApp?.insuranceCategory, selectedApp?.agent]);
   const [editingApp, setEditingApp] = useState<Application | null>(null);
   const [editFormData, setEditFormData] = useState<Record<string, string | number | boolean | File | null> | null>(null);
   const [originalEditFormData, setOriginalEditFormData] = useState<Record<string, string | number | boolean | File | null> | null>(null);
@@ -673,13 +698,27 @@ export default function ManageApplicationsPage() {
   // Send invoice to client
  const handleSendInvoice = async () => {
   const hasAgent = selectedApp?.agent !== null && selectedApp?.agent !== undefined;
-  const requiredFields = [!selectedApp, !invoiceMessage, !invoiceAmount, !netPremium, !companyCommission, !administrationFees];
-  
+  const isNonMotorInvoice = selectedApp
+    ? !isMotorVehicleInsuranceCategory(selectedApp.insuranceCategory || '')
+    : false;
+  const requiredFields = [
+    !selectedApp,
+    !invoiceMessage,
+    !invoiceAmount,
+    !netPremium,
+    !companyCommission,
+    !administrationFees,
+  ];
+
+  if (isNonMotorInvoice) {
+    requiredFields.push(!commissionPercentage);
+  }
+
   // Only require agent commission if there's an agent
   if (hasAgent) {
     requiredFields.push(!agentCommission);
   }
-  
+
   if (requiredFields.some(field => field)) {
     showToast('Please fill all required fields', 'error');
     return;
@@ -693,7 +732,10 @@ export default function ManageApplicationsPage() {
     formData.append('netPremium', netPremium);
     formData.append('companyCommission', companyCommission);
     formData.append('administrationFees', administrationFees);
-    
+    if (isNonMotorInvoice) {
+      formData.append('commissionPercentage', commissionPercentage);
+    }
+
     // Only include agent commission if there's an agent
     if (hasAgent) {
       formData.append('agentCommission', agentCommission);
@@ -723,6 +765,7 @@ export default function ManageApplicationsPage() {
     setInvoiceMessage('');
     setInvoiceAmount('');
     setNetPremium('');
+    setCommissionPercentage('');
     setAgentCommission('');
     setCompanyCommission('');
     setAdministrationFees('');
@@ -1049,6 +1092,7 @@ const getActionButtons = (app: Application) => {
             setActiveModal('invoice');
             setInvoiceAmount(app.amount != null ? String(app.amount) : '');
             setNetPremium(app.netPremium != null ? String(app.netPremium) : '');
+            setCommissionPercentage('');
             setInvoiceMessage(
               `Please make your payment to one of the following:\nBank of Kigali: 100000129075 (SONARWA)\nOr via Momo Account: 051499 (SONARWA) \nOr Agency at Kimihurura (KBC) under SOLEKTRA`
             );
@@ -2258,6 +2302,28 @@ const getActionButtons = (app: Application) => {
         />
       </div>
 
+      {selectedApp && !isMotorVehicleInsuranceCategory(selectedApp.insuranceCategory || '') && (
+        <div className="mt-4">
+          <NumericInputField
+            label="Commission Percentage (%)"
+            name="commissionPercentage"
+            accent="invoice"
+            className="mb-0"
+            labelClassName="text-sm font-medium text-gray-700 mb-1"
+            value={commissionPercentage}
+            onChange={setCommissionPercentage}
+            min={0}
+            maxDigits={5}
+            placeholder="e.g. 10"
+            required
+          />
+          <p className="mt-1 text-xs text-gray-500">
+            Commission is calculated as this percentage of net premium
+            {selectedApp.agent ? ' and split evenly between agent and company' : ''}.
+          </p>
+        </div>
+      )}
+
       {/* Agent Commission field - only show if application has an agent */}
       {selectedApp.agent && (
         <div className="mt-4">
@@ -2334,7 +2400,7 @@ const getActionButtons = (app: Application) => {
           </div>
         ) : (
           <p className="text-xs text-gray-500 mt-1">
-            Calculated as 25% of 1,500 RWF for this insurance category. You may adjust the field if needed.
+            Flat 5,000 RWF for this insurance category. You may adjust the field if needed.
           </p>
         )}
       </div>

@@ -16,7 +16,12 @@ import { rwandaProvinces } from '@/utils/rwanda-administrative';
 import { formatErrorMessage } from '@/utils/error-formatter';
 import { carUses, motoUses, carTypes, motoTypes } from '@/utils/vehicle-types';
 import { ComboboxField } from '@/components/ui/combobox-field';
-import { calculateAdministrationFeesRwf } from '@/utils/administration-fees';
+import {
+  calculateAdministrationFeesRwf,
+  calculateCommissionFromPercentage,
+  isMotorVehicleInsuranceCategory,
+  MOTOR_COMPANY_COMMISSION_RATE,
+} from '@/utils/administration-fees';
 import {
   validateForm,
   ValidationRules,
@@ -431,6 +436,7 @@ export default function AdminNewApplicationPage() {
 
     amount: '',
     netPremium: '',
+    commissionPercentage: '',
 
     paymentInstructions: 'Please make your payment to one of the following:\nBank of Kigali: 100000129075 (SONARWA)\nOr via Momo Account: 051499 (SONARWA) \nOr Agency at Kimihurura (KBC) under SOLEKTRA',
 
@@ -510,6 +516,9 @@ export default function AdminNewApplicationPage() {
     // Admin-specific required fields
     amount: { required: true },
     netPremium: { required: true },
+    commissionPercentage: {
+      required: !isMotorVehicleInsuranceCategory(formData.insuranceCategory),
+    },
     companyCommission: { required: true },
     administrationFees: { required: true },
     paymentInstructions: { required: true },
@@ -538,15 +547,28 @@ export default function AdminNewApplicationPage() {
   useEffect(() => {
     setFormData((prev) => {
       const netPremium = Number(prev.netPremium || 0);
-      const computedCommission = Number.isFinite(netPremium)
-        ? Math.round(netPremium * 0.1).toString()
-        : '';
+      if (!Number.isFinite(netPremium)) {
+        if (prev.companyCommission === '') return prev;
+        return { ...prev, companyCommission: '' };
+      }
+
+      const isVehicle = isMotorVehicleInsuranceCategory(prev.insuranceCategory);
+      let computedCommission = '';
+      if (isVehicle) {
+        computedCommission = Math.round(netPremium * MOTOR_COMPANY_COMMISSION_RATE).toString();
+      } else {
+        const pct = Number(prev.commissionPercentage || 0);
+        computedCommission = Number.isFinite(pct)
+          ? calculateCommissionFromPercentage(netPremium, pct).toString()
+          : '';
+      }
+
       if (prev.companyCommission === computedCommission) {
         return prev;
       }
       return { ...prev, companyCommission: computedCommission };
     });
-  }, [formData.netPremium]);
+  }, [formData.netPremium, formData.commissionPercentage, formData.insuranceCategory]);
 
   // Update districts when province changes
 
@@ -743,6 +765,9 @@ export default function AdminNewApplicationPage() {
           vehicleAge: '',
           vehicleUse: '',
           otherVehicleUse: '',
+          commissionPercentage: isMotorVehicleInsuranceCategory(String(value))
+            ? ''
+            : prev.commissionPercentage,
         };
         const fees = calculateAdministrationFeesRwf(String(value), Boolean(next.isCOMESA));
         return { ...next, administrationFees: fees.toString() };
@@ -1097,9 +1122,10 @@ export default function AdminNewApplicationPage() {
             nationalID: null,
             yellowCard: null,
             pastInsuranceCertificate: null,
-            amount: '',
-            netPremium: '',
-            paymentInstructions: 'Please make your payment to one of the following:\nBank of Kigali: 100000129075 (SONARWA)\nOr via Momo Account: 051499 (SONARWA) \nOr Agency at Kimihurura (KBC) under SOLEKTRA',
+    amount: '',
+    netPremium: '',
+    commissionPercentage: '',
+    paymentInstructions: 'Please make your payment to one of the following:\nBank of Kigali: 100000129075 (SONARWA)\nOr via Momo Account: 051499 (SONARWA) \nOr Agency at Kimihurura (KBC) under SOLEKTRA',
             invoice: null,
             companyCommission: '',
             administrationFees: calculateAdministrationFeesRwf('Car Insurance', false).toString(),
@@ -2414,6 +2440,33 @@ export default function AdminNewApplicationPage() {
                       />
                     </div>
 
+                    {!isMotorVehicleInsuranceCategory(formData.insuranceCategory) && (
+                      <div>
+                        <NumericInputField
+                          label="Commission Percentage (%)"
+                          name="commissionPercentage"
+                          value={formData.commissionPercentage}
+                          onChange={(v) => {
+                            setFormData((prev) => ({ ...prev, commissionPercentage: v }));
+                            setErrors((prev) => {
+                              const next = { ...prev };
+                              delete next.commissionPercentage;
+                              delete next.companyCommission;
+                              return next;
+                            });
+                          }}
+                          placeholder="e.g. 10"
+                          error={errors.commissionPercentage}
+                          min={0}
+                          maxDigits={5}
+                          required
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                          Used to calculate total commission from net premium for non-motor categories.
+                        </p>
+                      </div>
+                    )}
+
                     <div>
 
                       <NumericInputField
@@ -2426,7 +2479,11 @@ export default function AdminNewApplicationPage() {
 
                         onChange={() => {}}
 
-                        placeholder="Auto-calculated from net premium"
+                        placeholder={
+                          isMotorVehicleInsuranceCategory(formData.insuranceCategory)
+                            ? 'Auto-calculated (10% of net premium)'
+                            : 'Auto-calculated from commission %'
+                        }
 
                         error={errors.companyCommission}
 
@@ -2494,7 +2551,7 @@ export default function AdminNewApplicationPage() {
                             cat.includes('motor') ||
                             cat.includes('moto');
                           if (!isVehicle) {
-                            return 'Calculated as 25% of 1,500 RWF for this category.';
+                            return 'Flat 5,000 RWF for this insurance category.';
                           }
                           return formData.isCOMESA
                             ? 'Car / motor: 25% of 12,500 RWF (COMESA selected).'
