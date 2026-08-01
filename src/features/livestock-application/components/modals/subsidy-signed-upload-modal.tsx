@@ -10,10 +10,10 @@ import type { UploadSignedSubsidyPayload } from '@/features/livestock-applicatio
 const ALLOWED_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf'];
 const EXT_PATTERN = /\.(jpe?g|png|pdf)$/i;
 
+/** Vet upload only — SONARWA signing is recorded by the SONARWA portal review, not here. */
 const SIGNED_BY_OPTIONS: Array<{ value: UploadSignedSubsidyPayload['signedBy']; label: string }> = [
   { value: 'SECTOR', label: 'Sector representative' },
   { value: 'VET', label: 'Sector veterinarian' },
-  { value: 'SONARWA', label: 'SONARWA representative' },
 ];
 
 interface SubsidySignedUploadModalProps {

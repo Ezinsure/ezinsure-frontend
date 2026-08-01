@@ -323,6 +323,7 @@ export interface GenerateSubsidyDocumentResponse {
 /** Upload signed nkunganire document (multipart). */
 export interface UploadSignedSubsidyPayload {
   signedDocument: File;
-  signedBy: 'SECTOR' | 'VET' | 'SONARWA';
+  /** Sector or vet signature only — SONARWA marks approval via their review action. */
+  signedBy: 'SECTOR' | 'VET';
   notes?: string;
 }
