@@ -295,7 +295,7 @@ export default function ExpiringInsurancePage() {
     return {
       totalApplications: applications.length,
       totalVehicles: applications.filter(app => app.vehicle).length,
-      totalClients: new Set(applications.map(app => app.client._id)).size,
+      totalClients: new Set(applications.map(app => app.client?._id).filter(Boolean)).size,
       totalAmount: applications.reduce((sum, app) => sum + (app.amount || 0), 0),
     };
   }, [applications]);
@@ -303,13 +303,17 @@ export default function ExpiringInsurancePage() {
   // Filtered and sorted applications
   const filteredAndSortedApplications = useMemo(() => {
     const filtered = applications.filter(app => {
-      const matchesSearch = 
-        app.applicationNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        app.client.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        app.client.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        app.client.phoneNumber.includes(searchQuery) ||
-        (app.vehicle?.plateNumber && app.vehicle.plateNumber.toLowerCase().includes(searchQuery.toLowerCase()));
-      
+      const query = searchQuery.trim().toLowerCase();
+      const matchesSearch =
+        !query ||
+        [
+          app.applicationNumber,
+          app.client?.fullName,
+          app.client?.email,
+          app.client?.phoneNumber,
+          app.vehicle?.plateNumber,
+        ].some((value) => (value ?? '').toLowerCase().includes(query));
+
       const matchesCategory = categoryFilter === 'all' || app.insuranceCategory === categoryFilter;
       
       return matchesSearch && matchesCategory;
@@ -332,8 +336,8 @@ export default function ExpiringInsurancePage() {
           bValue = normalizeValue(b.applicationNumber);
           break;
         case 'clientName':
-          aValue = normalizeValue(a.client.fullName);
-          bValue = normalizeValue(b.client.fullName);
+          aValue = normalizeValue(a.client?.fullName);
+          bValue = normalizeValue(b.client?.fullName);
           break;
         case 'insuranceEndAt':
           aValue = new Date(a.insuranceEndAt).getTime();
