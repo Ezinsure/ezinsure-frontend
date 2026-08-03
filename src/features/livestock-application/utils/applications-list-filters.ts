@@ -1,7 +1,6 @@
 import type {
   LivestockApplicationListItem,
   LivestockApplicationStatus,
-  LivestockApplicationViewRole,
   LivestockOwnerMode,
   LivestockSpeciesGroup,
 } from '@/features/livestock-application/domain/application-types';
@@ -28,9 +27,7 @@ export const DEFAULT_APPLICATIONS_LIST_FILTERS: ApplicationsListFilters = {
   paymentStatus: 'ALL',
 };
 
-export function getDefaultApplicationsListFilters(
-  _viewRole: LivestockApplicationViewRole = 'vet',
-): ApplicationsListFilters {
+export function getDefaultApplicationsListFilters(): ApplicationsListFilters {
   return { ...DEFAULT_APPLICATIONS_LIST_FILTERS };
 }
 
@@ -61,11 +58,8 @@ export const PAYMENT_FILTER_OPTIONS: { value: PaymentFilter; label: string }[] =
   { value: 'NOT_REQUIRED', label: 'Not required' },
 ];
 
-export function hasActiveListFilters(
-  filters: ApplicationsListFilters,
-  viewRole: LivestockApplicationViewRole = 'vet',
-): boolean {
-  const defaults = getDefaultApplicationsListFilters(viewRole);
+export function hasActiveListFilters(filters: ApplicationsListFilters): boolean {
+  const defaults = getDefaultApplicationsListFilters();
   return (
     filters.search.trim().length > 0 ||
     filters.speciesGroup !== defaults.speciesGroup ||
