@@ -29,14 +29,8 @@ export const DEFAULT_APPLICATIONS_LIST_FILTERS: ApplicationsListFilters = {
 };
 
 export function getDefaultApplicationsListFilters(
-  viewRole: LivestockApplicationViewRole = 'vet',
+  _viewRole: LivestockApplicationViewRole = 'vet',
 ): ApplicationsListFilters {
-  if (viewRole === 'finance') {
-    return {
-      ...DEFAULT_APPLICATIONS_LIST_FILTERS,
-      paymentStatus: 'PENDING',
-    };
-  }
   return { ...DEFAULT_APPLICATIONS_LIST_FILTERS };
 }
 
