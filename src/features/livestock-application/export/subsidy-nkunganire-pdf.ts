@@ -3,6 +3,7 @@ import type {
   LivestockSpeciesGroup,
 } from '@/features/livestock-application/domain/application-types';
 import { speciesGroupToAnimalType } from '@/features/livestock-application/domain/form-profiles';
+import { formatLotOrChipDisplay } from '@/features/livestock-application/utils/insured-line-display';
 import { resolveSubsidyEligibility } from '@/features/livestock-application/utils/subsidy-eligibility';
 import { insuranceProviderLabel } from '@/shared/insurance-providers';
 
@@ -121,7 +122,7 @@ function buildExportRows(application: LivestockApplicationPackage): ExportRow[] 
       application.speciesGroup === 'CATTLE'
         ? line.animal.chipNumber ?? ''
         : line.lineType === 'LOT'
-          ? `Lot ×${line.quantity}`
+          ? formatLotOrChipDisplay(line)
           : line.animal.species,
     policyNumber: application.applicationNumber,
     sumAssured: line.sumAssured,
