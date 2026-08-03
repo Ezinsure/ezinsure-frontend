@@ -183,12 +183,16 @@ function drawOfficialHeader(doc: JsPdfDoc, coatOfArms: string | null): void {
   }
 
   // Text-only Solektra mark (PNG logo has a black background unsuitable for print)
+  // Draw as one continuous word with the brand color split (SO orange + LEKTRA blue).
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(7);
+  const soWidth = doc.getTextWidth('SO');
+  const lektraWidth = doc.getTextWidth('LEKTRA');
+  const brandStartX = pageWidth - marginX - soWidth - lektraWidth;
   doc.setTextColor(...BRAND_ORANGE);
-  doc.text('SO', pageWidth - marginX - 16.5, 12, { align: 'right' });
+  doc.text('SO', brandStartX, 12);
   doc.setTextColor(...BRAND_BLUE);
-  doc.text('LEKTRA', pageWidth - marginX, 12, { align: 'right' });
+  doc.text('LEKTRA', brandStartX + soWidth, 12);
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(5.5);
   doc.setTextColor(...MUTED);
