@@ -8,11 +8,8 @@ import { resolveSubsidyEligibility } from '@/features/livestock-application/util
 
 const ADMIN_ROLES = new Set<LivestockApplicationViewRole>(['admin', 'super_admin']);
 const FINANCE_ROLES = new Set<LivestockApplicationViewRole>(['admin', 'super_admin', 'finance']);
-const SONARWA_REVIEW_ROLES = new Set<LivestockApplicationViewRole>([
-  'admin',
-  'super_admin',
-  'sonarwa',
-]);
+/** Only SONARWA representatives may approve / reject at this step. */
+const SONARWA_REVIEW_ROLES = new Set<LivestockApplicationViewRole>(['sonarwa']);
 
 function isAdminRole(role: LivestockApplicationViewRole): boolean {
   return ADMIN_ROLES.has(role);
@@ -196,7 +193,7 @@ export function workflowPhaseLabel(application: LivestockApplicationPackage): st
   if (application.status === 'INSURANCE_ISSUED' && resolveSubsidyEligibility(application).required) {
     return 'Nkunganire (sector)';
   }
-  if (canAdminReviewSonarwaSubsidy(application, 'admin')) return 'SONARWA review';
+  if (isAwaitingSonarwaReview(application)) return 'SONARWA review';
   if (application.status === 'PENDING_ADMIN_REVIEW') return 'Admin review';
   if (application.status === 'READY_TO_BE_PAID') return 'Ready to pay';
   if (application.status === 'PAID') return 'Paid';
