@@ -51,10 +51,10 @@ export function ApplicationsListFiltersBar({
   };
 
   const clearFilters = () => {
-    onFiltersChange(getDefaultApplicationsListFilters(viewRole));
+    onFiltersChange(getDefaultApplicationsListFilters());
   };
 
-  const filtersActive = hasActiveListFilters(filters, viewRole);
+  const filtersActive = hasActiveListFilters(filters);
   const isVet = viewRole === 'vet';
   const isFinance = viewRole === 'finance';
 

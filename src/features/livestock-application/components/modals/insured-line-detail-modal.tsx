@@ -3,7 +3,7 @@
 import { X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import type { InsuredLinePayload } from '@/features/livestock-application/domain/application-types';
-import { buildLineDetailFields } from '@/features/livestock-application/utils/insured-line-display';
+import { buildLineDetailFields, formatLotOrChipDisplay } from '@/features/livestock-application/utils/insured-line-display';
 import { formatRwfDisplay } from '@/features/livestock-application/utils/format-rwf';
 
 interface InsuredLineDetailModalProps {
@@ -24,7 +24,7 @@ export function InsuredLineDetailModal({
   const fields = buildLineDetailFields(line);
   const title =
     line.lineType === 'LOT'
-      ? `Lot ${lineIndex + 1} · ${line.quantity} birds`
+      ? formatLotOrChipDisplay(line) || `Lot ${lineIndex + 1} · ${line.quantity} birds`
       : `Animal ${lineIndex + 1} · ${line.animal.chipNumber || 'No chip / eartag'}`;
 
   return (

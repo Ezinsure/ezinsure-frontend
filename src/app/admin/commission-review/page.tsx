@@ -1322,6 +1322,7 @@ const getActionButtons = (app: Application) => {
     category: app.insuranceCategory || 'N/A',
     insuranceEndDate: formatDateUTC(app.insuranceEndAt),
     commission: app.agentCommission ?? 0,
+    netPremium: app.netPremium ?? 0,
     plateNumber: isVehicleCategory(app.insuranceCategory) ? (app.vehicle?.plateNumber || 'N/A') : '',
     policeNumber: formatPoliceNumberDisplay(app),
   });
@@ -1334,6 +1335,7 @@ const getActionButtons = (app: Application) => {
     'Agent Name',
     'Insurance Category',
     'Insurance End Date',
+    'Net Premium (RWF)',
     'Commission (RWF)',
     'Plate Number',
     'Police Number',
@@ -1388,6 +1390,7 @@ const getActionButtons = (app: Application) => {
           r.agentName,
           r.category,
           r.insuranceEndDate,
+          r.netPremium != null ? `${Number(r.netPremium).toLocaleString()} RWF` : '0 RWF',
           `${r.commission.toLocaleString()} RWF`,
           r.plateNumber,
           r.policeNumber,
@@ -1408,9 +1411,10 @@ const getActionButtons = (app: Application) => {
           4: { cellWidth: 41 },                    // Agent Name   ← wider
           5: { cellWidth: 26 },                    // Insurance Category
           6: { cellWidth: 22, halign: 'center' },  // Insurance End Date
-          7: { cellWidth: 26, halign: 'right' },   // Commission
-          8: { cellWidth: 20 },                    // Plate Number
-          9: { cellWidth: 22 },                    // Police Number
+            7: { cellWidth: 22, halign: 'right' },  // Net Premium
+            8: { cellWidth: 24, halign: 'right' },  // Commission
+            9: { cellWidth: 18 },                    // Plate Number
+           10: { cellWidth: 20 },                    // Police Number
         },
         alternateRowStyles: { fillColor: [245, 245, 245] },
         margin: { top: 10, right: 8, bottom: 12, left: 8 },
@@ -1445,6 +1449,7 @@ const getActionButtons = (app: Application) => {
             r.agentName,
             r.category,
             r.insuranceEndDate,
+            String(r.netPremium ?? 0),
             r.commission.toString(),
             r.plateNumber,
             formatPoliceNumberForExport(app),

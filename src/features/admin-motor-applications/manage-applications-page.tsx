@@ -13,7 +13,9 @@ import { useAuth } from '@/context/AuthContext';
 import { formatDateUTC } from '@/utils/date-formatter';
 import {
   calculateAdministrationFeesRwf,
+  calculateCommissionFromPercentage,
   isMotorVehicleInsuranceCategory,
+  MOTOR_INVOICE_SPLIT_RATE,
 } from '@/utils/administration-fees';
 import { validateInsuranceDuration, normalizeInsuranceDurationPayload } from '@/utils/insurance-duration';
 import { InsuranceDurationField } from '@/components/ui/insurance-duration-field';
@@ -61,6 +63,7 @@ export default function ManageApplicationsPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [invoiceAmount, setInvoiceAmount] = useState('');
   const [netPremium, setNetPremium] = useState('');
+  const [commissionPercentage, setCommissionPercentage] = useState('');
   const [agentCommission, setAgentCommission] = useState('');
   const [companyCommission, setCompanyCommission] = useState('');
   const [administrationFees, setAdministrationFees] = useState('');
@@ -93,12 +96,34 @@ export default function ManageApplicationsPage() {
 
   useEffect(() => {
     const premium = Number(netPremium || 0);
-    const splitCommission = Number.isFinite(premium)
-      ? Math.round(premium * 0.05).toString()
-      : '';
-    setAgentCommission(splitCommission);
-    setCompanyCommission(splitCommission);
-  }, [netPremium]);
+    if (!Number.isFinite(premium)) {
+      setAgentCommission('');
+      setCompanyCommission('');
+      return;
+    }
+
+    const category = selectedApp?.insuranceCategory || '';
+    const isVehicle = isMotorVehicleInsuranceCategory(category);
+    const hasAgent = Boolean(selectedApp?.agent);
+
+    if (isVehicle) {
+      const split = Math.round(premium * MOTOR_INVOICE_SPLIT_RATE).toString();
+      setAgentCommission(hasAgent ? split : '');
+      setCompanyCommission(split);
+      return;
+    }
+
+    const pct = Number(commissionPercentage || 0);
+    const total = calculateCommissionFromPercentage(premium, pct);
+    if (hasAgent) {
+      const half = Math.round(total / 2).toString();
+      setAgentCommission(half);
+      setCompanyCommission(half);
+    } else {
+      setAgentCommission('');
+      setCompanyCommission(String(total));
+    }
+  }, [netPremium, commissionPercentage, selectedApp?.insuranceCategory, selectedApp?.agent]);
   const [editingApp, setEditingApp] = useState<Application | null>(null);
   const [editFormData, setEditFormData] = useState<Record<string, string | number | boolean | File | null> | null>(null);
   const [originalEditFormData, setOriginalEditFormData] = useState<Record<string, string | number | boolean | File | null> | null>(null);
@@ -673,13 +698,27 @@ export default function ManageApplicationsPage() {
   // Send invoice to client
  const handleSendInvoice = async () => {
   const hasAgent = selectedApp?.agent !== null && selectedApp?.agent !== undefined;
-  const requiredFields = [!selectedApp, !invoiceMessage, !invoiceAmount, !netPremium, !companyCommission, !administrationFees];
-  
+  const isNonMotorInvoice = selectedApp
+    ? !isMotorVehicleInsuranceCategory(selectedApp.insuranceCategory || '')
+    : false;
+  const requiredFields = [
+    !selectedApp,
+    !invoiceMessage,
+    !invoiceAmount,
+    !netPremium,
+    !companyCommission,
+    !administrationFees,
+  ];
+
+  if (isNonMotorInvoice) {
+    requiredFields.push(!commissionPercentage);
+  }
+
   // Only require agent commission if there's an agent
   if (hasAgent) {
     requiredFields.push(!agentCommission);
   }
-  
+
   if (requiredFields.some(field => field)) {
     showToast('Please fill all required fields', 'error');
     return;
@@ -693,7 +732,10 @@ export default function ManageApplicationsPage() {
     formData.append('netPremium', netPremium);
     formData.append('companyCommission', companyCommission);
     formData.append('administrationFees', administrationFees);
-    
+    if (isNonMotorInvoice) {
+      formData.append('commissionPercentage', commissionPercentage);
+    }
+
     // Only include agent commission if there's an agent
     if (hasAgent) {
       formData.append('agentCommission', agentCommission);
@@ -723,6 +765,7 @@ export default function ManageApplicationsPage() {
     setInvoiceMessage('');
     setInvoiceAmount('');
     setNetPremium('');
+    setCommissionPercentage('');
     setAgentCommission('');
     setCompanyCommission('');
     setAdministrationFees('');
@@ -1049,6 +1092,7 @@ const getActionButtons = (app: Application) => {
             setActiveModal('invoice');
             setInvoiceAmount(app.amount != null ? String(app.amount) : '');
             setNetPremium(app.netPremium != null ? String(app.netPremium) : '');
+            setCommissionPercentage('');
             setInvoiceMessage(
               `Please make your payment to one of the following:\nBank of Kigali: 100000129075 (SONARWA)\nOr via Momo Account: 051499 (SONARWA) \nOr Agency at Kimihurura (KBC) under SOLEKTRA`
             );
@@ -1421,10 +1465,13 @@ const getActionButtons = (app: Application) => {
       
       // Calculate totals
       const totalAmount = filteredApplications.reduce((sum, app) => sum + (app.amount || 0), 0);
+      const totalNetPremium = filteredApplications.reduce((sum, app) => sum + (app.netPremium || 0), 0);
       const totalCompanyCommission = filteredApplications.reduce((sum, app) => sum + (app.companyCommission || 0), 0);
       const totalAgentCommission = filteredApplications.reduce((sum, app) => sum + (app.agentCommission || 0), 0);
       
       doc.text(`Total Amount: ${totalAmount.toLocaleString()} RWF`, 14, filterY);
+      filterY += 5;
+      doc.text(`Total Net Premium: ${totalNetPremium.toLocaleString()} RWF`, 14, filterY);
       filterY += 5;
       doc.text(`Total Company Commission: ${totalCompanyCommission.toLocaleString()} RWF`, 14, filterY);
       filterY += 5;
@@ -1466,6 +1513,7 @@ const getActionButtons = (app: Application) => {
           formatDateForPDF(app.insuranceEndAt),
           createdBy.length > 22 ? createdBy.substring(0, 22) + '...' : createdBy,
           app.amount ? `${app.amount.toLocaleString()} RWF` : '0 RWF',
+          app.netPremium != null ? `${Number(app.netPremium).toLocaleString()} RWF` : '0 RWF',
           app.companyCommission ? `${app.companyCommission.toLocaleString()} RWF` : '0 RWF',
           app.agentCommission ? `${app.agentCommission.toLocaleString()} RWF` : '0 RWF',
           formatPoliceNumberDisplay(app),
@@ -1479,12 +1527,12 @@ const getActionButtons = (app: Application) => {
       // Add table
       autoTable.default(doc, {
         head: [
-          ['#', 'Client Name', 'Email', 'Category', 'End Date', 'Performed By', 'Amount', 'Company Comm.', 'Agent Comm.', 'Police Number', 'Date', 'Status']
+          ['#', 'Client Name', 'Email', 'Category', 'End Date', 'Performed By', 'Amount', 'Net Premium', 'Company Comm.', 'Agent Comm.', 'Police Number', 'Date', 'Status']
         ],
         body: tableData,
         startY: filterY + 10,
         styles: {
-          fontSize: 7,
+          fontSize: 6.5,
           cellPadding: 1,
           overflow: 'linebreak',
           font: 'helvetica',
@@ -1498,23 +1546,24 @@ const getActionButtons = (app: Application) => {
           fillColor: [51, 122, 183], // Lighter blue header
           textColor: [255, 255, 255],
           fontStyle: 'bold',
-          fontSize: 8,
+          fontSize: 7,
           halign: 'center',
           valign: 'middle',
         },
         columnStyles: {
-          0: { cellWidth: 8, halign: 'center' }, // #
-          1: { cellWidth: 30, halign: 'left' }, // Name
-          2: { cellWidth: 35, halign: 'left' }, // Email
-          3: { cellWidth: 25, halign: 'left' }, // Category
-          4: { cellWidth: 25, halign: 'left' }, // End Date
-          5: { cellWidth: 25, halign: 'left' }, // Performed By
-          6: { cellWidth: 25, halign: 'right' }, // Amount
-          7: { cellWidth: 25, halign: 'right' }, // Company Comm
-          8: { cellWidth: 25, halign: 'right' }, // Agent Comm
-          9: { cellWidth: 22, halign: 'left' }, // Police Number
-          10: { cellWidth: 25, halign: 'center' }, // Date
-          11: { cellWidth: 25, halign: 'center' }, // Status
+          0: { cellWidth: 7,halign: 'center' },
+          1: { cellWidth: 26,halign: 'left' },
+          2: { cellWidth: 30,halign: 'left' },
+          3: { cellWidth: 20,halign: 'left' },
+          4: { cellWidth: 18,halign: 'left' },
+          5: { cellWidth: 20,halign: 'left' },
+          6: { cellWidth: 20,halign: 'right' },
+          7: { cellWidth: 20,halign: 'right' },
+          8: { cellWidth: 20,halign: 'right' },
+          9: { cellWidth: 20,halign: 'right' },
+          10: { cellWidth: 18,halign: 'left' },
+          11: { cellWidth: 18,halign: 'center' },
+          12: { cellWidth: 18,halign: 'center' },
         },
         alternateRowStyles: {
           fillColor: [245, 245, 245],
@@ -1572,8 +1621,9 @@ const getActionButtons = (app: Application) => {
       // Prepare headers
       const headers = [
         'Client Name', 'Email', 'Phone', 'Insurance Category', 'Insurance Type', 
-        'Duration', 'Insurance End Date', 'Performed By', 'Amount (RWF)', 'Company Commission (RWF)', 
-        'Agent Commission (RWF)', 'Police Number', 'Date', 'Status', 'Address', 'Province', 'District', 'Sector'
+        'Duration', 'Insurance End Date', 'Performed By', 'Amount (RWF)', 'Net Premium (RWF)',
+        'Company Commission (RWF)', 'Agent Commission (RWF)', 'Police Number', 'Date', 'Status',
+        'Address', 'Province', 'District', 'Sector'
       ];
       
       // Prepare data rows
@@ -1598,6 +1648,7 @@ const getActionButtons = (app: Application) => {
           formatDateForExcel(app.insuranceEndAt),
           createdBy,
           app.amount ? app.amount.toString() : '0',
+          app.netPremium != null ? String(app.netPremium) : '0',
           app.companyCommission ? app.companyCommission.toString() : '0',
           app.agentCommission ? app.agentCommission.toString() : '0',
           formatPoliceNumberForExport(app),
@@ -2251,6 +2302,28 @@ const getActionButtons = (app: Application) => {
         />
       </div>
 
+      {selectedApp && !isMotorVehicleInsuranceCategory(selectedApp.insuranceCategory || '') && (
+        <div className="mt-4">
+          <NumericInputField
+            label="Commission Percentage (%)"
+            name="commissionPercentage"
+            accent="invoice"
+            className="mb-0"
+            labelClassName="text-sm font-medium text-gray-700 mb-1"
+            value={commissionPercentage}
+            onChange={setCommissionPercentage}
+            min={0}
+            maxDigits={5}
+            placeholder="e.g. 10"
+            required
+          />
+          <p className="mt-1 text-xs text-gray-500">
+            Commission is calculated as this percentage of net premium
+            {selectedApp.agent ? ' and split evenly between agent and company' : ''}.
+          </p>
+        </div>
+      )}
+
       {/* Agent Commission field - only show if application has an agent */}
       {selectedApp.agent && (
         <div className="mt-4">
@@ -2327,7 +2400,7 @@ const getActionButtons = (app: Application) => {
           </div>
         ) : (
           <p className="text-xs text-gray-500 mt-1">
-            Calculated as 25% of 1,500 RWF for this insurance category. You may adjust the field if needed.
+            Flat 5,000 RWF for this insurance category. You may adjust the field if needed.
           </p>
         )}
       </div>

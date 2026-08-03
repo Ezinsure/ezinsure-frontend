@@ -10,7 +10,10 @@ import type {
   LivestockApplicationViewRole,
 } from '@/features/livestock-application/domain/application-types';
 import { resolveSubsidyEligibility } from '@/features/livestock-application/utils/subsidy-eligibility';
-import { canReviewSonarwaSubsidy } from '@/features/livestock-application/utils/workflow-rules';
+import {
+  canReviewSonarwaSubsidy,
+  isAwaitingSonarwaReview,
+} from '@/features/livestock-application/utils/workflow-rules';
 import { formatWorkflowActionError } from '@/features/livestock-application/utils/workflow-action-feedback';
 import {
   resolveWorkflowActionVisible,
@@ -47,8 +50,9 @@ export function SonarwaReviewSection({
     application.status === 'PENDING_ADMIN_REVIEW' ||
     application.status === 'READY_TO_BE_PAID' ||
     application.status === 'PAID';
+  const awaitingReview = !isApproved && isAwaitingSonarwaReview(application);
   const canReview = resolveWorkflowActionVisible(
-    viewRole === 'admin' || viewRole === 'super_admin' || viewRole === 'sonarwa',
+    viewRole === 'sonarwa',
     canReviewSonarwaSubsidy(application, viewRole) && !isApproved,
   );
   const isRejected =
@@ -78,11 +82,9 @@ export function SonarwaReviewSection({
 
   const stepState = isApproved
     ? 'completed'
-    : isRejected
+    : isRejected || awaitingReview
       ? 'current'
-      : canReview
-        ? 'current'
-        : 'upcoming';
+      : 'upcoming';
 
   const handleReview = async (payload: Parameters<typeof review>[1]) => {
     try {
@@ -119,10 +121,11 @@ export function SonarwaReviewSection({
             <p className="mt-1 text-sm text-slate-600">
               SONARWA representative verifies the nkunganire document (or Tekana-eligible skip) before
               admin review.
-              {(viewRole === 'admin' || viewRole === 'super_admin') &&
-                ' Until the SONARWA portal is available, administrators act on behalf of SONARWA here.'}
               {viewRole === 'sonarwa' &&
                 ' Approve as submitted, or approve with changes when a corrected document and updated veterinary commission are required.'}
+              {(viewRole === 'admin' || viewRole === 'super_admin' || viewRole === 'finance') &&
+                awaitingReview &&
+                ' Only a SONARWA representative can complete this step.'}
             </p>
           </div>
         </div>
@@ -148,7 +151,15 @@ export function SonarwaReviewSection({
             }
             state={stepState}
             badge={
-              isApproved ? 'Completed' : canReview ? 'Action required' : isRejected ? 'Rejected' : undefined
+              isApproved
+                ? 'Completed'
+                : canReview
+                  ? 'Action required'
+                  : isRejected
+                    ? 'Rejected'
+                    : awaitingReview
+                      ? 'Awaiting SONARWA'
+                      : undefined
             }
           >
             <WorkflowStepActions>
@@ -195,17 +206,19 @@ export function SonarwaReviewSection({
         </div>
       </section>
 
-      <SonarwaSubsidyReviewModal
-        open={modalOpen}
-        onClose={() => setModalOpen(false)}
-        applicationNumber={application.applicationNumber}
-        ownerSummary={application.ownerSummary}
-        signedDocumentUrl={application.subsidyCase.uploadedSignedDocumentUrl}
-        skipSectorReason={!eligibility.required ? eligibility.reason : undefined}
-        currentVeterinaryCommission={application.totals.veterinaryCommission}
-        onSubmit={handleReview}
-        onViewDocument={onViewDocument}
-      />
+      {canReview && (
+        <SonarwaSubsidyReviewModal
+          open={modalOpen}
+          onClose={() => setModalOpen(false)}
+          applicationNumber={application.applicationNumber}
+          ownerSummary={application.ownerSummary}
+          signedDocumentUrl={application.subsidyCase.uploadedSignedDocumentUrl}
+          skipSectorReason={!eligibility.required ? eligibility.reason : undefined}
+          currentVeterinaryCommission={application.totals.veterinaryCommission}
+          onSubmit={handleReview}
+          onViewDocument={onViewDocument}
+        />
+      )}
     </>
   );
 }

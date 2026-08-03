@@ -3,23 +3,29 @@ import {
   FileText,
   HelpCircle,
   UserCircle,
-  Wallet,
   Stethoscope,
+  Clock,
+  History,
+  Banknote,
+  ClipboardList,
 } from 'lucide-react';
 import type { NavGroup } from '@/shared/navigation/types';
 
 const base = '/finance/livestock';
 
 export const livestockFinanceNavigation: NavGroup[] = [
-    {
-      label: 'Operations',
-      items: [
-        { href: `${base}/dashboard`, label: 'Dashboard', icon: LayoutDashboard },
-        { href: `${base}/applications`, label: 'Applications', icon: FileText },
-        { href: `${base}/commission-review`, label: 'Admin Review', icon: Wallet },
-        { href: `${base}/vet-analytics`, label: 'Vet Analytics', icon: Stethoscope },
-      ],
-    },
+  {
+    label: 'Operations',
+    items: [
+      { href: `${base}/dashboard`, label: 'Dashboard', icon: LayoutDashboard },
+      { href: `${base}/applications`, label: 'Applications', icon: FileText },
+      { href: `${base}/commission-review`, label: 'Admin Review', icon: ClipboardList },
+      { href: `${base}/vet-analytics`, label: 'Vet Analytics', icon: Stethoscope },
+      { href: `${base}/payments`, label: 'Payments', icon: Banknote },
+      { href: `${base}/payment-initiated`, label: 'Initiated Payments', icon: Clock },
+      { href: `${base}/history`, label: 'Payment History', icon: History },
+    ],
+  },
   {
     label: 'Account',
     items: [

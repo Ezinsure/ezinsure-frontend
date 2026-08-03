@@ -1,7 +1,13 @@
+/**
+ * Legacy Excel nkunganire export (MINAGRI template fill).
+ * Prefer {@link downloadNkunganireSubsidyPdf} from `./subsidy-nkunganire-pdf`
+ * for the branded printable form used by vets in the field.
+ */
 import type {
   LivestockApplicationPackage,
   LivestockSpeciesGroup,
 } from '@/features/livestock-application/domain/application-types';
+import { formatLotOrChipDisplay } from '@/features/livestock-application/utils/insured-line-display';
 import { resolveSubsidyEligibility } from '@/features/livestock-application/utils/subsidy-eligibility';
 
 const NKUNGANIRE_TEMPLATE_URL = '/templates/livestock-nkunganire-template.xlsx';
@@ -158,7 +164,7 @@ function buildExportRows(application: LivestockApplicationPackage): ExportRow[] 
       application.speciesGroup === 'CATTLE'
         ? line.animal.chipNumber ?? ''
         : line.lineType === 'LOT'
-          ? `Lot ×${line.quantity}`
+          ? formatLotOrChipDisplay(line)
           : line.animal.species,
     policyNumber: application.applicationNumber,
     sumAssured: line.sumAssured,

@@ -149,8 +149,26 @@ export function aggregateOwnersFromLines(
  */
 export const INSURED_LINE_IDENTIFIER_LABEL = 'Chip / eartag / lot';
 
+/**
+ * Poultry lot display: `lot 14 (x130)`.
+ * Uses `animal.chipNumber` as the lot field value, plus quantity.
+ * Cattle / pig: chip or eartag number as stored.
+ */
+export function formatLotOrChipDisplay(line: InsuredLinePayload): string {
+  if (line.lineType === 'LOT') {
+    const raw = (line.animal.chipNumber ?? '').trim();
+    const qty = Number(line.quantity) || 0;
+    if (!raw) return `lot (x${qty})`;
+    const lotLabel = /^lot\b/i.test(raw) ? raw : `lot ${raw}`;
+    return `${lotLabel} (x${qty})`;
+  }
+  return (line.animal.chipNumber ?? '').trim();
+}
+
 export function lineTableLabel(line: InsuredLinePayload, index: number): string {
   if (line.lineType === 'LOT') {
+    const lotDisplay = formatLotOrChipDisplay(line);
+    if ((line.animal.chipNumber ?? '').trim()) return lotDisplay;
     return line.animal.hatcherySource || `Lot ${index + 1}`;
   }
   return line.animal.chipNumber || `Line ${index + 1}`;
@@ -184,7 +202,13 @@ export function buildLineDetailFields(line: InsuredLinePayload): { label: string
   }
   fields.push({ label: 'Species', value: line.animal.species });
   if (line.animal.chipNumber) {
-    fields.push({ label: INSURED_LINE_IDENTIFIER_LABEL, value: line.animal.chipNumber });
+    fields.push({
+      label: INSURED_LINE_IDENTIFIER_LABEL,
+      value:
+        line.lineType === 'LOT'
+          ? formatLotOrChipDisplay(line)
+          : line.animal.chipNumber,
+    });
   }
   if (line.animal.hatcherySource) fields.push({ label: 'Hatchery source', value: line.animal.hatcherySource });
   if (line.animal.poultryProductType) {

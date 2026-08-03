@@ -95,7 +95,7 @@ export default function LivestockApplicationsListPage({
   const [startDate, setStartDate] = useState(getDefaultStartDate);
   const [endDate, setEndDate] = useState(getTodayDate);
   const [filters, setFilters] = useState<ApplicationsListFilters>(() =>
-    getDefaultApplicationsListFilters(viewRole),
+    getDefaultApplicationsListFilters(),
   );
   const isVet = viewRole === 'vet';
   const listScope = isVet ? 'vet' : 'all';
@@ -121,7 +121,7 @@ export default function LivestockApplicationsListPage({
     vetAgentId: vetId,
   });
 
-  const filtersActive = hasActiveListFilters(filters, viewRole);
+  const filtersActive = hasActiveListFilters(filters);
 
   const handleApplicationUpdated = useCallback(() => {
     void load(startDate, endDate, pageNumber, pageSize);

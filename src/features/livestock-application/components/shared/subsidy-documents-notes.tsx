@@ -13,6 +13,7 @@ function signedByLabel(signedBy?: string): string {
   const value = String(signedBy ?? '').toUpperCase();
   if (value === 'SECTOR') return 'Sector signed';
   if (value === 'VET') return 'Veterinarian signed';
+  if (value === 'SONARWA') return 'SONARWA signed';
   return signedBy?.trim() || 'Signed document';
 }
 

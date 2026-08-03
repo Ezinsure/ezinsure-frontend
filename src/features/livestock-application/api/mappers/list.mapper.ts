@@ -24,12 +24,20 @@ import {
   normalizeLivestockApplicationStatus,
   subsidyRequiredFromStatus,
 } from '@/features/livestock-application/api/mappers/status.mapper';
+import { readPackageTotals } from '@/features/livestock-application/api/mappers/totals.mapper';
+import {
+  extractLivestockLocation,
+  formatLocationSummary,
+} from '@/features/livestock-application/utils/application-location';
 
 function mapNewApiApplicationToListItem(o: Record<string, unknown>): LivestockApplicationListItem {
   const lines = o.lines as unknown[];
   const statusRaw = String(o.status ?? '');
-  const farmerContributionAmount = Number(o.farmerContributionAmount ?? 0);
-  const paymentProof = mapPaymentProofFromRecord(o, farmerContributionAmount);
+  const subsidyStatus = String(o.subsidyStatus ?? '');
+  const paidStatus = String(o.paidStatus ?? '');
+  const totals = readPackageTotals(o);
+  const location = extractLivestockLocation(o);
+  const paymentProof = mapPaymentProofFromRecord(o, totals.farmerContributionAmount);
 
   return {
     _id: String(o._id),
@@ -37,23 +45,49 @@ function mapNewApiApplicationToListItem(o: Record<string, unknown>): LivestockAp
     insuranceProvider: normalizeInsuranceProvider(String(o.insuranceProvider ?? '')),
     speciesGroup: o.speciesGroup as LivestockSpeciesGroup,
     ownerMode: (o.ownerMode as LivestockOwnerMode) ?? 'SINGLE_OWNER',
+    poultryProductType: o.poultryProductType
+      ? (String(o.poultryProductType) as LivestockApplicationListItem['poultryProductType'])
+      : undefined,
+    insuranceType: o.insuranceType ? String(o.insuranceType) : undefined,
+    policyStartDate: String(o.policyStartDate ?? ''),
+    policyEndDate: String(o.policyEndDate ?? ''),
+    livestockLocation: location,
+    totalSumAssured: totals.totalSumAssured,
+    governmentContribution: totals.governmentContribution,
+    veterinaryCommission: totals.veterinaryCommission,
     status: normalizeLivestockApplicationStatus(statusRaw)
-      ?? mapLegacyStatus(statusRaw, String(o.subsidyStatus ?? ''), String(o.paidStatus ?? '')),
+      ?? mapLegacyStatus(statusRaw, subsidyStatus, paidStatus),
     ownerSummary: buildOwnerSummary(o, lines),
     lineCount: lines.length,
     totals: {
-      farmerContributionAmount,
-      premiumRateAmount: Number(o.premiumRateAmount ?? 0),
+      farmerContributionAmount: totals.farmerContributionAmount,
+      premiumRateAmount: totals.premiumRateAmount,
     },
     submittedAt: String(o.submittedAt ?? new Date().toISOString()),
     paymentProofStatus: paymentProof.status,
     paymentProofDocumentUrl: paymentProof.documentUrl,
-    subsidyRequired: subsidyRequiredFromStatus(String(o.subsidyStatus ?? '')),
+    subsidyRequired: subsidyRequiredFromStatus(subsidyStatus),
+    paidStatus,
+    subsidyStatus,
+    vetName:
+      String(o.vetName ?? '').trim() ||
+      String((o.agent as { fullName?: string } | undefined)?.fullName ?? '').trim() ||
+      undefined,
+    vetId:
+      String(o.vetId ?? '').trim() ||
+      String((o.agent as { _id?: string } | undefined)?._id ?? '').trim() ||
+      undefined,
   };
 }
 
 function mapVeterinaryApplicationToListItem(app: VeterinaryApplication): LivestockApplicationListItem {
   const subsidyRequired = subsidyRequiredFromStatus(app.subsidyStatus);
+  const location = {
+    district: app.district ?? '',
+    sector: app.sector ?? '',
+    cell: app.cell ?? '',
+    village: app.village ?? '',
+  };
 
   return {
     _id: app._id,
@@ -61,6 +95,13 @@ function mapVeterinaryApplicationToListItem(app: VeterinaryApplication): Livesto
     insuranceProvider: normalizeInsuranceProvider(app.insuranceProvider),
     speciesGroup: inferSpeciesGroup(app.animalType, app.species),
     ownerMode: 'SINGLE_OWNER',
+    insuranceType: app.insuranceType,
+    policyStartDate: app.policyStartDate,
+    policyEndDate: app.policyEndDate,
+    livestockLocation: location,
+    totalSumAssured: app.sumAssured,
+    governmentContribution: app.governmentContribution,
+    veterinaryCommission: app.veterinaryCommission,
     status: mapLegacyStatus(app.status, app.subsidyStatus, app.paidStatus),
     ownerSummary: app.ownerName || '—',
     lineCount: 1,
@@ -71,6 +112,8 @@ function mapVeterinaryApplicationToListItem(app: VeterinaryApplication): Livesto
     submittedAt: app.submittedAt,
     paymentProofStatus: mapPaidStatus(app.paidStatus),
     subsidyRequired,
+    paidStatus: app.paidStatus,
+    subsidyStatus: app.subsidyStatus,
   };
 }
 
@@ -97,32 +140,53 @@ export function mapToLivestockApplicationListItem(item: unknown): LivestockAppli
   }
 
   if (typeof o._id === 'string' && typeof o.applicationNumber === 'string') {
+    const totals = readPackageTotals(o);
+    const location = extractLivestockLocation(o);
+    const subsidyStatus = String(o.subsidyStatus ?? '');
+    const paidStatus = String(o.paidStatus ?? '');
+
     return {
       _id: o._id,
       applicationNumber: o.applicationNumber,
       insuranceProvider: normalizeInsuranceProvider(String(o.insuranceProvider ?? '')),
       speciesGroup: (o.speciesGroup as LivestockSpeciesGroup) ?? inferSpeciesGroup(),
       ownerMode: (o.ownerMode as LivestockOwnerMode) ?? 'SINGLE_OWNER',
+      poultryProductType: o.poultryProductType
+        ? (String(o.poultryProductType) as LivestockApplicationListItem['poultryProductType'])
+        : undefined,
+      insuranceType: o.insuranceType ? String(o.insuranceType) : undefined,
+      policyStartDate: String(o.policyStartDate ?? ''),
+      policyEndDate: String(o.policyEndDate ?? ''),
+      livestockLocation: location,
+      totalSumAssured: totals.totalSumAssured,
+      governmentContribution: totals.governmentContribution,
+      veterinaryCommission: totals.veterinaryCommission,
       status: normalizeLivestockApplicationStatus(String(o.status ?? ''))
-        ?? mapLegacyStatus(String(o.status ?? ''), String(o.subsidyStatus ?? ''), String(o.paidStatus ?? '')),
-      ownerSummary: buildOwnerSummary(o, Array.isArray(o.lines) ? o.lines : []),
+        ?? mapLegacyStatus(String(o.status ?? ''), subsidyStatus, paidStatus),
+      ownerSummary:
+        buildOwnerSummary(o, Array.isArray(o.lines) ? o.lines : []) ||
+        formatLocationSummary(location),
       lineCount:
         typeof o.lineCount === 'number'
           ? o.lineCount
           : countInsuredLines(o) || 1,
       totals: {
-        farmerContributionAmount: Number(
-          (o.totals as { farmerContributionAmount?: number })?.farmerContributionAmount ??
-            o.farmerContributionAmount ??
-            0,
-        ),
-        premiumRateAmount: Number(
-          (o.totals as { premiumRateAmount?: number })?.premiumRateAmount ?? o.premiumRateAmount ?? 0,
-        ),
+        farmerContributionAmount: totals.farmerContributionAmount,
+        premiumRateAmount: totals.premiumRateAmount,
       },
       submittedAt: String(o.submittedAt ?? new Date().toISOString()),
       paymentProofStatus: mapPaidStatus(String(o.paymentProofStatus ?? o.paidStatus ?? '')),
-      subsidyRequired: subsidyRequiredFromStatus(String(o.subsidyStatus ?? '')) || Boolean(o.subsidyRequired),
+      subsidyRequired: subsidyRequiredFromStatus(subsidyStatus) || Boolean(o.subsidyRequired),
+      paidStatus,
+      subsidyStatus,
+      vetName:
+        String(o.vetName ?? '').trim() ||
+        String((o.agent as { fullName?: string } | undefined)?.fullName ?? '').trim() ||
+        undefined,
+      vetId:
+        String(o.vetId ?? '').trim() ||
+        String((o.agent as { _id?: string } | undefined)?._id ?? '').trim() ||
+        undefined,
     };
   }
 
