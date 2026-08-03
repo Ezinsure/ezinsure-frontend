@@ -27,7 +27,7 @@ function formatCurrency(value: number) {
 
 export default function LivestockPaymentInitiatedView() {
   const router = useRouter();
-  const api = useLivestockFinanceApi();
+  const { getVetsCommissionBreakdown, markLivestockAsPaid } = useLivestockFinanceApi();
   const { showToast } = useToast();
 
   const [vets, setVets] = useState<LivestockFinanceVetTotals[]>([]);
@@ -67,7 +67,7 @@ export default function LivestockPaymentInitiatedView() {
     const run = async () => {
       setIsLoading(true);
       try {
-        const rows = await api.getVetsCommissionBreakdown(selectedRange, 'PAYMENT_INITIATED');
+        const rows = await getVetsCommissionBreakdown(selectedRange, 'PAYMENT_INITIATED');
         if (!cancelled) setVets(rows);
       } catch {
         if (!cancelled) setVets([]);
@@ -79,7 +79,7 @@ export default function LivestockPaymentInitiatedView() {
     return () => {
       cancelled = true;
     };
-  }, [api, selectedRange]);
+  }, [getVetsCommissionBreakdown, selectedRange.endDate, selectedRange.startDate]);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -195,9 +195,9 @@ export default function LivestockPaymentInitiatedView() {
     }
     setIsMarkingPaid(true);
     try {
-      await api.markLivestockAsPaid(selectedRange);
+      await markLivestockAsPaid(selectedRange);
       showToast('Applications marked as paid for the selected month.', 'success');
-      const rows = await api.getVetsCommissionBreakdown(selectedRange, 'PAYMENT_INITIATED');
+      const rows = await getVetsCommissionBreakdown(selectedRange, 'PAYMENT_INITIATED');
       setVets(rows);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to mark as paid.';

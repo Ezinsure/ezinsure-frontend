@@ -42,7 +42,11 @@ type SortField =
 
 export default function LivestockPaymentsView() {
   const router = useRouter();
-  const api = useLivestockFinanceApi();
+  const {
+    getLivestockFinanceVetStats,
+    getVetsCommissionBreakdown,
+    initiateLivestockPayment,
+  } = useLivestockFinanceApi();
   const { showToast } = useToast();
 
   const today = useMemo(() => new Date(), []);
@@ -88,8 +92,8 @@ export default function LivestockPaymentsView() {
       setIsLoading(true);
       try {
         const [stats, breakdown] = await Promise.all([
-          api.getLivestockFinanceVetStats(range, applicationStatus),
-          api.getVetsCommissionBreakdown(range, applicationStatus),
+          getLivestockFinanceVetStats(range, applicationStatus),
+          getVetsCommissionBreakdown(range, applicationStatus),
         ]);
         if (!cancelled) {
           setFinanceStats({
@@ -113,7 +117,13 @@ export default function LivestockPaymentsView() {
     return () => {
       cancelled = true;
     };
-  }, [api, applicationStatus, range]);
+  }, [
+    applicationStatus,
+    getLivestockFinanceVetStats,
+    getVetsCommissionBreakdown,
+    range.endDate,
+    range.startDate,
+  ]);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -206,7 +216,7 @@ export default function LivestockPaymentsView() {
   const initiatePayment = async () => {
     setIsInitiatingPayment(true);
     try {
-      await api.initiateLivestockPayment(range);
+      await initiateLivestockPayment(range);
       showToast('Payment initiated. Review payout snapshots in Initiated Payments.', 'success');
       router.push('/finance/livestock/payment-initiated');
     } catch (err) {
