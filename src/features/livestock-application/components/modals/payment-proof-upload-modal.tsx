@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Loader2, Upload, X, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { FileInput } from '@/components/ui/file-input';
 import { Input } from '@/components/ui/input';
 import { formatRwfDisplay } from '@/features/livestock-application/utils/format-rwf';
 
@@ -12,7 +11,7 @@ const ALLOWED_PAYMENT_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'applicat
 const PAYMENT_EXT_PATTERN = /\.(jpe?g|png|pdf)$/i;
 
 export interface PaymentProofUploadPayload {
-  proofOfPayment: File;
+  proofsOfPayment: File[];
   transactionId: string;
   amount: number;
   notes?: string;
@@ -45,7 +44,7 @@ export function PaymentProofUploadModal({
   const [transactionId, setTransactionId] = useState(existingTransactionId ?? '');
   const [amount, setAmount] = useState(String(expectedAmount || ''));
   const [notes, setNotes] = useState('');
-  const [proofFile, setProofFile] = useState<File | null>(null);
+  const [proofFiles, setProofFiles] = useState<File[]>([]);
   const [fileError, setFileError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [resetTrigger, setResetTrigger] = useState(0);
@@ -60,7 +59,7 @@ export function PaymentProofUploadModal({
     setTransactionId(existingTransactionId ?? '');
     setAmount(String(expectedAmount || ''));
     setNotes('');
-    setProofFile(null);
+    setProofFiles([]);
     setFileError(null);
     setFormError(null);
     const previous = document.body.style.overflow;
@@ -72,42 +71,52 @@ export function PaymentProofUploadModal({
 
   if (!mounted || !open) return null;
 
-  const handleFileChange = (file: File | null) => {
-    if (file) {
-      const mime = file.type?.toLowerCase();
-      const name = file.name?.toLowerCase();
-      const allowed =
-        (mime && ALLOWED_PAYMENT_TYPES.includes(mime)) ||
-        (!mime && PAYMENT_EXT_PATTERN.test(name || ''));
-      if (!allowed) {
+  const validateFile = (file: File): boolean => {
+    const mime = file.type?.toLowerCase();
+    const name = file.name?.toLowerCase();
+    return (
+      (mime && ALLOWED_PAYMENT_TYPES.includes(mime)) ||
+      (!mime && PAYMENT_EXT_PATTERN.test(name || ''))
+    );
+  };
+
+  const handleFilesChange = (fileList: FileList | null) => {
+    if (!fileList || fileList.length === 0) return;
+    const next: File[] = [];
+    for (const file of Array.from(fileList)) {
+      if (!validateFile(file)) {
         setFileError('Unsupported file type. Please upload JPG, JPEG, PNG or PDF.');
         setResetTrigger((n) => n + 1);
-        setProofFile(null);
         return;
       }
+      next.push(file);
     }
     setFileError(null);
-    setProofFile(file);
+    setProofFiles((prev) => [...prev, ...next]);
+  };
+
+  const removeProofFile = (index: number) => {
+    setProofFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
   const parsedAmount = Number(String(amount).replace(/\s/g, '').replace(/,/g, ''));
   const amountValid = Number.isFinite(parsedAmount) && parsedAmount > 0;
 
   const handleSubmit = async () => {
-    if (!proofFile || !transactionId.trim() || !amountValid) {
-      setFormError('Please complete all required fields and upload a valid proof file.');
+    if (proofFiles.length === 0 || !transactionId.trim() || !amountValid) {
+      setFormError('Please complete all required fields and upload at least one proof file.');
       return;
     }
     setSubmitting(true);
     setFormError(null);
     try {
       await onSubmit({
-        proofOfPayment: proofFile,
+        proofsOfPayment: proofFiles,
         transactionId: transactionId.trim(),
         amount: parsedAmount,
         notes: notes.trim() || undefined,
       });
-      setProofFile(null);
+      setProofFiles([]);
       setNotes('');
       onClose();
     } catch (err) {
@@ -164,7 +173,8 @@ export function PaymentProofUploadModal({
             <p className="font-medium">Farmer share (60%)</p>
             <p className="mt-1 text-lg font-semibold">{formatRwfDisplay(expectedAmount)}</p>
             <p className="mt-2 text-xs text-emerald-800/90">
-              Upload one receipt for the full application. Amount should match the farmer contribution.
+              You may upload multiple receipts when different owners paid separately. Amount should
+              match the total farmer contribution.
             </p>
             {invoiceUrl && (
               <a
@@ -201,16 +211,50 @@ export function PaymentProofUploadModal({
               disabled={submitting}
             />
 
-            <FileInput
-              label="Payment proof file (proofOfPayment)"
-              name="proofOfPayment"
-              accept=".jpg,.jpeg,.png,.pdf"
-              onChange={handleFileChange}
-              error={fileError ?? undefined}
-              resetTrigger={resetTrigger}
-              currentFile={existingProofUrl?.split('/').pop()}
-              documentUrl={existingProofUrl}
-            />
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-slate-700">
+                Payment proof files (proofsOfPayment) <span className="text-red-500">*</span>
+              </label>
+              <input
+                key={resetTrigger}
+                type="file"
+                name="proofsOfPayment"
+                accept=".jpg,.jpeg,.png,.pdf"
+                multiple
+                disabled={submitting}
+                onChange={(e) => {
+                  handleFilesChange(e.target.files);
+                  e.target.value = '';
+                }}
+                className="block w-full text-sm text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-slate-900 file:px-3 file:py-2 file:text-sm file:font-medium file:text-white hover:file:bg-slate-800"
+              />
+              {existingProofUrl && proofFiles.length === 0 && (
+                <p className="mt-2 text-xs text-slate-500">
+                  Existing proof on file: {existingProofUrl.split('/').pop()}
+                </p>
+              )}
+              {proofFiles.length > 0 && (
+                <ul className="mt-3 space-y-2">
+                  {proofFiles.map((file, index) => (
+                    <li
+                      key={`${file.name}-${index}`}
+                      className="flex items-center justify-between gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm"
+                    >
+                      <span className="min-w-0 truncate text-slate-800">{file.name}</span>
+                      <button
+                        type="button"
+                        onClick={() => removeProofFile(index)}
+                        disabled={submitting}
+                        className="shrink-0 text-xs font-medium text-red-600 hover:text-red-700"
+                      >
+                        Remove
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {fileError && <p className="mt-2 text-xs text-red-600">{fileError}</p>}
+            </div>
 
             <div>
               <label
@@ -252,7 +296,7 @@ export function PaymentProofUploadModal({
           <Button
             type="button"
             variant="primary"
-            disabled={!proofFile || !transactionId.trim() || !amountValid || submitting}
+            disabled={proofFiles.length === 0 || !transactionId.trim() || !amountValid || submitting}
             onClick={() => void handleSubmit()}
           >
             {submitting ? (

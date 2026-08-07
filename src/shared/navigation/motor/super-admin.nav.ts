@@ -8,6 +8,7 @@ import {
   HelpCircle,
   UserCircle,
   Building2,
+  RefreshCw,
 } from 'lucide-react';
 import type { NavGroup } from '@/shared/navigation/types';
 
@@ -19,6 +20,7 @@ export const motorSuperAdminNavigation: NavGroup[] = [
     items: [
       { href: `${base}/dashboard`, label: 'Dashboard', icon: LayoutDashboard },
       { href: `${base}/applications`, label: 'Applications', icon: FileText },
+      { href: `${base}/renewals`, label: 'Renewals', icon: RefreshCw },
     ],
   },
   {

@@ -107,7 +107,6 @@ export function VetApplicationDetailsModal({ application, onClose }: VetApplicat
             <DetailField label="Farmer contribution" value={formatRwf(application.farmerContributionAmount)} />
             <DetailField label="Government contribution" value={formatRwf(application.governmentContribution)} />
             <DetailField label="Your commission" value={formatRwf(application.veterinaryCommission)} />
-            <DetailField label="Company commission" value={formatRwf(application.companyCommission)} />
           </DetailSection>
 
           <DetailSection title="Subsidy & payment">

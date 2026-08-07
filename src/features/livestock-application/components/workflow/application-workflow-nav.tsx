@@ -142,7 +142,14 @@ export function ApplicationWorkflowNav({
                     {item.stepNumber}
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="block text-sm font-semibold leading-snug">{item.label}</span>
+                    <span className="flex flex-wrap items-center gap-2">
+                      <span className="block text-sm font-semibold leading-snug">{item.label}</span>
+                      {item.readOnly && (
+                        <span className="rounded-md bg-slate-200/80 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-600">
+                          View only
+                        </span>
+                      )}
+                    </span>
                     <span className="mt-0.5 block text-[11px] leading-snug text-slate-500 group-hover:text-slate-600">
                       {item.description}
                     </span>

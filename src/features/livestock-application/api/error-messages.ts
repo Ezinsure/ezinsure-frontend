@@ -72,6 +72,9 @@ export type LivestockErrorContext =
   | 'application-detail'
   | 'list'
   | 'create'
+  | 'livestock-dashboard'
+  | 'renewals-list'
+  | 'renewal-create'
   | 'general';
 
 function fallbackForContext(context: LivestockErrorContext): string {
@@ -96,6 +99,15 @@ function fallbackForContext(context: LivestockErrorContext): string {
   }
   if (context === 'list') return 'We could not load applications. Please refresh or widen the date range.';
   if (context === 'create') return 'We could not submit the application. Please review the form and try again.';
+  if (context === 'livestock-dashboard') {
+    return 'We could not load dashboard statistics. Please try again.';
+  }
+  if (context === 'renewals-list') {
+    return 'We could not load renewals. Please try again or check the date range.';
+  }
+  if (context === 'renewal-create') {
+    return 'We could not create the renewal. Please try again.';
+  }
   return GENERAL_FALLBACK;
 }
 

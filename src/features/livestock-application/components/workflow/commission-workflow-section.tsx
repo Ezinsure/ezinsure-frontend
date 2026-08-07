@@ -58,11 +58,11 @@ export function CommissionWorkflowSection({
   const isPendingReview = application.status === 'PENDING_ADMIN_REVIEW';
 
   const canApprove = resolveWorkflowActionVisible(
-    viewRole === 'admin' || viewRole === 'finance',
+    viewRole === 'admin' || viewRole === 'finance' || viewRole === 'super_admin',
     canMarkReadyToBePaid(application, viewRole),
   );
   const canPay = resolveWorkflowActionVisible(
-    viewRole === 'admin' || viewRole === 'finance',
+    viewRole === 'finance',
     canMarkCommissionPaid(application, viewRole),
   );
   const isFinanceView = canManageCommissionWorkflow(application, viewRole) || canPay;

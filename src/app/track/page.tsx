@@ -1345,6 +1345,24 @@ const handleEditSuccess = async (): Promise<void> => {
               <p className="font-medium">{application.insuranceType}</p>
               </div>
             )}
+            {application.insuranceEndAt && (
+              <div className="sm:col-span-2">
+                <p className="text-sm text-gray-500">Insurance end date</p>
+                <p className="font-medium">
+                  {new Date(application.insuranceEndAt).toLocaleDateString()}
+                </p>
+                <a
+                  href={`/track?renew=${encodeURIComponent(application.applicationNumber)}`}
+                  className="mt-3 inline-flex items-center rounded-lg bg-[var(--main-blue,#1d4ed8)] px-4 py-2 text-sm font-semibold text-white hover:opacity-95"
+                >
+                  Renew this insurance
+                </a>
+                <p className="mt-2 text-xs text-gray-500">
+                  Renewals include a 1% discount on net premium, deducted from the agent commission.
+                  Contact your agent or use the renewals portal to complete payment.
+                </p>
+              </div>
+            )}
             {application.agent && (
               <div>
                 <p className="text-sm text-gray-500">Agent</p>

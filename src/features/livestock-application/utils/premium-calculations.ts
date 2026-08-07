@@ -3,8 +3,10 @@ import type { LivestockAnimalRow, LivestockApplicationFormValues } from '@/featu
 /** Share of total premium (100%) */
 export const PREMIUM_FARMER_SHARE = 0.6;
 export const PREMIUM_GOVERNMENT_SHARE = 0.4;
-export const COMPANY_COMMISSION_RATE = 0.035;
-export const VETERINARY_COMMISSION_RATE = 0.1;
+/** Company commission: 8% of total premium (100%). Never show on Vet UI. */
+export const COMPANY_COMMISSION_RATE = 0.08;
+/** Veterinary commission: 5% of total premium (100%). */
+export const VETERINARY_COMMISSION_RATE = 0.05;
 
 export interface PremiumAmountBreakdown {
   premiumRateAmount: string;

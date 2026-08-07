@@ -220,6 +220,14 @@ export interface LivestockApplicationPackage {
     notes?: string;
     submittedAt?: string;
     verifiedAt?: string;
+    /** All uploaded proof files (multi-owner / separate payments). */
+    documents?: Array<{
+      documentUrl: string;
+      transactionId?: string;
+      notes?: string;
+      submittedAt?: string;
+      fileName?: string;
+    }>;
   };
   /** Present when admin rejects a submitted payment proof. */
   reasonForPaymentRejection?: string;
@@ -298,10 +306,12 @@ export interface LivestockApplicationListItem {
   vetId?: string;
 }
 
-/** Payment proof upload payload (multipart). */
+/** Payment proof upload payload (multipart). Supports multiple receipt files. */
 export interface UploadPaymentProofPayload {
   amount: number;
-  proofOfPayment: File;
+  /** @deprecated Prefer proofsOfPayment — kept for single-file callers. */
+  proofOfPayment?: File;
+  proofsOfPayment: File[];
   transactionId: string;
   notes?: string;
 }

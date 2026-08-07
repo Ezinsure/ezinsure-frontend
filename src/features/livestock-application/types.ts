@@ -118,9 +118,9 @@ export interface LivestockApplicationFormValues {
   farmerContributionAmount: string;
   /** API: governmentContribution — 40% of premiumRateAmount */
   governmentContribution: string;
-  /** API: companyCommission — 3.5% of premiumRateAmount */
+  /** API: companyCommission — 8% of premiumRateAmount */
   companyCommission: string;
-  /** API: veterinaryCommission — 10% of premiumRateAmount */
+  /** API: veterinaryCommission — 5% of premiumRateAmount */
   veterinaryCommission: string;
 
   // Section 10 — Verification (application-only)

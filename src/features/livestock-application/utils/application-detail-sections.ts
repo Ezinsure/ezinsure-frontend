@@ -1,9 +1,6 @@
 import type {
-  LivestockApplicationPackage,
-  LivestockApplicationStatus,
   LivestockApplicationViewRole,
 } from '@/features/livestock-application/domain/application-types';
-import { resolveSubsidyEligibility } from '@/features/livestock-application/utils/subsidy-eligibility';
 
 export type ApplicationDetailSectionId =
   | 'overview'
@@ -22,6 +19,8 @@ export interface ApplicationDetailNavItem {
   label: string;
   description: string;
   stepNumber?: number;
+  /** When true, step is visible but actions are disabled for this role. */
+  readOnly?: boolean;
 }
 
 const WORKFLOW_ITEMS: ApplicationDetailNavItem[] = [
@@ -103,115 +102,47 @@ export function isWorkflowSection(id: ApplicationDetailSectionId): boolean {
   return WORKFLOW_STEP_IDS.has(id);
 }
 
-const POST_INSURANCE_STATUSES = new Set<LivestockApplicationStatus>([
-  'INSURANCE_ISSUED',
-  'SUBSIDY_DOC_REQUIRED',
-  'SUBSIDY_SECTOR_PENDING',
-  'SUBSIDY_SECTOR_SIGNED',
-  'SUBSIDY_VET_SIGNED',
-  'SUBSIDY_SONARWA_APPROVED',
-  'PENDING_ADMIN_REVIEW',
-  'COMMISSION_APPROVED',
-  'READY_TO_BE_PAID',
-  'PAID',
-]);
-
-const COMMISSION_STATUSES = new Set<LivestockApplicationStatus>([
-  'PENDING_ADMIN_REVIEW',
-  'COMMISSION_APPROVED',
-  'READY_TO_BE_PAID',
-  'PAID',
-]);
-
-function isInsuranceIssued(application: LivestockApplicationPackage): boolean {
-  return (
-    POST_INSURANCE_STATUSES.has(application.status) ||
-    Boolean(
-      application.issuedDocuments?.contract,
-    )
-  );
-}
-
-function isPaymentVerified(application: LivestockApplicationPackage): boolean {
-  return (
-    application.status === 'PAYMENT_VERIFIED' ||
-    application.paymentProof.status === 'VERIFIED' ||
-    isInsuranceIssued(application)
-  );
-}
-
-function isCommissionPhaseReached(application: LivestockApplicationPackage): boolean {
-  return (
-    COMMISSION_STATUSES.has(application.status) ||
-    application.subsidyCase.status === 'SONARWA_APPROVED'
-  );
-}
-
 /**
- * A workflow step is "relevant" when the application has reached it — i.e. it is
- * the current/next actionable step or an already-completed step. Steps further in
- * the future stay hidden until the application progresses to them.
+ * Whether the current role may perform actions on this workflow step.
+ * Non-interactive steps remain visible but should render read-only.
+ *
+ * Vet: Payment proof + Nkunganire (sector signed).
+ * SONARWA: SONARWA review only (actions).
+ * Finance: Commission & payment.
+ * Admin / Super Admin: Issue insurance + review (Mark as PAID is finance-only).
  */
-function isWorkflowStepReached(
-  id: ApplicationDetailSectionId,
-  application: LivestockApplicationPackage,
-): boolean {
-  const subsidyRequired = resolveSubsidyEligibility(application).required;
-
-  switch (id) {
-    case 'payment-proof':
-      return true;
-    case 'issue-insurance':
-      return isPaymentVerified(application);
-    case 'subsidy':
-      return isInsuranceIssued(application) && subsidyRequired;
-    case 'sonarwa':
-      return (
-        isInsuranceIssued(application) &&
-        (!subsidyRequired ||
-          Boolean(application.subsidyCase.uploadedSignedDocumentUrl) ||
-          isCommissionPhaseReached(application))
-      );
-    case 'commission':
-      return isCommissionPhaseReached(application);
-    default:
-      return true;
-  }
-}
-
-function isWorkflowStepAllowedForRole(
+export function isWorkflowStepInteractive(
   id: ApplicationDetailSectionId,
   viewRole: LivestockApplicationViewRole,
 ): boolean {
-  if (viewRole === 'sonarwa') {
-    return id === 'sonarwa';
+  if (viewRole === 'sonarwa') return id === 'sonarwa';
+  if (viewRole === 'vet') return id === 'payment-proof' || id === 'subsidy';
+  if (viewRole === 'finance') return id === 'commission';
+  if (viewRole === 'admin' || viewRole === 'super_admin') {
+    return (
+      id === 'payment-proof' ||
+      id === 'issue-insurance' ||
+      id === 'sonarwa' ||
+      id === 'commission'
+    );
   }
-  if (id === 'issue-insurance' || id === 'sonarwa') {
-    return viewRole === 'admin' || viewRole === 'super_admin';
-  }
-  if (id === 'commission') {
-    return viewRole === 'admin' || viewRole === 'finance' || viewRole === 'super_admin';
-  }
-  if ((id === 'payment-proof' || id === 'subsidy') && viewRole === 'finance') {
-    return false;
-  }
-  return true;
+  return false;
 }
 
 /**
- * Build the workflow steps shown in the detail view. Steps are always filtered by
- * role; when an `application` is provided they are additionally narrowed to the
- * steps that are currently relevant (reached / available / next).
+ * Build the workflow steps shown in the detail view.
+ * All process steps are always visible so users understand the full journey.
+ * Steps the role cannot act on are marked `readOnly`.
  */
 export function buildWorkflowStepsNav(
   viewRole: LivestockApplicationViewRole,
-  application?: LivestockApplicationPackage,
+  _application?: unknown,
 ): ApplicationDetailNavItem[] {
-  return WORKFLOW_ITEMS.filter((item) => {
-    if (!isWorkflowStepAllowedForRole(item.id, viewRole)) return false;
-    if (application && !isWorkflowStepReached(item.id, application)) return false;
-    return true;
-  });
+  void _application;
+  return WORKFLOW_ITEMS.map((item) => ({
+    ...item,
+    readOnly: !isWorkflowStepInteractive(item.id, viewRole),
+  }));
 }
 
 /** @deprecated Use buildWorkflowStepsNav + APPLICATION_INFO_ITEMS */

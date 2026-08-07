@@ -12,6 +12,7 @@ import { OwnerTableCells, OwnerTableHeaders } from '@/features/livestock-applica
 import { LivestockSelect, LivestockTextField } from '@/features/livestock-application/components/form-controls';
 import { LIVESTOCK_FORM_LABELS } from '@/features/livestock-application/labels';
 import type { LivestockAnimalRow } from '@/features/livestock-application/types';
+import { HorizontalScrollControls } from '@/features/livestock-application/components/shared/horizontal-scroll-controls';
 import {
   downloadLivestockBulkTemplate,
   parseLivestockBulkFile,
@@ -127,7 +128,14 @@ export function LivestockItemsTable({
         <p className="text-xs text-red-600">{errors.livestockItems}</p>
       )}
 
-      <div className="w-full max-w-full overflow-x-auto rounded-xl border border-slate-200">
+      {!isPoultryTable && (
+        <p className="rounded-lg border border-amber-100 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+          Chip / Eartag is optional. Animals without a chip need sector representative signature on
+          the nkunganire document.
+        </p>
+      )}
+
+      <HorizontalScrollControls>
         <table
           className={`w-full text-sm ${
             showOwnerColumns ? 'min-w-[136rem]' : 'min-w-[100rem]'
@@ -144,8 +152,8 @@ export function LivestockItemsTable({
                 <span className="inline-flex flex-wrap items-center gap-2">
                   {idFieldLabel}
                   {!isPoultryTable && (
-                    <span className="rounded-md bg-emerald-100 px-1.5 py-0.5 text-[10px] font-bold normal-case tracking-normal text-emerald-800">
-                      Chip
+                    <span className="rounded-md bg-slate-200 px-1.5 py-0.5 text-[10px] font-bold normal-case tracking-normal text-slate-700">
+                      Optional
                     </span>
                   )}
                 </span>
@@ -281,7 +289,7 @@ export function LivestockItemsTable({
             ))}
           </tbody>
         </table>
-      </div>
+      </HorizontalScrollControls>
     </div>
   );
 }

@@ -78,8 +78,9 @@ export const LIVESTOCK_FORM_LABELS = {
     premiumRateAmount: 'Ikiguzi cy’ubwishingizi (100%)',
     farmerContributionAmount: 'Uruhare rw’umworozi (60%)',
     governmentContribution: 'Nkunganire (40%)',
-    companyCommission: 'Komisiyo ya kampani (3.5%)',
-    veterinaryCommission: 'Komisiyo ya Veterineri (10%)',
+    companyCommission: 'Komisiyo ya kampani (8%)',
+    veterinaryCommission: 'Komisiyo ya Veterineri (5%)',
+
     insuranceAgentCode: 'Code y’umuhuza mu bwishingizi',
     veterinarianLicenseNumber: 'N° Licence ya Veterineri',
     veterinarianSignatureName: 'Amazina n’umukono',
@@ -87,7 +88,8 @@ export const LIVESTOCK_FORM_LABELS = {
 
   placeholders: {
     ownerName: 'Urugero: BITWAYIKI Pierre Celestin',
-    ownerPhone: '2507xxxxxxxx',
+    ownerPhone: '07XXXXXXXX',
+
     nationalId: '1199080101234567',
     farmingExperience: 'Urugero: imyaka 5',
     hatcherySource: 'Kigali Hatchery Ltd',

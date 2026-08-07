@@ -371,13 +371,6 @@ export function ApplicationStepContent({
               disabled
             />
             <LivestockTextField
-              fieldName="companyCommission"
-              type="number"
-              value={values.companyCommission}
-              onChange={(v) => setField('companyCommission', v)}
-              disabled
-            />
-            <LivestockTextField
               fieldName="veterinaryCommission"
               type="number"
               value={values.veterinaryCommission}
