@@ -306,11 +306,9 @@ export interface LivestockApplicationListItem {
   vetId?: string;
 }
 
-/** Payment proof upload payload (multipart). Supports multiple receipt files. */
+/** Payment proof upload payload (multipart). Always send files as an array. */
 export interface UploadPaymentProofPayload {
   amount: number;
-  /** @deprecated Prefer proofsOfPayment — kept for single-file callers. */
-  proofOfPayment?: File;
   proofsOfPayment: File[];
   transactionId: string;
   notes?: string;

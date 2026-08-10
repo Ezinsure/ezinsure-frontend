@@ -60,11 +60,7 @@ function applyPaymentProofUploadCache(
   const submittedAt = new Date().toISOString();
   const documentUrl = result.documentUrl;
   const transactionId = result.transactionId || payload.transactionId;
-  const files = payload.proofsOfPayment?.length
-    ? payload.proofsOfPayment
-    : payload.proofOfPayment
-      ? [payload.proofOfPayment]
-      : [];
+  const files = payload.proofsOfPayment;
   const documents = files.map((file, index) => ({
     documentUrl:
       index === 0 && documentUrl
@@ -103,11 +99,7 @@ async function simulateUploadLivestockPaymentProof(
   payload: UploadPaymentProofPayload,
 ): Promise<UploadPaymentProofResult> {
   await simulateDelay();
-  const files = payload.proofsOfPayment?.length
-    ? payload.proofsOfPayment
-    : payload.proofOfPayment
-      ? [payload.proofOfPayment]
-      : [];
+  const files = payload.proofsOfPayment;
   if (files.length === 0) {
     throw new Error('At least one payment proof file is required.');
   }
@@ -134,20 +126,15 @@ export async function uploadLivestockPaymentProof(
     return simulateUploadLivestockPaymentProof(applicationId, payload);
   }
 
-  const files = payload.proofsOfPayment?.length
-    ? payload.proofsOfPayment
-    : payload.proofOfPayment
-      ? [payload.proofOfPayment]
-      : [];
+  const files = payload.proofsOfPayment;
   if (files.length === 0) {
     throw new Error('At least one payment proof file is required.');
   }
 
   const formData = new FormData();
+  // Always send as File[] under proofsOfPayment (even for a single file).
   for (const file of files) {
     formData.append('proofsOfPayment', file, file.name || 'payment-proof');
-    // Backward compatibility while backend migrates to array field.
-    formData.append('proofOfPayment', file, file.name || 'payment-proof');
   }
   formData.append('amount', String(payload.amount));
   formData.append('transactionId', payload.transactionId.trim());

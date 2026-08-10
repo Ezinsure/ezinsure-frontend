@@ -65,7 +65,6 @@ export function PaymentProofSection({
       await upload(application._id, {
         amount: payload.amount,
         proofsOfPayment: payload.proofsOfPayment,
-        proofOfPayment: payload.proofsOfPayment[0],
         transactionId: payload.transactionId,
         notes: payload.notes,
       });
