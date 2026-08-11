@@ -151,7 +151,11 @@ export function mapPaymentProofFromRecord(
   record: Record<string, unknown>,
   expectedAmount: number,
 ): LivestockApplicationPackage['paymentProof'] {
-  const proofs = Array.isArray(record.paymentProofs) ? record.paymentProofs : [];
+  const proofs = Array.isArray(record.paymentProofs)
+    ? record.paymentProofs
+    : Array.isArray(record.proofsOfPayment)
+      ? record.proofsOfPayment
+      : [];
   const latest = proofs.length > 0 ? (proofs[proofs.length - 1] as Record<string, unknown>) : null;
   const nestedProof =
     record.paymentProof && typeof record.paymentProof === 'object'
@@ -183,10 +187,45 @@ export function mapPaymentProofFromRecord(
   );
   const verifiedAt = pickNonemptyString(latest?.verifiedAt, nestedProof?.verifiedAt);
 
+  const documents = proofs
+    .map((entry) => {
+      if (!entry || typeof entry !== 'object') return null;
+      const row = entry as Record<string, unknown>;
+      const url = pickNonemptyString(
+        row.documentUrl,
+        row.fileUrl,
+        row.proofOfPayment,
+        row.url,
+      );
+      if (!url) return null;
+      return {
+        documentUrl: url,
+        transactionId: pickNonemptyString(row.transactionId),
+        notes: pickNonemptyString(row.notes),
+        submittedAt: pickNonemptyString(row.uploadedAt, row.submittedAt),
+        fileName: pickNonemptyString(row.fileName, row.originalName, row.name),
+      };
+    })
+    .filter((d): d is NonNullable<typeof d> => Boolean(d));
+
+  if (documents.length === 0 && documentUrl) {
+    documents.push({
+      documentUrl,
+      transactionId: pickNonemptyString(
+        latest?.transactionId,
+        nestedProof?.transactionId,
+        record.transactionId,
+      ),
+      notes,
+      submittedAt,
+      fileName: undefined,
+    });
+  }
+
   return {
     status: mapPaidStatus(String(statusSource ?? '')),
     expectedAmount: Number(nestedProof?.expectedAmount ?? expectedAmount) || expectedAmount,
-    documentUrl,
+    documentUrl: documents[0]?.documentUrl ?? documentUrl,
     transactionId: pickNonemptyString(
       latest?.transactionId,
       nestedProof?.transactionId,
@@ -196,5 +235,6 @@ export function mapPaymentProofFromRecord(
     ...(notes ? { notes } : {}),
     submittedAt,
     verifiedAt,
+    ...(documents.length > 0 ? { documents } : {}),
   };
 }

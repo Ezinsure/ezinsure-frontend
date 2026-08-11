@@ -60,16 +60,28 @@ function applyPaymentProofUploadCache(
   const submittedAt = new Date().toISOString();
   const documentUrl = result.documentUrl;
   const transactionId = result.transactionId || payload.transactionId;
+  const files = payload.proofsOfPayment;
+  const documents = files.map((file, index) => ({
+    documentUrl:
+      index === 0 && documentUrl
+        ? documentUrl
+        : URL.createObjectURL(file),
+    transactionId,
+    notes: payload.notes?.trim() || undefined,
+    submittedAt,
+    fileName: file.name,
+  }));
 
   patchLivestockWorkflowState(applicationId, {
     status: 'PAYMENT_PROOF_SUBMITTED',
     paymentProof: {
       status: 'SUBMITTED',
       expectedAmount: result.expectedAmount || payload.amount,
-      documentUrl,
+      documentUrl: documents[0]?.documentUrl ?? documentUrl,
       transactionId,
       notes: payload.notes?.trim() || undefined,
       submittedAt,
+      documents,
     },
   });
 
@@ -87,9 +99,13 @@ async function simulateUploadLivestockPaymentProof(
   payload: UploadPaymentProofPayload,
 ): Promise<UploadPaymentProofResult> {
   await simulateDelay();
-  void resolvePaymentProofFileType(payload.proofOfPayment);
+  const files = payload.proofsOfPayment;
+  if (files.length === 0) {
+    throw new Error('At least one payment proof file is required.');
+  }
+  void resolvePaymentProofFileType(files[0]);
 
-  const documentUrl = URL.createObjectURL(payload.proofOfPayment);
+  const documentUrl = URL.createObjectURL(files[0]);
   const result: UploadPaymentProofResult = {
     status: 'PAYMENT_PROOF_SUBMITTED',
     expectedAmount: payload.amount,
@@ -110,9 +126,16 @@ export async function uploadLivestockPaymentProof(
     return simulateUploadLivestockPaymentProof(applicationId, payload);
   }
 
+  const files = payload.proofsOfPayment;
+  if (files.length === 0) {
+    throw new Error('At least one payment proof file is required.');
+  }
+
   const formData = new FormData();
-  const file = payload.proofOfPayment;
-  formData.append('proofOfPayment', file, file.name || 'payment-proof');
+  // Always send as File[] under proofsOfPayment (even for a single file).
+  for (const file of files) {
+    formData.append('proofsOfPayment', file, file.name || 'payment-proof');
+  }
   formData.append('amount', String(payload.amount));
   formData.append('transactionId', payload.transactionId.trim());
   if (payload.notes?.trim()) {

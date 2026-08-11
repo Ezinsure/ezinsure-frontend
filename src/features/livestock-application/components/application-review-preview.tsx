@@ -275,10 +275,6 @@ export function ApplicationReviewPreview({
             value={formatRwfDisplay(premium.governmentContribution)}
           />
           <PreviewField
-            label={labels.companyCommission}
-            value={formatRwfDisplay(premium.companyCommission)}
-          />
-          <PreviewField
             label={labels.veterinaryCommission}
             value={formatRwfDisplay(premium.veterinaryCommission)}
           />

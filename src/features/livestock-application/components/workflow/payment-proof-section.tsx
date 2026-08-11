@@ -64,7 +64,7 @@ export function PaymentProofSection({
     try {
       await upload(application._id, {
         amount: payload.amount,
-        proofOfPayment: payload.proofOfPayment,
+        proofsOfPayment: payload.proofsOfPayment,
         transactionId: payload.transactionId,
         notes: payload.notes,
       });
@@ -149,12 +149,36 @@ export function PaymentProofSection({
             </div>
           )}
           <div className="rounded-xl bg-slate-50 p-4">
-            <dt className="text-xs font-medium uppercase text-slate-500">Document</dt>
+            <dt className="text-xs font-medium uppercase text-slate-500">Documents</dt>
             <dd className="mt-1 text-sm text-slate-700">
-              {paymentProof.documentUrl ? 'Uploaded' : 'Not uploaded'}
+              {(paymentProof.documents?.length ?? (paymentProof.documentUrl ? 1 : 0)) > 0
+                ? `${paymentProof.documents?.length ?? 1} uploaded`
+                : 'Not uploaded'}
             </dd>
           </div>
         </dl>
+
+        {paymentProof.documents && paymentProof.documents.length > 1 && onViewDocument && (
+          <ul className="mt-4 space-y-2">
+            {paymentProof.documents.map((doc, index) => (
+              <li key={`${doc.documentUrl}-${index}`}>
+                <button
+                  type="button"
+                  onClick={() =>
+                    onViewDocument(
+                      doc.fileName || `Payment proof ${index + 1}`,
+                      doc.documentUrl,
+                    )
+                  }
+                  className="text-sm font-medium text-blue-700 hover:underline"
+                >
+                  View proof {index + 1}
+                  {doc.fileName ? `: ${doc.fileName}` : ''}
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
 
         {paymentProof.notes?.trim() && (
           <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50/80 px-4 py-3">

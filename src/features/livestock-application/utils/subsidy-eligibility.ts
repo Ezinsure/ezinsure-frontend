@@ -90,7 +90,7 @@ export function resolveSubsidyEligibility(
   return {
     required: false,
     reason:
-      'All cattle have Tekana chip codes — sector nkunganire is not required. Proceed to SONARWA review after insurance is issued.',
+      'All cattle have Tekana chip codes — sector nkunganire is not required. Application proceeds to Pending Admin Review after insurance is issued (SONARWA review is skipped).',
     animalsRequiringSector: 0,
     totalAnimals,
     linesMissingTekana: [],

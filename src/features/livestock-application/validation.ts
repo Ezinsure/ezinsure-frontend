@@ -7,6 +7,7 @@ import {
 } from '@/components/ui/form-validation';
 import type { FormProfile } from '@/features/livestock-application/domain/form-profiles';
 import { isValidPremiumPercentInput } from '@/features/livestock-application/utils/premium';
+import { isLocalRwandaMobile } from '@/features/livestock-application/utils/phone';
 import type { LivestockApplicationFormValues, LivestockApplicationStepId } from '@/features/livestock-application/types';
 
 export interface LivestockValidationContext {
@@ -32,9 +33,14 @@ const rulesByStep: Partial<Record<LivestockApplicationStepId, ValidationRules>> 
   applicantInfo: {
     ownerName: { required: true, minLength: 2 },
     nationalId: { required: true, minLength: 5 },
-    ownerPhone: { required: true, pattern: validationPatterns.phone },
+    ownerPhone: {
+      required: true,
+      validate: (v) =>
+        isLocalRwandaMobile(v) || 'Andika numero ya telefone mu buryo bwa 07XXXXXXXX',
+    },
     ownerGender: { required: true },
   },
+
   applicantAddress: {
     applicantDistrict: { required: true },
     applicantSector: { required: true },
@@ -93,9 +99,10 @@ function validateLivestockDetails(
       }
       if (!item.ownerPhone?.trim()) {
         errors[`${prefix}.ownerPhone`] = 'Telefone y’umuhinzi irakenewe';
-      } else if (!validationPatterns.phone.test(item.ownerPhone.replace(/\s/g, ''))) {
-        errors[`${prefix}.ownerPhone`] = 'Andika telefone neza';
+      } else if (!isLocalRwandaMobile(item.ownerPhone)) {
+        errors[`${prefix}.ownerPhone`] = 'Andika numero ya telefone mu buryo bwa 07XXXXXXXX';
       }
+
       if (!item.ownerNationalId?.trim()) {
         errors[`${prefix}.ownerNationalId`] = 'Indangamuntu y’umuhinzi irakenewe';
       }
@@ -128,7 +135,7 @@ function validateLivestockDetails(
     }
 
     if (!item.animalType.trim()) errors[`${prefix}.animalType`] = 'Ukeneye guhitamo ubwoko';
-    if (!item.chipNumber.trim()) errors[`${prefix}.chipNumber`] = 'Eartag irakenewe';
+    // EarTag / Chip is optional — applications without a chip need sector signature.
     if (!item.sumAssured.trim()) errors[`${prefix}.sumAssured`] = 'Agaciro irakenewe';
     else if (!validationPatterns.numbers.test(item.sumAssured.replace(/\s/g, ''))) {
       errors[`${prefix}.sumAssured`] = 'Andika umubare';

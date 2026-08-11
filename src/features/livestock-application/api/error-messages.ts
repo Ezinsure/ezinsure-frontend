@@ -40,6 +40,11 @@ const MESSAGE_REWRITES: Array<{ test: RegExp; message: string }> = [
     message: 'This file type is not supported. Please upload a JPG, PNG, or PDF receipt.',
   },
   {
+    test: /transaction\s*id.*already\s*used|already\s*used.*transaction/i,
+    message:
+      'This transaction ID has already been used. Please enter a different payment reference.',
+  },
+  {
     test: /transaction/i,
     message: 'Please enter a valid transaction ID or payment reference and try again.',
   },
@@ -72,6 +77,9 @@ export type LivestockErrorContext =
   | 'application-detail'
   | 'list'
   | 'create'
+  | 'livestock-dashboard'
+  | 'renewals-list'
+  | 'renewal-create'
   | 'general';
 
 function fallbackForContext(context: LivestockErrorContext): string {
@@ -96,6 +104,15 @@ function fallbackForContext(context: LivestockErrorContext): string {
   }
   if (context === 'list') return 'We could not load applications. Please refresh or widen the date range.';
   if (context === 'create') return 'We could not submit the application. Please review the form and try again.';
+  if (context === 'livestock-dashboard') {
+    return 'We could not load dashboard statistics. Please try again.';
+  }
+  if (context === 'renewals-list') {
+    return 'We could not load renewals. Please try again or check the date range.';
+  }
+  if (context === 'renewal-create') {
+    return 'We could not create the renewal. Please try again.';
+  }
   return GENERAL_FALLBACK;
 }
 
@@ -105,6 +122,12 @@ export function humanizeLivestockApiError(
 ): string {
   const context = options?.context ?? 'general';
   const status = options?.status;
+  const trimmed = (raw ?? '').trim();
+
+  // Prefer specific business messages from the API before status-based generics.
+  if (/transaction\s*id.*already\s*used|already\s*used.*transaction/i.test(trimmed)) {
+    return 'This transaction ID has already been used. Please enter a different payment reference.';
+  }
 
   if (status === 401) {
     return 'Your session has expired. Please sign in again.';
@@ -122,6 +145,14 @@ export function humanizeLivestockApiError(
     return 'The requested record was not found.';
   }
   if (status === 409) {
+    if (trimmed) {
+      for (const { test, message } of MESSAGE_REWRITES) {
+        if (test.test(trimmed)) return message;
+      }
+      if (!isTechnicalServerMessage(trimmed) && trimmed.length <= 200) {
+        return trimmed.endsWith('.') ? trimmed : `${trimmed}.`;
+      }
+    }
     return 'This action is not allowed for the current application status. Refresh the page and try again.';
   }
   if (status === 422) {
@@ -136,7 +167,6 @@ export function humanizeLivestockApiError(
       : 'The server is temporarily unavailable. Please try again shortly.';
   }
 
-  const trimmed = (raw ?? '').trim();
   if (!trimmed) return fallbackForContext(context);
 
   for (const { test, message } of MESSAGE_REWRITES) {

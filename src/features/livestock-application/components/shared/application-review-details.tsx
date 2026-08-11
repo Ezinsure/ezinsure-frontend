@@ -58,15 +58,15 @@ function SectionCard({
   children: ReactNode;
 }) {
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
-      <div className="flex items-start gap-3">
-        <div className="rounded-xl bg-slate-50 p-3">{icon}</div>
+    <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <div className="flex items-start gap-3 bg-[var(--main-blue,#1d4ed8)] px-4 py-3 text-white sm:px-6">
+        <div className="rounded-xl bg-white/15 p-2.5">{icon}</div>
         <div className="min-w-0">
-          <h2 className="text-lg font-semibold text-slate-900">{title}</h2>
-          {description && <p className="mt-1 text-sm text-slate-600">{description}</p>}
+          <h2 className="text-lg font-semibold text-white">{title}</h2>
+          {description && <p className="mt-1 text-sm text-blue-100">{description}</p>}
         </div>
       </div>
-      <div className="mt-5">{children}</div>
+      <div className="p-4 sm:p-6">{children}</div>
     </section>
   );
 }
@@ -106,18 +106,19 @@ export function ApplicationReviewDetails({
 
       {/* 0 · Cover & premium summary + lifecycle */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3 lg:items-start">
-        <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6 lg:col-span-2">
-          <div className="flex items-start gap-3">
-            <div className="rounded-xl bg-emerald-50 p-3">
-              <Wallet className="h-6 w-6 text-emerald-700" />
+        <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm lg:col-span-2">
+          <div className="flex items-start gap-3 bg-[var(--main-blue,#1d4ed8)] px-4 py-3 text-white sm:px-6">
+            <div className="rounded-xl bg-white/15 p-2.5">
+              <Wallet className="h-6 w-6 text-white" />
             </div>
             <div>
-              <h2 className="text-lg font-semibold text-slate-900">Cover & premium</h2>
-              <p className="mt-1 text-sm text-slate-600">
+              <h2 className="text-lg font-semibold text-white">Cover & premium</h2>
+              <p className="mt-1 text-sm text-blue-100">
                 Package cover, premium split (farmer 60% / nkunganire 40%), and policy period.
               </p>
             </div>
           </div>
+          <div className="p-4 sm:p-6">
           <FieldGrid>
             <Field label="Insurance type" value={application.insuranceType} />
             <Field label="Species" value={speciesGroupLabel(application.speciesGroup)} />
@@ -147,6 +148,12 @@ export function ApplicationReviewDetails({
               label={labels.veterinaryCommission}
               value={formatRwfDisplay(totals.veterinaryCommission)}
             />
+            {viewRole !== 'vet' && (
+              <Field
+                label={labels.companyCommission}
+                value={formatRwfDisplay(totals.companyCommission)}
+              />
+            )}
             {viewRole !== 'vet' && <Field label="Veterinarian" value={application.vetName} />}
             {application.insuranceIssuedAt && (
               <Field
@@ -159,12 +166,15 @@ export function ApplicationReviewDetails({
                 <Field label="Issued by" value={application.insuranceIssuedByName} />
               )}
           </FieldGrid>
+          </div>
         </section>
 
-        <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
-          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Progress</p>
-          <h2 className="mt-1 text-lg font-semibold text-slate-900">Application lifecycle</h2>
-          <div className="mt-4">
+        <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <div className="bg-[var(--main-blue,#1d4ed8)] px-4 py-3 text-white sm:px-6">
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-blue-100">Progress</p>
+            <h2 className="mt-1 text-lg font-semibold text-white">Application lifecycle</h2>
+          </div>
+          <div className="p-4 sm:p-6">
             <ApplicationStatusTimeline application={application} variant="text" />
           </div>
         </section>

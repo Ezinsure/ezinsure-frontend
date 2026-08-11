@@ -146,10 +146,14 @@ function countGenders(application: LivestockApplicationPackage): { male: number;
 
 function buildExportRows(application: LivestockApplicationPackage): ExportRow[] {
   const eligibility = resolveSubsidyEligibility(application);
+  // Subsidy export must only include animals that need sector signature
+  // (no chip code for cattle; all pigs / poultry).
   const sourceLines =
-    eligibility.required && eligibility.linesMissingTekana.length > 0
+    eligibility.linesMissingTekana.length > 0
       ? eligibility.linesMissingTekana
-      : application.lines;
+      : application.speciesGroup === 'CATTLE'
+        ? []
+        : application.lines;
 
   return sourceLines.map((line) => ({
     ownerName: line.owner?.name ?? application.primaryOwner?.name ?? application.ownerSummary,

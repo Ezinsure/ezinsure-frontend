@@ -4,9 +4,12 @@ import type {
   LivestockApplicationViewRole,
 } from '@/features/livestock-application/domain/application-types';
 import { canAdminReviewLivestockPayment } from '@/features/livestock-application/utils/application-timeline';
+import { applicationRequiresSonarwaReview } from '@/features/livestock-application/utils/sonarwa-routing';
 import { resolveSubsidyEligibility } from '@/features/livestock-application/utils/subsidy-eligibility';
 
 const ADMIN_ROLES = new Set<LivestockApplicationViewRole>(['admin', 'super_admin']);
+/** Finance-only roles for marking commissions as PAID (Admin must not mark PAID). */
+const COMMISSION_PAID_ROLES = new Set<LivestockApplicationViewRole>(['finance']);
 const FINANCE_ROLES = new Set<LivestockApplicationViewRole>(['admin', 'super_admin', 'finance']);
 /** Only SONARWA representatives may approve / reject at this step. */
 const SONARWA_REVIEW_ROLES = new Set<LivestockApplicationViewRole>(['sonarwa']);
@@ -117,9 +120,16 @@ export function isAwaitingSonarwaReview(application: LivestockApplicationPackage
     return false;
   }
 
+  // Cattle with chips on every line skip SONARWA entirely.
+  if (!applicationRequiresSonarwaReview(application)) {
+    return false;
+  }
+
   const subsidy = resolveSubsidyEligibility(application);
 
   if (!subsidy.required) {
+    // Pigs/poultry still need SONARWA; cattle-without-chip always have subsidy.required.
+    // If somehow subsidy is not required but SONARWA is, wait after insurance issued.
     return application.status === 'INSURANCE_ISSUED';
   }
 
@@ -144,6 +154,12 @@ export function isAtOrPastSonarwaReview(application: LivestockApplicationPackage
 export function isListItemAwaitingSonarwaReview(
   application: LivestockApplicationListItem,
 ): boolean {
+  // List rows without line-level chip data: rely on subsidyRequired as a proxy.
+  // Cattle with chips have subsidyRequired=false and should not show in SONARWA queue.
+  if (!application.subsidyRequired && application.speciesGroup === 'CATTLE') {
+    return false;
+  }
+
   if (!application.subsidyRequired) {
     return application.status === 'INSURANCE_ISSUED';
   }
@@ -184,7 +200,7 @@ export function canMarkCommissionPaid(
   application: LivestockApplicationPackage,
   role: LivestockApplicationViewRole,
 ): boolean {
-  return isFinanceRole(role) && application.status === 'READY_TO_BE_PAID';
+  return COMMISSION_PAID_ROLES.has(role) && application.status === 'READY_TO_BE_PAID';
 }
 
 export function workflowPhaseLabel(application: LivestockApplicationPackage): string {

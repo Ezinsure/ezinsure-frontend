@@ -8,6 +8,7 @@ import { OwnerTableCells, OwnerTableHeaders } from '@/features/livestock-applica
 import { POULTRY_PRODUCT_OPTIONS } from '@/features/livestock-application/constants';
 import { LIVESTOCK_FORM_LABELS } from '@/features/livestock-application/labels';
 import type { LivestockAnimalRow } from '@/features/livestock-application/types';
+import { HorizontalScrollControls } from '@/features/livestock-application/components/shared/horizontal-scroll-controls';
 import { formatRwfDisplay } from '@/features/livestock-application/utils/format-rwf';
 import { computePoultryLotAmounts } from '@/features/livestock-application/utils/poultry-calculations';
 
@@ -86,7 +87,7 @@ export function PoultryLotsTable({
         <p className="text-xs text-red-600">{errors.livestockItems}</p>
       )}
 
-      <div className="w-full max-w-full overflow-x-auto rounded-xl border border-slate-200">
+      <HorizontalScrollControls>
         <table
           className={`w-full text-sm ${
             showOwnerColumns ? 'min-w-[120rem]' : 'min-w-[88rem]'
@@ -240,7 +241,7 @@ export function PoultryLotsTable({
             })}
           </tbody>
         </table>
-      </div>
+      </HorizontalScrollControls>
     </div>
   );
 }

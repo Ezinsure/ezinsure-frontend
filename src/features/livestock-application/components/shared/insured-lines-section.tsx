@@ -93,32 +93,34 @@ export function InsuredLinesSection({
 
   if (lines.length === 0) {
     return (
-      <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-        <div className="flex items-start gap-3">
-          <div className="rounded-xl bg-amber-50 p-3">
-            <PawPrint className="h-6 w-6 text-amber-700" />
+      <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div className="flex items-start gap-3 bg-[var(--main-blue,#1d4ed8)] px-4 py-3 text-white sm:px-6">
+          <div className="rounded-xl bg-white/15 p-2.5">
+            <PawPrint className="h-6 w-6 text-white" />
           </div>
           <div>
-            <h2 className="text-lg font-semibold text-slate-900">Insured animals & lots</h2>
-            <p className="mt-2 text-sm text-slate-600">
+            <h2 className="text-lg font-semibold text-white">Insured animals & lots</h2>
+            <p className="mt-1 text-sm text-blue-100">
               {linesUnavailableNote ??
                 'No insured lines are available for this application yet.'}
             </p>
-            <dl className="mt-4 flex flex-wrap gap-4 text-sm">
-              <div className="rounded-lg bg-slate-50 px-3 py-2">
-                <dt className="text-[10px] font-semibold uppercase text-slate-400">Package value</dt>
-                <dd className="font-semibold text-slate-900">
-                  {formatRwfDisplay(application.totals.totalSumAssured)}
-                </dd>
-              </div>
-              <div className="rounded-lg bg-slate-50 px-3 py-2">
-                <dt className="text-[10px] font-semibold uppercase text-slate-400">Total premium</dt>
-                <dd className="font-semibold text-slate-900">
-                  {formatRwfDisplay(application.totals.premiumRateAmount)}
-                </dd>
-              </div>
-            </dl>
           </div>
+        </div>
+        <div className="p-4 sm:p-6">
+          <dl className="flex flex-wrap gap-4 text-sm">
+            <div className="rounded-lg bg-slate-50 px-3 py-2">
+              <dt className="text-[10px] font-semibold uppercase text-slate-400">Package value</dt>
+              <dd className="font-semibold text-slate-900">
+                {formatRwfDisplay(application.totals.totalSumAssured)}
+              </dd>
+            </div>
+            <div className="rounded-lg bg-slate-50 px-3 py-2">
+              <dt className="text-[10px] font-semibold uppercase text-slate-400">Total premium</dt>
+              <dd className="font-semibold text-slate-900">
+                {formatRwfDisplay(application.totals.premiumRateAmount)}
+              </dd>
+            </div>
+          </dl>
         </div>
       </section>
     );
@@ -126,34 +128,41 @@ export function InsuredLinesSection({
 
   return (
     <>
-      <section className="rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <div className="border-b border-slate-100 px-6 py-5">
+      <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div className="bg-[var(--main-blue,#1d4ed8)] px-4 py-4 text-white sm:px-6">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="flex items-start gap-3">
-              <div className="rounded-xl bg-amber-50 p-3">
-                <PawPrint className="h-6 w-6 text-amber-700" />
+              <div className="rounded-xl bg-white/15 p-2.5">
+                <PawPrint className="h-6 w-6 text-white" />
               </div>
               <div>
-                <h2 className="text-lg font-semibold text-slate-900">Insured animals & lots</h2>
-                <p className="mt-1 text-sm text-slate-600">
-                  {summary.count} line{summary.count !== 1 ? 's' : ''} · {speciesGroup.replace(/_/g, ' ')}
+                <h2 className="text-lg font-semibold text-white">Insured animals & lots</h2>
+                <p className="mt-1 text-sm text-blue-100">
+                  {summary.count} line{summary.count !== 1 ? 's' : ''} ·{' '}
+                  {speciesGroup.replace(/_/g, ' ')}
                   {ownerFilterKey ? ' · filtered by owner' : ''}
                 </p>
               </div>
             </div>
-            <dl className="flex flex-wrap gap-4 text-sm">
-              <div className="rounded-lg bg-slate-50 px-3 py-2">
-                <dt className="text-[10px] font-semibold uppercase text-slate-400">Total value</dt>
-                <dd className="font-semibold text-slate-900">{formatRwfDisplay(summary.totalSumAssured)}</dd>
+            <dl className="flex flex-wrap gap-3 text-sm">
+              <div className="rounded-lg bg-white/10 px-3 py-2">
+                <dt className="text-[10px] font-semibold uppercase text-blue-100">Total value</dt>
+                <dd className="font-semibold text-white">
+                  {formatRwfDisplay(summary.totalSumAssured)}
+                </dd>
               </div>
-              <div className="rounded-lg bg-slate-50 px-3 py-2">
-                <dt className="text-[10px] font-semibold uppercase text-slate-400">Total premium</dt>
-                <dd className="font-semibold text-slate-900">{formatRwfDisplay(summary.totalPremium)}</dd>
+              <div className="rounded-lg bg-white/10 px-3 py-2">
+                <dt className="text-[10px] font-semibold uppercase text-blue-100">Total premium</dt>
+                <dd className="font-semibold text-white">
+                  {formatRwfDisplay(summary.totalPremium)}
+                </dd>
               </div>
             </dl>
           </div>
+        </div>
 
-          <div className="mt-4 flex flex-wrap items-center gap-3">
+        <div className="border-b border-slate-100 px-4 py-4 sm:px-6">
+          <div className="flex flex-wrap items-center gap-3">
             <div className="relative min-w-[12rem] flex-1">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
               <input

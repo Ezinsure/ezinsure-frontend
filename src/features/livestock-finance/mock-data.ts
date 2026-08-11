@@ -8,8 +8,8 @@ import type {
   LivestockPaidHistoryMonthBlock,
 } from './domain';
 
-const VET_COMMISSION_RATE = 0.1;
-const SOLEKTRA_COMMISSION_RATE = 0.035;
+const VET_COMMISSION_RATE = 0.05;
+const SOLEKTRA_COMMISSION_RATE = 0.08;
 
 export function computeCommissions(netPremium: number) {
   const veterinaryCommission = Math.round(netPremium * VET_COMMISSION_RATE);

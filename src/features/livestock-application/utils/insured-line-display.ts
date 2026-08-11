@@ -171,7 +171,9 @@ export function lineTableLabel(line: InsuredLinePayload, index: number): string 
     if ((line.animal.chipNumber ?? '').trim()) return lotDisplay;
     return line.animal.hatcherySource || `Lot ${index + 1}`;
   }
-  return line.animal.chipNumber || `Line ${index + 1}`;
+  // Cattle / pig: empty chip must show as empty, not "Line N".
+  const chip = (line.animal.chipNumber ?? '').trim();
+  return chip || '--';
 }
 
 export function lineSecondaryLabel(line: InsuredLinePayload): string {
@@ -201,13 +203,17 @@ export function buildLineDetailFields(line: InsuredLinePayload): { label: string
     });
   }
   fields.push({ label: 'Species', value: line.animal.species });
-  if (line.animal.chipNumber) {
+  if (line.lineType === 'LOT') {
+    if (line.animal.chipNumber) {
+      fields.push({
+        label: INSURED_LINE_IDENTIFIER_LABEL,
+        value: formatLotOrChipDisplay(line),
+      });
+    }
+  } else {
     fields.push({
       label: INSURED_LINE_IDENTIFIER_LABEL,
-      value:
-        line.lineType === 'LOT'
-          ? formatLotOrChipDisplay(line)
-          : line.animal.chipNumber,
+      value: (line.animal.chipNumber ?? '').trim() || '--',
     });
   }
   if (line.animal.hatcherySource) fields.push({ label: 'Hatchery source', value: line.animal.hatcherySource });

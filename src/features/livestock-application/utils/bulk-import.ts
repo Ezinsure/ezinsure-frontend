@@ -116,15 +116,8 @@ export function parseLivestockBulkCsv(text: string): BulkImportResult {
     if (key) headerMap.set(idx, key);
   });
 
-  if (![...headerMap.values()].includes('chipNumber')) {
-    return {
-      items: [],
-      errors: [
-        'Header irakenewe: chipNumber (cyangwa Eartag / Chip). Reba template: animalType, chipNumber, …',
-      ],
-      skippedRows: 0,
-    };
-  }
+  // chipNumber header is optional for cattle/pig rows (EarTag optional).
+  // When present, empty chip values are allowed and kept.
 
   const items: LivestockAnimalRow[] = [];
   const errors: string[] = [];
@@ -153,8 +146,7 @@ export function parseLivestockBulkCsv(text: string): BulkImportResult {
       }
       assignImportStringField(item, field, raw);
     });
-    if (!item.chipNumber.trim()) {
-      errors.push(`Umurongo ${r + 1}: Eartag irabura.`);
+    if (!item.animalType.trim() && !item.sumAssured.trim()) {
       skippedRows += 1;
       continue;
     }

@@ -26,6 +26,7 @@ import {
   buildWorkflowStepsNav,
   DEFAULT_DETAIL_SECTION,
   isWorkflowSection,
+  isWorkflowStepInteractive,
   type ApplicationDetailSectionId,
 } from '@/features/livestock-application/utils/application-detail-sections';
 import { WorkflowToastProvider } from '@/features/livestock-application/components/workflow/workflow-toast-context';
@@ -62,6 +63,7 @@ export function LivestockApplicationDetailView({
   );
   const isPanel = layout === 'panel';
   const onWorkflowStep = isWorkflowSection(activeSection);
+  const stepInteractive = isWorkflowStepInteractive(activeSection, viewRole);
 
   useEffect(() => {
     if (onWorkflowStep && !workflowSteps.some((step) => step.id === activeSection)) {
@@ -72,50 +74,72 @@ export function LivestockApplicationDetailView({
   const viewDocument = (name: string, path: string) => setViewingDocument({ name, path });
 
   const workflowSectionContent = (() => {
+    const readOnlyBanner = !stepInteractive ? (
+      <div className="mb-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+        This step is part of the full application process. Your role can view it, but actions are
+        available only to the assigned role.
+      </div>
+    ) : null;
+
     switch (activeSection) {
       case 'payment-proof':
         return (
-          <PaymentProofSection
-            application={application}
-            viewRole={viewRole}
-            onUpdated={onUpdated}
-            onViewDocument={viewDocument}
-          />
+          <>
+            {readOnlyBanner}
+            <PaymentProofSection
+              application={application}
+              viewRole={viewRole}
+              onUpdated={onUpdated}
+              onViewDocument={viewDocument}
+            />
+          </>
         );
       case 'issue-insurance':
         return (
-          <InsuranceIssueSection
-            application={application}
-            viewRole={viewRole}
-            onUpdated={onUpdated}
-            onViewDocument={viewDocument}
-          />
+          <>
+            {readOnlyBanner}
+            <InsuranceIssueSection
+              application={application}
+              viewRole={viewRole}
+              onUpdated={onUpdated}
+              onViewDocument={viewDocument}
+            />
+          </>
         );
       case 'subsidy':
         return (
-          <SubsidyWorkflowSection
-            application={application}
-            viewRole={viewRole}
-            onUpdated={onUpdated}
-            onViewDocument={viewDocument}
-          />
+          <>
+            {readOnlyBanner}
+            <SubsidyWorkflowSection
+              application={application}
+              viewRole={viewRole}
+              onUpdated={onUpdated}
+              onViewDocument={viewDocument}
+            />
+          </>
         );
       case 'sonarwa':
         return (
-          <SonarwaReviewSection
-            application={application}
-            viewRole={viewRole}
-            onUpdated={onUpdated}
-            onViewDocument={viewDocument}
-          />
+          <>
+            {readOnlyBanner}
+            <SonarwaReviewSection
+              application={application}
+              viewRole={viewRole}
+              onUpdated={onUpdated}
+              onViewDocument={viewDocument}
+            />
+          </>
         );
       case 'commission':
         return (
-          <CommissionWorkflowSection
-            application={application}
-            viewRole={viewRole}
-            onUpdated={onUpdated}
-          />
+          <>
+            {readOnlyBanner}
+            <CommissionWorkflowSection
+              application={application}
+              viewRole={viewRole}
+              onUpdated={onUpdated}
+            />
+          </>
         );
       default:
         return null;

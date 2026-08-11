@@ -22,7 +22,17 @@ export function buildApplicationDocuments(
   if (issuedDocuments?.invoice) {
     docs.push({ label: 'Invoice / quotation', path: issuedDocuments.invoice });
   }
-  if (paymentProof.documentUrl) {
+  if (paymentProof.documents && paymentProof.documents.length > 0) {
+    paymentProof.documents.forEach((doc, index) => {
+      docs.push({
+        label:
+          paymentProof.documents!.length > 1
+            ? `Payment proof ${index + 1}`
+            : 'Payment proof',
+        path: doc.documentUrl,
+      });
+    });
+  } else if (paymentProof.documentUrl) {
     docs.push({ label: 'Payment proof', path: paymentProof.documentUrl });
   }
   if (subsidyCase.generatedDocumentUrl) {

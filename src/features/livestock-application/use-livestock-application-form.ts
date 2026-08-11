@@ -21,6 +21,7 @@ import type {
 import { speciesGroupToAnimalType } from '@/features/livestock-application/domain/form-profiles';
 import { computePremiumBreakdownFromForm } from '@/features/livestock-application/utils/premium-calculations';
 import { computePoultryLotAmounts } from '@/features/livestock-application/utils/poultry-calculations';
+import { toApiRwandaPhone } from '@/features/livestock-application/utils/phone';
 import {
   formatPremiumPercent,
   premiumPercentForAnimalType,
@@ -369,7 +370,7 @@ export function useLivestockApplicationForm(
         ? undefined
         : {
             name: values.ownerName,
-            phone: values.ownerPhone,
+            phone: toApiRwandaPhone(values.ownerPhone),
             nationalId: values.nationalId.trim() || undefined,
             ...(values.ownerGender ? { gender: values.ownerGender } : {}),
             province: values.applicantProvince,
@@ -411,7 +412,7 @@ export function useLivestockApplicationForm(
           owner: isMulti
             ? {
                 name: item.ownerName || '',
-                phone: item.ownerPhone || '',
+                phone: toApiRwandaPhone(item.ownerPhone || ''),
                 nationalId: item.ownerNationalId?.trim() || '',
                 ...(item.ownerGender ? { gender: item.ownerGender } : {}),
               }
