@@ -1,10 +1,10 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   AlertCircle,
   Calendar,
-  CheckCircle2,
   Loader2,
   Percent,
   RefreshCw,
@@ -15,7 +15,6 @@ import { Button } from '@/components/ui/button';
 import {
   buildLocalRenewalPreview,
   fetchRenewalEligibleApplications,
-  submitRenewalApplication,
   type RenewingApplicationSummary,
   type RenewalModule,
 } from '@/features/renewals/renewal-api';
@@ -37,9 +36,17 @@ export interface RenewalsWorkspacePageProps {
   module: RenewalModule;
   title: string;
   subtitle: string;
+  /** Path used when the user clicks Renew, e.g. `/vet/livestock/renewals`. */
+  formBasePath: string;
 }
 
-export function RenewalsWorkspacePage({ module, title, subtitle }: RenewalsWorkspacePageProps) {
+export function RenewalsWorkspacePage({
+  module,
+  title,
+  subtitle,
+  formBasePath,
+}: RenewalsWorkspacePageProps) {
+  const router = useRouter();
   const { apiFetch } = useApiClient();
   const [startDate, setStartDate] = useState(todayIso);
   const [endDate, setEndDate] = useState(() => addDaysIso(30));
@@ -48,8 +55,6 @@ export function RenewalsWorkspacePage({ module, title, subtitle }: RenewalsWorks
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<RenewingApplicationSummary | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setIsLoading(true);
@@ -76,41 +81,17 @@ export function RenewalsWorkspacePage({ module, title, subtitle }: RenewalsWorks
       (item) =>
         item.applicationNumber.toLowerCase().includes(q) ||
         item.clientName.toLowerCase().includes(q) ||
+        (item.phone ?? '').toLowerCase().includes(q) ||
+        (item.email ?? '').toLowerCase().includes(q) ||
         (item.plateNumber ?? '').toLowerCase().includes(q),
     );
   }, [items, search]);
 
   const preview = selected ? buildLocalRenewalPreview(selected) : null;
 
-  const handleRenew = async () => {
-    if (!selected || !preview) return;
-    setIsSubmitting(true);
-    setSuccessMessage(null);
-    setError(null);
-    try {
-      const result = await submitRenewalApplication(apiFetch, {
-        originalApplicationId: selected._id,
-        module,
-        discountAmount: preview.discountAmount,
-        expectedPaymentAmount: preview.expectedPaymentAmount,
-        agentCommissionAfterDiscount: preview.agentCommissionAfterDiscount,
-      });
-      setSuccessMessage(
-        result.applicationNumber
-          ? `Renewal created: ${result.applicationNumber}`
-          : 'Renewal submitted successfully.',
-      );
-      setSelected(null);
-      await load();
-    } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : 'Renewal could not be created yet. Backend renewal API may still be pending.',
-      );
-    } finally {
-      setIsSubmitting(false);
-    }
+  const openRenewalForm = (item: RenewingApplicationSummary) => {
+    setSelected(item);
+    router.push(`${formBasePath}/${item._id}`);
   };
 
   return (
@@ -149,7 +130,7 @@ export function RenewalsWorkspacePage({ module, title, subtitle }: RenewalsWorks
                   type="search"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Search client, application, plate…"
+                  placeholder="Search client, phone, email, application, plate…"
                   className="w-full rounded-xl border border-slate-200 py-2 pl-9 pr-3 text-sm"
                 />
               </div>
@@ -170,12 +151,6 @@ export function RenewalsWorkspacePage({ module, title, subtitle }: RenewalsWorks
               <p>{error}</p>
             </div>
           )}
-          {successMessage && (
-            <div className="mt-4 flex gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
-              <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
-              <p>{successMessage}</p>
-            </div>
-          )}
 
           <div className="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-5">
             <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm xl:col-span-3">
@@ -190,6 +165,7 @@ export function RenewalsWorkspacePage({ module, title, subtitle }: RenewalsWorks
                     <tr>
                       <th className="px-4 py-3">Application</th>
                       <th className="px-4 py-3">Client</th>
+                      <th className="px-4 py-3">Contact</th>
                       <th className="px-4 py-3">Expires</th>
                       <th className="px-4 py-3">Net premium</th>
                       <th className="px-4 py-3" />
@@ -204,7 +180,16 @@ export function RenewalsWorkspacePage({ module, title, subtitle }: RenewalsWorks
                             <p className="text-xs text-slate-500">{item.plateNumber}</p>
                           )}
                         </td>
-                        <td className="px-4 py-3 text-slate-700">{item.clientName}</td>
+                        <td className="px-4 py-3 text-slate-700">
+                          <p className="font-medium text-slate-900">{item.clientName}</p>
+                        </td>
+                        <td className="px-4 py-3 text-slate-700">
+                          {item.phone ? <p>{item.phone}</p> : null}
+                          {item.email ? <p className="text-xs text-slate-500">{item.email}</p> : null}
+                          {!item.phone && !item.email ? (
+                            <p className="text-xs text-slate-400">No contact on file</p>
+                          ) : null}
+                        </td>
                         <td className="px-4 py-3 text-slate-700">
                           <span className="inline-flex items-center gap-1">
                             <Calendar className="h-3.5 w-3.5 text-slate-400" />
@@ -223,7 +208,7 @@ export function RenewalsWorkspacePage({ module, title, subtitle }: RenewalsWorks
                             type="button"
                             size="sm"
                             variant={selected?._id === item._id ? 'primary' : 'outline'}
-                            onClick={() => setSelected(item)}
+                            onClick={() => openRenewalForm(item)}
                           >
                             Renew
                           </Button>
@@ -232,7 +217,7 @@ export function RenewalsWorkspacePage({ module, title, subtitle }: RenewalsWorks
                     ))}
                     {!isLoading && filtered.length === 0 && (
                       <tr>
-                        <td colSpan={5} className="px-4 py-10 text-center text-slate-500">
+                        <td colSpan={6} className="px-4 py-10 text-center text-slate-500">
                           No expiring applications found for this range.
                         </td>
                       </tr>
@@ -243,77 +228,36 @@ export function RenewalsWorkspacePage({ module, title, subtitle }: RenewalsWorks
             </section>
 
             <aside className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm xl:col-span-2">
-              <h2 className="text-lg font-semibold text-slate-900">Renewal details</h2>
-              {!selected || !preview ? (
-                <p className="mt-3 text-sm text-slate-500">
-                  Select an application and click Renew to see the 1% discount and expected payment.
-                </p>
-              ) : (
-                <div className="mt-4 space-y-4">
-                  <div>
-                    <p className="text-xs font-semibold uppercase text-slate-500">Application</p>
-                    <p className="mt-1 font-semibold text-slate-900">{selected.applicationNumber}</p>
-                    <p className="text-sm text-slate-600">{selected.clientName}</p>
-                  </div>
-
-                  <div className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-950">
-                    <p className="inline-flex items-center gap-2 font-semibold">
-                      <Percent className="h-4 w-4" />
-                      1% renewal discount
-                    </p>
-                    <p className="mt-1 text-xs leading-relaxed text-blue-900/90">
-                      Discount is 1% of net premium and is deducted from the agent&apos;s commission.
-                      The client pays the same net premium minus this discount.
-                    </p>
-                  </div>
-
-                  <dl className="space-y-2 text-sm">
+              <h2 className="text-lg font-semibold text-slate-900">How renewal works</h2>
+              <div className="mt-4 space-y-4 text-sm text-slate-600">
+                <div className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-blue-950">
+                  <p className="inline-flex items-center gap-2 font-semibold">
+                    <Percent className="h-4 w-4" />
+                    1% renewal discount
+                  </p>
+                  <p className="mt-1 text-xs leading-relaxed text-blue-900/90">
+                    Clients receive 1% off net premium. That amount is deducted from the
+                    agent/vet commission. Click Renew to review and edit the previous application
+                    before creating the new policy.
+                  </p>
+                </div>
+                {selected && preview ? (
+                  <dl className="space-y-2">
                     <div className="flex justify-between gap-3">
-                      <dt className="text-slate-500">Net premium</dt>
-                      <dd className="font-medium">{formatRwfDisplay(preview.netPremium)}</dd>
-                    </div>
-                    <div className="flex justify-between gap-3">
-                      <dt className="text-slate-500">Discount (1%)</dt>
-                      <dd className="font-medium text-emerald-700">
-                        −{formatRwfDisplay(preview.discountAmount)}
-                      </dd>
-                    </div>
-                    <div className="flex justify-between gap-3 border-t border-slate-100 pt-2">
-                      <dt className="font-semibold text-slate-800">Expected payment</dt>
-                      <dd className="font-bold text-slate-900">
+                      <dt>Indicative payment</dt>
+                      <dd className="font-semibold text-slate-900">
                         {formatRwfDisplay(preview.expectedPaymentAmount)}
                       </dd>
                     </div>
                     <div className="flex justify-between gap-3">
-                      <dt className="text-slate-500">Agent commission (before)</dt>
-                      <dd>{formatRwfDisplay(preview.agentCommissionBeforeDiscount)}</dd>
-                    </div>
-                    <div className="flex justify-between gap-3">
-                      <dt className="text-slate-500">Agent commission (after discount)</dt>
-                      <dd className="font-semibold">
-                        {formatRwfDisplay(preview.agentCommissionAfterDiscount)}
-                      </dd>
+                      <dt>Indicative discount</dt>
+                      <dd>−{formatRwfDisplay(preview.discountAmount)}</dd>
                     </div>
                   </dl>
-
-                  <Button
-                    type="button"
-                    variant="primary"
-                    className="w-full"
-                    disabled={isSubmitting}
-                    onClick={() => void handleRenew()}
-                  >
-                    {isSubmitting ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Creating renewal…
-                      </>
-                    ) : (
-                      'Proceed with renewal'
-                    )}
-                  </Button>
-                </div>
-              )}
+                ) : (
+                  <p>Select Renew on a row to open the full renewal form.</p>
+                )}
+              </div>
             </aside>
           </div>
         </div>

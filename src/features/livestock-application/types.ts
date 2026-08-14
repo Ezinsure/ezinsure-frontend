@@ -11,7 +11,7 @@ import type {
 
 export type { LivestockOwnerMode, LivestockSpeciesGroup, PoultryProductType };
 
-export type LivestockApplicationFormMode = 'create' | 'edit' | 'review' | 'readonly';
+export type LivestockApplicationFormMode = 'create' | 'edit' | 'review' | 'readonly' | 'renewal';
 
 export type LivestockApplicationStepId =
   | 'insurancePeriod'

@@ -17,6 +17,7 @@ import {
   getVehicleManufactureYearValidationError,
 } from '@/utils/vehicle-year';
 import { formatChasisNumberDisplay } from '@/utils/chasis-number';
+import { computeRenewalPricing } from '@/features/renewals/renewal-pricing';
 
 export interface Application {
   _id: string;
@@ -31,6 +32,7 @@ export interface Application {
   paymentInstructions?: string;
   transactionId?: string;
   amount?: number;
+  netPremium?: number;
   companyCommission?: number;
   agentCommission?: number;
   administrationFees?: string;
@@ -1351,16 +1353,35 @@ const handleEditSuccess = async (): Promise<void> => {
                 <p className="font-medium">
                   {new Date(application.insuranceEndAt).toLocaleDateString()}
                 </p>
-                <a
-                  href={`/track?renew=${encodeURIComponent(application.applicationNumber)}`}
-                  className="mt-3 inline-flex items-center rounded-lg bg-[var(--main-blue,#1d4ed8)] px-4 py-2 text-sm font-semibold text-white hover:opacity-95"
-                >
-                  Renew this insurance
-                </a>
-                <p className="mt-2 text-xs text-gray-500">
-                  Renewals include a 1% discount on net premium, deducted from the agent commission.
-                  Contact your agent or use the renewals portal to complete payment.
-                </p>
+                {(() => {
+                  const net = Number(application.netPremium ?? application.amount ?? 0);
+                  const offer = net
+                    ? computeRenewalPricing({
+                        netPremium: net,
+                        agentCommission: Number(application.agentCommission ?? 0),
+                      })
+                    : null;
+                  return (
+                    <div className="mt-3 rounded-lg border border-blue-100 bg-blue-50 p-3">
+                      <p className="text-sm font-semibold text-blue-950">
+                        Renew now and receive a 1% renewal discount
+                      </p>
+                      {offer && (
+                        <p className="mt-1 text-xs text-blue-900">
+                          Estimated discount: {offer.discountAmount.toLocaleString()} RWF. Expected
+                          payment: {offer.expectedPaymentAmount.toLocaleString()} RWF. Contact your
+                          agent or vet to complete the renewal.
+                        </p>
+                      )}
+                      <a
+                        href={`/track?renew=${encodeURIComponent(application.applicationNumber)}`}
+                        className="mt-3 inline-flex items-center rounded-lg bg-[var(--main-blue,#1d4ed8)] px-4 py-2 text-sm font-semibold text-white hover:opacity-95"
+                      >
+                        Renew this insurance
+                      </a>
+                    </div>
+                  );
+                })()}
               </div>
             )}
             {application.agent && (

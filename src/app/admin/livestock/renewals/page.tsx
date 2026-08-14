@@ -4,10 +4,11 @@ import { RenewalsWorkspacePage } from '@/features/renewals/renewals-workspace-pa
 
 export default function AdminLivestockRenewalsPage() {
   return (
-    <RenewalsWorkspacePage
+      <RenewalsWorkspacePage
       module="livestock"
       title="Livestock renewals"
       subtitle="Process livestock renewals with the 1% net-premium discount deducted from agent commission."
+      formBasePath="/admin/livestock/renewals"
     />
   );
 }

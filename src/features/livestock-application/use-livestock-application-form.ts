@@ -92,6 +92,15 @@ export function useLivestockApplicationForm(
   const isReview = mode === 'review';
 
   useEffect(() => {
+    if (mode !== 'renewal') return;
+    setValues((prev) =>
+      prev.isRenewal && !prev.isFirstApplication
+        ? prev
+        : { ...prev, isRenewal: true, isFirstApplication: false },
+    );
+  }, [mode]);
+
+  useEffect(() => {
     if (!vetPrefill || isReadOnly || vetPrefillAppliedRef.current) return;
     vetPrefillAppliedRef.current = true;
     setValues((prev) => withVetVerificationPrefill(prev, vetPrefill));
@@ -336,7 +345,12 @@ export function useLivestockApplicationForm(
       speciesGroup: intake?.speciesGroup ?? 'CATTLE',
       ownerMode: intake?.ownerMode ?? 'SINGLE_OWNER',
       poultryProductType: values.livestockItems[0]?.poultryProductType || undefined,
-      insuranceType: values.isRenewal ? 'Renewal' : values.isFirstApplication ? 'New' : '',
+      insuranceType:
+        mode === 'renewal' || values.isRenewal
+          ? 'Renewal'
+          : values.isFirstApplication
+            ? 'New'
+            : '',
       policyStartDate: values.policyStartDate,
       policyEndDate: values.policyEndDate,
       ...(isCattle && values.girinka ? { girinka: values.girinka } : {}),
@@ -440,7 +454,7 @@ export function useLivestockApplicationForm(
         veterinarianSignatureName: values.veterinarianSignatureName,
       },
     };
-  }, [formProfile?.lineTableVariant, intake, values]);
+  }, [formProfile?.lineTableVariant, intake, mode, values]);
 
   const resetForm = useCallback(() => {
     const initial = createInitialLivestockApplicationValues();

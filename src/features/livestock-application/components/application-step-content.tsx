@@ -36,6 +36,7 @@ interface ApplicationStepContentProps {
   removeLivestockItem: (id: string) => void;
   mergeLivestockItems: (items: LivestockAnimalRow[]) => void;
   formProfile?: FormProfile;
+  lockInsuranceType?: boolean;
 }
 
 export function ApplicationStepContent({
@@ -49,6 +50,7 @@ export function ApplicationStepContent({
   removeLivestockItem,
   mergeLivestockItems,
   formProfile,
+  lockInsuranceType,
 }: ApplicationStepContentProps) {
   const title = LIVESTOCK_FORM_LABELS.sections[stepId];
 
@@ -109,7 +111,7 @@ export function ApplicationStepContent({
               <input
                 type="checkbox"
                 checked={values.isFirstApplication}
-                disabled={disabled}
+                disabled={disabled || lockInsuranceType}
                 onChange={(e) => {
                   setField('isFirstApplication', e.target.checked);
                   if (e.target.checked) setField('isRenewal', false);
@@ -122,7 +124,7 @@ export function ApplicationStepContent({
               <input
                 type="checkbox"
                 checked={values.isRenewal}
-                disabled={disabled}
+                disabled={disabled || lockInsuranceType}
                 onChange={(e) => {
                   setField('isRenewal', e.target.checked);
                   if (e.target.checked) setField('isFirstApplication', false);

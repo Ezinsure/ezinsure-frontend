@@ -1,12 +1,13 @@
 'use client';
 
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/toast';
 import { useAuth } from '@/context/AuthContext';
 import { ApplicationStepContent } from '@/features/livestock-application/components/application-step-content';
 import { ApplicationStepProgress } from '@/features/livestock-application/components/shared/application-step-progress';
+import type { CreateLivestockApplicationPayload } from '@/features/livestock-application/domain/application-types';
 import type { CreateApplicationResult } from '@/features/livestock-application/api/backend-types';
 import { useCreateLivestockApplication } from '@/features/livestock-application/hooks/use-livestock-applications';
 import type { ApplicationIntakeSelection } from '@/features/livestock-application/domain/form-profiles';
@@ -16,6 +17,8 @@ import { LIVESTOCK_FORM_LABELS } from '@/features/livestock-application/labels';
 import type { LivestockApplicationFormMode, LivestockApplicationFormValues } from '@/features/livestock-application/types';
 import { useLivestockApplicationForm } from '@/features/livestock-application/use-livestock-application-form';
 import { resolveVetVerificationPrefill } from '@/features/livestock-application/utils/vet-form-prefill';
+import { computeRenewalPricing } from '@/features/renewals/renewal-pricing';
+import { formatRwfDisplay } from '@/features/livestock-application/utils/format-rwf';
 
 interface LivestockApplicationFormProps {
   mode?: LivestockApplicationFormMode;
@@ -23,6 +26,14 @@ interface LivestockApplicationFormProps {
   intake: ApplicationIntakeSelection;
   initialValues?: Partial<LivestockApplicationFormValues>;
   onSubmitted?: (result: CreateApplicationResult) => void;
+  title?: string;
+  subtitle?: string;
+  submitLabel?: string;
+  hideDraft?: boolean;
+  banner?: ReactNode;
+  onSubmitOverride?: (
+    payload: CreateLivestockApplicationPayload,
+  ) => Promise<{ success: true; data: CreateApplicationResult } | { success: false; error: string }>;
 }
 
 function formatSubmittedAt(iso?: string): string | null {
@@ -59,11 +70,18 @@ export function LivestockApplicationForm({
   intake,
   initialValues,
   onSubmitted,
+  title,
+  subtitle,
+  submitLabel,
+  hideDraft,
+  banner,
+  onSubmitOverride,
 }: LivestockApplicationFormProps) {
   const { showToast, ToastContainer } = useToast();
   const { user } = useAuth();
   const vetPrefill = useMemo(() => resolveVetVerificationPrefill(user), [user]);
   const { submit, isSubmitting, clearError } = useCreateLivestockApplication();
+  const [overrideBusy, setOverrideBusy] = useState(false);
   const form = useLivestockApplicationForm(initialValues, mode, formProfile, intake, vetPrefill);
   const {
     values,
@@ -108,6 +126,14 @@ export function LivestockApplicationForm({
   };
 
   const goPrev = () => setStepIndex((i) => Math.max(i - 1, 0));
+  const busy = Boolean(onSubmitOverride) ? overrideBusy : isSubmitting;
+  const isRenewalMode = mode === 'renewal';
+  const renewalPricing = isRenewalMode
+    ? computeRenewalPricing({
+        netPremium: Number(String(values.farmerContributionAmount).replace(/,/g, '')) || 0,
+        agentCommission: Number(String(values.veterinaryCommission).replace(/,/g, '')) || 0,
+      })
+    : null;
 
   const handleSubmit = async () => {
     clearError();
@@ -116,7 +142,22 @@ export function LivestockApplicationForm({
       return;
     }
 
-    const outcome = await submit(prepareSubmitPayload);
+    const payload = prepareSubmitPayload;
+    let outcome:
+      | { success: true; data: CreateApplicationResult }
+      | { success: false; error: string };
+
+    if (onSubmitOverride) {
+      setOverrideBusy(true);
+      try {
+        outcome = await onSubmitOverride(payload);
+      } finally {
+        setOverrideBusy(false);
+      }
+    } else {
+      outcome = await submit(payload);
+    }
+
     if (!outcome.success) {
       showToast(outcome.error, 'error');
       return;
@@ -128,8 +169,13 @@ export function LivestockApplicationForm({
       /* ignore */
     }
 
-    showToast(buildSuccessToastMessage(outcome.data), 'success');
-    resetForm();
+    showToast(
+      isRenewalMode
+        ? `Renewal ${outcome.data.applicationNumber ?? outcome.data._id} created successfully.`
+        : buildSuccessToastMessage(outcome.data),
+      'success',
+    );
+    if (!isRenewalMode) resetForm();
     onSubmitted?.(outcome.data);
   };
 
@@ -139,10 +185,37 @@ export function LivestockApplicationForm({
 
       <header className="mb-6">
         <h1 className="text-xl font-semibold text-slate-900 sm:text-2xl">
-          {LIVESTOCK_FORM_LABELS.formTitle}
+          {title ?? LIVESTOCK_FORM_LABELS.formTitle}
         </h1>
-        <p className="mt-1 text-sm text-slate-600">{LIVESTOCK_FORM_LABELS.formSubtitle}</p>
+        <p className="mt-1 text-sm text-slate-600">{subtitle ?? LIVESTOCK_FORM_LABELS.formSubtitle}</p>
       </header>
+
+      {banner}
+      {renewalPricing && (
+        <div className="mb-6 rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-950">
+          <p className="font-semibold">1% renewal discount</p>
+          <p className="mt-1 text-xs leading-relaxed text-blue-900/90">
+            Discount is 1% of the farmer contribution (net premium) and is deducted from the
+            veterinary commission. The backend recalculates these values when you submit.
+          </p>
+          <dl className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <div>
+              <dt className="text-xs text-blue-800/80">Expected payment</dt>
+              <dd className="font-semibold">{formatRwfDisplay(renewalPricing.expectedPaymentAmount)}</dd>
+            </div>
+            <div>
+              <dt className="text-xs text-blue-800/80">Discount</dt>
+              <dd className="font-semibold">−{formatRwfDisplay(renewalPricing.discountAmount)}</dd>
+            </div>
+            <div>
+              <dt className="text-xs text-blue-800/80">Vet commission after</dt>
+              <dd className="font-semibold">
+                {formatRwfDisplay(renewalPricing.agentCommissionAfterDiscount)}
+              </dd>
+            </div>
+          </dl>
+        </div>
+      )}
 
       <ApplicationStepProgress
         stepIds={stepIds}
@@ -163,6 +236,7 @@ export function LivestockApplicationForm({
           removeLivestockItem={removeLivestockItem}
           mergeLivestockItems={mergeLivestockItems}
           formProfile={formProfile}
+          lockInsuranceType={isRenewalMode}
         />
 
         {submitMessage && (
@@ -173,9 +247,13 @@ export function LivestockApplicationForm({
 
         {!isReadOnly && (
           <div className="mt-8 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-6">
-            <Button type="button" variant="outline" size="sm" onClick={saveDraft}>
-              {LIVESTOCK_FORM_LABELS.saveDraft}
-            </Button>
+            {hideDraft || isRenewalMode ? (
+              <span />
+            ) : (
+              <Button type="button" variant="outline" size="sm" onClick={saveDraft}>
+                {LIVESTOCK_FORM_LABELS.saveDraft}
+              </Button>
+            )}
             <div className="flex flex-wrap gap-2">
               <Button type="button" variant="outline" onClick={goPrev} disabled={stepIndex === 0}>
                 {LIVESTOCK_FORM_LABELS.previous}
@@ -188,16 +266,16 @@ export function LivestockApplicationForm({
                 <Button
                   type="button"
                   variant="primary"
-                  disabled={isSubmitting}
+                  disabled={busy}
                   onClick={() => void handleSubmit()}
                 >
-                  {isSubmitting ? (
+                  {busy ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                       Submitting…
                     </>
                   ) : (
-                    LIVESTOCK_FORM_LABELS.submit
+                    submitLabel ?? LIVESTOCK_FORM_LABELS.submit
                   )}
                 </Button>
               )}

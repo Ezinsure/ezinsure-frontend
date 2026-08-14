@@ -8,10 +8,11 @@ import { RenewalsWorkspacePage } from '@/features/renewals/renewals-workspace-pa
 
 export default function VetExpiringLivestockPage() {
   return (
-    <RenewalsWorkspacePage
+      <RenewalsWorkspacePage
       module="livestock"
       title="Expiring client insurances"
       subtitle="Follow up with clients you applied for whose livestock insurance is ending soon. Select a policy to renew with the 1% discount."
+      formBasePath="/vet/livestock/renewals"
     />
   );
 }

@@ -24,3 +24,10 @@ export function toApiRwandaPhone(value: string): string {
   if (LOCAL_MOBILE_PATTERN.test(digits)) return `25${digits}`;
   return digits;
 }
+
+/** Prefill form inputs from API `2507XXXXXXXX` as `07XXXXXXXX`. */
+export function toLocalRwandaPhone(value: string): string {
+  const digits = value.replace(/\s/g, '').replace(/^\+/, '');
+  if (E164_RWANDA_MOBILE_PATTERN.test(digits)) return digits.slice(2);
+  return digits;
+}
