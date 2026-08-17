@@ -4,7 +4,7 @@ import { RenewalsWorkspacePage } from '@/features/renewals/renewals-workspace-pa
 
 export default function SuperAdminMotorRenewalsPage() {
   return (
-      <RenewalsWorkspacePage
+    <RenewalsWorkspacePage
       module="motor"
       title="Motor renewals"
       subtitle="Organisation-wide motor renewals with discount and commission impact."
