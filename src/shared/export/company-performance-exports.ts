@@ -96,7 +96,7 @@ export async function exportCompanyPerformanceToExcel(
     throw new Error('No data to export');
   }
 
-  const XLSX = await import('xlsx');
+  const XLSX = await import('@e965/xlsx');
   const summary = buildCompanyPerformanceSummary(params.rows);
 
   const sheetRows = params.rows.map((row) => {

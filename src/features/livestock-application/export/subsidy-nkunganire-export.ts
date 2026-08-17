@@ -244,7 +244,7 @@ export async function downloadNkunganireSubsidyExcel(
   }
 
   const buffer = await response.arrayBuffer();
-  const XLSX = await import('xlsx');
+  const XLSX = await import('@e965/xlsx');
   const workbook = XLSX.read(buffer, { type: 'array', cellStyles: true });
   const sheet = workbook.Sheets[layout.sheetName];
   if (!sheet) {

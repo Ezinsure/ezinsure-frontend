@@ -14,7 +14,7 @@ export async function exportTableToExcel<T>(options: ExportTableOptions<T>): Pro
     throw new Error('No data to export');
   }
 
-  const XLSX = await import('xlsx');
+  const XLSX = await import('@e965/xlsx');
 
   const sheetRows = options.rows.map((row) => {
     const record: Record<string, string | number> = {};

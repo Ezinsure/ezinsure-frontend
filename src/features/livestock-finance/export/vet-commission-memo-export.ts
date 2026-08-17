@@ -30,7 +30,7 @@ export async function downloadVetCommissionMemoExcel(
     throw new Error('No veterinarians to export');
   }
 
-  const XLSX = await import('xlsx');
+  const XLSX = await import('@e965/xlsx');
   const todayLabel = formatDateLabel(meta.date);
   const fromName = meta.fromName ?? 'Finance';
   const rangeLabel =

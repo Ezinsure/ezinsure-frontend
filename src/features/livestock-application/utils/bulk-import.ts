@@ -188,7 +188,7 @@ function isExcelFile(file: File): boolean {
 
 async function parseLivestockBulkExcel(file: File): Promise<BulkImportResult> {
   try {
-    const XLSX = await import('xlsx');
+    const XLSX = await import('@e965/xlsx');
     const buffer = await file.arrayBuffer();
     const workbook = XLSX.read(buffer, { type: 'array' });
     const sheetName = workbook.SheetNames[0];
