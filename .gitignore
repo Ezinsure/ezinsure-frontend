@@ -42,3 +42,5 @@ next-env.d.ts
 # local docs (not published to GitHub)
 /docs/
 config.bat
+
+.env*

@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useRouter } from 'next/navigation';
+import { Loader2 } from 'lucide-react';
 import { MainLayout } from '@/components/ui/main-layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -43,8 +45,37 @@ import {
   type MassApplicationsUploadResponse,
   type TrackingData,
 } from '@/features/admin-motor-new-application/types';
+import type { Application } from '@/features/admin-motor-applications/types';
+import {
+  fetchMotorApplicationForRenewal,
+  submitRenewalApplication,
+  type MotorRenewalApplicationPayload,
+} from '@/features/renewals/renewal-api';
+import { computeRenewalPricing } from '@/features/renewals/renewal-pricing';
+import { isoDateOnly } from '@/features/renewals/date-utils';
+import { formatRwfDisplay } from '@/features/livestock-application/utils/format-rwf';
+import {
+  mapMotorApplicationToAdminForm,
+  renewalPolicyDatesFromApplication,
+  rwandaDistrictsForProvince,
+  rwandaSectorsForDistrict,
+} from '@/features/motor-renewal/map-application-to-admin-form';
 
-export default function AdminNewApplicationPage() {
+export interface MotorRenewalConfig {
+  applicationId: string;
+  listHref: string;
+  /** Staff sees financial fields read-only; agents use the same form without those fields. */
+  audience: 'agent' | 'staff';
+}
+
+export interface AdminMotorApplicationPageProps {
+  renewal?: MotorRenewalConfig;
+}
+
+export function AdminMotorApplicationPage({ renewal }: AdminMotorApplicationPageProps = {}) {
+  const isRenewal = Boolean(renewal);
+  const showStaffFinancialFields = !isRenewal || renewal?.audience === 'staff';
+  const router = useRouter();
   const vehicleYearBounds = useMemo(() => getVehicleManufactureYearBounds(), []);
   const { showToast, ToastContainer } = useToast();
   const [viewingDocument, setViewingDocument] = useState<{ url: string; name: string } | null>(null);
@@ -53,6 +84,14 @@ export default function AdminNewApplicationPage() {
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [trackingData, setTrackingData] = useState<TrackingData | null>(null);
   const { apiFetch } = useApiClient();
+  const [renewalOriginal, setRenewalOriginal] = useState<Application | null>(null);
+  const [renewalPolicyDates, setRenewalPolicyDates] = useState({
+    policyStartDate: '',
+    policyEndDate: '',
+  });
+  const [renewalAgentCommission, setRenewalAgentCommission] = useState('');
+  const [renewalLoading, setRenewalLoading] = useState(Boolean(renewal));
+  const [renewalLoadError, setRenewalLoadError] = useState<string | null>(null);
 
   // Fetch agents emails function
   const fetchAgentsEmails = useCallback(async () => {
@@ -480,6 +519,63 @@ export default function AdminNewApplicationPage() {
 
   });
 
+  const renewalPricing = useMemo(() => {
+    if (!isRenewal) return null;
+    const net = Number(formData.netPremium || formData.amount) || 0;
+    const commission = Number(renewalAgentCommission) || 0;
+    if (!net) return null;
+    return computeRenewalPricing({ netPremium: net, agentCommission: commission });
+  }, [formData.amount, formData.netPremium, isRenewal, renewalAgentCommission]);
+
+  useEffect(() => {
+    if (!renewal) return;
+    let cancelled = false;
+    setRenewalLoading(true);
+    setRenewalLoadError(null);
+    void fetchMotorApplicationForRenewal(apiFetch, renewal.applicationId)
+      .then((app) => {
+        if (cancelled) return;
+        if (!app) {
+          setRenewalLoadError('Original motor application could not be loaded.');
+          setRenewalOriginal(null);
+          return;
+        }
+        const mapped = mapMotorApplicationToAdminForm(app);
+        const dates = renewalPolicyDatesFromApplication(app);
+        setRenewalOriginal(app);
+        setRenewalPolicyDates({
+          policyStartDate: dates.policyStartDate,
+          policyEndDate: dates.policyEndDate,
+        });
+        setRenewalAgentCommission(
+          app.agentCommission != null ? String(app.agentCommission) : '',
+        );
+        setFormData(mapped);
+        setSearchResults({ isNewClient: false, isNewVehicle: false });
+        setHasFetchedIdentification(true);
+        setHasFetchedPlate(true);
+        if (mapped.province) {
+          const districts = rwandaDistrictsForProvince(mapped.province);
+          setAvailableDistricts(districts);
+          if (mapped.district) {
+            setAvailableSectors(rwandaSectorsForDistrict(districts, mapped.district));
+          }
+        }
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setRenewalLoadError(
+          err instanceof Error ? err.message : 'Failed to load the original application.',
+        );
+      })
+      .finally(() => {
+        if (!cancelled) setRenewalLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [apiFetch, renewal]);
+
   // Debug: Log a preview of the payload that will be sent via FormData (only on form submission)
   // Removed the useEffect that was causing infinite console logging
 
@@ -514,17 +610,17 @@ export default function AdminNewApplicationPage() {
     identificationDocumentType: { required: true },
     identificationNumber: { required: true },
     // Admin-specific required fields
-    amount: { required: true },
-    netPremium: { required: true },
+    amount: { required: !isRenewal },
+    netPremium: { required: !isRenewal },
     commissionPercentage: {
-      required: !isMotorVehicleInsuranceCategory(formData.insuranceCategory),
+      required: !isRenewal && !isMotorVehicleInsuranceCategory(formData.insuranceCategory),
     },
-    companyCommission: { required: true },
-    administrationFees: { required: true },
-    paymentInstructions: { required: true },
-    transactionId: { required: true },
-    proofOfPayment: { required: true },
-    insuranceCertificate: { required: true },
+    companyCommission: { required: !isRenewal },
+    administrationFees: { required: !isRenewal },
+    paymentInstructions: { required: !isRenewal },
+    transactionId: { required: !isRenewal },
+    proofOfPayment: { required: !isRenewal },
+    insuranceCertificate: { required: !isRenewal },
     contract: { required: false },
     receipt: { required: false },
     ebm: { required: false },
@@ -975,6 +1071,65 @@ export default function AdminNewApplicationPage() {
 
     if (!hasErrors(formErrors)) {
 
+      if (isRenewal && renewal && renewalOriginal) {
+        setIsSubmitting(true);
+        try {
+          const vehicleUse =
+            formData.vehicleUse === 'Other'
+              ? `Other - ${formData.otherVehicleUse}`
+              : formData.vehicleUse;
+          const application: MotorRenewalApplicationPayload = {
+            insuranceType: formData.insuranceType,
+            insuranceCategory: formData.insuranceCategory,
+            insuranceDuration: normalizeInsuranceDurationPayload(formData.insuranceDuration),
+            insuranceProvider: formData.insuranceProvider,
+            isCOMESA: formData.isCOMESA,
+            policyStartDate: renewalPolicyDates.policyStartDate,
+            policyEndDate: renewalPolicyDates.policyEndDate,
+            insuranceEndAt: renewalPolicyDates.policyEndDate,
+            client: {
+              fullName: formData.fullName,
+              email: formData.email,
+              phoneNumber: formData.phoneNumber,
+              dateOfBirth: formData.dateOfBirth,
+              address: formData.address,
+              nationalID: formData.identificationNumber,
+              identificationDocumentType: formData.identificationDocumentType,
+              identificationNumber: formData.identificationNumber,
+              province: formData.province,
+              district: formData.district,
+              sector: formData.sector,
+            },
+            vehicle: {
+              vehicleType: formData.vehicleType,
+              vehicleAge: formData.vehicleAge,
+              plateNumber: formData.plateNumber,
+              chasisNumber: formData.chasisNumber,
+              vehicleUse,
+              otherVehicleUse: formData.otherVehicleUse,
+            },
+            amount: Number(formData.amount || formData.netPremium) || undefined,
+            netPremium: Number(formData.netPremium || formData.amount) || undefined,
+            agentCommission: Number(renewalAgentCommission) || undefined,
+            companyCommission: Number(formData.companyCommission) || undefined,
+            administrationFees: formData.administrationFees,
+          };
+          await submitRenewalApplication(apiFetch, {
+            originalApplicationId: renewalOriginal._id,
+            module: 'motor',
+            application,
+          });
+          showToast('Renewal created successfully!', 'success');
+          router.push(renewal.listHref);
+        } catch (error) {
+          console.error('Error creating renewal:', error);
+          showToast(formatErrorMessage(error), 'error');
+        } finally {
+          setIsSubmitting(false);
+        }
+        return;
+      }
+
       setIsSubmitting(true);
 
       try {
@@ -1224,6 +1379,33 @@ export default function AdminNewApplicationPage() {
 
   };
 
+  if (isRenewal && renewalLoading) {
+    return (
+      <MainLayout>
+        <div className="flex items-center gap-2 py-16 text-slate-600">
+          <Loader2 className="h-5 w-5 animate-spin" />
+          Loading original policy…
+        </div>
+      </MainLayout>
+    );
+  }
+
+  if (isRenewal && renewalLoadError) {
+    return (
+      <MainLayout>
+        <div className="mx-auto max-w-2xl rounded-2xl border border-amber-200 bg-amber-50 p-6 text-amber-950">
+          <p className="font-semibold">Unable to open this renewal</p>
+          <p className="mt-1 text-sm">{renewalLoadError}</p>
+          {renewal && (
+            <Button className="mt-4" variant="outline" onClick={() => router.push(renewal.listHref)}>
+              Back to renewals
+            </Button>
+          )}
+        </div>
+      </MainLayout>
+    );
+  }
+
   return (
 
     <MainLayout containerClass="p-0" fullWidth>
@@ -1236,22 +1418,55 @@ export default function AdminNewApplicationPage() {
 
             <h1 className="text-3xl md:text-4xl font-bold mb-4">
 
-              Create New Application
+              {isRenewal
+                ? `Renew ${renewalOriginal?.applicationNumber ?? 'application'}`
+                : 'Create New Application'}
 
             </h1>
 
             <p className="text-gray-600 max-w-2xl mx-auto leading-relaxed">
 
-              {entryMode === 'single'
-                ? 'Fill out the form below to create a new insurance application.'
-                : 'Upload a prepared Excel file to create multiple applications and assign them to one agent.'}
+              {isRenewal
+                ? `Review and update the previous motor policy, then create the renewal. Previous cover ended ${isoDateOnly(renewalOriginal?.insuranceEndAt) || '—'}.`
+                : entryMode === 'single'
+                  ? 'Fill out the form below to create a new insurance application.'
+                  : 'Upload a prepared Excel file to create multiple applications and assign them to one agent.'}
 
             </p>
+
+            {isRenewal && renewalPricing && (
+              <div className="mx-auto mt-6 max-w-2xl rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-left text-sm text-blue-950">
+                <p className="font-semibold">1% renewal discount</p>
+                <p className="mt-1 text-xs text-blue-900/90">
+                  Discount is 1% of net premium and is deducted from agent commission. The backend
+                  recalculates the stored amounts when you submit.
+                </p>
+                <dl className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
+                  <div>
+                    <dt className="text-xs text-blue-800/80">Expected payment</dt>
+                    <dd className="font-semibold">
+                      {formatRwfDisplay(renewalPricing.expectedPaymentAmount)}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs text-blue-800/80">Discount</dt>
+                    <dd className="font-semibold">−{formatRwfDisplay(renewalPricing.discountAmount)}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs text-blue-800/80">Agent commission after</dt>
+                    <dd className="font-semibold">
+                      {formatRwfDisplay(renewalPricing.agentCommissionAfterDiscount)}
+                    </dd>
+                  </div>
+                </dl>
+              </div>
+            )}
 
           </div>
 
           <div className="bg-white rounded-xl shadow-lg overflow-hidden border border-gray-100">
 
+            {!isRenewal && (
             <div
               className="flex border-b border-gray-200 bg-gray-50/80"
               role="tablist"
@@ -1288,8 +1503,9 @@ export default function AdminNewApplicationPage() {
                 Mass upload (Excel)
               </button>
             </div>
+            )}
 
-            {entryMode === 'single' ? (
+            {(isRenewal || entryMode === 'single') ? (
             <form
               onSubmit={handleSubmit}
               className="p-6"
@@ -1662,6 +1878,7 @@ export default function AdminNewApplicationPage() {
               </fieldset>
 
               {/* Agent Assignment Section */}
+              {!isRenewal && (
               <fieldset className="mb-8 border-2 border-[var(--main-blue)] rounded-lg p-6 bg-gray-50">
                 <legend className="text-lg font-semibold text-[var(--main-blue)] px-3 bg-white border border-[var(--main-blue)] rounded-md">
                   Agent Assignment
@@ -1790,6 +2007,7 @@ export default function AdminNewApplicationPage() {
                   )}
                 </div>
               </fieldset>
+              )}
 
               {/* Insurance Details Section - EXACT COPY FROM APPLY PAGE */}
 
@@ -2254,6 +2472,41 @@ export default function AdminNewApplicationPage() {
 
                   </div>
 
+                  {isRenewal && (
+                    <>
+                      <div>
+                        <Input
+                          label="New policy start date"
+                          name="policyStartDate"
+                          type="date"
+                          value={renewalPolicyDates.policyStartDate}
+                          onChange={(e) =>
+                            setRenewalPolicyDates((prev) => ({
+                              ...prev,
+                              policyStartDate: e.target.value,
+                            }))
+                          }
+                          required
+                        />
+                      </div>
+                      <div>
+                        <Input
+                          label="New policy end date"
+                          name="policyEndDate"
+                          type="date"
+                          value={renewalPolicyDates.policyEndDate}
+                          onChange={(e) =>
+                            setRenewalPolicyDates((prev) => ({
+                              ...prev,
+                              policyEndDate: e.target.value,
+                            }))
+                          }
+                          required
+                        />
+                      </div>
+                    </>
+                  )}
+
                 </div>
 
               </fieldset>
@@ -2351,7 +2604,7 @@ export default function AdminNewApplicationPage() {
               </div>
 
               {/* Payment & Commission Section */}
-
+              {showStaffFinancialFields && (
               <fieldset className="mb-8 border-2 border-[var(--main-blue)] rounded-lg p-6 bg-gray-50">
 
                 <legend className="text-lg font-semibold text-[var(--main-blue)] px-3 bg-white border border-[var(--main-blue)] rounded-md">
@@ -2375,7 +2628,7 @@ export default function AdminNewApplicationPage() {
                         value={formData.amount}
 
                         onChange={(v) => {
-
+                          if (isRenewal) return;
                           setFormData((prev) => ({ ...prev, amount: v }));
 
                           if (errors.amount) {
@@ -2404,6 +2657,8 @@ export default function AdminNewApplicationPage() {
 
                         required
 
+                        disabled={isRenewal}
+
                       />
 
                     </div>
@@ -2418,6 +2673,7 @@ export default function AdminNewApplicationPage() {
                         value={formData.netPremium}
 
                         onChange={(v) => {
+                          if (isRenewal) return;
                           setFormData((prev) => ({ ...prev, netPremium: v }));
                           setErrors((prev) => {
                             const next = { ...prev };
@@ -2437,8 +2693,25 @@ export default function AdminNewApplicationPage() {
 
                         required
 
+                        disabled={isRenewal}
+
                       />
                     </div>
+
+                    {isRenewal && (
+                      <div>
+                        <NumericInputField
+                          label="Agent commission (RWF)"
+                          name="agentCommission"
+                          value={renewalAgentCommission}
+                          onChange={() => {}}
+                          placeholder="From previous policy"
+                          min={0}
+                          maxDigits={12}
+                          disabled
+                        />
+                      </div>
+                    )}
 
                     {!isMotorVehicleInsuranceCategory(formData.insuranceCategory) && (
                       <div>
@@ -2563,6 +2836,7 @@ export default function AdminNewApplicationPage() {
 
                   </div>
 
+                  {!isRenewal && (
                   <div className="space-y-6">
 
                     <div>
@@ -2618,13 +2892,15 @@ export default function AdminNewApplicationPage() {
                     </div>
 
                   </div>
+                  )}
 
                 </div>
 
               </fieldset>
+              )}
 
               {/* Payment Verification Section */}
-
+              {!isRenewal && (
               <fieldset className="mb-8 border-2 border-[var(--main-blue)] rounded-lg p-6 bg-gray-50">
 
                 <legend className="text-lg font-semibold text-[var(--main-blue)] px-3 bg-white border border-[var(--main-blue)] rounded-md">
@@ -2682,9 +2958,10 @@ export default function AdminNewApplicationPage() {
                 </div>
 
               </fieldset>
+              )}
 
               {/* Insurance Issuance Section */}
-
+              {!isRenewal && (
               <fieldset className="mb-8 border-2 border-[var(--main-blue)] rounded-lg p-6 bg-gray-50">
 
                 <legend className="text-lg font-semibold text-[var(--main-blue)] px-3 bg-white border border-[var(--main-blue)] rounded-md">
@@ -2798,8 +3075,21 @@ export default function AdminNewApplicationPage() {
                 </div>
 
               </fieldset>
+              )}
 
-              <div className="mt-8 flex justify-center">
+              <div className="mt-8 flex justify-center gap-3">
+
+                {isRenewal && renewal && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="lg"
+                    onClick={() => router.push(renewal.listHref)}
+                    disabled={isSubmitting}
+                  >
+                    Cancel
+                  </Button>
+                )}
 
                 <Button
 
@@ -2815,7 +3105,13 @@ export default function AdminNewApplicationPage() {
 
                 >
 
-                  {isSubmitting ? 'Creating Application...' : 'Create Application'}
+                  {isSubmitting
+                    ? isRenewal
+                      ? 'Creating renewal…'
+                      : 'Creating Application...'
+                    : isRenewal
+                      ? 'Create renewal'
+                      : 'Create Application'}
 
                 </Button>
 
@@ -2955,4 +3251,8 @@ export default function AdminNewApplicationPage() {
     </MainLayout>
   );
 
+}
+
+export default function AdminNewApplicationPage() {
+  return <AdminMotorApplicationPage />;
 }

@@ -32,7 +32,8 @@ export interface RenewingApplicationSummary {
 }
 
 export interface MotorRenewalApplicationPayload {
-  insuranceType: 'Renewal';
+  /** Comprehensive vs third-party cover — same values as motor create application. */
+  insuranceType: string;
   insuranceCategory?: string;
   insuranceDuration?: string;
   insuranceProvider?: string;

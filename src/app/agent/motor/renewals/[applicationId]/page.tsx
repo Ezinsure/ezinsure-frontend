@@ -9,6 +9,7 @@ export default function AgentMotorRenewalFormRoute() {
     <MotorRenewalFormPage
       applicationId={String(params.applicationId ?? '')}
       listHref="/agent/motor/renewals"
+      audience="agent"
     />
   );
 }
