@@ -48,14 +48,20 @@ import {
 import type { Application } from '@/features/admin-motor-applications/types';
 import {
   fetchMotorApplicationForRenewal,
+  plateHasActiveMotorInsurance,
   submitRenewalApplication,
   type MotorRenewalApplicationPayload,
 } from '@/features/renewals/renewal-api';
 import { computeRenewalPricing } from '@/features/renewals/renewal-pricing';
-import { isoDateOnly } from '@/features/renewals/date-utils';
+import {
+  isPolicyExpired,
+  motorPlateBlockedReason,
+  stillActivePolicyReason,
+} from '@/features/renewals/renewal-eligibility';
 import { formatRwfDisplay } from '@/features/livestock-application/utils/format-rwf';
 import {
   mapMotorApplicationToAdminForm,
+  originalMotorCoverEndDate,
   renewalPolicyDatesFromApplication,
   rwandaDistrictsForProvince,
   rwandaSectorsForDistrict,
@@ -533,12 +539,28 @@ export function AdminMotorApplicationPage({ renewal }: AdminMotorApplicationPage
     setRenewalLoading(true);
     setRenewalLoadError(null);
     void fetchMotorApplicationForRenewal(apiFetch, renewal.applicationId)
-      .then((app) => {
+      .then(async (app) => {
         if (cancelled) return;
         if (!app) {
           setRenewalLoadError('Original motor application could not be loaded.');
           setRenewalOriginal(null);
           return;
+        }
+        const coverEnd = originalMotorCoverEndDate(app);
+        if (!isPolicyExpired(coverEnd)) {
+          setRenewalLoadError(stillActivePolicyReason(coverEnd));
+          setRenewalOriginal(null);
+          return;
+        }
+        const plate = app.vehicle?.plateNumber;
+        if (plate) {
+          const active = await plateHasActiveMotorInsurance(apiFetch, plate, app._id);
+          if (cancelled) return;
+          if (active) {
+            setRenewalLoadError(motorPlateBlockedReason(plate));
+            setRenewalOriginal(null);
+            return;
+          }
         }
         const mapped = mapMotorApplicationToAdminForm(app);
         const dates = renewalPolicyDatesFromApplication(app);
@@ -1074,6 +1096,23 @@ export function AdminMotorApplicationPage({ renewal }: AdminMotorApplicationPage
       if (isRenewal && renewal && renewalOriginal) {
         setIsSubmitting(true);
         try {
+          const coverEnd = originalMotorCoverEndDate(renewalOriginal);
+          if (!isPolicyExpired(coverEnd)) {
+            showToast(stillActivePolicyReason(coverEnd), 'error');
+            return;
+          }
+          const plateToCheck = formData.plateNumber || renewalOriginal.vehicle?.plateNumber;
+          if (plateToCheck) {
+            const active = await plateHasActiveMotorInsurance(
+              apiFetch,
+              plateToCheck,
+              renewalOriginal._id,
+            );
+            if (active) {
+              showToast(motorPlateBlockedReason(plateToCheck), 'error');
+              return;
+            }
+          }
           const vehicleUse =
             formData.vehicleUse === 'Other'
               ? `Other - ${formData.otherVehicleUse}`
@@ -1427,7 +1466,7 @@ export function AdminMotorApplicationPage({ renewal }: AdminMotorApplicationPage
             <p className="text-gray-600 max-w-2xl mx-auto leading-relaxed">
 
               {isRenewal
-                ? `Review and update the previous motor policy, then create the renewal. Previous cover ended ${isoDateOnly(renewalOriginal?.insuranceEndAt) || '—'}.`
+                ? `Review and update the previous motor policy, then create the renewal. Previous cover ended ${renewalOriginal ? originalMotorCoverEndDate(renewalOriginal) || '—' : '—'}.`
                 : entryMode === 'single'
                   ? 'Fill out the form below to create a new insurance application.'
                   : 'Upload a prepared Excel file to create multiple applications and assign them to one agent.'}

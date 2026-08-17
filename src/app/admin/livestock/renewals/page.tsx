@@ -7,7 +7,7 @@ export default function AdminLivestockRenewalsPage() {
     <RenewalsWorkspacePage
       module="livestock"
       title="Livestock renewals"
-      subtitle="Process livestock renewals with the 1% net-premium discount deducted from agent commission."
+      subtitle="Follow up on upcoming livestock cover, then renew only expired applications."
       formBasePath="/admin/livestock/renewals"
     />
   );

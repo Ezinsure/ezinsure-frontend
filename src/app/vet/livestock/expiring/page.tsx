@@ -11,8 +11,10 @@ export default function VetExpiringLivestockPage() {
     <RenewalsWorkspacePage
       module="livestock"
       title="Expiring client insurances"
-      subtitle="Follow up with clients you applied for whose livestock insurance is ending soon. Select a policy to renew with the 1% discount."
+      subtitle="Follow up with clients you applied for whose livestock insurance is ending soon. Renewal becomes available after cover expires."
       formBasePath="/vet/livestock/renewals"
+      visibleTabs={['upcoming']}
+      defaultTab="upcoming"
     />
   );
 }

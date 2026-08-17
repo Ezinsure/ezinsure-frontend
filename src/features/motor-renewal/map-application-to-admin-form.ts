@@ -29,8 +29,13 @@ export interface RenewalPolicyDates {
   policyEndDate: string;
 }
 
+export function originalMotorCoverEndDate(app: Application): string {
+  const extended = app as Application & { policyEndDate?: string };
+  return isoDateOnly(app.insuranceEndAt) || isoDateOnly(extended.policyEndDate);
+}
+
 export function renewalPolicyDatesFromApplication(app: Application): RenewalPolicyDates {
-  const end = isoDateOnly(app.insuranceEndAt);
+  const end = originalMotorCoverEndDate(app);
   if (!end) return { policyStartDate: '', policyEndDate: '' };
   const period = nextPolicyPeriod(end);
   return { policyStartDate: period.start, policyEndDate: period.end };

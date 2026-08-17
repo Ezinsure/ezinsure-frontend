@@ -7,7 +7,7 @@ export default function AdminMotorRenewalsPage() {
     <RenewalsWorkspacePage
       module="motor"
       title="Motor renewals"
-      subtitle="Review expiring motor applications and process renewals with the standard 1% discount."
+      subtitle="Follow up on upcoming motor cover, then renew only expired policies. A plate with another active insurance cannot be renewed."
       formBasePath="/admin/motor/renewals"
     />
   );

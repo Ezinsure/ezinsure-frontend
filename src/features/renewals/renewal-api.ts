@@ -13,6 +13,11 @@ import {
   computeRenewalPricing,
   type RenewalPricingBreakdown,
 } from '@/features/renewals/renewal-pricing';
+import {
+  isPolicyExpired,
+  parseBooleanFlag,
+  type RenewalListBucket,
+} from '@/features/renewals/renewal-eligibility';
 
 export type RenewalModule = 'motor' | 'livestock';
 
@@ -29,6 +34,10 @@ export interface RenewingApplicationSummary {
   plateNumber?: string;
   speciesGroup?: string;
   daysUntilExpiry?: number;
+  /** True when another motor policy for the same plate is still in force. */
+  hasActiveInsuranceForPlate?: boolean;
+  /** Backend hint; frontend still enforces expiry + plate rules. */
+  canRenew?: boolean;
 }
 
 export interface MotorRenewalApplicationPayload {
@@ -78,8 +87,15 @@ export interface CreateRenewalApplicationRequest {
 }
 
 export const RENEWAL_ENDPOINTS = {
-  listExpiring: (module: RenewalModule, startDate: string, endDate: string): string => {
+  listExpiring: (
+    module: RenewalModule,
+    startDate: string,
+    endDate: string,
+    bucket?: RenewalListBucket,
+  ): string => {
     const search = new URLSearchParams({ startDate, endDate, module });
+    if (bucket === 'upcoming') search.set('bucket', 'upcoming');
+    if (bucket === 'eligible') search.set('bucket', 'expired');
     return `/getApplicationsEligibleForRenewal?${search.toString()}`;
   },
   preview: (module: RenewalModule, applicationId: string): string =>
@@ -89,6 +105,11 @@ export const RENEWAL_ENDPOINTS = {
     `/getMotorApplicationById/${encodeURIComponent(applicationId)}`,
   motorApplicationByIdFallback: (applicationId: string): string =>
     `/getApplicationById/${encodeURIComponent(applicationId)}`,
+  activeMotorByPlate: (plateNumber: string, excludeApplicationId?: string): string => {
+    const search = new URLSearchParams({ plateNumber });
+    if (excludeApplicationId) search.set('excludeApplicationId', excludeApplicationId);
+    return `/hasActiveMotorInsurance?${search.toString()}`;
+  },
 } as const;
 
 function daysUntil(dateIso: string): number {
@@ -116,6 +137,10 @@ function mapRenewalRow(row: Record<string, unknown>, module: RenewalModule): Ren
   const client = nestedRecord(row.client);
   const vehicle = nestedRecord(row.vehicle);
   const policyEndDate = String(row.policyEndDate ?? row.insuranceEndAt ?? row.endDate ?? '');
+  const hasActiveInsuranceForPlate = parseBooleanFlag(
+    row.hasActiveInsuranceForPlate ?? row.hasActiveCover ?? row.hasActiveInsurance,
+  );
+  const canRenewFlag = parseBooleanFlag(row.canRenew);
   return {
     _id: String(row._id ?? row.id ?? ''),
     applicationNumber: String(row.applicationNumber ?? ''),
@@ -143,6 +168,8 @@ function mapRenewalRow(row: Record<string, unknown>, module: RenewalModule): Ren
     plateNumber: firstNonEmpty(row.plateNumber, vehicle?.plateNumber),
     speciesGroup: row.speciesGroup ? String(row.speciesGroup) : undefined,
     daysUntilExpiry: policyEndDate ? daysUntil(policyEndDate) : undefined,
+    hasActiveInsuranceForPlate,
+    canRenew: canRenewFlag,
   };
 }
 
@@ -151,11 +178,12 @@ export async function fetchRenewalEligibleApplications(
   module: RenewalModule,
   startDate: string,
   endDate: string,
+  bucket?: RenewalListBucket,
 ): Promise<RenewingApplicationSummary[]> {
   try {
     const response = await requestJson<unknown>(
       apiFetch,
-      RENEWAL_ENDPOINTS.listExpiring(module, startDate, endDate),
+      RENEWAL_ENDPOINTS.listExpiring(module, startDate, endDate, bucket),
       { method: 'GET' },
       'renewals-list',
     );
@@ -254,4 +282,45 @@ export async function submitRenewalApplication(
     renewalApplicationId: String(row._id ?? row.renewalApplicationId ?? ''),
     applicationNumber: row.applicationNumber ? String(row.applicationNumber) : undefined,
   };
+}
+
+/**
+ * Returns true when another in-force motor policy exists for this plate.
+ * The original (expired) application is excluded. If the backend endpoint is
+ * missing, returns null so the caller can fall back to list flags / dates.
+ */
+export async function plateHasActiveMotorInsurance(
+  apiFetch: ApiFetch,
+  plateNumber: string,
+  excludeApplicationId?: string,
+): Promise<boolean | null> {
+  const plate = plateNumber.trim();
+  if (!plate) return false;
+  try {
+    const response = await requestJson<unknown>(
+      apiFetch,
+      RENEWAL_ENDPOINTS.activeMotorByPlate(plate, excludeApplicationId),
+      { method: 'GET' },
+      'renewals-list',
+    );
+    const data = unwrapEntityPayload(response);
+    const row = asRecord(data) ?? asRecord(response);
+    if (!row) return false;
+    const activeId = String(row.applicationId ?? row._id ?? '');
+    if (excludeApplicationId && activeId && activeId === excludeApplicationId) {
+      return isPolicyExpired(String(row.insuranceEndAt ?? row.policyEndDate ?? ''))
+        ? false
+        : Boolean(parseBooleanFlag(row.hasActiveInsurance) ?? true);
+    }
+    const flagged = parseBooleanFlag(
+      row.hasActiveInsurance ?? row.hasActiveInsuranceForPlate ?? row.active,
+    );
+    if (flagged === false) return false;
+    if (flagged === true) return true;
+    const end = String(row.insuranceEndAt ?? row.policyEndDate ?? '');
+    if (end) return !isPolicyExpired(end);
+    return Boolean(activeId);
+  } catch {
+    return null;
+  }
 }

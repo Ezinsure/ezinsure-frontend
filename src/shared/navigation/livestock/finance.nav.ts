@@ -8,6 +8,7 @@ import {
   History,
   Banknote,
   ClipboardList,
+  RefreshCw,
 } from 'lucide-react';
 import type { NavGroup } from '@/shared/navigation/types';
 
@@ -19,6 +20,7 @@ export const livestockFinanceNavigation: NavGroup[] = [
     items: [
       { href: `${base}/dashboard`, label: 'Dashboard', icon: LayoutDashboard },
       { href: `${base}/applications`, label: 'Applications', icon: FileText },
+      { href: `${base}/renewals`, label: 'Renewals', icon: RefreshCw },
       { href: `${base}/commission-review`, label: 'Admin Review', icon: ClipboardList },
       { href: `${base}/vet-analytics`, label: 'Vet Analytics', icon: Stethoscope },
       { href: `${base}/payments`, label: 'Payments', icon: Banknote },

@@ -7,7 +7,7 @@ export default function VetLivestockRenewalsPage() {
     <RenewalsWorkspacePage
       module="livestock"
       title="Livestock renewals"
-      subtitle="Find clients whose livestock cover is expiring, review the renewal discount, and renew."
+      subtitle="Follow up on your clients' upcoming livestock cover, then renew only after that application expires."
       formBasePath="/vet/livestock/renewals"
     />
   );

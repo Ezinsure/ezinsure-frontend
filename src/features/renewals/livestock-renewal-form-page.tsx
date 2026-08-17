@@ -12,6 +12,7 @@ import type { CreateLivestockApplicationPayload } from '@/features/livestock-app
 import { submitRenewalApplication } from '@/features/renewals/renewal-api';
 import { livestockPackageToRenewalFormValues } from '@/features/renewals/livestock-package-to-form';
 import { isoDateOnly } from '@/features/renewals/date-utils';
+import { isPolicyExpired, stillActivePolicyReason } from '@/features/renewals/renewal-eligibility';
 import { useApiClient } from '@/utils/apiClient';
 
 export interface LivestockRenewalFormPageProps {
@@ -56,6 +57,20 @@ export function LivestockRenewalFormPage({
     );
   }
 
+  if (!isPolicyExpired(application.policyEndDate)) {
+    return (
+      <MainLayout>
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-6 text-amber-950">
+          <p className="font-semibold">This application is not eligible for renewal yet</p>
+          <p className="mt-1 text-sm">{stillActivePolicyReason(application.policyEndDate)}</p>
+          <Button className="mt-4" variant="outline" onClick={() => router.push(listHref)}>
+            Back to renewals
+          </Button>
+        </div>
+      </MainLayout>
+    );
+  }
+
   const intake = {
     speciesGroup: application.speciesGroup,
     ownerMode: application.ownerMode,
@@ -92,6 +107,12 @@ export function LivestockRenewalFormPage({
           window.setTimeout(() => router.push(listHref), 700);
         }}
         onSubmitOverride={async (payload: CreateLivestockApplicationPayload) => {
+          if (!isPolicyExpired(application.policyEndDate)) {
+            return {
+              success: false,
+              error: stillActivePolicyReason(application.policyEndDate),
+            };
+          }
           try {
             const result = await submitRenewalApplication(apiFetch, {
               originalApplicationId: application._id,
