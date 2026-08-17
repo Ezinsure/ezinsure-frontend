@@ -632,8 +632,8 @@ export function AdminMotorApplicationPage({ renewal }: AdminMotorApplicationPage
     identificationDocumentType: { required: true },
     identificationNumber: { required: true },
     // Admin-specific required fields
-    amount: { required: !isRenewal },
-    netPremium: { required: !isRenewal },
+    amount: { required: !isRenewal || renewal?.audience === 'staff' },
+    netPremium: { required: !isRenewal || renewal?.audience === 'staff' },
     commissionPercentage: {
       required: !isRenewal && !isMotorVehicleInsuranceCategory(formData.insuranceCategory),
     },
@@ -1072,6 +1072,10 @@ export function AdminMotorApplicationPage({ renewal }: AdminMotorApplicationPage
     // Custom validation for assignToAgent - required when wantsToAssignAgent is 'yes'
     if (formData.wantsToAssignAgent === 'yes' && !formData.assignToAgent) {
       formErrors.assignToAgent = 'Please select an agent to assign this application to';
+    }
+
+    if (isRenewal && renewal?.audience === 'staff' && !String(renewalAgentCommission).trim()) {
+      formErrors.agentCommission = 'Please enter the agent commission';
     }
 
     setErrors(formErrors);
@@ -2667,7 +2671,6 @@ export function AdminMotorApplicationPage({ renewal }: AdminMotorApplicationPage
                         value={formData.amount}
 
                         onChange={(v) => {
-                          if (isRenewal) return;
                           setFormData((prev) => ({ ...prev, amount: v }));
 
                           if (errors.amount) {
@@ -2696,8 +2699,6 @@ export function AdminMotorApplicationPage({ renewal }: AdminMotorApplicationPage
 
                         required
 
-                        disabled={isRenewal}
-
                       />
 
                     </div>
@@ -2712,7 +2713,6 @@ export function AdminMotorApplicationPage({ renewal }: AdminMotorApplicationPage
                         value={formData.netPremium}
 
                         onChange={(v) => {
-                          if (isRenewal) return;
                           setFormData((prev) => ({ ...prev, netPremium: v }));
                           setErrors((prev) => {
                             const next = { ...prev };
@@ -2732,8 +2732,6 @@ export function AdminMotorApplicationPage({ renewal }: AdminMotorApplicationPage
 
                         required
 
-                        disabled={isRenewal}
-
                       />
                     </div>
 
@@ -2743,12 +2741,24 @@ export function AdminMotorApplicationPage({ renewal }: AdminMotorApplicationPage
                           label="Agent commission (RWF)"
                           name="agentCommission"
                           value={renewalAgentCommission}
-                          onChange={() => {}}
-                          placeholder="From previous policy"
+                          onChange={(v) => {
+                            setRenewalAgentCommission(v);
+                            setErrors((prev) => {
+                              const next = { ...prev };
+                              delete next.agentCommission;
+                              return next;
+                            });
+                          }}
+                          placeholder="Enter agent commission"
+                          error={errors.agentCommission}
                           min={0}
                           maxDigits={12}
-                          disabled
+                          required
                         />
+                        <p className="mt-1 text-xs text-gray-500">
+                          Pre-filled from the previous policy. Adjust if the renewed cover uses a
+                          different commission. The 1% discount is still recalculated on submit.
+                        </p>
                       </div>
                     )}
 
