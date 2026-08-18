@@ -2100,6 +2100,8 @@ export function AdminMotorApplicationPage({ renewal }: AdminMotorApplicationPage
 
                       <option value="MotorBike Insurance">MotorBike Insurance</option>
 
+                      <option value="RC Bateau">RC Bateau</option>
+
                       <option value="Building Insurance">Building Insurance</option>
 
                       <option value="Travel Insurance">Travel Insurance</option>
