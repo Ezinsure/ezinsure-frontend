@@ -115,11 +115,20 @@ function buildCreateBatchBody(input: CreateCommissionBatchInput) {
     payee.bankAccountNumber = input.payee.bankAccountNumber.trim();
   }
 
+  const companyCommissionPercent = Number(input.companyCommissionPercent);
+  const totalCommission = input.lines.reduce(
+    (sum, line) => sum + (line.companyCommission || 0),
+    0,
+  );
+
   return {
     externalVetId: String(input.externalVetId).trim(),
     payee,
     periodLabel: input.periodLabel?.trim() || undefined,
     sourceFileName: input.sourceFileName,
+    companyCommissionPercent,
+    totalCommission,
+    lineCount: input.lines.length,
     lines: input.lines,
   };
 }

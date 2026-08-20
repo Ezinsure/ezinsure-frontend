@@ -15,6 +15,8 @@ import { useExternalVetCommissionsApi } from '../api';
 import {
   COMMISSION_LINE_COLUMN_KEYS,
   COMMISSION_LINE_COLUMN_LABELS,
+  DEFAULT_COMPANY_COMMISSION_PERCENT,
+  calcCompanyCommission,
   formatCommissionLineCell,
   formatRwf,
   type ExternalVet,
@@ -46,9 +48,12 @@ export function UploadCommissionWizard({ open, onClose, onCreated }: Props) {
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [file, setFile] = useState<File | null>(null);
   const [periodLabel, setPeriodLabel] = useState('');
-  const [lines, setLines] = useState<Omit<ExternalVetCommissionLine, 'id'>[]>(
-    [],
+  const [companyCommissionPercent, setCompanyCommissionPercent] = useState(
+    DEFAULT_COMPANY_COMMISSION_PERCENT,
   );
+  const [sheetLines, setSheetLines] = useState<
+    Omit<ExternalVetCommissionLine, 'id'>[]
+  >([]);
   const [parseErrors, setParseErrors] = useState<string[]>([]);
   const [parseWarnings, setParseWarnings] = useState<string[]>([]);
   const [isParsing, setIsParsing] = useState(false);
@@ -83,8 +88,25 @@ export function UploadCommissionWizard({ open, onClose, onCreated }: Props) {
     return () => clearTimeout(handle);
   }, [api, assignMode, open, searchQuery]);
 
-  const totalCommission = useMemo(
-    () => lines.reduce((sum, l) => sum + l.commission, 0),
+  const lines = useMemo(
+    () =>
+      sheetLines.map((line) => ({
+        ...line,
+        companyCommission: calcCompanyCommission(
+          line.netPremium,
+          companyCommissionPercent,
+        ),
+      })),
+    [sheetLines, companyCommissionPercent],
+  );
+
+  const totalCompanyCommission = useMemo(
+    () => lines.reduce((sum, l) => sum + l.companyCommission, 0),
+    [lines],
+  );
+
+  const totalNetPremium = useMemo(
+    () => lines.reduce((sum, l) => sum + l.netPremium, 0),
     [lines],
   );
 
@@ -115,7 +137,7 @@ export function UploadCommissionWizard({ open, onClose, onCreated }: Props) {
       const result = await parseCommissionSheet(file);
       setParseErrors(result.errors);
       setParseWarnings(result.warnings);
-      setLines(result.lines);
+      setSheetLines(result.lines);
       if (result.errors.length) {
         showToast(result.errors[0], 'error');
         return;
@@ -161,6 +183,14 @@ export function UploadCommissionWizard({ open, onClose, onCreated }: Props) {
       showToast('Upload and parse a commission sheet first', 'error');
       return;
     }
+    if (
+      !Number.isFinite(companyCommissionPercent) ||
+      companyCommissionPercent < 0 ||
+      companyCommissionPercent > 100
+    ) {
+      showToast('Company commission % must be between 0 and 100', 'error');
+      return;
+    }
     if (!payeeComplete(payee)) {
       showToast('Vet name and phone number are required', 'error');
       return;
@@ -196,6 +226,7 @@ export function UploadCommissionWizard({ open, onClose, onCreated }: Props) {
         },
         periodLabel: periodLabel.trim() || undefined,
         sourceFileName: file.name,
+        companyCommissionPercent,
         lines,
       });
 
@@ -216,7 +247,8 @@ export function UploadCommissionWizard({ open, onClose, onCreated }: Props) {
     setStep(1);
     setFile(null);
     setPeriodLabel('');
-    setLines([]);
+    setCompanyCommissionPercent(DEFAULT_COMPANY_COMMISSION_PERCENT);
+    setSheetLines([]);
     setParseErrors([]);
     setParseWarnings([]);
     setSelectedExternalVetId(null);
@@ -262,8 +294,10 @@ export function UploadCommissionWizard({ open, onClose, onCreated }: Props) {
             Step {step} of 3 — {stepLabel}
           </p>
           <p className="mt-2 text-xs text-slate-500">
-            Vet name, phone, bank and account are entered in the form. The Excel
-            file must contain only the commission line columns.
+            Vet details are entered in the form. The Excel file has policy lines
+            only (no Commission column) — company commission is calculated from
+            net premium × the rate you set (default{' '}
+            {DEFAULT_COMPANY_COMMISSION_PERCENT}%).
           </p>
         </div>
 
@@ -462,8 +496,9 @@ export function UploadCommissionWizard({ open, onClose, onCreated }: Props) {
                     <p className="mt-0.5 text-xs text-slate-500">
                       Required headers: S/N, ProdDate, Branch, EffecDate,
                       ExpiryDate, Contract, Type Livestock, ClientID,
-                      ClientName, Agent, SumInsured, NetPremium, Commission,
-                      UserName. Do not include vet bank details in the file.
+                      ClientName, Agent, SumInsured, NetPremium, UserName.
+                      Do not include Commission or vet bank details — company
+                      commission is calculated from the rate below.
                     </p>
                   </div>
                 </div>
@@ -482,6 +517,40 @@ export function UploadCommissionWizard({ open, onClose, onCreated }: Props) {
                 </Button>
               </div>
 
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <label className="text-xs font-medium text-slate-600">
+                    Company commission %{' '}
+                    <span className="font-normal text-slate-400">
+                      (of net premium)
+                    </span>
+                  </label>
+                  <div className="relative mt-1">
+                    <input
+                      type="number"
+                      min={0}
+                      max={100}
+                      step={0.1}
+                      className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 pr-8 text-sm"
+                      value={companyCommissionPercent}
+                      onChange={(e) => {
+                        const next = Number(e.target.value);
+                        setCompanyCommissionPercent(
+                          Number.isFinite(next) ? next : 0,
+                        );
+                      }}
+                    />
+                    <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">
+                      %
+                    </span>
+                  </div>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Default {DEFAULT_COMPANY_COMMISSION_PERCENT}%. Each line’s
+                    CompanyCommission = NetPremium × this rate.
+                  </p>
+                </div>
+              </div>
+
               <label className="flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-slate-300 bg-white px-6 py-10 hover:border-slate-400">
                 <Upload className="mb-2 h-8 w-8 text-slate-400" />
                 <span className="text-sm font-medium text-slate-700">
@@ -497,7 +566,7 @@ export function UploadCommissionWizard({ open, onClose, onCreated }: Props) {
                   onChange={(e) => {
                     setFile(e.target.files?.[0] ?? null);
                     setParseErrors([]);
-                    setLines([]);
+                    setSheetLines([]);
                   }}
                 />
               </label>
@@ -529,13 +598,41 @@ export function UploadCommissionWizard({ open, onClose, onCreated }: Props) {
                   </p>
                 )}
                 <p className="mt-3 font-semibold text-slate-800">
-                  Sheet (lines only)
+                  Sheet &amp; company commission
                 </p>
                 <p className="mt-1">
-                  {file?.name} · {lines.length} lines ·{' '}
-                  <strong>{formatRwf(totalCommission)}</strong>
+                  {file?.name} · {lines.length} lines · rate{' '}
+                  <strong>{companyCommissionPercent}%</strong>
                   {periodLabel ? ` · ${periodLabel}` : ''}
                 </p>
+                <p className="mt-1 text-slate-600">
+                  Net premium {formatRwf(totalNetPremium)} · Company commission{' '}
+                  <strong>{formatRwf(totalCompanyCommission)}</strong>
+                </p>
+                <div className="mt-3 max-w-xs">
+                  <label className="text-xs font-medium text-slate-600">
+                    Adjust company commission %
+                  </label>
+                  <div className="relative mt-1">
+                    <input
+                      type="number"
+                      min={0}
+                      max={100}
+                      step={0.1}
+                      className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 pr-8 text-sm"
+                      value={companyCommissionPercent}
+                      onChange={(e) => {
+                        const next = Number(e.target.value);
+                        setCompanyCommissionPercent(
+                          Number.isFinite(next) ? next : 0,
+                        );
+                      }}
+                    />
+                    <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">
+                      %
+                    </span>
+                  </div>
+                </div>
               </div>
               {parseWarnings.length ? (
                 <ul className="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800">

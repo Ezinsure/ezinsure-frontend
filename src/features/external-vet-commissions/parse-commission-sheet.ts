@@ -1,8 +1,10 @@
 import type { ExternalVetCommissionLine } from './domain';
 
 export type ParseCommissionSheetResult = {
+  /** Parsed sheet rows; companyCommission is 0 until the upload form applies %. */
   lines: Omit<ExternalVetCommissionLine, 'id'>[];
-  totalCommission: number;
+  totalNetPremium: number;
+  totalSumInsured: number;
   errors: string[];
   warnings: string[];
   /** Best-effort period label from title rows (e.g. UP MAY 2026). */
@@ -13,9 +15,12 @@ function normalizeHeader(h: string): string {
   return h.trim().toLowerCase().replace(/[\s_/|-]+/g, '');
 }
 
-type LineField = keyof Omit<ExternalVetCommissionLine, 'id'>;
+type SheetLineField = Exclude<
+  keyof Omit<ExternalVetCommissionLine, 'id'>,
+  'companyCommission'
+>;
 
-const HEADER_ALIASES: Record<string, LineField> = {
+const HEADER_ALIASES: Record<string, SheetLineField> = {
   sn: 'sn',
   s: 'sn',
   serial: 'sn',
@@ -41,17 +46,15 @@ const HEADER_ALIASES: Record<string, LineField> = {
   sumassured: 'sumInsured',
   netpremium: 'netPremium',
   premium: 'netPremium',
-  commission: 'commission',
   username: 'userName',
   user: 'userName',
 };
 
-const REQUIRED: LineField[] = [
+const REQUIRED: SheetLineField[] = [
   'contract',
   'clientName',
   'sumInsured',
   'netPremium',
-  'commission',
 ];
 
 function parseNumber(raw: unknown): number {
@@ -79,8 +82,8 @@ function cellString(raw: unknown): string {
   return String(raw).trim();
 }
 
-function mapHeaderRow(headerRow: string[]): Map<LineField, number> {
-  const fieldIndex = new Map<LineField, number>();
+function mapHeaderRow(headerRow: string[]): Map<SheetLineField, number> {
+  const fieldIndex = new Map<SheetLineField, number>();
   headerRow.forEach((header, index) => {
     if (!header) return;
     const key = HEADER_ALIASES[normalizeHeader(header)];
@@ -206,7 +209,8 @@ export async function parseCommissionSheet(
   } catch (err) {
     return {
       lines: [],
-      totalCommission: 0,
+      totalNetPremium: 0,
+      totalSumInsured: 0,
       errors: [
         err instanceof Error ? err.message : 'Failed to read spreadsheet',
       ],
@@ -217,7 +221,8 @@ export async function parseCommissionSheet(
   if (!matrix.length) {
     return {
       lines: [],
-      totalCommission: 0,
+      totalNetPremium: 0,
+      totalSumInsured: 0,
       errors: ['Spreadsheet is empty'],
       warnings,
     };
@@ -227,9 +232,10 @@ export async function parseCommissionSheet(
   if (headerIndex < 0) {
     return {
       lines: [],
-      totalCommission: 0,
+      totalNetPremium: 0,
+      totalSumInsured: 0,
       errors: [
-        'Could not find a header row with Contract, ClientName, SumInsured, NetPremium, and Commission. Title rows above the table are OK — ensure the column headers match the export template.',
+        'Could not find a header row with Contract, ClientName, SumInsured, and NetPremium. Title rows above the table are OK — ensure the column headers match the export template.',
       ],
       warnings,
     };
@@ -245,7 +251,14 @@ export async function parseCommissionSheet(
     }
   }
   if (errors.length) {
-    return { lines: [], totalCommission: 0, errors, warnings, periodLabel };
+    return {
+      lines: [],
+      totalNetPremium: 0,
+      totalSumInsured: 0,
+      errors,
+      warnings,
+      periodLabel,
+    };
   }
 
   const lines: Omit<ExternalVetCommissionLine, 'id'>[] = [];
@@ -255,7 +268,7 @@ export async function parseCommissionSheet(
       break;
     }
 
-    const get = (field: LineField) => {
+    const get = (field: SheetLineField) => {
       const idx = fieldIndex.get(field);
       return idx == null ? '' : cellString(row[idx]);
     };
@@ -266,7 +279,6 @@ export async function parseCommissionSheet(
 
     const sumInsured = parseNumber(get('sumInsured'));
     const netPremium = parseNumber(get('netPremium'));
-    const commission = parseNumber(get('commission'));
     const snRaw = get('sn');
     const sn = snRaw ? parseNumber(snRaw) : lines.length + 1;
 
@@ -274,7 +286,7 @@ export async function parseCommissionSheet(
       warnings.push(`Row ${r + 1}: missing Contract — skipped`);
       continue;
     }
-    if ([sumInsured, netPremium, commission].some((n) => Number.isNaN(n))) {
+    if ([sumInsured, netPremium].some((n) => Number.isNaN(n))) {
       warnings.push(`Row ${r + 1}: invalid numeric values — skipped`);
       continue;
     }
@@ -292,7 +304,7 @@ export async function parseCommissionSheet(
       agent: get('agent') || 'SOLEKTRA R',
       sumInsured,
       netPremium,
-      commission,
+      companyCommission: 0,
       userName: get('userName'),
     });
   }
@@ -301,6 +313,14 @@ export async function parseCommissionSheet(
     errors.push('No valid commission rows found');
   }
 
-  const totalCommission = lines.reduce((sum, l) => sum + l.commission, 0);
-  return { lines, totalCommission, errors, warnings, periodLabel };
+  const totalNetPremium = lines.reduce((sum, l) => sum + l.netPremium, 0);
+  const totalSumInsured = lines.reduce((sum, l) => sum + l.sumInsured, 0);
+  return {
+    lines,
+    totalNetPremium,
+    totalSumInsured,
+    errors,
+    warnings,
+    periodLabel,
+  };
 }

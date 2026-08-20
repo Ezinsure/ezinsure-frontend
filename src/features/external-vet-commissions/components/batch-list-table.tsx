@@ -70,7 +70,7 @@ export function BatchListTable({
             <th className="px-3 py-3 font-medium">Vet</th>
             <th className="px-3 py-3 font-medium">Period</th>
             <th className="px-3 py-3 font-medium">Lines</th>
-            <th className="px-3 py-3 font-medium">Commission</th>
+            <th className="px-3 py-3 font-medium">Company commission</th>
             <th className="px-3 py-3 font-medium">Status</th>
             <th className="px-3 py-3 font-medium">Created</th>
             <th className="px-3 py-3 font-medium">Actions</th>

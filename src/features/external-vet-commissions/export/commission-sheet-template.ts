@@ -1,10 +1,13 @@
 import {
-  COMMISSION_LINE_COLUMN_KEYS,
+  COMMISSION_SHEET_COLUMN_KEYS,
   COMMISSION_LINE_COLUMN_LABELS,
 } from '../domain';
 
-/** One sample data row matching the SONARWA commission line format. */
-const SAMPLE_ROW: Record<(typeof COMMISSION_LINE_COLUMN_KEYS)[number], string | number> = {
+/** One sample data row matching the upload sheet (no companyCommission). */
+const SAMPLE_ROW: Record<
+  (typeof COMMISSION_SHEET_COLUMN_KEYS)[number],
+  string | number
+> = {
   sn: 1,
   prodDate: '18/03/2026 10:52:10',
   branch: 'Butare',
@@ -17,21 +20,21 @@ const SAMPLE_ROW: Record<(typeof COMMISSION_LINE_COLUMN_KEYS)[number], string | 
   agent: 'SOLEKTRA R',
   sumInsured: 1000000,
   netPremium: 55000,
-  commission: 5500,
   userName: 'NYAMWASA',
 };
 
 /**
- * Download an Excel template with the exact line-column headers expected
- * by the external vet commission upload. Vet name / phone / bank are NOT
- * in this file — those are entered in the form.
+ * Download an Excel template with the sheet columns expected by upload.
+ * companyCommission is NOT included — it is calculated in the form from
+ * net premium × company commission %.
+ * Vet name / phone / bank are also NOT in this file.
  */
 export async function downloadExternalVetCommissionTemplate(): Promise<void> {
   const XLSX = await import('@e965/xlsx');
-  const headers = COMMISSION_LINE_COLUMN_KEYS.map(
+  const headers = COMMISSION_SHEET_COLUMN_KEYS.map(
     (key) => COMMISSION_LINE_COLUMN_LABELS[key],
   );
-  const sample = COMMISSION_LINE_COLUMN_KEYS.map((key) => SAMPLE_ROW[key]);
+  const sample = COMMISSION_SHEET_COLUMN_KEYS.map((key) => SAMPLE_ROW[key]);
 
   const worksheet = XLSX.utils.aoa_to_sheet([headers, sample]);
   worksheet['!cols'] = headers.map((h) => ({

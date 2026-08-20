@@ -56,7 +56,14 @@ export function BatchDetailPanel({ batch, onClose, footer }: Props) {
               label="Created at"
               value={new Date(batch.createdAt).toLocaleString()}
             />
-            <Info label="Total commission" value={formatRwf(batch.totalCommission)} />
+            <Info
+              label="Company commission %"
+              value={`${batch.companyCommissionPercent}%`}
+            />
+            <Info
+              label="Total company commission"
+              value={formatRwf(batch.totalCommission)}
+            />
             {batch.reviewedByName ? (
               <Info label="Reviewed by" value={batch.reviewedByName} />
             ) : null}
@@ -94,7 +101,7 @@ export function BatchDetailPanel({ batch, onClose, footer }: Props) {
                           key={key}
                           className={`whitespace-nowrap px-3 py-2 ${
                             key === 'contract' ? 'font-mono text-[11px]' : ''
-                          } ${key === 'commission' ? 'font-medium' : ''}`}
+                          } ${key === 'companyCommission' ? 'font-medium' : ''}`}
                         >
                           {formatCommissionLineCell(line, key)}
                         </td>

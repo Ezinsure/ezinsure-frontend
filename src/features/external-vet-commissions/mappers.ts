@@ -7,7 +7,7 @@ import type {
   ExternalVetPerformanceRow,
   ExternalVetsOverviewStats,
 } from './domain';
-import { EXTERNAL_VET_COMMISSION_STATUSES } from './domain';
+import { EXTERNAL_VET_COMMISSION_STATUSES, DEFAULT_COMPANY_COMMISSION_PERCENT } from './domain';
 
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object'
@@ -102,7 +102,9 @@ function mapLine(raw: unknown): ExternalVetCommissionLine {
     agent: asString(row.agent),
     sumInsured: asNumber(row.sumInsured),
     netPremium: asNumber(row.netPremium),
-    commission: asNumber(row.commission),
+    companyCommission: asNumber(
+      row.companyCommission ?? row.commission,
+    ),
     userName: asString(row.userName),
   };
 }
@@ -117,7 +119,13 @@ export function mapBatchSummary(raw: unknown): ExternalVetCommissionBatchSummary
     payee: mapPayee(row),
     periodLabel: asOptionalString(row.periodLabel),
     sourceFileName: asString(row.sourceFileName),
-    totalCommission: asNumber(row.totalCommission),
+    companyCommissionPercent: asNumber(
+      row.companyCommissionPercent ?? row.commissionPercent,
+      DEFAULT_COMPANY_COMMISSION_PERCENT,
+    ),
+    totalCommission: asNumber(
+      row.totalCommission ?? row.totalCompanyCommission,
+    ),
     lineCount: asNumber(row.lineCount),
     createdById: asString(row.createdById),
     createdByName: asString(row.createdByName),
@@ -137,10 +145,15 @@ export function mapBatch(raw: unknown): ExternalVetCommissionBatch {
   const row = asRecord(raw);
   const summary = mapBatchSummary(raw);
   const lines = Array.isArray(row.lines) ? row.lines.map(mapLine) : [];
+  const totalFromLines = lines.reduce(
+    (sum, line) => sum + (line.companyCommission || 0),
+    0,
+  );
   return {
     ...summary,
     lines,
     lineCount: summary.lineCount || lines.length,
+    totalCommission: summary.totalCommission || totalFromLines,
   };
 }
 
