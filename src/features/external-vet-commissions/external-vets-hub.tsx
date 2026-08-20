@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   CheckCircle2,
+  Download,
   Loader2,
   Search,
   Upload,
@@ -24,6 +25,7 @@ import {
 import { BatchDetailPanel } from './components/batch-detail-panel';
 import { BatchListTable } from './components/batch-list-table';
 import { UploadCommissionWizard } from './components/upload-commission-wizard';
+import { downloadExternalVetCommissionTemplate } from './export/commission-sheet-template';
 
 const TAB_DEFS: {
   id: ExternalVetsHubTab;
@@ -94,10 +96,26 @@ export default function ExternalVetsHub({ viewRole }: ExternalVetsHubProps) {
   const [uploadOpen, setUploadOpen] = useState(false);
   const [reviewNote, setReviewNote] = useState('');
   const [actionBusy, setActionBusy] = useState(false);
+  const [isExportingTemplate, setIsExportingTemplate] = useState(false);
 
   const canUpload = viewRole === 'admin' || viewRole === 'super_admin';
   const canReview = canUpload;
   const canPay = viewRole === 'finance';
+
+  async function handleDownloadTemplate() {
+    setIsExportingTemplate(true);
+    try {
+      await downloadExternalVetCommissionTemplate();
+      showToast('Template downloaded', 'success');
+    } catch (err) {
+      showToast(
+        err instanceof Error ? err.message : 'Failed to download template',
+        'error',
+      );
+    } finally {
+      setIsExportingTemplate(false);
+    }
+  }
 
   const reload = useCallback(async () => {
     setIsLoading(true);
@@ -305,10 +323,24 @@ export default function ExternalVetsHub({ viewRole }: ExternalVetsHubProps) {
           </p>
         </div>
         {canUpload && tab === 'applications' ? (
-          <Button onClick={() => setUploadOpen(true)}>
-            <Upload className="mr-2 h-4 w-4" />
-            Upload sheet
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="outline"
+              onClick={() => void handleDownloadTemplate()}
+              disabled={isExportingTemplate}
+            >
+              {isExportingTemplate ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Download className="mr-2 h-4 w-4" />
+              )}
+              Export template
+            </Button>
+            <Button onClick={() => setUploadOpen(true)}>
+              <Upload className="mr-2 h-4 w-4" />
+              New batch
+            </Button>
+          </div>
         ) : null}
       </div>
 

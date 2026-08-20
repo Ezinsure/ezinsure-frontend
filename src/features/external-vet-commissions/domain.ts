@@ -29,8 +29,9 @@ export type ExternalVet = {
   id: string;
   name: string;
   phoneNumber: string;
-  bankName: string;
-  bankAccountNumber: string;
+  /** Optional until finance needs payout details. */
+  bankName?: string;
+  bankAccountNumber?: string;
   linkedUserId?: string;
   createdById: string;
   createdAt: string;
@@ -41,8 +42,8 @@ export type ExternalVet = {
 export type ExternalVetPayeeSnapshot = {
   name: string;
   phoneNumber: string;
-  bankName: string;
-  bankAccountNumber: string;
+  bankName?: string;
+  bankAccountNumber?: string;
 };
 
 /**
@@ -128,8 +129,8 @@ export type ExternalVetsOverviewStats = {
 export type CreateExternalVetInput = {
   name: string;
   phoneNumber: string;
-  bankName: string;
-  bankAccountNumber: string;
+  bankName?: string;
+  bankAccountNumber?: string;
   linkedUserId?: string;
 };
 

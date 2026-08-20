@@ -45,8 +45,11 @@ export function BatchDetailPanel({ batch, onClose, footer }: Props) {
           <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <Info label="External vet" value={batch.payee.name} />
             <Info label="Phone" value={batch.payee.phoneNumber} />
-            <Info label="Bank" value={batch.payee.bankName} />
-            <Info label="Account" value={batch.payee.bankAccountNumber} />
+            <Info label="Bank" value={batch.payee.bankName?.trim() || '—'} />
+            <Info
+              label="Account"
+              value={batch.payee.bankAccountNumber?.trim() || '—'}
+            />
             <Info label="Source file" value={batch.sourceFileName} />
             <Info label="Created by" value={batch.createdByName} />
             <Info
