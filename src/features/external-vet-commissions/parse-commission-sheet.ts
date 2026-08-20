@@ -5,6 +5,8 @@ export type ParseCommissionSheetResult = {
   totalCommission: number;
   errors: string[];
   warnings: string[];
+  /** Best-effort period label from title rows (e.g. UP MAY 2026). */
+  periodLabel?: string;
 };
 
 function normalizeHeader(h: string): string {
@@ -66,8 +68,6 @@ function parseNumber(raw: unknown): number {
 function cellString(raw: unknown): string {
   if (raw == null) return '';
   if (typeof raw === 'number' && Number.isFinite(raw)) {
-    // Excel date serials are handled by xlsx as Date when cellDates is on;
-    // plain numbers stay as strings here for IDs.
     return String(raw);
   }
   if (raw instanceof Date) {
@@ -77,6 +77,71 @@ function cellString(raw: unknown): string {
     return `${dd}/${mm}/${yyyy}`;
   }
   return String(raw).trim();
+}
+
+function mapHeaderRow(headerRow: string[]): Map<LineField, number> {
+  const fieldIndex = new Map<LineField, number>();
+  headerRow.forEach((header, index) => {
+    if (!header) return;
+    const key = HEADER_ALIASES[normalizeHeader(header)];
+    if (key && !fieldIndex.has(key)) fieldIndex.set(key, index);
+  });
+  return fieldIndex;
+}
+
+/**
+ * SONARWA exports often put titles above the table (SOLEKTRA, period title).
+ * Find the first row that maps enough required columns.
+ */
+function findHeaderRowIndex(matrix: unknown[][]): number {
+  const scanLimit = Math.min(matrix.length, 40);
+  let bestIndex = -1;
+  let bestScore = 0;
+
+  for (let i = 0; i < scanLimit; i += 1) {
+    const headerRow = (matrix[i] ?? []).map((c) => cellString(c));
+    const mapped = mapHeaderRow(headerRow);
+    const score = REQUIRED.reduce(
+      (sum, field) => sum + (mapped.has(field) ? 1 : 0),
+      0,
+    );
+    if (score > bestScore) {
+      bestScore = score;
+      bestIndex = i;
+    }
+    // Perfect match — stop early
+    if (score === REQUIRED.length) return i;
+  }
+
+  return bestScore >= 3 ? bestIndex : -1;
+}
+
+function guessPeriodLabel(matrix: unknown[][], headerIndex: number): string | undefined {
+  for (let i = 0; i < headerIndex; i += 1) {
+    const text = (matrix[i] ?? [])
+      .map((c) => cellString(c))
+      .filter(Boolean)
+      .join(' ')
+      .trim();
+    if (!text) continue;
+    // e.g. PAYMENT COMMISSION_AHISHAKIYE THEOPHILE_UP MAY 2026
+    const upMatch = text.match(/\bUP\s+[A-Z]+\s+\d{4}\b/i);
+    if (upMatch) return upMatch[0].toUpperCase();
+    if (/payment\s*commission/i.test(text)) {
+      const parts = text.split(/_/).map((p) => p.trim()).filter(Boolean);
+      const last = parts[parts.length - 1];
+      if (last && /up\s+/i.test(last)) return last.toUpperCase();
+    }
+  }
+  return undefined;
+}
+
+/** Stop parsing when a TOTAL footer row is reached (any cell is TOTAL). */
+function isTotalRow(row: unknown[]): boolean {
+  return row.some((cell) => {
+    const text = cellString(cell).toLowerCase().replace(/\s+/g, '');
+    return text === 'total' || text === 'totals' || text.startsWith('total:');
+  });
 }
 
 function parseCsv(text: string): string[][] {
@@ -158,12 +223,21 @@ export async function parseCommissionSheet(
     };
   }
 
-  const headerRow = matrix[0].map((c) => cellString(c));
-  const fieldIndex = new Map<LineField, number>();
-  headerRow.forEach((header, index) => {
-    const key = HEADER_ALIASES[normalizeHeader(header)];
-    if (key && !fieldIndex.has(key)) fieldIndex.set(key, index);
-  });
+  const headerIndex = findHeaderRowIndex(matrix);
+  if (headerIndex < 0) {
+    return {
+      lines: [],
+      totalCommission: 0,
+      errors: [
+        'Could not find a header row with Contract, ClientName, SumInsured, NetPremium, and Commission. Title rows above the table are OK — ensure the column headers match the export template.',
+      ],
+      warnings,
+    };
+  }
+
+  const headerRow = (matrix[headerIndex] ?? []).map((c) => cellString(c));
+  const fieldIndex = mapHeaderRow(headerRow);
+  const periodLabel = guessPeriodLabel(matrix, headerIndex);
 
   for (const field of REQUIRED) {
     if (!fieldIndex.has(field)) {
@@ -171,12 +245,16 @@ export async function parseCommissionSheet(
     }
   }
   if (errors.length) {
-    return { lines: [], totalCommission: 0, errors, warnings };
+    return { lines: [], totalCommission: 0, errors, warnings, periodLabel };
   }
 
   const lines: Omit<ExternalVetCommissionLine, 'id'>[] = [];
-  for (let r = 1; r < matrix.length; r += 1) {
+  for (let r = headerIndex + 1; r < matrix.length; r += 1) {
     const row = matrix[r] ?? [];
+    if (isTotalRow(row)) {
+      break;
+    }
+
     const get = (field: LineField) => {
       const idx = fieldIndex.get(field);
       return idx == null ? '' : cellString(row[idx]);
@@ -184,12 +262,7 @@ export async function parseCommissionSheet(
 
     const contract = get('contract');
     const clientName = get('clientName');
-    // Skip blank / TOTAL rows
     if (!contract && !clientName) continue;
-    const lowerContract = contract.toLowerCase();
-    if (lowerContract.includes('total') || clientName.toLowerCase() === 'total') {
-      continue;
-    }
 
     const sumInsured = parseNumber(get('sumInsured'));
     const netPremium = parseNumber(get('netPremium'));
@@ -229,5 +302,5 @@ export async function parseCommissionSheet(
   }
 
   const totalCommission = lines.reduce((sum, l) => sum + l.commission, 0);
-  return { lines, totalCommission, errors, warnings };
+  return { lines, totalCommission, errors, warnings, periodLabel };
 }

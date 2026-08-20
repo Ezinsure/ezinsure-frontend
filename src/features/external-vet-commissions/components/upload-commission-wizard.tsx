@@ -24,6 +24,7 @@ import {
 } from '../domain';
 import { downloadExternalVetCommissionTemplate } from '../export/commission-sheet-template';
 import { parseCommissionSheet } from '../parse-commission-sheet';
+import { rwandaBanks } from '@/utils/rwanda-banks';
 
 type Props = {
   open: boolean;
@@ -39,7 +40,7 @@ function payeeComplete(payee: ExternalVetPayeeSnapshot) {
 
 export function UploadCommissionWizard({ open, onClose, onCreated }: Props) {
   const api = useExternalVetCommissionsApi();
-  const { showToast } = useToast();
+  const { showToast, ToastContainer } = useToast();
 
   // 1 = vet form, 2 = upload lines sheet, 3 = confirm
   const [step, setStep] = useState<1 | 2 | 3>(1);
@@ -120,9 +121,9 @@ export function UploadCommissionWizard({ open, onClose, onCreated }: Props) {
         return;
       }
       if (!periodLabel.trim()) {
-        const guess = file.name
-          .replace(/\.(xlsx|xls|csv)$/i, '')
-          .replace(/_/g, ' ');
+        const guess =
+          result.periodLabel ||
+          file.name.replace(/\.(xlsx|xls|csv)$/i, '').replace(/_/g, ' ');
         setPeriodLabel(guess);
       }
       setStep(3);
@@ -156,7 +157,10 @@ export function UploadCommissionWizard({ open, onClose, onCreated }: Props) {
   }
 
   async function handleSubmit() {
-    if (!file || !lines.length) return;
+    if (!file || !lines.length) {
+      showToast('Upload and parse a commission sheet first', 'error');
+      return;
+    }
     if (!payeeComplete(payee)) {
       showToast('Vet name and phone number are required', 'error');
       return;
@@ -164,33 +168,45 @@ export function UploadCommissionWizard({ open, onClose, onCreated }: Props) {
 
     setIsSubmitting(true);
     try {
-      let externalVetId = selectedExternalVetId;
+      let externalVetId = selectedExternalVetId?.trim() || '';
       if (!externalVetId) {
         const created = await api.createExternalVet({
           name: payee.name,
           phoneNumber: payee.phoneNumber,
-          bankName: payee.bankName,
-          bankAccountNumber: payee.bankAccountNumber,
+          bankName: payee.bankName || undefined,
+          bankAccountNumber: payee.bankAccountNumber || undefined,
           linkedUserId,
         });
-        externalVetId = created.id;
+        externalVetId = created.id?.trim() || '';
+        if (!externalVetId) {
+          throw new Error(
+            'External vet was created but no id was returned. Cannot create batch.',
+          );
+        }
+        setSelectedExternalVetId(externalVetId);
       }
 
       await api.createBatch({
         externalVetId,
-        payee,
+        payee: {
+          name: payee.name.trim(),
+          phoneNumber: payee.phoneNumber.trim(),
+          bankName: payee.bankName?.trim() || undefined,
+          bankAccountNumber: payee.bankAccountNumber?.trim() || undefined,
+        },
         periodLabel: periodLabel.trim() || undefined,
         sourceFileName: file.name,
         lines,
       });
 
       showToast('Commission batch submitted for admin review', 'success');
+      // Brief delay so the success toast can paint before the modal unmounts.
+      await new Promise((resolve) => setTimeout(resolve, 400));
       resetAndClose(true);
     } catch (err) {
-      showToast(
-        err instanceof Error ? err.message : 'Failed to create batch',
-        'error',
-      );
+      const message =
+        err instanceof Error ? err.message : 'Failed to create batch';
+      showToast(message, 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -236,6 +252,7 @@ export function UploadCommissionWizard({ open, onClose, onCreated }: Props) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <ToastContainer />
       <div className="flex max-h-[90vh] w-full max-w-[min(96rem,96vw)] flex-col rounded-xl bg-white shadow-xl">
         <div className="border-b border-slate-200 px-5 py-4">
           <h2 className="text-lg font-semibold text-slate-900">
@@ -343,39 +360,79 @@ export function UploadCommissionWizard({ open, onClose, onCreated }: Props) {
                   Vet payout details
                 </p>
                 <div className="grid gap-3 sm:grid-cols-2">
-                  {(
-                    [
-                      ['name', 'Vet name', true],
-                      ['phoneNumber', 'Phone number', true],
-                      ['bankName', 'Bank', false],
-                      ['bankAccountNumber', 'Bank account number', false],
-                    ] as const
-                  ).map(([key, label, required]) => (
-                    <div key={key}>
-                      <label className="text-xs font-medium text-slate-600">
-                        {label}
-                        {required ? (
-                          <span className="text-rose-500"> *</span>
-                        ) : (
-                          <span className="font-normal text-slate-400">
-                            {' '}
-                            (optional)
-                          </span>
-                        )}
-                      </label>
-                      <input
-                        className="mt-1 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm"
-                        value={payee[key]}
-                        onChange={(e) =>
-                          setPayee((prev) => ({
-                            ...prev,
-                            [key]: e.target.value,
-                          }))
-                        }
-                        placeholder={label}
-                      />
-                    </div>
-                  ))}
+                  <div>
+                    <label className="text-xs font-medium text-slate-600">
+                      Vet name <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      className="mt-1 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm"
+                      value={payee.name}
+                      onChange={(e) =>
+                        setPayee((prev) => ({ ...prev, name: e.target.value }))
+                      }
+                      placeholder="Vet name"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-slate-600">
+                      Phone number <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      className="mt-1 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm"
+                      value={payee.phoneNumber}
+                      onChange={(e) =>
+                        setPayee((prev) => ({
+                          ...prev,
+                          phoneNumber: e.target.value,
+                        }))
+                      }
+                      placeholder="Phone number"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-slate-600">
+                      Bank{' '}
+                      <span className="font-normal text-slate-400">
+                        (optional)
+                      </span>
+                    </label>
+                    <select
+                      className="mt-1 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm"
+                      value={payee.bankName ?? ''}
+                      onChange={(e) =>
+                        setPayee((prev) => ({
+                          ...prev,
+                          bankName: e.target.value,
+                        }))
+                      }
+                    >
+                      <option value="">Select Bank</option>
+                      {rwandaBanks.map((bank) => (
+                        <option key={bank} value={bank}>
+                          {bank}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-slate-600">
+                      Bank account number{' '}
+                      <span className="font-normal text-slate-400">
+                        (optional)
+                      </span>
+                    </label>
+                    <input
+                      className="mt-1 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm"
+                      value={payee.bankAccountNumber ?? ''}
+                      onChange={(e) =>
+                        setPayee((prev) => ({
+                          ...prev,
+                          bankAccountNumber: e.target.value,
+                        }))
+                      }
+                      placeholder="Bank account number"
+                    />
+                  </div>
                 </div>
               </div>
 

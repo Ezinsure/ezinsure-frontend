@@ -30,6 +30,55 @@ function unwrapData<T>(payload: unknown): T {
   return payload as T;
 }
 
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === 'object'
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
+function pickId(raw: Record<string, unknown>): string {
+  const id = raw.id ?? raw._id ?? raw.externalVetId;
+  return id == null ? '' : String(id);
+}
+
+function mapExternalVet(raw: unknown): ExternalVet {
+  const row = asRecord(raw);
+  return {
+    id: pickId(row),
+    name: String(row.name ?? row.fullName ?? ''),
+    phoneNumber: String(row.phoneNumber ?? ''),
+    bankName:
+      typeof row.bankName === 'string' && row.bankName.trim()
+        ? row.bankName
+        : undefined,
+    bankAccountNumber:
+      typeof row.bankAccountNumber === 'string' && row.bankAccountNumber.trim()
+        ? row.bankAccountNumber
+        : undefined,
+    linkedUserId:
+      typeof row.linkedUserId === 'string' ? row.linkedUserId : undefined,
+    createdById: String(row.createdById ?? ''),
+    createdAt: String(row.createdAt ?? ''),
+    updatedAt: String(row.updatedAt ?? ''),
+  };
+}
+
+function mapPlatformVet(raw: unknown): PlatformVetSearchHit {
+  const row = asRecord(raw);
+  return {
+    userId: String(row.userId ?? row._id ?? row.id ?? ''),
+    fullName: String(row.fullName ?? row.name ?? ''),
+    phoneNumber:
+      typeof row.phoneNumber === 'string' ? row.phoneNumber : undefined,
+    bankName: typeof row.bankName === 'string' ? row.bankName : undefined,
+    bankAccountNumber:
+      typeof row.bankAccountNumber === 'string'
+        ? row.bankAccountNumber
+        : undefined,
+    email: typeof row.email === 'string' ? row.email : undefined,
+  };
+}
+
 async function errorMessage(
   response: Response,
   fallback: string,
@@ -47,6 +96,27 @@ async function errorMessage(
   return fallback;
 }
 
+function buildCreateBatchBody(input: CreateCommissionBatchInput) {
+  const payee: Record<string, string> = {
+    name: input.payee.name.trim(),
+    phoneNumber: input.payee.phoneNumber.trim(),
+  };
+  if (input.payee.bankName?.trim()) {
+    payee.bankName = input.payee.bankName.trim();
+  }
+  if (input.payee.bankAccountNumber?.trim()) {
+    payee.bankAccountNumber = input.payee.bankAccountNumber.trim();
+  }
+
+  return {
+    externalVetId: String(input.externalVetId).trim(),
+    payee,
+    periodLabel: input.periodLabel?.trim() || undefined,
+    sourceFileName: input.sourceFileName,
+    lines: input.lines,
+  };
+}
+
 export function useExternalVetCommissionsApi() {
   const { apiFetch } = useApiClient();
 
@@ -57,7 +127,9 @@ export function useExternalVetCommissionsApi() {
     if (!response.ok) {
       throw new Error(await errorMessage(response, 'Failed to list external vets'));
     }
-    return unwrapData<ExternalVet[]>(await readJson(response));
+    const data = unwrapData<unknown>(await readJson(response));
+    const rows = Array.isArray(data) ? data : [];
+    return rows.map(mapExternalVet);
   }, [apiFetch]);
 
   const searchPlatformVets = useCallback(
@@ -70,19 +142,33 @@ export function useExternalVetCommissionsApi() {
           await errorMessage(response, 'Failed to search platform vets'),
         );
       }
-      return unwrapData<PlatformVetSearchHit[]>(await readJson(response));
+      const data = unwrapData<unknown>(await readJson(response));
+      const rows = Array.isArray(data) ? data : [];
+      return rows.map(mapPlatformVet);
     },
     [apiFetch],
   );
 
   const createExternalVet = useCallback(
     async (input: CreateExternalVetInput): Promise<ExternalVet> => {
+      const body: Record<string, string> = {
+        name: input.name.trim(),
+        phoneNumber: input.phoneNumber.trim(),
+      };
+      if (input.bankName?.trim()) body.bankName = input.bankName.trim();
+      if (input.bankAccountNumber?.trim()) {
+        body.bankAccountNumber = input.bankAccountNumber.trim();
+      }
+      if (input.linkedUserId?.trim()) {
+        body.linkedUserId = input.linkedUserId.trim();
+      }
+
       const response = await apiFetch(
         EXTERNAL_VET_COMMISSION_ENDPOINTS.createExternalVet(),
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(input),
+          body: JSON.stringify(body),
         },
       );
       if (!response.ok) {
@@ -90,7 +176,15 @@ export function useExternalVetCommissionsApi() {
           await errorMessage(response, 'Failed to create external vet'),
         );
       }
-      return unwrapData<ExternalVet>(await readJson(response));
+      const mapped = mapExternalVet(
+        unwrapData<unknown>(await readJson(response)),
+      );
+      if (!mapped.id) {
+        throw new Error(
+          'External vet was created but the API did not return an id',
+        );
+      }
+      return mapped;
     },
     [apiFetch],
   );
@@ -130,12 +224,17 @@ export function useExternalVetCommissionsApi() {
     async (
       input: CreateCommissionBatchInput,
     ): Promise<ExternalVetCommissionBatch> => {
+      const body = buildCreateBatchBody(input);
+      if (!body.externalVetId) {
+        throw new Error('externalVetId is required');
+      }
+
       const response = await apiFetch(
         EXTERNAL_VET_COMMISSION_ENDPOINTS.createBatch(),
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(input),
+          body: JSON.stringify(body),
         },
       );
       if (!response.ok) {

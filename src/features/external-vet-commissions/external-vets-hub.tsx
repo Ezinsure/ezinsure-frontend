@@ -483,6 +483,7 @@ export default function ExternalVetsHub({ viewRole }: ExternalVetsHubProps) {
           open={uploadOpen}
           onClose={() => setUploadOpen(false)}
           onCreated={() => {
+            showToast('Commission batch submitted for admin review', 'success');
             setTab('applications');
             void reload();
           }}
