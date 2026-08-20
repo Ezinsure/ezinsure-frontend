@@ -3,7 +3,9 @@
 import { X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
+  COMMISSION_LINE_COLUMN_KEYS,
   COMMISSION_LINE_COLUMN_LABELS,
+  formatCommissionLineCell,
   formatRwf,
   type ExternalVetCommissionBatch,
 } from '../domain';
@@ -18,7 +20,7 @@ type Props = {
 export function BatchDetailPanel({ batch, onClose, footer }: Props) {
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-black/40">
-      <div className="flex h-full w-full max-w-3xl flex-col bg-white shadow-xl">
+      <div className="flex h-full w-full max-w-[min(96rem,96vw)] flex-col bg-white shadow-xl">
         <div className="flex items-start justify-between border-b border-slate-200 px-5 py-4">
           <div>
             <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
@@ -40,7 +42,7 @@ export function BatchDetailPanel({ batch, onClose, footer }: Props) {
         </div>
 
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-6">
-          <section className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <Info label="External vet" value={batch.payee.name} />
             <Info label="Phone" value={batch.payee.phoneNumber} />
             <Info label="Bank" value={batch.payee.bankName} />
@@ -68,22 +70,14 @@ export function BatchDetailPanel({ batch, onClose, footer }: Props) {
               Lines ({batch.lineCount})
             </h3>
             <div className="overflow-x-auto rounded-lg border border-slate-200">
-              <table className="min-w-full text-left text-xs">
+              <table className="min-w-max w-full text-left text-xs">
                 <thead className="bg-slate-50 text-slate-600">
                   <tr>
-                    {(
-                      [
-                        'sn',
-                        'contract',
-                        'clientName',
-                        'typeLivestock',
-                        'branch',
-                        'sumInsured',
-                        'netPremium',
-                        'commission',
-                      ] as const
-                    ).map((key) => (
-                      <th key={key} className="whitespace-nowrap px-3 py-2 font-medium">
+                    {COMMISSION_LINE_COLUMN_KEYS.map((key) => (
+                      <th
+                        key={key}
+                        className="whitespace-nowrap px-3 py-2 font-medium"
+                      >
                         {COMMISSION_LINE_COLUMN_LABELS[key]}
                       </th>
                     ))}
@@ -92,18 +86,16 @@ export function BatchDetailPanel({ batch, onClose, footer }: Props) {
                 <tbody>
                   {batch.lines.map((line) => (
                     <tr key={line.id} className="border-t border-slate-100">
-                      <td className="px-3 py-2">{line.sn}</td>
-                      <td className="px-3 py-2 font-mono text-[11px]">
-                        {line.contract}
-                      </td>
-                      <td className="px-3 py-2">{line.clientName}</td>
-                      <td className="px-3 py-2">{line.typeLivestock}</td>
-                      <td className="px-3 py-2">{line.branch}</td>
-                      <td className="px-3 py-2">{formatRwf(line.sumInsured)}</td>
-                      <td className="px-3 py-2">{formatRwf(line.netPremium)}</td>
-                      <td className="px-3 py-2 font-medium">
-                        {formatRwf(line.commission)}
-                      </td>
+                      {COMMISSION_LINE_COLUMN_KEYS.map((key) => (
+                        <td
+                          key={key}
+                          className={`whitespace-nowrap px-3 py-2 ${
+                            key === 'contract' ? 'font-mono text-[11px]' : ''
+                          } ${key === 'commission' ? 'font-medium' : ''}`}
+                        >
+                          {formatCommissionLineCell(line, key)}
+                        </td>
+                      ))}
                     </tr>
                   ))}
                 </tbody>

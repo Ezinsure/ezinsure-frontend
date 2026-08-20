@@ -6,7 +6,9 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/toast';
 import { useExternalVetCommissionsApi } from '../api';
 import {
+  COMMISSION_LINE_COLUMN_KEYS,
   COMMISSION_LINE_COLUMN_LABELS,
+  formatCommissionLineCell,
   formatRwf,
   type ExternalVet,
   type ExternalVetCommissionLine,
@@ -201,7 +203,7 @@ export function UploadCommissionWizard({ open, onClose, onCreated }: Props) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="flex max-h-[90vh] w-full max-w-4xl flex-col rounded-xl bg-white shadow-xl">
+      <div className="flex max-h-[90vh] w-full max-w-[min(96rem,96vw)] flex-col rounded-xl bg-white shadow-xl">
         <div className="border-b border-slate-200 px-5 py-4">
           <h2 className="text-lg font-semibold text-slate-900">
             Upload external vet commission sheet
@@ -392,18 +394,14 @@ export function UploadCommissionWizard({ open, onClose, onCreated }: Props) {
                 </ul>
               ) : null}
               <div className="overflow-x-auto rounded-lg border border-slate-200">
-                <table className="min-w-full text-left text-xs">
+                <table className="min-w-max w-full text-left text-xs">
                   <thead className="bg-slate-50">
                     <tr>
-                      {(
-                        [
-                          'sn',
-                          'contract',
-                          'clientName',
-                          'commission',
-                        ] as const
-                      ).map((key) => (
-                        <th key={key} className="px-3 py-2 font-medium">
+                      {COMMISSION_LINE_COLUMN_KEYS.map((key) => (
+                        <th
+                          key={key}
+                          className="whitespace-nowrap px-3 py-2 font-medium"
+                        >
                           {COMMISSION_LINE_COLUMN_LABELS[key]}
                         </th>
                       ))}
@@ -412,12 +410,16 @@ export function UploadCommissionWizard({ open, onClose, onCreated }: Props) {
                   <tbody>
                     {lines.slice(0, 20).map((line, idx) => (
                       <tr key={`${line.contract}-${idx}`} className="border-t">
-                        <td className="px-3 py-1.5">{line.sn}</td>
-                        <td className="px-3 py-1.5 font-mono">{line.contract}</td>
-                        <td className="px-3 py-1.5">{line.clientName}</td>
-                        <td className="px-3 py-1.5">
-                          {formatRwf(line.commission)}
-                        </td>
+                        {COMMISSION_LINE_COLUMN_KEYS.map((key) => (
+                          <td
+                            key={key}
+                            className={`whitespace-nowrap px-3 py-1.5 ${
+                              key === 'contract' ? 'font-mono' : ''
+                            }`}
+                          >
+                            {formatCommissionLineCell(line, key)}
+                          </td>
+                        ))}
                       </tr>
                     ))}
                   </tbody>

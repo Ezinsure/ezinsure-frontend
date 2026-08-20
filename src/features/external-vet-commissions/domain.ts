@@ -170,6 +170,37 @@ export const COMMISSION_LINE_COLUMN_LABELS: Record<
   userName: 'UserName',
 };
 
+/** Document column order (matches SONARWA commission sheet). */
+export const COMMISSION_LINE_COLUMN_KEYS = [
+  'sn',
+  'prodDate',
+  'branch',
+  'effecDate',
+  'expiryDate',
+  'contract',
+  'typeLivestock',
+  'clientId',
+  'clientName',
+  'agent',
+  'sumInsured',
+  'netPremium',
+  'commission',
+  'userName',
+] as const satisfies ReadonlyArray<keyof Omit<ExternalVetCommissionLine, 'id'>>;
+
+export type CommissionLineColumnKey = (typeof COMMISSION_LINE_COLUMN_KEYS)[number];
+
+export function formatCommissionLineCell(
+  line: Omit<ExternalVetCommissionLine, 'id'> | ExternalVetCommissionLine,
+  key: CommissionLineColumnKey,
+): string {
+  const value = line[key];
+  if (key === 'sumInsured' || key === 'netPremium' || key === 'commission') {
+    return formatRwf(Number(value));
+  }
+  return String(value ?? '');
+}
+
 export const EXTERNAL_VET_STATUS_LABELS: Record<
   ExternalVetCommissionStatus,
   string
