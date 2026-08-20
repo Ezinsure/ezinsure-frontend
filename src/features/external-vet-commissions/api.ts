@@ -2,9 +2,7 @@
 
 import { useCallback, useMemo } from 'react';
 import { useApiClient } from '@/utils/apiClient';
-import { useAuth } from '@/context/AuthContext';
 import { EXTERNAL_VET_COMMISSION_ENDPOINTS } from './endpoints';
-import { mockExternalVetCommissionsApi } from './mock-data';
 import type {
   CreateCommissionBatchInput,
   CreateExternalVetInput,
@@ -16,12 +14,6 @@ import type {
   ExternalVetsOverviewStats,
   PlatformVetSearchHit,
 } from './domain';
-
-function shouldFallbackToMock(response: Response | null, error: unknown): boolean {
-  if (error) return true;
-  if (!response) return true;
-  return response.status === 404 || response.status >= 500;
-}
 
 async function readJson(response: Response): Promise<unknown> {
   try {
@@ -38,126 +30,98 @@ function unwrapData<T>(payload: unknown): T {
   return payload as T;
 }
 
+async function errorMessage(
+  response: Response,
+  fallback: string,
+): Promise<string> {
+  const payload = await readJson(response);
+  if (payload && typeof payload === 'object') {
+    const record = payload as Record<string, unknown>;
+    if (typeof record.message === 'string' && record.message.trim()) {
+      return record.message;
+    }
+    if (typeof record.error === 'string' && record.error.trim()) {
+      return record.error;
+    }
+  }
+  return fallback;
+}
+
 export function useExternalVetCommissionsApi() {
   const { apiFetch } = useApiClient();
-  const { user } = useAuth();
-
-  const actor = useMemo(
-    () =>
-      user
-        ? { id: user._id, name: user.fullName || user.email }
-        : undefined,
-    [user],
-  );
 
   const listExternalVets = useCallback(async (): Promise<ExternalVet[]> => {
-    try {
-      const response = await apiFetch(
-        EXTERNAL_VET_COMMISSION_ENDPOINTS.listExternalVets(),
-      );
-      if (shouldFallbackToMock(response, null)) {
-        return mockExternalVetCommissionsApi.listExternalVets();
-      }
-      if (!response.ok) throw new Error('Failed to list external vets');
-      return unwrapData<ExternalVet[]>(await readJson(response));
-    } catch (error) {
-      if (shouldFallbackToMock(null, error)) {
-        return mockExternalVetCommissionsApi.listExternalVets();
-      }
-      throw error;
+    const response = await apiFetch(
+      EXTERNAL_VET_COMMISSION_ENDPOINTS.listExternalVets(),
+    );
+    if (!response.ok) {
+      throw new Error(await errorMessage(response, 'Failed to list external vets'));
     }
+    return unwrapData<ExternalVet[]>(await readJson(response));
   }, [apiFetch]);
 
   const searchPlatformVets = useCallback(
     async (q: string): Promise<PlatformVetSearchHit[]> => {
-      try {
-        const response = await apiFetch(
-          EXTERNAL_VET_COMMISSION_ENDPOINTS.searchPlatformVets(q),
+      const response = await apiFetch(
+        EXTERNAL_VET_COMMISSION_ENDPOINTS.searchPlatformVets(q),
+      );
+      if (!response.ok) {
+        throw new Error(
+          await errorMessage(response, 'Failed to search platform vets'),
         );
-        if (shouldFallbackToMock(response, null)) {
-          return mockExternalVetCommissionsApi.searchPlatformVets(q);
-        }
-        if (!response.ok) throw new Error('Failed to search platform vets');
-        return unwrapData<PlatformVetSearchHit[]>(await readJson(response));
-      } catch (error) {
-        if (shouldFallbackToMock(null, error)) {
-          return mockExternalVetCommissionsApi.searchPlatformVets(q);
-        }
-        throw error;
       }
+      return unwrapData<PlatformVetSearchHit[]>(await readJson(response));
     },
     [apiFetch],
   );
 
   const createExternalVet = useCallback(
     async (input: CreateExternalVetInput): Promise<ExternalVet> => {
-      try {
-        const response = await apiFetch(
-          EXTERNAL_VET_COMMISSION_ENDPOINTS.createExternalVet(),
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(input),
-          },
+      const response = await apiFetch(
+        EXTERNAL_VET_COMMISSION_ENDPOINTS.createExternalVet(),
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(input),
+        },
+      );
+      if (!response.ok) {
+        throw new Error(
+          await errorMessage(response, 'Failed to create external vet'),
         );
-        if (shouldFallbackToMock(response, null)) {
-          return mockExternalVetCommissionsApi.createExternalVet(input, actor);
-        }
-        if (!response.ok) throw new Error('Failed to create external vet');
-        return unwrapData<ExternalVet>(await readJson(response));
-      } catch (error) {
-        if (shouldFallbackToMock(null, error)) {
-          return mockExternalVetCommissionsApi.createExternalVet(input, actor);
-        }
-        throw error;
       }
+      return unwrapData<ExternalVet>(await readJson(response));
     },
-    [actor, apiFetch],
+    [apiFetch],
   );
 
   const listBatches = useCallback(
     async (
       status?: ExternalVetCommissionStatus | 'ALL',
     ): Promise<ExternalVetCommissionBatchSummary[]> => {
-      try {
-        const response = await apiFetch(
-          EXTERNAL_VET_COMMISSION_ENDPOINTS.listBatches(status),
-        );
-        if (shouldFallbackToMock(response, null)) {
-          return mockExternalVetCommissionsApi.listBatches(status);
-        }
-        if (!response.ok) throw new Error('Failed to list batches');
-        return unwrapData<ExternalVetCommissionBatchSummary[]>(
-          await readJson(response),
-        );
-      } catch (error) {
-        if (shouldFallbackToMock(null, error)) {
-          return mockExternalVetCommissionsApi.listBatches(status);
-        }
-        throw error;
+      const response = await apiFetch(
+        EXTERNAL_VET_COMMISSION_ENDPOINTS.listBatches(status),
+      );
+      if (!response.ok) {
+        throw new Error(await errorMessage(response, 'Failed to list batches'));
       }
+      return unwrapData<ExternalVetCommissionBatchSummary[]>(
+        await readJson(response),
+      );
     },
     [apiFetch],
   );
 
   const getBatch = useCallback(
     async (id: string): Promise<ExternalVetCommissionBatch | null> => {
-      try {
-        const response = await apiFetch(
-          EXTERNAL_VET_COMMISSION_ENDPOINTS.getBatch(id),
-        );
-        if (shouldFallbackToMock(response, null)) {
-          return mockExternalVetCommissionsApi.getBatch(id);
-        }
-        if (response.status === 404) return null;
-        if (!response.ok) throw new Error('Failed to load batch');
-        return unwrapData<ExternalVetCommissionBatch>(await readJson(response));
-      } catch (error) {
-        if (shouldFallbackToMock(null, error)) {
-          return mockExternalVetCommissionsApi.getBatch(id);
-        }
-        throw error;
+      const response = await apiFetch(
+        EXTERNAL_VET_COMMISSION_ENDPOINTS.getBatch(id),
+      );
+      if (response.status === 404) return null;
+      if (!response.ok) {
+        throw new Error(await errorMessage(response, 'Failed to load batch'));
       }
+      return unwrapData<ExternalVetCommissionBatch>(await readJson(response));
     },
     [apiFetch],
   );
@@ -166,214 +130,148 @@ export function useExternalVetCommissionsApi() {
     async (
       input: CreateCommissionBatchInput,
     ): Promise<ExternalVetCommissionBatch> => {
-      try {
-        const response = await apiFetch(
-          EXTERNAL_VET_COMMISSION_ENDPOINTS.createBatch(),
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(input),
-          },
-        );
-        if (shouldFallbackToMock(response, null)) {
-          return mockExternalVetCommissionsApi.createBatch(input, actor);
-        }
-        if (!response.ok) throw new Error('Failed to create batch');
-        return unwrapData<ExternalVetCommissionBatch>(await readJson(response));
-      } catch (error) {
-        if (shouldFallbackToMock(null, error)) {
-          return mockExternalVetCommissionsApi.createBatch(input, actor);
-        }
-        throw error;
+      const response = await apiFetch(
+        EXTERNAL_VET_COMMISSION_ENDPOINTS.createBatch(),
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(input),
+        },
+      );
+      if (!response.ok) {
+        throw new Error(await errorMessage(response, 'Failed to create batch'));
       }
+      return unwrapData<ExternalVetCommissionBatch>(await readJson(response));
     },
-    [actor, apiFetch],
+    [apiFetch],
   );
 
   const approveBatch = useCallback(
     async (id: string, note?: string): Promise<ExternalVetCommissionBatch> => {
-      try {
-        const response = await apiFetch(
-          EXTERNAL_VET_COMMISSION_ENDPOINTS.approveBatch(id),
-          {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ note }),
-          },
-        );
-        if (shouldFallbackToMock(response, null)) {
-          return mockExternalVetCommissionsApi.approveBatch(id, note, actor);
-        }
-        if (!response.ok) throw new Error('Failed to approve batch');
-        return unwrapData<ExternalVetCommissionBatch>(await readJson(response));
-      } catch (error) {
-        if (shouldFallbackToMock(null, error)) {
-          return mockExternalVetCommissionsApi.approveBatch(id, note, actor);
-        }
-        throw error;
+      const response = await apiFetch(
+        EXTERNAL_VET_COMMISSION_ENDPOINTS.approveBatch(id),
+        {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ note }),
+        },
+      );
+      if (!response.ok) {
+        throw new Error(await errorMessage(response, 'Failed to approve batch'));
       }
+      return unwrapData<ExternalVetCommissionBatch>(await readJson(response));
     },
-    [actor, apiFetch],
+    [apiFetch],
   );
 
   const rejectBatch = useCallback(
     async (id: string, note: string): Promise<ExternalVetCommissionBatch> => {
-      try {
-        const response = await apiFetch(
-          EXTERNAL_VET_COMMISSION_ENDPOINTS.rejectBatch(id),
-          {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ note }),
-          },
-        );
-        if (shouldFallbackToMock(response, null)) {
-          return mockExternalVetCommissionsApi.rejectBatch(id, note, actor);
-        }
-        if (!response.ok) throw new Error('Failed to reject batch');
-        return unwrapData<ExternalVetCommissionBatch>(await readJson(response));
-      } catch (error) {
-        if (shouldFallbackToMock(null, error)) {
-          return mockExternalVetCommissionsApi.rejectBatch(id, note, actor);
-        }
-        throw error;
+      const response = await apiFetch(
+        EXTERNAL_VET_COMMISSION_ENDPOINTS.rejectBatch(id),
+        {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ note }),
+        },
+      );
+      if (!response.ok) {
+        throw new Error(await errorMessage(response, 'Failed to reject batch'));
       }
+      return unwrapData<ExternalVetCommissionBatch>(await readJson(response));
     },
-    [actor, apiFetch],
+    [apiFetch],
   );
 
   const initiatePayment = useCallback(
     async (id: string): Promise<ExternalVetCommissionBatch> => {
-      try {
-        const response = await apiFetch(
-          EXTERNAL_VET_COMMISSION_ENDPOINTS.initiatePayment(id),
-          { method: 'PUT' },
+      const response = await apiFetch(
+        EXTERNAL_VET_COMMISSION_ENDPOINTS.initiatePayment(id),
+        { method: 'PUT' },
+      );
+      if (!response.ok) {
+        throw new Error(
+          await errorMessage(response, 'Failed to initiate payment'),
         );
-        if (shouldFallbackToMock(response, null)) {
-          return mockExternalVetCommissionsApi.initiatePayment(id, actor);
-        }
-        if (!response.ok) throw new Error('Failed to initiate payment');
-        return unwrapData<ExternalVetCommissionBatch>(await readJson(response));
-      } catch (error) {
-        if (shouldFallbackToMock(null, error)) {
-          return mockExternalVetCommissionsApi.initiatePayment(id, actor);
-        }
-        throw error;
       }
+      return unwrapData<ExternalVetCommissionBatch>(await readJson(response));
     },
-    [actor, apiFetch],
+    [apiFetch],
   );
 
   const markPaid = useCallback(
     async (id: string): Promise<ExternalVetCommissionBatch> => {
-      try {
-        const response = await apiFetch(
-          EXTERNAL_VET_COMMISSION_ENDPOINTS.markPaid(id),
-          { method: 'PUT' },
-        );
-        if (shouldFallbackToMock(response, null)) {
-          return mockExternalVetCommissionsApi.markPaid(id, actor);
-        }
-        if (!response.ok) throw new Error('Failed to mark paid');
-        return unwrapData<ExternalVetCommissionBatch>(await readJson(response));
-      } catch (error) {
-        if (shouldFallbackToMock(null, error)) {
-          return mockExternalVetCommissionsApi.markPaid(id, actor);
-        }
-        throw error;
+      const response = await apiFetch(
+        EXTERNAL_VET_COMMISSION_ENDPOINTS.markPaid(id),
+        { method: 'PUT' },
+      );
+      if (!response.ok) {
+        throw new Error(await errorMessage(response, 'Failed to mark paid'));
       }
+      return unwrapData<ExternalVetCommissionBatch>(await readJson(response));
     },
-    [actor, apiFetch],
+    [apiFetch],
   );
 
   const initiatePaymentBulk = useCallback(
     async (ids: string[]): Promise<ExternalVetCommissionBatch[]> => {
-      try {
-        const response = await apiFetch(
-          EXTERNAL_VET_COMMISSION_ENDPOINTS.initiatePaymentBulk(),
-          {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ids }),
-          },
+      const response = await apiFetch(
+        EXTERNAL_VET_COMMISSION_ENDPOINTS.initiatePaymentBulk(),
+        {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ids }),
+        },
+      );
+      if (!response.ok) {
+        throw new Error(
+          await errorMessage(response, 'Failed to initiate payments'),
         );
-        if (shouldFallbackToMock(response, null)) {
-          return mockExternalVetCommissionsApi.initiatePaymentBulk(ids, actor);
-        }
-        if (!response.ok) throw new Error('Failed to initiate payments');
-        return unwrapData<ExternalVetCommissionBatch[]>(await readJson(response));
-      } catch (error) {
-        if (shouldFallbackToMock(null, error)) {
-          return mockExternalVetCommissionsApi.initiatePaymentBulk(ids, actor);
-        }
-        throw error;
       }
+      return unwrapData<ExternalVetCommissionBatch[]>(await readJson(response));
     },
-    [actor, apiFetch],
+    [apiFetch],
   );
 
   const markPaidBulk = useCallback(
     async (ids: string[]): Promise<ExternalVetCommissionBatch[]> => {
-      try {
-        const response = await apiFetch(
-          EXTERNAL_VET_COMMISSION_ENDPOINTS.markPaidBulk(),
-          {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ids }),
-          },
+      const response = await apiFetch(
+        EXTERNAL_VET_COMMISSION_ENDPOINTS.markPaidBulk(),
+        {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ids }),
+        },
+      );
+      if (!response.ok) {
+        throw new Error(
+          await errorMessage(response, 'Failed to mark batches paid'),
         );
-        if (shouldFallbackToMock(response, null)) {
-          return mockExternalVetCommissionsApi.markPaidBulk(ids, actor);
-        }
-        if (!response.ok) throw new Error('Failed to mark batches paid');
-        return unwrapData<ExternalVetCommissionBatch[]>(await readJson(response));
-      } catch (error) {
-        if (shouldFallbackToMock(null, error)) {
-          return mockExternalVetCommissionsApi.markPaidBulk(ids, actor);
-        }
-        throw error;
       }
+      return unwrapData<ExternalVetCommissionBatch[]>(await readJson(response));
     },
-    [actor, apiFetch],
+    [apiFetch],
   );
 
   const getOverview = useCallback(async (): Promise<ExternalVetsOverviewStats> => {
-    try {
-      const response = await apiFetch(
-        EXTERNAL_VET_COMMISSION_ENDPOINTS.getOverview(),
-      );
-      if (shouldFallbackToMock(response, null)) {
-        return mockExternalVetCommissionsApi.getOverview();
-      }
-      if (!response.ok) throw new Error('Failed to load overview');
-      return unwrapData<ExternalVetsOverviewStats>(await readJson(response));
-    } catch (error) {
-      if (shouldFallbackToMock(null, error)) {
-        return mockExternalVetCommissionsApi.getOverview();
-      }
-      throw error;
+    const response = await apiFetch(
+      EXTERNAL_VET_COMMISSION_ENDPOINTS.getOverview(),
+    );
+    if (!response.ok) {
+      throw new Error(await errorMessage(response, 'Failed to load overview'));
     }
+    return unwrapData<ExternalVetsOverviewStats>(await readJson(response));
   }, [apiFetch]);
 
   const getPerformance = useCallback(async (): Promise<
     ExternalVetPerformanceRow[]
   > => {
-    try {
-      const response = await apiFetch(
-        EXTERNAL_VET_COMMISSION_ENDPOINTS.getPerformance(),
-      );
-      if (shouldFallbackToMock(response, null)) {
-        return mockExternalVetCommissionsApi.getPerformance();
-      }
-      if (!response.ok) throw new Error('Failed to load performance');
-      return unwrapData<ExternalVetPerformanceRow[]>(await readJson(response));
-    } catch (error) {
-      if (shouldFallbackToMock(null, error)) {
-        return mockExternalVetCommissionsApi.getPerformance();
-      }
-      throw error;
+    const response = await apiFetch(
+      EXTERNAL_VET_COMMISSION_ENDPOINTS.getPerformance(),
+    );
+    if (!response.ok) {
+      throw new Error(await errorMessage(response, 'Failed to load performance'));
     }
+    return unwrapData<ExternalVetPerformanceRow[]>(await readJson(response));
   }, [apiFetch]);
 
   return useMemo(
