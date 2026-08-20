@@ -46,6 +46,8 @@ const HEADER_ALIASES: Record<string, SheetLineField> = {
   sumassured: 'sumInsured',
   netpremium: 'netPremium',
   premium: 'netPremium',
+  commission: 'vetCommission',
+  vetcommission: 'vetCommission',
   username: 'userName',
   user: 'userName',
 };
@@ -55,6 +57,7 @@ const REQUIRED: SheetLineField[] = [
   'clientName',
   'sumInsured',
   'netPremium',
+  'vetCommission',
 ];
 
 function parseNumber(raw: unknown): number {
@@ -235,7 +238,7 @@ export async function parseCommissionSheet(
       totalNetPremium: 0,
       totalSumInsured: 0,
       errors: [
-        'Could not find a header row with Contract, ClientName, SumInsured, and NetPremium. Title rows above the table are OK — ensure the column headers match the export template.',
+        'Could not find a header row with Contract, ClientName, SumInsured, NetPremium, and Commission. Title rows above the table are OK — ensure the column headers match the export template.',
       ],
       warnings,
     };
@@ -279,6 +282,7 @@ export async function parseCommissionSheet(
 
     const sumInsured = parseNumber(get('sumInsured'));
     const netPremium = parseNumber(get('netPremium'));
+    const vetCommission = parseNumber(get('vetCommission'));
     const snRaw = get('sn');
     const sn = snRaw ? parseNumber(snRaw) : lines.length + 1;
 
@@ -286,7 +290,9 @@ export async function parseCommissionSheet(
       warnings.push(`Row ${r + 1}: missing Contract — skipped`);
       continue;
     }
-    if ([sumInsured, netPremium].some((n) => Number.isNaN(n))) {
+    if (
+      [sumInsured, netPremium, vetCommission].some((n) => Number.isNaN(n))
+    ) {
       warnings.push(`Row ${r + 1}: invalid numeric values — skipped`);
       continue;
     }
@@ -304,6 +310,7 @@ export async function parseCommissionSheet(
       agent: get('agent') || 'SOLEKTRA R',
       sumInsured,
       netPremium,
+      vetCommission,
       companyCommission: 0,
       userName: get('userName'),
     });

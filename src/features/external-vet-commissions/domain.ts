@@ -51,7 +51,8 @@ export type ExternalVetPayeeSnapshot = {
  * sn→S/N, prodDate→ProdDate, branch→Branch, effecDate→EffecDate,
  * expiryDate→ExpiryDate, contract→Contract, typeLivestock→Type Livestock,
  * clientId→ClientID, clientName→ClientName, agent→Agent,
- * sumInsured→SumInsured, netPremium→NetPremium, userName→UserName.
+ * sumInsured→SumInsured, netPremium→NetPremium, vetCommission→Commission,
+ * userName→UserName.
  * companyCommission is NOT in the sheet — computed from netPremium × rate.
  */
 export type ExternalVetCommissionLine = {
@@ -68,6 +69,8 @@ export type ExternalVetCommissionLine = {
   agent: string;
   sumInsured: number;
   netPremium: number;
+  /** From sheet Commission column (vet payout line amount). */
+  vetCommission: number;
   /** netPremium × (companyCommissionPercent / 100). */
   companyCommission: number;
   userName: string;
@@ -94,7 +97,14 @@ export type ExternalVetCommissionBatch = {
   sourceFileName: string;
   /** % of net premium used to compute companyCommission (e.g. 3.5). */
   companyCommissionPercent: number;
-  /** Sum of line companyCommission (payout total). */
+  /** Sum of line vetCommission. */
+  totalVetCommission: number;
+  /** Sum of line companyCommission. */
+  totalCompanyCommission: number;
+  /**
+   * Primary payout total sent/returned by API.
+   * Prefer totalCompanyCommission when both exist; maps legacy totalCommission.
+   */
   totalCommission: number;
   lineCount: number;
   lines: ExternalVetCommissionLine[];
@@ -184,12 +194,14 @@ export const COMMISSION_LINE_COLUMN_LABELS: Record<
   agent: 'Agent',
   sumInsured: 'SumInsured',
   netPremium: 'NetPremium',
+  vetCommission: 'VetCommission',
   companyCommission: 'CompanyCommission',
   userName: 'UserName',
 };
 
 /**
  * Columns expected in the uploaded Excel/CSV (and downloadable template).
+ * Sheet still uses header "Commission" for vetCommission (SONARWA export).
  * companyCommission is intentionally excluded — set in the upload form.
  */
 export const COMMISSION_SHEET_COLUMN_KEYS = [
@@ -205,10 +217,32 @@ export const COMMISSION_SHEET_COLUMN_KEYS = [
   'agent',
   'sumInsured',
   'netPremium',
+  'vetCommission',
   'userName',
 ] as const satisfies ReadonlyArray<
   Exclude<keyof Omit<ExternalVetCommissionLine, 'id'>, 'companyCommission'>
 >;
+
+/** Sheet header labels (SONARWA uses "Commission" for vet commission). */
+export const COMMISSION_SHEET_COLUMN_LABELS: Record<
+  (typeof COMMISSION_SHEET_COLUMN_KEYS)[number],
+  string
+> = {
+  sn: 'S/N',
+  prodDate: 'ProdDate',
+  branch: 'Branch',
+  effecDate: 'EffecDate',
+  expiryDate: 'ExpiryDate',
+  contract: 'Contract',
+  typeLivestock: 'Type Livestock',
+  clientId: 'ClientID',
+  clientName: 'ClientName',
+  agent: 'Agent',
+  sumInsured: 'SumInsured',
+  netPremium: 'NetPremium',
+  vetCommission: 'Commission',
+  userName: 'UserName',
+};
 
 /** Full line column order for UI preview / detail tables. */
 export const COMMISSION_LINE_COLUMN_KEYS = [
@@ -224,6 +258,7 @@ export const COMMISSION_LINE_COLUMN_KEYS = [
   'agent',
   'sumInsured',
   'netPremium',
+  'vetCommission',
   'companyCommission',
   'userName',
 ] as const satisfies ReadonlyArray<keyof Omit<ExternalVetCommissionLine, 'id'>>;
@@ -238,6 +273,7 @@ export function formatCommissionLineCell(
   if (
     key === 'sumInsured' ||
     key === 'netPremium' ||
+    key === 'vetCommission' ||
     key === 'companyCommission'
   ) {
     return formatRwf(Number(value));

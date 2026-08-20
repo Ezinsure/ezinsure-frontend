@@ -105,6 +105,11 @@ export function UploadCommissionWizard({ open, onClose, onCreated }: Props) {
     [lines],
   );
 
+  const totalVetCommission = useMemo(
+    () => lines.reduce((sum, l) => sum + l.vetCommission, 0),
+    [lines],
+  );
+
   const totalNetPremium = useMemo(
     () => lines.reduce((sum, l) => sum + l.netPremium, 0),
     [lines],
@@ -294,9 +299,9 @@ export function UploadCommissionWizard({ open, onClose, onCreated }: Props) {
             Step {step} of 3 — {stepLabel}
           </p>
           <p className="mt-2 text-xs text-slate-500">
-            Vet details are entered in the form. The Excel file has policy lines
-            only (no Commission column) — company commission is calculated from
-            net premium × the rate you set (default{' '}
+            Vet details are entered in the form. The Excel sheet includes the
+            usual Commission column (shown as VetCommission). CompanyCommission
+            is calculated from net premium × the rate you set (default{' '}
             {DEFAULT_COMPANY_COMMISSION_PERCENT}%).
           </p>
         </div>
@@ -496,9 +501,9 @@ export function UploadCommissionWizard({ open, onClose, onCreated }: Props) {
                     <p className="mt-0.5 text-xs text-slate-500">
                       Required headers: S/N, ProdDate, Branch, EffecDate,
                       ExpiryDate, Contract, Type Livestock, ClientID,
-                      ClientName, Agent, SumInsured, NetPremium, UserName.
-                      Do not include Commission or vet bank details — company
-                      commission is calculated from the rate below.
+                      ClientName, Agent, SumInsured, NetPremium, Commission,
+                      UserName. Sheet Commission maps to VetCommission.
+                      CompanyCommission is calculated from the rate below.
                     </p>
                   </div>
                 </div>
@@ -606,7 +611,9 @@ export function UploadCommissionWizard({ open, onClose, onCreated }: Props) {
                   {periodLabel ? ` · ${periodLabel}` : ''}
                 </p>
                 <p className="mt-1 text-slate-600">
-                  Net premium {formatRwf(totalNetPremium)} · Company commission{' '}
+                  Net premium {formatRwf(totalNetPremium)} · Vet commission{' '}
+                  <strong>{formatRwf(totalVetCommission)}</strong> · Company
+                  commission{' '}
                   <strong>{formatRwf(totalCompanyCommission)}</strong>
                 </p>
                 <div className="mt-3 max-w-xs">

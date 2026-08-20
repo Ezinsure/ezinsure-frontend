@@ -1,6 +1,6 @@
 import {
   COMMISSION_SHEET_COLUMN_KEYS,
-  COMMISSION_LINE_COLUMN_LABELS,
+  COMMISSION_SHEET_COLUMN_LABELS,
 } from '../domain';
 
 /** One sample data row matching the upload sheet (no companyCommission). */
@@ -20,19 +20,20 @@ const SAMPLE_ROW: Record<
   agent: 'SOLEKTRA R',
   sumInsured: 1000000,
   netPremium: 55000,
+  vetCommission: 5500,
   userName: 'NYAMWASA',
 };
 
 /**
  * Download an Excel template with the sheet columns expected by upload.
- * companyCommission is NOT included — it is calculated in the form from
+ * Sheet header for vet commission remains "Commission" (SONARWA).
+ * companyCommission is NOT included — calculated in the form from
  * net premium × company commission %.
- * Vet name / phone / bank are also NOT in this file.
  */
 export async function downloadExternalVetCommissionTemplate(): Promise<void> {
   const XLSX = await import('@e965/xlsx');
   const headers = COMMISSION_SHEET_COLUMN_KEYS.map(
-    (key) => COMMISSION_LINE_COLUMN_LABELS[key],
+    (key) => COMMISSION_SHEET_COLUMN_LABELS[key],
   );
   const sample = COMMISSION_SHEET_COLUMN_KEYS.map((key) => SAMPLE_ROW[key]);
 

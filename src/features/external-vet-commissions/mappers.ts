@@ -102,15 +102,18 @@ function mapLine(raw: unknown): ExternalVetCommissionLine {
     agent: asString(row.agent),
     sumInsured: asNumber(row.sumInsured),
     netPremium: asNumber(row.netPremium),
-    companyCommission: asNumber(
-      row.companyCommission ?? row.commission,
-    ),
+    vetCommission: asNumber(row.vetCommission ?? row.commission),
+    companyCommission: asNumber(row.companyCommission),
     userName: asString(row.userName),
   };
 }
 
 export function mapBatchSummary(raw: unknown): ExternalVetCommissionBatchSummary {
   const row = asRecord(raw);
+  const totalVetCommission = asNumber(
+    row.totalVetCommission ?? row.totalCommission,
+  );
+  const totalCompanyCommission = asNumber(row.totalCompanyCommission);
   return {
     id: pickId(row),
     batchNumber: asString(row.batchNumber, pickId(row) || '—'),
@@ -123,8 +126,10 @@ export function mapBatchSummary(raw: unknown): ExternalVetCommissionBatchSummary
       row.companyCommissionPercent ?? row.commissionPercent,
       DEFAULT_COMPANY_COMMISSION_PERCENT,
     ),
+    totalVetCommission,
+    totalCompanyCommission,
     totalCommission: asNumber(
-      row.totalCommission ?? row.totalCompanyCommission,
+      row.totalCompanyCommission ?? row.totalCommission,
     ),
     lineCount: asNumber(row.lineCount),
     createdById: asString(row.createdById),
@@ -145,15 +150,24 @@ export function mapBatch(raw: unknown): ExternalVetCommissionBatch {
   const row = asRecord(raw);
   const summary = mapBatchSummary(raw);
   const lines = Array.isArray(row.lines) ? row.lines.map(mapLine) : [];
-  const totalFromLines = lines.reduce(
+  const totalVetFromLines = lines.reduce(
+    (sum, line) => sum + (line.vetCommission || 0),
+    0,
+  );
+  const totalCompanyFromLines = lines.reduce(
     (sum, line) => sum + (line.companyCommission || 0),
     0,
   );
+  const totalVetCommission = summary.totalVetCommission || totalVetFromLines;
+  const totalCompanyCommission =
+    summary.totalCompanyCommission || totalCompanyFromLines;
   return {
     ...summary,
     lines,
     lineCount: summary.lineCount || lines.length,
-    totalCommission: summary.totalCommission || totalFromLines,
+    totalVetCommission,
+    totalCompanyCommission,
+    totalCommission: summary.totalCommission || totalCompanyCommission,
   };
 }
 

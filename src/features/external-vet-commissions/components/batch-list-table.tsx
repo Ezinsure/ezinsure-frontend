@@ -70,6 +70,7 @@ export function BatchListTable({
             <th className="px-3 py-3 font-medium">Vet</th>
             <th className="px-3 py-3 font-medium">Period</th>
             <th className="px-3 py-3 font-medium">Lines</th>
+            <th className="px-3 py-3 font-medium">Vet commission</th>
             <th className="px-3 py-3 font-medium">Company commission</th>
             <th className="px-3 py-3 font-medium">Status</th>
             <th className="px-3 py-3 font-medium">Created</th>
@@ -105,7 +106,10 @@ export function BatchListTable({
               </td>
               <td className="px-3 py-3">{batch.lineCount}</td>
               <td className="px-3 py-3 font-medium">
-                {formatRwf(batch.totalCommission)}
+                {formatRwf(batch.totalVetCommission)}
+              </td>
+              <td className="px-3 py-3 font-medium">
+                {formatRwf(batch.totalCompanyCommission)}
               </td>
               <td className="px-3 py-3">
                 <ExternalVetStatusBadge status={batch.status} />

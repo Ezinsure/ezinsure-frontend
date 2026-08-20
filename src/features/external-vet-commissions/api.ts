@@ -116,7 +116,11 @@ function buildCreateBatchBody(input: CreateCommissionBatchInput) {
   }
 
   const companyCommissionPercent = Number(input.companyCommissionPercent);
-  const totalCommission = input.lines.reduce(
+  const totalVetCommission = input.lines.reduce(
+    (sum, line) => sum + (line.vetCommission || 0),
+    0,
+  );
+  const totalCompanyCommission = input.lines.reduce(
     (sum, line) => sum + (line.companyCommission || 0),
     0,
   );
@@ -127,7 +131,9 @@ function buildCreateBatchBody(input: CreateCommissionBatchInput) {
     periodLabel: input.periodLabel?.trim() || undefined,
     sourceFileName: input.sourceFileName,
     companyCommissionPercent,
-    totalCommission,
+    totalVetCommission,
+    totalCompanyCommission,
+    totalCommission: totalCompanyCommission,
     lineCount: input.lines.length,
     lines: input.lines,
   };
