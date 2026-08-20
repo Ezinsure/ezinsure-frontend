@@ -8,6 +8,7 @@ import {
   Wallet,
   Stethoscope,
   RefreshCw,
+  UserRoundSearch,
 } from 'lucide-react';
 import type { NavGroup } from '@/shared/navigation/types';
 
@@ -26,6 +27,11 @@ export function getLivestockAdminNavigation(rolePrefix: LivestockAdminRolePrefix
         { href: `${base}/renewals`, label: 'Renewals', icon: RefreshCw },
         { href: `${base}/commission-review`, label: 'Admin Review', icon: Wallet },
         { href: `${base}/vet-analytics`, label: 'Vet Analytics', icon: Stethoscope },
+        {
+          href: `${base}/external-vets`,
+          label: 'External Vets',
+          icon: UserRoundSearch,
+        },
       ],
     },
     {
