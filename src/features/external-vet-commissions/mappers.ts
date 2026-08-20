@@ -102,6 +102,7 @@ function mapLine(raw: unknown): ExternalVetCommissionLine {
     agent: asString(row.agent),
     sumInsured: asNumber(row.sumInsured),
     netPremium: asNumber(row.netPremium),
+    // Prefer new fields on all fetch/mutate responses; legacy `commission` = vet only.
     vetCommission: asNumber(row.vetCommission ?? row.commission),
     companyCommission: asNumber(row.companyCommission),
     userName: asString(row.userName),
@@ -110,10 +111,16 @@ function mapLine(raw: unknown): ExternalVetCommissionLine {
 
 export function mapBatchSummary(raw: unknown): ExternalVetCommissionBatchSummary {
   const row = asRecord(raw);
-  const totalVetCommission = asNumber(
-    row.totalVetCommission ?? row.totalCommission,
-  );
+  const totalVetCommission = asNumber(row.totalVetCommission);
   const totalCompanyCommission = asNumber(row.totalCompanyCommission);
+  // Legacy batches may only have totalCommission (historically vet total).
+  const legacyTotal = asNumber(row.totalCommission);
+  const resolvedVet =
+    totalVetCommission ||
+    (row.totalVetCommission == null && row.totalCompanyCommission == null
+      ? legacyTotal
+      : 0);
+  const resolvedCompany = totalCompanyCommission;
   return {
     id: pickId(row),
     batchNumber: asString(row.batchNumber, pickId(row) || '—'),
@@ -126,11 +133,9 @@ export function mapBatchSummary(raw: unknown): ExternalVetCommissionBatchSummary
       row.companyCommissionPercent ?? row.commissionPercent,
       DEFAULT_COMPANY_COMMISSION_PERCENT,
     ),
-    totalVetCommission,
-    totalCompanyCommission,
-    totalCommission: asNumber(
-      row.totalCompanyCommission ?? row.totalCommission,
-    ),
+    totalVetCommission: resolvedVet,
+    totalCompanyCommission: resolvedCompany,
+    totalCommission: resolvedCompany || resolvedVet || legacyTotal,
     lineCount: asNumber(row.lineCount),
     createdById: asString(row.createdById),
     createdByName: asString(row.createdByName),
@@ -167,7 +172,7 @@ export function mapBatch(raw: unknown): ExternalVetCommissionBatch {
     lineCount: summary.lineCount || lines.length,
     totalVetCommission,
     totalCompanyCommission,
-    totalCommission: summary.totalCommission || totalCompanyCommission,
+    totalCommission: totalCompanyCommission || totalVetCommission,
   };
 }
 

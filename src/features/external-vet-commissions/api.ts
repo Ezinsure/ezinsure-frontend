@@ -133,9 +133,24 @@ function buildCreateBatchBody(input: CreateCommissionBatchInput) {
     companyCommissionPercent,
     totalVetCommission,
     totalCompanyCommission,
-    totalCommission: totalCompanyCommission,
     lineCount: input.lines.length,
-    lines: input.lines,
+    lines: input.lines.map((line) => ({
+      sn: line.sn,
+      prodDate: line.prodDate,
+      branch: line.branch,
+      effecDate: line.effecDate,
+      expiryDate: line.expiryDate,
+      contract: line.contract,
+      typeLivestock: line.typeLivestock,
+      clientId: line.clientId,
+      clientName: line.clientName,
+      agent: line.agent,
+      sumInsured: line.sumInsured,
+      netPremium: line.netPremium,
+      vetCommission: line.vetCommission,
+      companyCommission: line.companyCommission,
+      userName: line.userName,
+    })),
   };
 }
 
