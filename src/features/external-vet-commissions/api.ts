@@ -14,6 +14,13 @@ import type {
   ExternalVetsOverviewStats,
   PlatformVetSearchHit,
 } from './domain';
+import {
+  mapBatch,
+  mapBatchSummary,
+  mapOverview,
+  mapPerformanceRow,
+  normalizeList,
+} from './mappers';
 
 async function readJson(response: Response): Promise<unknown> {
   try {
@@ -199,9 +206,7 @@ export function useExternalVetCommissionsApi() {
       if (!response.ok) {
         throw new Error(await errorMessage(response, 'Failed to list batches'));
       }
-      return unwrapData<ExternalVetCommissionBatchSummary[]>(
-        await readJson(response),
-      );
+      return normalizeList(await readJson(response)).map(mapBatchSummary);
     },
     [apiFetch],
   );
@@ -215,7 +220,7 @@ export function useExternalVetCommissionsApi() {
       if (!response.ok) {
         throw new Error(await errorMessage(response, 'Failed to load batch'));
       }
-      return unwrapData<ExternalVetCommissionBatch>(await readJson(response));
+      return mapBatch(unwrapData<unknown>(await readJson(response)));
     },
     [apiFetch],
   );
@@ -240,7 +245,7 @@ export function useExternalVetCommissionsApi() {
       if (!response.ok) {
         throw new Error(await errorMessage(response, 'Failed to create batch'));
       }
-      return unwrapData<ExternalVetCommissionBatch>(await readJson(response));
+      return mapBatch(unwrapData<unknown>(await readJson(response)));
     },
     [apiFetch],
   );
@@ -258,7 +263,7 @@ export function useExternalVetCommissionsApi() {
       if (!response.ok) {
         throw new Error(await errorMessage(response, 'Failed to approve batch'));
       }
-      return unwrapData<ExternalVetCommissionBatch>(await readJson(response));
+      return mapBatch(unwrapData<unknown>(await readJson(response)));
     },
     [apiFetch],
   );
@@ -276,7 +281,7 @@ export function useExternalVetCommissionsApi() {
       if (!response.ok) {
         throw new Error(await errorMessage(response, 'Failed to reject batch'));
       }
-      return unwrapData<ExternalVetCommissionBatch>(await readJson(response));
+      return mapBatch(unwrapData<unknown>(await readJson(response)));
     },
     [apiFetch],
   );
@@ -292,7 +297,7 @@ export function useExternalVetCommissionsApi() {
           await errorMessage(response, 'Failed to initiate payment'),
         );
       }
-      return unwrapData<ExternalVetCommissionBatch>(await readJson(response));
+      return mapBatch(unwrapData<unknown>(await readJson(response)));
     },
     [apiFetch],
   );
@@ -306,7 +311,7 @@ export function useExternalVetCommissionsApi() {
       if (!response.ok) {
         throw new Error(await errorMessage(response, 'Failed to mark paid'));
       }
-      return unwrapData<ExternalVetCommissionBatch>(await readJson(response));
+      return mapBatch(unwrapData<unknown>(await readJson(response)));
     },
     [apiFetch],
   );
@@ -326,7 +331,7 @@ export function useExternalVetCommissionsApi() {
           await errorMessage(response, 'Failed to initiate payments'),
         );
       }
-      return unwrapData<ExternalVetCommissionBatch[]>(await readJson(response));
+      return normalizeList(await readJson(response)).map(mapBatch);
     },
     [apiFetch],
   );
@@ -346,7 +351,7 @@ export function useExternalVetCommissionsApi() {
           await errorMessage(response, 'Failed to mark batches paid'),
         );
       }
-      return unwrapData<ExternalVetCommissionBatch[]>(await readJson(response));
+      return normalizeList(await readJson(response)).map(mapBatch);
     },
     [apiFetch],
   );
@@ -358,7 +363,7 @@ export function useExternalVetCommissionsApi() {
     if (!response.ok) {
       throw new Error(await errorMessage(response, 'Failed to load overview'));
     }
-    return unwrapData<ExternalVetsOverviewStats>(await readJson(response));
+    return mapOverview(unwrapData<unknown>(await readJson(response)));
   }, [apiFetch]);
 
   const getPerformance = useCallback(async (): Promise<
@@ -370,7 +375,7 @@ export function useExternalVetCommissionsApi() {
     if (!response.ok) {
       throw new Error(await errorMessage(response, 'Failed to load performance'));
     }
-    return unwrapData<ExternalVetPerformanceRow[]>(await readJson(response));
+    return normalizeList(await readJson(response)).map(mapPerformanceRow);
   }, [apiFetch]);
 
   return useMemo(

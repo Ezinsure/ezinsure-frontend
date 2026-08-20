@@ -93,8 +93,12 @@ export function BatchListTable({
                 {batch.batchNumber}
               </td>
               <td className="px-3 py-3">
-                <div className="font-medium text-slate-800">{batch.payee.name}</div>
-                <div className="text-xs text-slate-500">{batch.payee.phoneNumber}</div>
+                <div className="font-medium text-slate-800">
+                  {batch.payee?.name ?? '—'}
+                </div>
+                <div className="text-xs text-slate-500">
+                  {batch.payee?.phoneNumber ?? '—'}
+                </div>
               </td>
               <td className="px-3 py-3 text-slate-600">
                 {batch.periodLabel || '—'}

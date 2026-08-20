@@ -159,8 +159,8 @@ export default function ExternalVetsHub({ viewRole }: ExternalVetsHubProps) {
     if (!q) return true;
     return (
       b.batchNumber.toLowerCase().includes(q) ||
-      b.payee.name.toLowerCase().includes(q) ||
-      b.payee.phoneNumber.includes(q) ||
+      (b.payee?.name ?? '').toLowerCase().includes(q) ||
+      (b.payee?.phoneNumber ?? '').includes(q) ||
       (b.periodLabel ?? '').toLowerCase().includes(q) ||
       b.sourceFileName.toLowerCase().includes(q)
     );
