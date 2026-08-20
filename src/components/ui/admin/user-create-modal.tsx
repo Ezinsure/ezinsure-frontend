@@ -439,6 +439,7 @@ export const UserCreateModal = ({
                 <Input
                   label="Phone Number"
                   name="phoneNumber"
+                  placeholder="2507XXXXXXXX"
                   value={formData.phoneNumber}
                   onChange={handleInputChange}
                   error={errors.phoneNumber}
@@ -502,6 +503,7 @@ export const UserCreateModal = ({
             <Input
               label="Phone Number"
               name="phoneNumber"
+              placeholder="2507XXXXXXXX"
               value={formData.phoneNumber}
               onChange={handleInputChange}
               error={errors.phoneNumber}
@@ -541,9 +543,12 @@ export const UserCreateModal = ({
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Province *</label>
               <select
-                className="w-full border border-gray-300 rounded-md p-2"
+                name="province"
+                className={`w-full border rounded-md p-2 ${
+                  errors.province ? 'border-red-500' : 'border-gray-300'
+                }`}
                 value={formData.province}
-                onChange={(e) => setFormData({ ...formData, province: e.target.value })}
+                onChange={handleInputChange}
                 required
               >
                 <option value="">Select Province</option>
@@ -551,14 +556,20 @@ export const UserCreateModal = ({
                   <option key={province.name} value={province.name}>{province.name}</option>
                 ))}
               </select>
+              {errors.province && (
+                <p className="mt-2 text-sm text-red-600">{errors.province}</p>
+              )}
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">District *</label>
               <select
-                className="w-full border border-gray-300 rounded-md p-2"
+                name="district"
+                className={`w-full border rounded-md p-2 ${
+                  errors.district ? 'border-red-500' : 'border-gray-300'
+                }`}
                 value={formData.district}
-                onChange={(e) => setFormData({ ...formData, district: e.target.value })}
+                onChange={handleInputChange}
                 required
                 disabled={!formData.province}
               >
@@ -567,14 +578,20 @@ export const UserCreateModal = ({
                   <option key={district.name} value={district.name}>{district.name}</option>
                 ))}
               </select>
+              {errors.district && (
+                <p className="mt-2 text-sm text-red-600">{errors.district}</p>
+              )}
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Sector *</label>
               <select
-                className="w-full border border-gray-300 rounded-md p-2"
+                name="sector"
+                className={`w-full border rounded-md p-2 ${
+                  errors.sector ? 'border-red-500' : 'border-gray-300'
+                }`}
                 value={formData.sector}
-                onChange={(e) => setFormData({ ...formData, sector: e.target.value })}
+                onChange={handleInputChange}
                 required
                 disabled={!formData.district}
               >
@@ -583,6 +600,9 @@ export const UserCreateModal = ({
                   <option key={sector} value={sector}>{sector}</option>
                 ))}
               </select>
+              {errors.sector && (
+                <p className="mt-2 text-sm text-red-600">{errors.sector}</p>
+              )}
             </div>
           </div>
 
