@@ -1,49 +1,46 @@
 /**
- * External vet commissions API route builders (backend contract).
+ * External vet commissions API route builders.
+ * Paths match production Swagger (camelCase), e.g. `/externalVetCommissions/...`.
  * All endpoints require Bearer auth.
  */
 
+const BASE = '/externalVetCommissions';
+
 export const EXTERNAL_VET_COMMISSION_ENDPOINTS = {
-  listExternalVets: (): string => `/external-vet-commissions/vets`,
+  listExternalVets: (): string => `${BASE}/vets`,
 
   searchPlatformVets: (q: string): string => {
     const search = new URLSearchParams({ q });
-    return `/external-vet-commissions/platform-vets/search?${search.toString()}`;
+    return `${BASE}/platformVets/search?${search.toString()}`;
   },
 
-  createExternalVet: (): string => `/external-vet-commissions/vets`,
+  createExternalVet: (): string => `${BASE}/vets`,
 
   listBatches: (status?: string): string => {
     const search = new URLSearchParams();
     if (status && status !== 'ALL') search.set('status', status);
     const qs = search.toString();
-    return qs
-      ? `/external-vet-commissions/batches?${qs}`
-      : `/external-vet-commissions/batches`;
+    return qs ? `${BASE}/batches?${qs}` : `${BASE}/batches`;
   },
 
-  getBatch: (id: string): string => `/external-vet-commissions/batches/${id}`,
+  getBatch: (id: string): string => `${BASE}/batches/${id}`,
 
-  createBatch: (): string => `/external-vet-commissions/batches`,
+  createBatch: (): string => `${BASE}/batches`,
 
-  approveBatch: (id: string): string =>
-    `/external-vet-commissions/batches/${id}/approve`,
+  approveBatch: (id: string): string => `${BASE}/batches/${id}/approve`,
 
-  rejectBatch: (id: string): string =>
-    `/external-vet-commissions/batches/${id}/reject`,
+  rejectBatch: (id: string): string => `${BASE}/batches/${id}/reject`,
 
   initiatePayment: (id: string): string =>
-    `/external-vet-commissions/batches/${id}/initiate-payment`,
+    `${BASE}/batches/${id}/initiatePayment`,
 
-  markPaid: (id: string): string =>
-    `/external-vet-commissions/batches/${id}/mark-paid`,
+  markPaid: (id: string): string => `${BASE}/batches/${id}/markPaid`,
 
-  initiatePaymentBulk: (): string =>
-    `/external-vet-commissions/batches/initiate-payment`,
+  initiatePaymentBulk: (): string => `${BASE}/batches/initiatePayment`,
 
-  markPaidBulk: (): string => `/external-vet-commissions/batches/mark-paid`,
+  markPaidBulk: (): string => `${BASE}/batches/markPaid`,
 
-  getOverview: (): string => `/external-vet-commissions/overview`,
+  getOverview: (): string => `${BASE}/overview`,
 
-  getPerformance: (): string => `/external-vet-commissions/performance`,
+  getPerformance: (): string => `${BASE}/performance`,
 } as const;
