@@ -54,6 +54,8 @@ interface LivestockUser {
   bankAccountNumber?: string;
   veterinaryType?: string;
   rcvdLicenceDocument?: string;
+  /** Default Solektra company commission % for this vet's applications (5, 8, or 10). */
+  companyCommissionRate?: number;
 }
 
 type UserSortField = 'fullName' | 'email' | 'role' | 'status' | 'createdAt';
@@ -140,6 +142,7 @@ const emptyFormData = {
   veterinaryType: '',
   bankName: '',
   bankAccountNumber: '',
+  companyCommissionRate: '8',
 };
 
 interface LivestockUsersPageProps {
@@ -307,6 +310,9 @@ export function LivestockUsersPage({ viewerRole }: LivestockUsersPageProps) {
 
         if (formData.veterinaryType) {
           payload.append('veterinaryType', formData.veterinaryType);
+        }
+        if (formData.companyCommissionRate) {
+          payload.append('companyCommissionRate', formData.companyCommissionRate);
         }
         if (formData.rcvdLicenceDocument) {
           payload.append('rcvdLicenceDocument', formData.rcvdLicenceDocument);
@@ -495,6 +501,12 @@ export function LivestockUsersPage({ viewerRole }: LivestockUsersPageProps) {
       if (originalUser.bankName !== updatedUser.bankName) changedFields.bankName = updatedUser.bankName;
       if (originalUser.bankAccountNumber !== updatedUser.bankAccountNumber) {
         changedFields.bankAccountNumber = updatedUser.bankAccountNumber;
+      }
+      if (
+        Number(originalUser.companyCommissionRate ?? 8) !==
+        Number(updatedUser.companyCommissionRate ?? 8)
+      ) {
+        changedFields.companyCommissionRate = Number(updatedUser.companyCommissionRate ?? 8);
       }
       if (
         JSON.stringify(originalUser.emergencyContacts) !==

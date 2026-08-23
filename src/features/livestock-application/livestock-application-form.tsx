@@ -19,6 +19,11 @@ import { useLivestockApplicationForm } from '@/features/livestock-application/us
 import { resolveVetVerificationPrefill } from '@/features/livestock-application/utils/vet-form-prefill';
 import { computeRenewalPricing } from '@/features/renewals/renewal-pricing';
 import { formatRwfDisplay } from '@/features/livestock-application/utils/format-rwf';
+import {
+  DEFAULT_COMPANY_COMMISSION_RATE_PERCENT,
+  normalizeCompanyCommissionRatePercent,
+} from '@/features/livestock-application/domain/commission-rates';
+import { isVeterinaryRole } from '@/shared/utils/role';
 
 interface LivestockApplicationFormProps {
   mode?: LivestockApplicationFormMode;
@@ -80,9 +85,26 @@ export function LivestockApplicationForm({
   const { showToast, ToastContainer } = useToast();
   const { user } = useAuth();
   const vetPrefill = useMemo(() => resolveVetVerificationPrefill(user), [user]);
+  const showCompanyCommission = !isVeterinaryRole(String(user?.role ?? ''));
+  const resolvedInitialValues = useMemo<Partial<LivestockApplicationFormValues>>(() => {
+    const profileRate = normalizeCompanyCommissionRatePercent(
+      user?.companyCommissionRate ?? DEFAULT_COMPANY_COMMISSION_RATE_PERCENT,
+    );
+    return {
+      ...initialValues,
+      companyCommissionRate:
+        initialValues?.companyCommissionRate?.trim() || String(profileRate),
+    };
+  }, [initialValues, user]);
   const { submit, isSubmitting, clearError } = useCreateLivestockApplication();
   const [overrideBusy, setOverrideBusy] = useState(false);
-  const form = useLivestockApplicationForm(initialValues, mode, formProfile, intake, vetPrefill);
+  const form = useLivestockApplicationForm(
+    resolvedInitialValues,
+    mode,
+    formProfile,
+    intake,
+    vetPrefill,
+  );
   const {
     values,
     setField,
@@ -253,6 +275,7 @@ export function LivestockApplicationForm({
           mergeLivestockItems={mergeLivestockItems}
           formProfile={formProfile}
           lockInsuranceType={isRenewalMode}
+          showCompanyCommission={showCompanyCommission}
         />
 
         {submitMessage && (

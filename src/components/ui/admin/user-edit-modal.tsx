@@ -32,6 +32,8 @@ interface User {
   rejectionReason?: string;
   bankName?: string;
   bankAccountNumber?: string;
+  /** Livestock vet default company commission % (5, 8, or 10). */
+  companyCommissionRate?: number | string;
 }
 
 interface Errors {
@@ -133,6 +135,9 @@ export const UserEditModal = ({ user, onClose, onSave, isLoading }: UserEditModa
     // if (user.email !== formData.email) changes.email = formData.email;
     if (user.bankName !== formData.bankName) changes.bankName = formData.bankName;
     if (user.bankAccountNumber !== formData.bankAccountNumber) changes.bankAccountNumber = formData.bankAccountNumber;
+    if (String(user.companyCommissionRate ?? '') !== String(formData.companyCommissionRate ?? '')) {
+      changes.companyCommissionRate = formData.companyCommissionRate;
+    }
     
     // Emergency contacts
     if (JSON.stringify(user.emergencyContacts) !== JSON.stringify(formData.emergencyContacts)) {
@@ -357,6 +362,25 @@ export const UserEditModal = ({ user, onClose, onSave, isLoading }: UserEditModa
               error={errors.bankAccountNumber}
               required
             />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Company commission rate
+            </label>
+            <select
+              className="w-full border border-gray-300 rounded-md p-2"
+              name="companyCommissionRate"
+              value={String(formData.companyCommissionRate ?? '8')}
+              onChange={handleInputChange}
+            >
+              <option value="5">5%</option>
+              <option value="8">8% (default)</option>
+              <option value="10">10%</option>
+            </select>
+            <p className="mt-1 text-xs text-gray-500">
+              For veterinarians: default Solektra rate on livestock applications they create.
+            </p>
           </div>
           
           <div>

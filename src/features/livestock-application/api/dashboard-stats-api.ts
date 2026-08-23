@@ -63,8 +63,14 @@ function aggregateFromApplications(
 
     stats.totalInsuredValue += Number(app.totalSumAssured ?? 0);
     stats.totalAgentCommissions += Number(app.veterinaryCommission ?? 0);
-    const premium = Number(app.totals?.premiumRateAmount ?? 0);
-    stats.totalCompanyCommissions += Math.round(premium * 0.08);
+    const storedCompany = Number(app.companyCommission ?? 0);
+    if (storedCompany > 0) {
+      stats.totalCompanyCommissions += storedCompany;
+    } else {
+      const premium = Number(app.totals?.premiumRateAmount ?? 0);
+      const rate = Number(app.companyCommissionRate ?? 8) / 100;
+      stats.totalCompanyCommissions += Math.round(premium * rate);
+    }
   }
 
   stats.animalsInsured.total =

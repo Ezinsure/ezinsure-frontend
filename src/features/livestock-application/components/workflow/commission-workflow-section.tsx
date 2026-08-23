@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { Banknote, CheckCircle2, Wallet } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { Banknote, CheckCircle2, Percent, Wallet } from 'lucide-react';
 import {
   approveLivestockCommission,
   markLivestockCommissionPaid,
@@ -10,6 +10,13 @@ import type {
   LivestockApplicationPackage,
   LivestockApplicationViewRole,
 } from '@/features/livestock-application/domain/application-types';
+import {
+  COMPANY_COMMISSION_RATE_SELECT_OPTIONS,
+  formatCompanyCommissionRateCaption,
+  normalizeCompanyCommissionRatePercent,
+  type CompanyCommissionRatePercent,
+} from '@/features/livestock-application/domain/commission-rates';
+import { computeCompanyCommissionAmount } from '@/features/livestock-application/utils/premium-calculations';
 import { formatRwfDisplay } from '@/features/livestock-application/utils/format-rwf';
 import { formatWorkflowActionError } from '@/features/livestock-application/utils/workflow-action-feedback';
 import {
@@ -41,6 +48,9 @@ export function CommissionWorkflowSection({
   const toast = useWorkflowToast();
   const [approvalNotes, setApprovalNotes] = useState('');
   const [paymentReference, setPaymentReference] = useState('');
+  const [companyRate, setCompanyRate] = useState<CompanyCommissionRatePercent>(() =>
+    normalizeCompanyCommissionRatePercent(application.totals.companyCommissionRate),
+  );
   const { apiFetch } = useApiClient();
 
   const showSection =
@@ -50,6 +60,12 @@ export function CommissionWorkflowSection({
     application.status === 'PAID' ||
     application.status === 'COMMISSION_APPROVED' ||
     application.subsidyCase.status === 'SONARWA_APPROVED';
+
+  const previewCompanyCommission = useMemo(
+    () =>
+      computeCompanyCommissionAmount(application.totals.premiumRateAmount, companyRate),
+    [application.totals.premiumRateAmount, companyRate],
+  );
 
   if (!showSection) return null;
 
@@ -66,12 +82,14 @@ export function CommissionWorkflowSection({
     canMarkCommissionPaid(application, viewRole),
   );
   const isFinanceView = canManageCommissionWorkflow(application, viewRole) || canPay;
+  const showCompanyFields = viewRole !== 'vet';
 
   const handleApproveCommission = async () => {
     setLoading('approve');
     try {
       await approveLivestockCommission(apiFetch, application._id, {
         notes: approvalNotes.trim() || undefined,
+        companyCommissionRate: companyRate,
       });
       toast.showSuccess('Commission approved. Application is ready to be paid.');
       onUpdated?.();
@@ -121,9 +139,18 @@ export function CommissionWorkflowSection({
             After SONARWA approval, finance reviews the veterinary commission, marks the application
             ready to pay, then records payment.
           </p>
-          <p className="mt-2 text-sm font-semibold text-slate-800">
-            Vet commission: {formatRwfDisplay(application.totals.veterinaryCommission)}
-          </p>
+          <div className="mt-3 flex flex-wrap gap-3 text-sm">
+            <p className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 font-semibold text-slate-800">
+              <Banknote className="h-3.5 w-3.5 text-slate-500" />
+              Vet commission: {formatRwfDisplay(application.totals.veterinaryCommission)}
+            </p>
+            {showCompanyFields && (
+              <p className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 font-semibold text-slate-800">
+                <Percent className="h-3.5 w-3.5 text-slate-500" />
+                Company ({companyRate}%): {formatRwfDisplay(previewCompanyCommission)}
+              </p>
+            )}
+          </div>
         </div>
       </div>
 
@@ -143,6 +170,38 @@ export function CommissionWorkflowSection({
         >
           {canApprove && (
             <div className="space-y-3">
+              <div>
+                <label
+                  htmlFor="company-commission-rate"
+                  className="mb-1.5 block text-sm font-medium text-slate-700"
+                >
+                  Company commission rate
+                </label>
+                <select
+                  id="company-commission-rate"
+                  value={companyRate}
+                  onChange={(event) =>
+                    setCompanyRate(
+                      normalizeCompanyCommissionRatePercent(Number(event.target.value)),
+                    )
+                  }
+                  disabled={loading !== null}
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:bg-slate-50 sm:max-w-xs"
+                >
+                  {COMPANY_COMMISSION_RATE_SELECT_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label} — {formatCompanyCommissionRateCaption(opt.value)}
+                    </option>
+                  ))}
+                </select>
+                <p className="mt-1.5 text-xs text-slate-500">
+                  Preview company amount:{' '}
+                  <span className="font-semibold text-slate-700">
+                    {formatRwfDisplay(previewCompanyCommission)}
+                  </span>{' '}
+                  of total premium {formatRwfDisplay(application.totals.premiumRateAmount)}.
+                </p>
+              </div>
               <div>
                 <label
                   htmlFor="commission-approval-notes"
@@ -178,13 +237,13 @@ export function CommissionWorkflowSection({
           title={isPaid ? 'Commission paid' : 'Ready to be paid'}
           description={
             isPaid
-              ? 'Veterinary commission has been disbursed.'
+              ? 'Veterinary commission has been paid.'
               : isReady
-                ? 'Commission is approved — record payment when the transfer is complete.'
-                : 'Available after admin review is approved.'
+                ? 'Waiting for finance to record payment.'
+                : 'Available after admin approval.'
           }
           state={isPaid ? 'completed' : isReady ? 'current' : 'upcoming'}
-          badge={isReady && canPay ? 'Action required' : isPaid ? 'Completed' : undefined}
+          badge={isReady && canPay ? 'Action required' : undefined}
         >
           {canPay && (
             <div className="space-y-3">
@@ -201,7 +260,7 @@ export function CommissionWorkflowSection({
                   value={paymentReference}
                   onChange={(event) => setPaymentReference(event.target.value)}
                   disabled={loading !== null}
-                  placeholder="Bank transfer or MoMo reference"
+                  placeholder="Bank transfer / memo reference…"
                   className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:bg-slate-50"
                 />
               </div>
@@ -211,19 +270,20 @@ export function CommissionWorkflowSection({
                   icon={<Banknote className="mr-2 h-4 w-4" />}
                   onClick={() => void handleMarkPaid()}
                 >
-                  Mark commission as paid
+                  Mark commission paid
                 </WorkflowPrimaryAction>
               </WorkflowStepActions>
             </div>
           )}
         </WorkflowStepCard>
-      </div>
 
-      {!isFinanceView && viewRole === 'vet' && (
-        <p className="mt-4 text-xs text-slate-500">
-          Finance will process your commission after SONARWA approval. You will see status updates here.
-        </p>
-      )}
+        {!isFinanceView && viewRole === 'vet' && (
+          <p className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+            Commission approval and payment are handled by finance. You will see status updates here
+            as the application progresses.
+          </p>
+        )}
+      </div>
     </section>
   );
 }

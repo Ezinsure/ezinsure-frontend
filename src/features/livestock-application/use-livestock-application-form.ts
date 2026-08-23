@@ -136,6 +136,8 @@ export function useLivestockApplicationForm(
           next = withPremiumAmounts(next);
         } else if (key === 'premiumRateAmount') {
           next = withPremiumAmounts(next, true);
+        } else if (key === 'companyCommissionRate') {
+          next = withPremiumAmounts(next, Boolean(String(next.premiumRateAmount).trim()));
         }
         return next;
       });
@@ -405,6 +407,7 @@ export function useLivestockApplicationForm(
         premiumRateAmount: toNumber(amounts.premiumRateAmount),
         farmerContributionAmount: toNumber(amounts.farmerContributionAmount),
         governmentContribution: toNumber(amounts.governmentContribution),
+        companyCommissionRate: toNumber(amounts.companyCommissionRate) || 8,
         companyCommission: toNumber(amounts.companyCommission),
         veterinaryCommission: toNumber(amounts.veterinaryCommission),
         totalSumAssured: values.livestockItems.reduce(

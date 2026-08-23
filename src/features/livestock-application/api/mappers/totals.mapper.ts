@@ -1,5 +1,7 @@
 import type { ApplicationPremiumTotals } from '@/features/livestock-application/domain/application-types';
 import { computePremiumPercentage } from '@/features/livestock-application/api/mappers/status.mapper';
+import { normalizeCompanyCommissionRatePercent } from '@/features/livestock-application/domain/commission-rates';
+import { computeCompanyCommissionAmount } from '@/features/livestock-application/utils/premium-calculations';
 
 /** Merge root-level premium fields with optional nested `totals` from API detail responses. */
 export function readPackageTotals(record: Record<string, unknown>): ApplicationPremiumTotals {
@@ -12,9 +14,18 @@ export function readPackageTotals(record: Record<string, unknown>): ApplicationP
   const governmentContribution = Number(
     record.governmentContribution ?? nested.governmentContribution ?? 0,
   );
-  const companyCommission = Math.round(
+  const companyCommissionRate = normalizeCompanyCommissionRatePercent(
+    record.companyCommissionRate ??
+      nested.companyCommissionRate ??
+      record.companyCommissionPercent ??
+      nested.companyCommissionPercent,
+  );
+  let companyCommission = Math.round(
     Number(record.companyCommission ?? nested.companyCommission ?? 0),
   );
+  if (companyCommission <= 0 && premiumRateAmount > 0) {
+    companyCommission = computeCompanyCommissionAmount(premiumRateAmount, companyCommissionRate);
+  }
   const veterinaryCommission = Math.round(
     Number(record.veterinaryCommission ?? nested.veterinaryCommission ?? 0),
   );
@@ -30,6 +41,7 @@ export function readPackageTotals(record: Record<string, unknown>): ApplicationP
     premiumRateAmount,
     farmerContributionAmount,
     governmentContribution,
+    companyCommissionRate,
     companyCommission,
     veterinaryCommission,
     totalSumAssured,

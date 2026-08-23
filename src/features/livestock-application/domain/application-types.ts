@@ -134,6 +134,8 @@ export interface ApplicationPremiumTotals {
   premiumRateAmount: number;
   farmerContributionAmount: number;
   governmentContribution: number;
+  /** Company commission rate percent (5, 8, or 10). Defaults to 8 when omitted. */
+  companyCommissionRate?: number;
   companyCommission: number;
   veterinaryCommission: number;
   totalSumAssured: number;
@@ -291,6 +293,8 @@ export interface LivestockApplicationListItem {
   totalSumAssured?: number;
   governmentContribution?: number;
   veterinaryCommission?: number;
+  companyCommission?: number;
+  companyCommissionRate?: number;
   status: LivestockApplicationStatus;
   ownerSummary: string;
   lineCount: number;

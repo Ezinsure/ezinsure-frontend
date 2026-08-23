@@ -118,7 +118,12 @@ export interface LivestockApplicationFormValues {
   farmerContributionAmount: string;
   /** API: governmentContribution — 40% of premiumRateAmount */
   governmentContribution: string;
-  /** API: companyCommission — 8% of premiumRateAmount */
+  /**
+   * Company (Solektra) commission rate percent — 5, 8, or 10.
+   * Amount is derived as rate% of premiumRateAmount.
+   */
+  companyCommissionRate: string;
+  /** API: companyCommission — rate% of premiumRateAmount */
   companyCommission: string;
   /** API: veterinaryCommission — 5% of premiumRateAmount */
   veterinaryCommission: string;

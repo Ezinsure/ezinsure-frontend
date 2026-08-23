@@ -21,6 +21,7 @@ export interface VeterinaryApplication {
   premiumRateAmount: number;
   governmentContribution: number;
   companyCommission: number;
+  companyCommissionRate?: number;
   veterinaryCommission: number;
   chipNumber: string;
   animalType: string;

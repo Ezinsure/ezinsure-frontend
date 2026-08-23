@@ -23,6 +23,7 @@ import {
   poultryProductTypeLabel,
   speciesGroupLabel,
 } from '@/features/livestock-application/domain/form-profiles';
+import { formatCompanyCommissionRateLabel } from '@/features/livestock-application/domain/commission-rates';
 import { formatPolicyDate } from '@/features/livestock-application/utils/application-location';
 import {
   formatGirinkaDisplay,
@@ -149,10 +150,18 @@ export function ApplicationReviewDetails({
               value={formatRwfDisplay(totals.veterinaryCommission)}
             />
             {viewRole !== 'vet' && (
-              <Field
-                label={labels.companyCommission}
-                value={formatRwfDisplay(totals.companyCommission)}
-              />
+              <>
+                <Field
+                  label="Company commission rate"
+                  value={`${application.totals.companyCommissionRate ?? 8}%`}
+                />
+                <Field
+                  label={formatCompanyCommissionRateLabel(
+                    application.totals.companyCommissionRate,
+                  )}
+                  value={formatRwfDisplay(totals.companyCommission)}
+                />
+              </>
             )}
             {viewRole !== 'vet' && <Field label="Veterinarian" value={application.vetName} />}
             {application.insuranceIssuedAt && (

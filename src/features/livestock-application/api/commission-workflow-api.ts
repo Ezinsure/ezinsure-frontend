@@ -193,6 +193,8 @@ export async function reviewSonarwaSubsidy(
 
 export interface ApproveCommissionPayload {
   notes?: string;
+  /** Optional override — 5, 8, or 10. Backend recalculates companyCommission. */
+  companyCommissionRate?: number;
 }
 
 export interface ApproveCommissionResult {
@@ -305,6 +307,9 @@ export async function approveLivestockCommission(
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         ...(payload?.notes?.trim() ? { notes: payload.notes.trim() } : {}),
+        ...(payload?.companyCommissionRate != null
+          ? { companyCommissionRate: payload.companyCommissionRate }
+          : {}),
       }),
     },
     'commission-approve',

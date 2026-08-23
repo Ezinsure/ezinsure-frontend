@@ -83,6 +83,7 @@ function mapVeterinaryApplicationToPackage(app: VeterinaryApplication): Livestoc
       premiumRateAmount: premiumRate,
       farmerContributionAmount: farmer,
       governmentContribution: gov,
+      companyCommissionRate: Number(app.companyCommissionRate ?? 8),
       companyCommission: Math.round(app.companyCommission ?? 0),
       veterinaryCommission: Math.round(app.veterinaryCommission ?? 0),
       totalSumAssured: sumAssured,

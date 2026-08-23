@@ -64,6 +64,8 @@ export function mapFlatApplicationToListItem(
     totalSumAssured: totals.totalSumAssured,
     governmentContribution: totals.governmentContribution,
     veterinaryCommission: totals.veterinaryCommission,
+    companyCommission: totals.companyCommission,
+    companyCommissionRate: totals.companyCommissionRate,
     status: normalizeLivestockApplicationStatus(statusRaw)
       ?? mapLegacyStatus(statusRaw, subsidyStatus, paidStatus),
     ownerSummary: resolveOwnerSummaryFromRecord(record, formatLocationSummary(location)),

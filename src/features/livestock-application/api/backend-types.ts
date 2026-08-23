@@ -61,6 +61,8 @@ export interface NewLivestockApplicationBody {
     premiumRateAmount: number;
     farmerContributionAmount: number;
     governmentContribution: number;
+    /** Solektra company commission rate percent — 5, 8, or 10. */
+    companyCommissionRate?: number;
     companyCommission: number;
     veterinaryCommission: number;
     totalSumAssured: number;
@@ -109,6 +111,7 @@ export interface VeterinaryApplicationRecord {
   premiumRateAmount?: number;
   governmentContribution?: number;
   companyCommission?: number;
+  companyCommissionRate?: number;
   veterinaryCommission?: number;
   policyStartDate?: string;
   policyEndDate?: string;

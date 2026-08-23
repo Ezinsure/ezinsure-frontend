@@ -78,7 +78,8 @@ export const LIVESTOCK_FORM_LABELS = {
     premiumRateAmount: 'Ikiguzi cy’ubwishingizi (100%)',
     farmerContributionAmount: 'Uruhare rw’umworozi (60%)',
     governmentContribution: 'Nkunganire (40%)',
-    companyCommission: 'Komisiyo ya kampani (8%)',
+    companyCommissionRate: 'Igipimo cya komisiyo ya kampani (%)',
+    companyCommission: 'Komisiyo ya kampani',
     veterinaryCommission: 'Komisiyo ya Veterineri (5%)',
 
     insuranceAgentCode: 'Code y’umuhuza mu bwishingizi',

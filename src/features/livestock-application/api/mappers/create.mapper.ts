@@ -157,6 +157,7 @@ export function toNewApplicationBody(
       premiumRateAmount: payload.premiumTotals.premiumRateAmount,
       farmerContributionAmount: payload.premiumTotals.farmerContributionAmount,
       governmentContribution: payload.premiumTotals.governmentContribution,
+      companyCommissionRate: payload.premiumTotals.companyCommissionRate ?? 8,
       companyCommission: payload.premiumTotals.companyCommission,
       veterinaryCommission: payload.premiumTotals.veterinaryCommission,
       totalSumAssured: payload.premiumTotals.totalSumAssured,

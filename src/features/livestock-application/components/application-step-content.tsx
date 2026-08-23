@@ -2,6 +2,7 @@
 
 import {
   LivestockRadioGroup,
+  LivestockSelect,
   LivestockTextArea,
   LivestockTextField,
 } from '@/features/livestock-application/components/form-controls';
@@ -16,6 +17,8 @@ import {
   YES_NO_OPTIONS,
   OWNER_GENDER_OPTIONS,
 } from '@/features/livestock-application/constants';
+import { COMPANY_COMMISSION_RATE_SELECT_OPTIONS } from '@/features/livestock-application/domain/commission-rates';
+import { formatCompanyCommissionRateLabel } from '@/features/livestock-application/domain/commission-rates';
 import type {
   LivestockAnimalRow,
   LivestockApplicationFormValues,
@@ -37,6 +40,8 @@ interface ApplicationStepContentProps {
   mergeLivestockItems: (items: LivestockAnimalRow[]) => void;
   formProfile?: FormProfile;
   lockInsuranceType?: boolean;
+  /** Staff/admin: show company commission rate + amount. Hidden for vets. */
+  showCompanyCommission?: boolean;
 }
 
 export function ApplicationStepContent({
@@ -51,6 +56,7 @@ export function ApplicationStepContent({
   mergeLivestockItems,
   formProfile,
   lockInsuranceType,
+  showCompanyCommission = false,
 }: ApplicationStepContentProps) {
   const title = LIVESTOCK_FORM_LABELS.sections[stepId];
 
@@ -379,7 +385,42 @@ export function ApplicationStepContent({
               onChange={(v) => setField('veterinaryCommission', v)}
               disabled
             />
+            {showCompanyCommission && (
+              <>
+                <LivestockSelect
+                  fieldName="companyCommissionRate"
+                  value={values.companyCommissionRate}
+                  onChange={(v) => setField('companyCommissionRate', v)}
+                  options={COMPANY_COMMISSION_RATE_SELECT_OPTIONS.map((opt) => ({
+                    value: String(opt.value),
+                    label: opt.label,
+                  }))}
+                  disabled={disabled}
+                  required
+                  placeholder="Hitamo igipimo…"
+                />
+                <LivestockTextField
+                  fieldName="companyCommission"
+                  type="number"
+                  value={values.companyCommission}
+                  onChange={(v) => setField('companyCommission', v)}
+                  disabled
+                  placeholder={formatCompanyCommissionRateLabel(
+                    Number(values.companyCommissionRate || 8),
+                  )}
+                />
+              </>
+            )}
           </div>
+          {showCompanyCommission && (
+            <p className="text-xs text-slate-500">
+              Company commission is calculated as{' '}
+              <span className="font-semibold text-slate-700">
+                {values.companyCommissionRate || '8'}%
+              </span>{' '}
+              of total premium. Choose 5%, 8%, or 10%.
+            </p>
+          )}
         </section>
       );
 

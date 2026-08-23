@@ -172,7 +172,7 @@ export function LivestockWorkspaceDashboard({
               <StatCard
                 title="Company commissions"
                 value={formatRwfDisplay(stats?.totalCompanyCommissions ?? 0)}
-                caption="Solektra share (8%)"
+                caption="Solektra share (5–10%)"
                 icon={Building2}
               />
             )}

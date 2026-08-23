@@ -87,6 +87,10 @@ export function livestockPackageToRenewalFormValues(
       totals?.farmerContributionAmount != null ? String(totals.farmerContributionAmount) : '',
     governmentContribution:
       totals?.governmentContribution != null ? String(totals.governmentContribution) : '',
+    companyCommissionRate:
+      totals?.companyCommissionRate != null
+        ? String(totals.companyCommissionRate)
+        : '8',
     companyCommission: totals?.companyCommission != null ? String(totals.companyCommission) : '',
     veterinaryCommission:
       totals?.veterinaryCommission != null ? String(totals.veterinaryCommission) : '',

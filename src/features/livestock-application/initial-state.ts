@@ -77,6 +77,7 @@ export function createInitialLivestockApplicationValues(): LivestockApplicationF
     premiumRateAmount: '',
     farmerContributionAmount: '',
     governmentContribution: '',
+    companyCommissionRate: '8',
     companyCommission: '',
     veterinaryCommission: '',
     insuranceAgentCode: '',

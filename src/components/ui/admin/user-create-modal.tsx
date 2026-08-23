@@ -34,6 +34,8 @@ interface FormData {
   rcvdLicenceDocument: File | null;
   /** Veterinarian-only: 'PRIVATE' or 'SARO' (government vet). */
   veterinaryType: string;
+  /** Veterinarian default Solektra company commission % (5, 8, or 10). */
+  companyCommissionRate: string;
   [key: string]: string | File | null;
 }
 
@@ -676,6 +678,27 @@ export const UserCreateModal = ({
               {errors.veterinaryType && (
                 <p className="mt-2 text-sm text-red-600">{errors.veterinaryType}</p>
               )}
+            </div>
+          )}
+
+          {isVeterinaryForm && (
+            <div>
+              <label className="block text-sm font-medium mb-1">
+                Company commission rate <span className="text-red-500">*</span>
+              </label>
+              <select
+                name="companyCommissionRate"
+                value={String(formData.companyCommissionRate || '8')}
+                onChange={handleInputChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[var(--main-blue)] focus:border-[var(--main-blue)]"
+              >
+                <option value="5">5%</option>
+                <option value="8">8% (default)</option>
+                <option value="10">10%</option>
+              </select>
+              <p className="mt-1 text-xs text-gray-500">
+                Default Solektra commission applied to livestock applications this vet creates.
+              </p>
             </div>
           )}
 

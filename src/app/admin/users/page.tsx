@@ -172,6 +172,7 @@ const [formData, setFormData] = useState({
   veterinaryType: '',
     bankName: '', 
   bankAccountNumber: '',
+  companyCommissionRate: '8',
 });
 
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
@@ -375,6 +376,7 @@ formDataToSend.append('bankAccountNumber', formData.bankAccountNumber);
   veterinaryType: '',
   bankName: '', 
   bankAccountNumber: '',
+  companyCommissionRate: '8',
 });
   } catch (error: unknown) {
     console.error('Error creating user:', error);
