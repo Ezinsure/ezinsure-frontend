@@ -10,6 +10,7 @@ import {
   FileText,
   RefreshCw,
   UserPlus,
+  CalendarRange,
 } from 'lucide-react';
 import type { NavGroup } from '@/shared/navigation/types';
 
@@ -25,6 +26,7 @@ export const motorFinanceNavigation: NavGroup[] = [
       { href: `${base}/agents/analytics`, label: 'Agent Analytics', icon: BarChart3 },
       { href: `${base}/commission-review`, label: 'Commission Review', icon: ClipboardList },
       { href: `${base}/company-performance`, label: 'Company Performance', icon: Building2 },
+      { href: `${base}/payment-cycles`, label: 'Payment Cycles', icon: CalendarRange },
       { href: `${base}/payments`, label: 'Payments', icon: Wallet },
       { href: `${base}/payment-initiated`, label: 'Initiated Payments', icon: Clock },
       { href: `${base}/history`, label: 'Payment History', icon: History },

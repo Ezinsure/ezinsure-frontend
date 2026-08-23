@@ -10,6 +10,7 @@ import {
   ClipboardList,
   RefreshCw,
   UserRoundSearch,
+  CalendarRange,
 } from 'lucide-react';
 import type { NavGroup } from '@/shared/navigation/types';
 
@@ -29,6 +30,7 @@ export const livestockFinanceNavigation: NavGroup[] = [
         label: 'External Vets',
         icon: UserRoundSearch,
       },
+      { href: `${base}/payment-cycles`, label: 'Payment Cycles', icon: CalendarRange },
       { href: `${base}/payments`, label: 'Payments', icon: Banknote },
       { href: `${base}/payment-initiated`, label: 'Initiated Payments', icon: Clock },
       { href: `${base}/history`, label: 'Payment History', icon: History },
