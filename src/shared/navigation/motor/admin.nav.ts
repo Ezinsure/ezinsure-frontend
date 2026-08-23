@@ -12,6 +12,7 @@ import {
   Building2,
   UserCheck,
   RefreshCw,
+  UserPlus,
 } from 'lucide-react';
 import type { NavGroup } from '@/shared/navigation/types';
 
@@ -40,6 +41,7 @@ export const motorAdminNavigation: NavGroup[] = [
       { href: `${base}/users`, label: 'Manage Users', icon: Users },
       { href: `${base}/expiring-insurance`, label: 'Expiring Insurance', icon: Clock },
       { href: `${base}/renewals`, label: 'Renewals', icon: RefreshCw },
+      { href: `${base}/prospects`, label: 'Prospects', icon: UserPlus },
       { href: `${base}/sms-tracking`, label: 'SMS Tracking', icon: MessageSquare },
       { href: `${base}/agents/analytics`, label: 'Agent Analytics', icon: BarChart3 },
       { href: `${base}/customer-retention`, label: 'Customer Retention', icon: UserCheck },
