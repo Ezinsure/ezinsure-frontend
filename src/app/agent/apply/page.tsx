@@ -661,6 +661,7 @@ export default function AgentApplyPage() {
       case 'travel': return 'Travel Insurance';
       case 'health': return 'Health Insurance';
       case 'fire': return 'Fire Insurance Coverage';
+      case 'tourist': return 'Tourist Insurance';
       default: return 'Car Insurance';
     }
   };
@@ -1215,6 +1216,7 @@ export default function AgentApplyPage() {
                       <option value="travel">Travel Insurance</option>
                       <option value="health">Health Insurance</option>
                       <option value="fire">Fire Insurance Coverage</option>
+                      <option value="tourist">Tourist Insurance</option>
                     </select>
                     {errors.insuranceCategory && (
                       <p className="mt-1 text-sm text-[var(--error-red)]">

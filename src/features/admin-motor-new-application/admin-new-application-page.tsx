@@ -529,9 +529,23 @@ export function AdminMotorApplicationPage({ renewal }: AdminMotorApplicationPage
     if (!isRenewal) return null;
     const net = Number(formData.netPremium || formData.amount) || 0;
     const commission = Number(renewalAgentCommission) || 0;
+    const companyCommission = Number(formData.companyCommission) || 0;
     if (!net) return null;
-    return computeRenewalPricing({ netPremium: net, agentCommission: commission });
-  }, [formData.amount, formData.netPremium, isRenewal, renewalAgentCommission]);
+    const hasOriginatingAgent = Boolean(renewalOriginal?.agent?._id);
+    return computeRenewalPricing({
+      netPremium: net,
+      agentCommission: commission,
+      companyCommission,
+      hasOriginatingAgent,
+    });
+  }, [
+    formData.amount,
+    formData.companyCommission,
+    formData.netPremium,
+    isRenewal,
+    renewalAgentCommission,
+    renewalOriginal?.agent?._id,
+  ]);
 
   useEffect(() => {
     if (!renewal) return;
@@ -1481,10 +1495,13 @@ export function AdminMotorApplicationPage({ renewal }: AdminMotorApplicationPage
               <div className="mx-auto mt-6 max-w-2xl rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-left text-sm text-blue-950">
                 <p className="font-semibold">1% renewal discount</p>
                 <p className="mt-1 text-xs text-blue-900/90">
-                  Discount is 1% of net premium and is deducted from agent commission. The backend
-                  recalculates the stored amounts when you submit.
+                  Discount is 1% of net premium. It is deducted from{' '}
+                  {renewalPricing.discountBearer === 'agent'
+                    ? 'agent commission (this application was brought by an agent)'
+                    : 'company commission (no originating agent)'}
+                  . The backend recalculates the stored amounts when you submit.
                 </p>
-                <dl className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
+                <dl className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
                   <div>
                     <dt className="text-xs text-blue-800/80">Expected payment</dt>
                     <dd className="font-semibold">
@@ -1499,6 +1516,12 @@ export function AdminMotorApplicationPage({ renewal }: AdminMotorApplicationPage
                     <dt className="text-xs text-blue-800/80">Agent commission after</dt>
                     <dd className="font-semibold">
                       {formatRwfDisplay(renewalPricing.agentCommissionAfterDiscount)}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs text-blue-800/80">Company commission after</dt>
+                    <dd className="font-semibold">
+                      {formatRwfDisplay(renewalPricing.companyCommissionAfterDiscount)}
                     </dd>
                   </div>
                 </dl>
@@ -2109,6 +2132,8 @@ export function AdminMotorApplicationPage({ renewal }: AdminMotorApplicationPage
                       <option value="Health Insurance">Health Insurance</option>
 
                       <option value="Fire Insurance Coverage">Fire Insurance Coverage</option>
+
+                      <option value="Tourist Insurance">Tourist Insurance</option>
 
                     </select>
 

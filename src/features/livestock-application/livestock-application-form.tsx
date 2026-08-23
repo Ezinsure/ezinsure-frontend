@@ -128,10 +128,17 @@ export function LivestockApplicationForm({
   const goPrev = () => setStepIndex((i) => Math.max(i - 1, 0));
   const busy = Boolean(onSubmitOverride) ? overrideBusy : isSubmitting;
   const isRenewalMode = mode === 'renewal';
+  const hasOriginatingVet = Boolean(
+    String(values.veterinaryCommission ?? '').replace(/,/g, '').trim(),
+  );
   const renewalPricing = isRenewalMode
     ? computeRenewalPricing({
         netPremium: Number(String(values.farmerContributionAmount).replace(/,/g, '')) || 0,
         agentCommission: Number(String(values.veterinaryCommission).replace(/,/g, '')) || 0,
+        companyCommission: Number(String(values.companyCommission).replace(/,/g, '')) || 0,
+        // Livestock applications are typically vet-originated; treat presence of vet
+        // commission as originating producer. Backend remains source of truth.
+        hasOriginatingAgent: hasOriginatingVet,
       })
     : null;
 
@@ -195,8 +202,11 @@ export function LivestockApplicationForm({
         <div className="mb-6 rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-950">
           <p className="font-semibold">1% renewal discount</p>
           <p className="mt-1 text-xs leading-relaxed text-blue-900/90">
-            Discount is 1% of the farmer contribution (net premium) and is deducted from the
-            veterinary commission. The backend recalculates these values when you submit.
+            Discount is 1% of the farmer contribution (net premium). It is deducted from{' '}
+            {renewalPricing.discountBearer === 'agent'
+              ? 'the veterinary commission (vet-originated application)'
+              : 'company commission'}
+            . The backend recalculates these values when you submit.
           </p>
           <dl className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
             <div>
@@ -211,6 +221,12 @@ export function LivestockApplicationForm({
               <dt className="text-xs text-blue-800/80">Vet commission after</dt>
               <dd className="font-semibold">
                 {formatRwfDisplay(renewalPricing.agentCommissionAfterDiscount)}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-xs text-blue-800/80">Company commission after</dt>
+              <dd className="font-semibold">
+                {formatRwfDisplay(renewalPricing.companyCommissionAfterDiscount)}
               </dd>
             </div>
           </dl>

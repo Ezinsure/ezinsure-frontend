@@ -4,6 +4,11 @@
  * POST /createRenewalApplication/{module} now accepts a full edited application
  * payload. The backend must recalculate discount and commissions and must not
  * trust frontend-calculated amounts.
+ *
+ * Discount attribution (backend source of truth):
+ * - Deduct 1% of net premium from company commission by default.
+ * - If the original application was brought by an agent (motor) or vet
+ *   (livestock), deduct from that producer’s commission instead.
  */
 import type { Application } from '@/features/admin-motor-applications/types';
 import type { CreateLivestockApplicationPayload } from '@/features/livestock-application/domain/application-types';
@@ -11,6 +16,7 @@ import type { ApiFetch } from '@/features/livestock-application/api/http';
 import { requestJson, unwrapEntityPayload } from '@/features/livestock-application/api/http';
 import {
   computeRenewalPricing,
+  resolveRenewalDiscountBearer,
   type RenewalPricingBreakdown,
 } from '@/features/renewals/renewal-pricing';
 import {
@@ -21,6 +27,16 @@ import {
 
 export type RenewalModule = 'motor' | 'livestock';
 
+export interface RenewalListFilters {
+  /** Insurance category label, e.g. "Car Insurance". */
+  insuranceCategory?: string;
+  /** Filter by originating agent / vet user id. */
+  agentId?: string;
+  /** Client / livestock location filters. */
+  province?: string;
+  district?: string;
+}
+
 export interface RenewingApplicationSummary {
   _id: string;
   applicationNumber: string;
@@ -30,14 +46,28 @@ export interface RenewingApplicationSummary {
   policyEndDate: string;
   netPremium: number;
   agentCommission: number;
+  companyCommission: number;
   module: RenewalModule;
   plateNumber?: string;
   speciesGroup?: string;
+  insuranceCategory?: string;
   daysUntilExpiry?: number;
   /** True when another motor policy for the same plate is still in force. */
   hasActiveInsuranceForPlate?: boolean;
   /** Backend hint; frontend still enforces expiry + plate rules. */
   canRenew?: boolean;
+  /** Originating agent (motor) or vet (livestock). */
+  agent?: {
+    _id: string;
+    fullName: string;
+    email?: string;
+    phoneNumber?: string;
+  } | null;
+  /** True when discount should come from agent/vet commission. */
+  hasOriginatingAgent: boolean;
+  province?: string;
+  district?: string;
+  sector?: string;
 }
 
 export interface MotorRenewalApplicationPayload {
@@ -92,10 +122,15 @@ export const RENEWAL_ENDPOINTS = {
     startDate: string,
     endDate: string,
     bucket?: RenewalListBucket,
+    filters?: RenewalListFilters,
   ): string => {
     const search = new URLSearchParams({ startDate, endDate, module });
     if (bucket === 'upcoming') search.set('bucket', 'upcoming');
     if (bucket === 'eligible') search.set('bucket', 'expired');
+    if (filters?.insuranceCategory) search.set('insuranceCategory', filters.insuranceCategory);
+    if (filters?.agentId) search.set('agentId', filters.agentId);
+    if (filters?.province) search.set('province', filters.province);
+    if (filters?.district) search.set('district', filters.district);
     return `/getApplicationsEligibleForRenewal?${search.toString()}`;
   },
   preview: (module: RenewalModule, applicationId: string): string =>
@@ -133,14 +168,47 @@ function firstNonEmpty(...values: unknown[]): string | undefined {
   return undefined;
 }
 
+function mapAgent(row: Record<string, unknown>) {
+  const agent =
+    nestedRecord(row.agent) ??
+    nestedRecord(row.veterinary) ??
+    nestedRecord(row.vet) ??
+    nestedRecord(row.createdBy);
+  if (!agent) return null;
+  const id = firstNonEmpty(agent._id, agent.id);
+  const fullName = firstNonEmpty(agent.fullName, agent.name, agent.email);
+  if (!id || !fullName) return null;
+  return {
+    _id: String(id),
+    fullName: String(fullName),
+    email: firstNonEmpty(agent.email),
+    phoneNumber: firstNonEmpty(agent.phoneNumber, agent.phone),
+  };
+}
+
 function mapRenewalRow(row: Record<string, unknown>, module: RenewalModule): RenewingApplicationSummary {
   const client = nestedRecord(row.client);
   const vehicle = nestedRecord(row.vehicle);
+  const location =
+    nestedRecord(row.livestockLocation) ??
+    nestedRecord(row.location) ??
+    nestedRecord(row.applicantLocation);
   const policyEndDate = String(row.policyEndDate ?? row.insuranceEndAt ?? row.endDate ?? '');
   const hasActiveInsuranceForPlate = parseBooleanFlag(
     row.hasActiveInsuranceForPlate ?? row.hasActiveCover ?? row.hasActiveInsurance,
   );
   const canRenewFlag = parseBooleanFlag(row.canRenew);
+  const agent = mapAgent(row);
+  const hasOriginatingAgentFlag = parseBooleanFlag(
+    row.hasOriginatingAgent ?? row.broughtByAgent ?? row.hasAgent,
+  );
+  const hasOriginatingAgent =
+    hasOriginatingAgentFlag === true
+      ? true
+      : hasOriginatingAgentFlag === false
+        ? false
+        : Boolean(agent);
+
   return {
     _id: String(row._id ?? row.id ?? ''),
     applicationNumber: String(row.applicationNumber ?? ''),
@@ -164,12 +232,33 @@ function mapRenewalRow(row: Record<string, unknown>, module: RenewalModule): Ren
     policyEndDate,
     netPremium: Number(row.netPremium ?? row.amount ?? row.farmerContributionAmount ?? 0),
     agentCommission: Number(row.agentCommission ?? row.veterinaryCommission ?? 0),
+    companyCommission: Number(row.companyCommission ?? 0),
     module,
     plateNumber: firstNonEmpty(row.plateNumber, vehicle?.plateNumber),
     speciesGroup: row.speciesGroup ? String(row.speciesGroup) : undefined,
+    insuranceCategory: firstNonEmpty(
+      row.insuranceCategory,
+      row.category,
+      module === 'livestock' ? row.speciesGroup : undefined,
+    ),
     daysUntilExpiry: policyEndDate ? daysUntil(policyEndDate) : undefined,
     hasActiveInsuranceForPlate,
     canRenew: canRenewFlag,
+    agent,
+    hasOriginatingAgent,
+    province: firstNonEmpty(
+      row.province,
+      client?.province,
+      location?.province,
+      location?.Province,
+    ),
+    district: firstNonEmpty(
+      row.district,
+      client?.district,
+      location?.district,
+      location?.District,
+    ),
+    sector: firstNonEmpty(row.sector, client?.sector, location?.sector, location?.Sector),
   };
 }
 
@@ -179,11 +268,12 @@ export async function fetchRenewalEligibleApplications(
   startDate: string,
   endDate: string,
   bucket?: RenewalListBucket,
+  filters?: RenewalListFilters,
 ): Promise<RenewingApplicationSummary[]> {
   try {
     const response = await requestJson<unknown>(
       apiFetch,
-      RENEWAL_ENDPOINTS.listExpiring(module, startDate, endDate, bucket),
+      RENEWAL_ENDPOINTS.listExpiring(module, startDate, endDate, bucket, filters),
       { method: 'GET' },
       'renewals-list',
     );
@@ -207,6 +297,11 @@ export function buildLocalRenewalPreview(
   return computeRenewalPricing({
     netPremium: application.netPremium,
     agentCommission: application.agentCommission,
+    companyCommission: application.companyCommission,
+    hasOriginatingAgent: application.hasOriginatingAgent,
+    discountBearer: resolveRenewalDiscountBearer({
+      hasOriginatingAgent: application.hasOriginatingAgent,
+    }),
   });
 }
 

@@ -631,6 +631,7 @@ const SuperAdminDashboard = () => {
       (selectedInsuranceType === 'travel' && app.insuranceCategory.toLowerCase().includes('travel')) ||
       (selectedInsuranceType === 'building' && app.insuranceCategory.toLowerCase().includes('building')) ||
       (selectedInsuranceType === 'fire' && app.insuranceCategory.toLowerCase().includes('fire')) ||
+      (selectedInsuranceType === 'tourist' && app.insuranceCategory.toLowerCase().includes('tourist')) ||
       (selectedInsuranceType === 'motorbike' && app.insuranceCategory.toLowerCase().includes('motorbike'));
     return matchesSearch && matchesType;
   });
@@ -1316,6 +1317,7 @@ const SuperAdminDashboard = () => {
                     <option value="travel">Travel Insurance</option>
                     <option value="building">Building Insurance</option>
                     <option value="fire">Fire Insurance</option>
+                    <option value="tourist">Tourist Insurance</option>
                     <option value="motorbike">MotorBike Insurance</option>
                   </select>
                 </div>

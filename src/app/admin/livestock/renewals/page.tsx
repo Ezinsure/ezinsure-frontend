@@ -9,6 +9,7 @@ export default function AdminLivestockRenewalsPage() {
       title="Livestock renewals"
       subtitle="Follow up on upcoming livestock cover, then renew only expired applications."
       formBasePath="/admin/livestock/renewals"
+      enableStaffFilters
     />
   );
 }

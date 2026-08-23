@@ -21,11 +21,23 @@ import {
   ArrowUp,
   ArrowDown,
   Download,
-  DollarSign
+  DollarSign,
+  MapPin,
+  UserRound,
+  Filter,
+  X,
 } from 'lucide-react';
 import { DocumentViewer } from '@/components/ui/document-viewer';
 import { formatDateUTC } from '@/utils/date-formatter';
 import { formatPoliceNumberForExport } from '@/utils/police-number';
+import {
+  INSURANCE_CATEGORY_FILTER_OPTIONS,
+  insuranceCategoriesMatch,
+} from '@/shared/insurance/categories';
+import {
+  getDistrictNamesForProvince,
+  getProvinceNames,
+} from '@/features/livestock-application/utils/location';
 
 // Helper functions for dates
 const getTodayDate = () => {
@@ -68,6 +80,9 @@ interface ExpiringApplication {
     fullName: string;
     email: string;
     phoneNumber: string;
+    province?: string;
+    district?: string;
+    sector?: string;
   };
   vehicle?: {
     _id: string;
@@ -239,6 +254,9 @@ export default function ExpiringInsurancePage() {
   // Filter and search state
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
+  const [agentFilter, setAgentFilter] = useState<string>('all');
+  const [provinceFilter, setProvinceFilter] = useState<string>('');
+  const [districtFilter, setDistrictFilter] = useState<string>('');
   
   // Sort state
   const [sortField, setSortField] = useState<SortField>('insuranceEndAt');
@@ -260,8 +278,9 @@ export default function ExpiringInsurancePage() {
     
     setIsLoading(true);
     try {
+      const params = new URLSearchParams({ startDate, endDate });
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_BASE_URL}/getApplicationsWithExpiringInsurance?startDate=${startDate}&endDate=${endDate}`,
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/getApplicationsWithExpiringInsurance?${params.toString()}`,
         {
           method: 'GET',
           headers: {
@@ -312,11 +331,27 @@ export default function ExpiringInsurancePage() {
           app.client?.email,
           app.client?.phoneNumber,
           app.vehicle?.plateNumber,
+          app.agent?.fullName,
+          app.client?.province,
+          app.client?.district,
         ].some((value) => (value ?? '').toLowerCase().includes(query));
 
-      const matchesCategory = categoryFilter === 'all' || app.insuranceCategory === categoryFilter;
+      const matchesCategory =
+        categoryFilter === 'all' ||
+        insuranceCategoriesMatch(app.insuranceCategory || '', categoryFilter);
       
-      return matchesSearch && matchesCategory;
+      const matchesAgent =
+        agentFilter === 'all' || app.agent?._id === agentFilter;
+
+      const matchesProvince =
+        !provinceFilter ||
+        (app.client?.province ?? '').toLowerCase() === provinceFilter.toLowerCase();
+
+      const matchesDistrict =
+        !districtFilter ||
+        (app.client?.district ?? '').toLowerCase() === districtFilter.toLowerCase();
+
+      return matchesSearch && matchesCategory && matchesAgent && matchesProvince && matchesDistrict;
     });
 
     // Sort
@@ -361,7 +396,16 @@ export default function ExpiringInsurancePage() {
     });
 
     return filtered;
-  }, [applications, searchQuery, categoryFilter, sortField, sortDirection]);
+  }, [
+    applications,
+    searchQuery,
+    categoryFilter,
+    agentFilter,
+    provinceFilter,
+    districtFilter,
+    sortField,
+    sortDirection,
+  ]);
 
   // Paginated applications
   const paginatedApplications = useMemo(() => {
@@ -369,10 +413,42 @@ export default function ExpiringInsurancePage() {
     return filteredAndSortedApplications.slice(startIndex, startIndex + itemsPerPage);
   }, [filteredAndSortedApplications, currentPage, itemsPerPage]);
 
-  // Unique categories
+  // Unique categories (catalog + any values present in the loaded set)
   const uniqueCategories = useMemo(() => {
-    return Array.from(new Set(applications.map(app => app.insuranceCategory))).filter(Boolean);
+    const fromData = applications.map((app) => app.insuranceCategory).filter(Boolean);
+    const catalog = INSURANCE_CATEGORY_FILTER_OPTIONS.map((o) => o.value);
+    return Array.from(new Set([...catalog, ...fromData]));
   }, [applications]);
+
+  const agentOptions = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const app of applications) {
+      if (app.agent?._id) map.set(app.agent._id, app.agent.fullName);
+    }
+    return Array.from(map.entries())
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [applications]);
+
+  const provinceOptions = useMemo(() => getProvinceNames(), []);
+  const districtOptions = useMemo(
+    () => (provinceFilter ? getDistrictNamesForProvince(provinceFilter) : []),
+    [provinceFilter],
+  );
+
+  const hasActiveBreakdownFilters =
+    categoryFilter !== 'all' ||
+    agentFilter !== 'all' ||
+    Boolean(provinceFilter) ||
+    Boolean(districtFilter);
+
+  const clearBreakdownFilters = () => {
+    setCategoryFilter('all');
+    setAgentFilter('all');
+    setProvinceFilter('');
+    setDistrictFilter('');
+    setCurrentPage(1);
+  };
 
   // Handle sort
   const handleSort = (field: SortField) => {
@@ -412,7 +488,23 @@ export default function ExpiringInsurancePage() {
 
   // Export to CSV
   const handleExportCSV = () => {
-    const headers = ['Application Number', 'Client Name', 'Email', 'Phone', 'Vehicle Type', 'Plate Number', 'Police Number', 'Insurance Category', 'Insurance End Date', 'Days Until Expiration', 'Amount (RWF)'];
+    const headers = [
+      'Application Number',
+      'Client Name',
+      'Email',
+      'Phone',
+      'Agent',
+      'Province',
+      'District',
+      'Sector',
+      'Vehicle Type',
+      'Plate Number',
+      'Police Number',
+      'Insurance Category',
+      'Insurance End Date',
+      'Days Until Expiration',
+      'Amount (RWF)',
+    ];
     const rows = filteredAndSortedApplications.map(app => {
       const daysUntil = getDaysUntilExpiration(app.insuranceEndAt);
       return [
@@ -420,6 +512,10 @@ export default function ExpiringInsurancePage() {
         app.client.fullName,
         app.client.email,
         app.client.phoneNumber,
+        app.agent?.fullName || '',
+        app.client?.province || '',
+        app.client?.district || '',
+        app.client?.sector || '',
         app.vehicle?.vehicleType || 'N/A',
         app.vehicle?.plateNumber || 'N/A',
         formatPoliceNumberForExport(app),
@@ -577,37 +673,124 @@ export default function ExpiringInsurancePage() {
           </div>
 
           {/* Filters and Search */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3 mb-6">
-            <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 items-stretch sm:items-center">
-              <div className="flex-1 w-full">
-                <div className="relative">
-                  <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
-                  <input
-                    type="text"
-                    placeholder="Search by application number, client name, email, phone, or plate number..."
-                    value={searchQuery}
-                    onChange={(e) => {
-                      setSearchQuery(e.target.value);
-                      setCurrentPage(1);
-                    }}
-                    className="pl-7 h-8 w-full text-xs border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 px-2.5"
-                  />
-                </div>
-              </div>
-              <div className="flex gap-2 w-full sm:w-auto">
-                <select
-                  value={categoryFilter}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3 mb-6 sm:p-4">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+              <p className="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                <Filter className="h-3.5 w-3.5" />
+                Search &amp; breakdown filters
+              </p>
+              {hasActiveBreakdownFilters && (
+                <button
+                  type="button"
+                  onClick={clearBreakdownFilters}
+                  className="inline-flex items-center gap-1 text-xs font-medium text-gray-600 hover:text-gray-900"
+                >
+                  <X className="h-3.5 w-3.5" />
+                  Clear filters
+                </button>
+              )}
+            </div>
+            <div className="flex flex-col gap-2 sm:gap-3">
+              <div className="relative w-full">
+                <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Search by application number, client, agent, email, phone, or plate…"
+                  value={searchQuery}
                   onChange={(e) => {
-                    setCategoryFilter(e.target.value);
+                    setSearchQuery(e.target.value);
                     setCurrentPage(1);
                   }}
-                  className="flex-1 sm:flex-none min-w-[150px] px-2.5 py-1 h-8 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs bg-white"
-                >
-                  <option value="all">All Categories</option>
-                  {uniqueCategories.map(category => (
-                    <option key={category} value={category}>{category}</option>
-                  ))}
-                </select>
+                  className="pl-7 h-8 w-full text-xs border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 px-2.5"
+                />
+              </div>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                <label className="text-[11px] font-medium text-gray-600">
+                  Category
+                  <select
+                    value={categoryFilter}
+                    onChange={(e) => {
+                      setCategoryFilter(e.target.value);
+                      setCurrentPage(1);
+                    }}
+                    className="mt-1 w-full px-2.5 py-1.5 h-8 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs bg-white"
+                  >
+                    <option value="all">All Categories</option>
+                    {uniqueCategories.map((category) => (
+                      <option key={category} value={category}>
+                        {INSURANCE_CATEGORY_FILTER_OPTIONS.find((o) => o.value === category)?.label ??
+                          category}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="text-[11px] font-medium text-gray-600">
+                  <span className="inline-flex items-center gap-1">
+                    <UserRound className="h-3 w-3 text-gray-400" />
+                    Agent
+                  </span>
+                  <select
+                    value={agentFilter}
+                    onChange={(e) => {
+                      setAgentFilter(e.target.value);
+                      setCurrentPage(1);
+                    }}
+                    className="mt-1 w-full px-2.5 py-1.5 h-8 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs bg-white"
+                  >
+                    <option value="all">All Agents</option>
+                    {agentOptions.map((agent) => (
+                      <option key={agent.id} value={agent.id}>
+                        {agent.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="text-[11px] font-medium text-gray-600">
+                  <span className="inline-flex items-center gap-1">
+                    <MapPin className="h-3 w-3 text-gray-400" />
+                    Province
+                  </span>
+                  <select
+                    value={provinceFilter}
+                    onChange={(e) => {
+                      setProvinceFilter(e.target.value);
+                      setDistrictFilter('');
+                      setCurrentPage(1);
+                    }}
+                    className="mt-1 w-full px-2.5 py-1.5 h-8 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs bg-white"
+                  >
+                    <option value="">All Provinces</option>
+                    {provinceOptions.map((name) => (
+                      <option key={name} value={name}>
+                        {name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="text-[11px] font-medium text-gray-600">
+                  <span className="inline-flex items-center gap-1">
+                    <MapPin className="h-3 w-3 text-gray-400" />
+                    District
+                  </span>
+                  <select
+                    value={districtFilter}
+                    disabled={!provinceFilter}
+                    onChange={(e) => {
+                      setDistrictFilter(e.target.value);
+                      setCurrentPage(1);
+                    }}
+                    className="mt-1 w-full px-2.5 py-1.5 h-8 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs bg-white disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400"
+                  >
+                    <option value="">
+                      {provinceFilter ? 'All Districts' : 'Select province first'}
+                    </option>
+                    {districtOptions.map((name) => (
+                      <option key={name} value={name}>
+                        {name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
               </div>
             </div>
           </div>
@@ -656,6 +839,12 @@ export default function ExpiringInsurancePage() {
                                 <SortIcon field="insuranceCategory" />
                               </div>
                             </th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Agent
+                            </th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Location
+                            </th>
                             <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                                 onClick={() => handleSort('insuranceEndAt')}>
                               <div className="flex items-center gap-2">
@@ -703,6 +892,22 @@ export default function ExpiringInsurancePage() {
                                 </td>
                                 <td className="px-4 py-4 whitespace-nowrap">
                                   <div className="text-sm text-gray-900">{app.insuranceCategory || 'N/A'}</div>
+                                </td>
+                                <td className="px-4 py-4 whitespace-nowrap">
+                                  <div className="text-sm text-gray-900">{app.agent?.fullName || '—'}</div>
+                                  {app.agent?.phoneNumber ? (
+                                    <div className="text-xs text-gray-500">{app.agent.phoneNumber}</div>
+                                  ) : null}
+                                </td>
+                                <td className="px-4 py-4 whitespace-nowrap">
+                                  <div className="text-sm text-gray-900">
+                                    {[app.client?.district, app.client?.province]
+                                      .filter(Boolean)
+                                      .join(', ') || '—'}
+                                  </div>
+                                  {app.client?.sector ? (
+                                    <div className="text-xs text-gray-500">{app.client.sector}</div>
+                                  ) : null}
                                 </td>
                                 <td className="px-4 py-4 whitespace-nowrap">
                                   <div className="text-sm text-gray-900">{formatDateUTC(app.insuranceEndAt)}</div>

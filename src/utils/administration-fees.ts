@@ -5,7 +5,7 @@
  *   - COMESA selected: 25% of 12,500 RWF → 3,125 RWF
  *   - COMESA not selected: 25% of 2,500 RWF → 625 RWF
  *
- * All other categories (fire, travel, etc.): flat 5,000 RWF.
+ * All other categories (fire, travel, tourist, etc.): flat 5,000 RWF.
  */
 
 const VEHICLE_BASE_COMESA = 12_500;

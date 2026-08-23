@@ -9,6 +9,7 @@ export default function AdminMotorRenewalsPage() {
       title="Motor renewals"
       subtitle="Follow up on upcoming motor cover, then renew only expired policies. A plate with another active insurance cannot be renewed."
       formBasePath="/admin/motor/renewals"
+      enableStaffFilters
     />
   );
 }

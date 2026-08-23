@@ -4,23 +4,29 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react
 import Link from 'next/link';
 import {
   AlertCircle,
+  Building2,
   Calendar,
   CalendarClock,
   ChevronLeft,
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
+  Filter,
   Loader2,
+  MapPin,
   Percent,
   RefreshCw,
   Search,
   ShieldCheck,
+  UserRound,
+  X,
 } from 'lucide-react';
 import { MainLayout } from '@/components/ui/main-layout';
 import { Button } from '@/components/ui/button';
 import {
   fetchRenewalEligibleApplications,
   type RenewingApplicationSummary,
+  type RenewalListFilters,
   type RenewalModule,
 } from '@/features/renewals/renewal-api';
 import {
@@ -34,7 +40,16 @@ import {
   yesterdayIso,
   type RenewalListBucket,
 } from '@/features/renewals/renewal-eligibility';
+import { renewalDiscountBearerLabel } from '@/features/renewals/renewal-pricing';
 import { formatRwfDisplay } from '@/features/livestock-application/utils/format-rwf';
+import {
+  getDistrictNamesForProvince,
+  getProvinceNames,
+} from '@/features/livestock-application/utils/location';
+import {
+  INSURANCE_CATEGORY_FILTER_OPTIONS,
+  insuranceCategoriesMatch,
+} from '@/shared/insurance/categories';
 import { useApiClient } from '@/utils/apiClient';
 
 const PAGE_SIZE_OPTIONS = [10, 15, 25] as const;
@@ -49,6 +64,11 @@ export interface RenewalsWorkspacePageProps {
   /** Expiring follow-up pages can show upcoming only. */
   visibleTabs?: RenewalListBucket[];
   defaultTab?: RenewalListBucket;
+  /**
+   * Admin / finance / super-admin views: agent + location filters and columns.
+   * Agents and vets stay scoped to their own book of business.
+   */
+  enableStaffFilters?: boolean;
 }
 
 function rowCanRenew(
@@ -78,6 +98,19 @@ function expiryLabel(daysUntilExpiry: number | undefined): string {
   return daysUntilExpiry < 0 ? `${abs} ${unit} ago` : `in ${abs} ${unit}`;
 }
 
+function locationSummary(item: RenewingApplicationSummary): string {
+  return [item.district, item.province].filter(Boolean).join(', ') || '—';
+}
+
+function emptyFilters(): RenewalListFilters {
+  return {
+    insuranceCategory: '',
+    agentId: '',
+    province: '',
+    district: '',
+  };
+}
+
 export function RenewalsWorkspacePage({
   module,
   title,
@@ -85,6 +118,7 @@ export function RenewalsWorkspacePage({
   formBasePath,
   visibleTabs = DEFAULT_TABS,
   defaultTab,
+  enableStaffFilters = false,
 }: RenewalsWorkspacePageProps) {
   const { apiFetch } = useApiClient();
   const tabs = useMemo<RenewalListBucket[]>(
@@ -105,6 +139,7 @@ export function RenewalsWorkspacePage({
     endDate: yesterdayIso(),
   });
   const [search, setSearch] = useState('');
+  const [filters, setFilters] = useState<RenewalListFilters>(emptyFilters);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState<(typeof PAGE_SIZE_OPTIONS)[number]>(10);
   const [upcomingItems, setUpcomingItems] = useState<RenewingApplicationSummary[]>([]);
@@ -115,6 +150,17 @@ export function RenewalsWorkspacePage({
 
   const includeUpcoming = tabs.includes('upcoming');
   const includeEligible = tabs.includes('eligible');
+  const showCategoryFilter = module === 'motor';
+  const showStaffFilters = enableStaffFilters;
+
+  const apiFilters = useMemo<RenewalListFilters | undefined>(() => {
+    const next: RenewalListFilters = {};
+    if (filters.insuranceCategory) next.insuranceCategory = filters.insuranceCategory;
+    if (showStaffFilters && filters.agentId) next.agentId = filters.agentId;
+    if (showStaffFilters && filters.province) next.province = filters.province;
+    if (showStaffFilters && filters.district) next.district = filters.district;
+    return Object.keys(next).length ? next : undefined;
+  }, [filters, showStaffFilters]);
 
   const load = useCallback(async () => {
     setIsLoading(true);
@@ -128,6 +174,7 @@ export function RenewalsWorkspacePage({
               upcomingRange.startDate,
               upcomingRange.endDate,
               'upcoming',
+              apiFilters,
             )
           : Promise.resolve([]),
         includeEligible
@@ -137,6 +184,7 @@ export function RenewalsWorkspacePage({
               eligibleRange.startDate,
               eligibleRange.endDate,
               'eligible',
+              apiFilters,
             )
           : Promise.resolve([]),
         module === 'motor' && includeEligible
@@ -172,6 +220,7 @@ export function RenewalsWorkspacePage({
     }
   }, [
     apiFetch,
+    apiFilters,
     eligibleRange.endDate,
     eligibleRange.startDate,
     includeEligible,
@@ -187,18 +236,71 @@ export function RenewalsWorkspacePage({
 
   const items = activeTab === 'eligible' ? eligibleItems : upcomingItems;
 
+  const agentOptions = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const item of [...upcomingItems, ...eligibleItems]) {
+      if (item.agent?._id) map.set(item.agent._id, item.agent.fullName);
+    }
+    return Array.from(map.entries())
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [eligibleItems, upcomingItems]);
+
+  const provinceOptions = useMemo(() => getProvinceNames(), []);
+  const districtOptions = useMemo(
+    () => (filters.province ? getDistrictNamesForProvince(filters.province) : []),
+    [filters.province],
+  );
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return items;
-    return items.filter(
-      (item) =>
-        item.applicationNumber.toLowerCase().includes(q) ||
-        item.clientName.toLowerCase().includes(q) ||
-        (item.phone ?? '').toLowerCase().includes(q) ||
-        (item.email ?? '').toLowerCase().includes(q) ||
-        (item.plateNumber ?? '').toLowerCase().includes(q),
-    );
-  }, [items, search]);
+    return items.filter((item) => {
+      if (q) {
+        const haystack = [
+          item.applicationNumber,
+          item.clientName,
+          item.phone,
+          item.email,
+          item.plateNumber,
+          item.insuranceCategory,
+          item.agent?.fullName,
+          item.province,
+          item.district,
+        ]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase();
+        if (!haystack.includes(q)) return false;
+      }
+      // Client-side fallback when API ignores filter params
+      if (
+        filters.insuranceCategory &&
+        item.insuranceCategory &&
+        !insuranceCategoriesMatch(item.insuranceCategory, filters.insuranceCategory)
+      ) {
+        return false;
+      }
+      if (filters.insuranceCategory && !item.insuranceCategory) return false;
+      if (showStaffFilters && filters.agentId && item.agent?._id !== filters.agentId) {
+        return false;
+      }
+      if (
+        showStaffFilters &&
+        filters.province &&
+        (item.province ?? '').toLowerCase() !== filters.province.toLowerCase()
+      ) {
+        return false;
+      }
+      if (
+        showStaffFilters &&
+        filters.district &&
+        (item.district ?? '').toLowerCase() !== filters.district.toLowerCase()
+      ) {
+        return false;
+      }
+      return true;
+    });
+  }, [filters, items, search, showStaffFilters]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const safePage = Math.min(page, totalPages);
@@ -209,7 +311,19 @@ export function RenewalsWorkspacePage({
 
   useEffect(() => {
     setPage(1);
-  }, [activeTab, search, pageSize, upcomingRange.startDate, upcomingRange.endDate, eligibleRange.startDate, eligibleRange.endDate]);
+  }, [
+    activeTab,
+    search,
+    pageSize,
+    upcomingRange.startDate,
+    upcomingRange.endDate,
+    eligibleRange.startDate,
+    eligibleRange.endDate,
+    filters.insuranceCategory,
+    filters.agentId,
+    filters.province,
+    filters.district,
+  ]);
 
   const range = activeTab === 'eligible' ? eligibleRange : upcomingRange;
   const setRange = activeTab === 'eligible' ? setEligibleRange : setUpcomingRange;
@@ -217,7 +331,27 @@ export function RenewalsWorkspacePage({
   const canRenewOnThisTab = activeTab === 'eligible';
   const from = filtered.length === 0 ? 0 : (safePage - 1) * pageSize + 1;
   const to = Math.min(safePage * pageSize, filtered.length);
-  const colCount = canRenewOnThisTab ? 6 : 5;
+
+  const showCategoryColumn = module === 'motor';
+  const showAgentColumn = showStaffFilters;
+  const showLocationColumn = showStaffFilters;
+  const colCount =
+    5 +
+    (showCategoryColumn ? 1 : 0) +
+    (showAgentColumn ? 1 : 0) +
+    (showLocationColumn ? 1 : 0) +
+    (canRenewOnThisTab ? 1 : 0);
+
+  const hasActiveFilters = Boolean(
+    filters.insuranceCategory ||
+      filters.agentId ||
+      filters.province ||
+      filters.district,
+  );
+
+  const clearFilters = () => setFilters(emptyFilters());
+
+  const producerLabel = module === 'livestock' ? 'Vet' : 'Agent';
 
   return (
     <MainLayout containerClass="p-0" fullWidth>
@@ -321,6 +455,122 @@ export function RenewalsWorkspacePage({
                 Refresh
               </Button>
             </div>
+
+            {(showCategoryFilter || showStaffFilters) && (
+              <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50/80 p-3 sm:p-4">
+                <div className="mb-3 flex items-center justify-between gap-2">
+                  <p className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    <Filter className="h-3.5 w-3.5" />
+                    Refine results
+                  </p>
+                  {hasActiveFilters && (
+                    <button
+                      type="button"
+                      onClick={clearFilters}
+                      className="inline-flex items-center gap-1 text-xs font-medium text-slate-600 hover:text-slate-900"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                      Clear filters
+                    </button>
+                  )}
+                </div>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                  {showCategoryFilter && (
+                    <label className="text-xs font-medium text-slate-600">
+                      <span className="inline-flex items-center gap-1.5">
+                        <Building2 className="h-3.5 w-3.5 text-slate-400" />
+                        Insurance category
+                      </span>
+                      <select
+                        value={filters.insuranceCategory ?? ''}
+                        onChange={(e) =>
+                          setFilters((prev) => ({ ...prev, insuranceCategory: e.target.value }))
+                        }
+                        className="mt-1 block w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm focus:border-[var(--main-blue)] focus:outline-none focus:ring-2 focus:ring-blue-100"
+                      >
+                        <option value="">All categories</option>
+                        {INSURANCE_CATEGORY_FILTER_OPTIONS.map((opt) => (
+                          <option key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  )}
+                  {showStaffFilters && (
+                    <>
+                      <label className="text-xs font-medium text-slate-600">
+                        <span className="inline-flex items-center gap-1.5">
+                          <UserRound className="h-3.5 w-3.5 text-slate-400" />
+                          {producerLabel}
+                        </span>
+                        <select
+                          value={filters.agentId ?? ''}
+                          onChange={(e) =>
+                            setFilters((prev) => ({ ...prev, agentId: e.target.value }))
+                          }
+                          className="mt-1 block w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm focus:border-[var(--main-blue)] focus:outline-none focus:ring-2 focus:ring-blue-100"
+                        >
+                          <option value="">All {producerLabel.toLowerCase()}s</option>
+                          {agentOptions.map((opt) => (
+                            <option key={opt.id} value={opt.id}>
+                              {opt.name}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <label className="text-xs font-medium text-slate-600">
+                        <span className="inline-flex items-center gap-1.5">
+                          <MapPin className="h-3.5 w-3.5 text-slate-400" />
+                          Province
+                        </span>
+                        <select
+                          value={filters.province ?? ''}
+                          onChange={(e) =>
+                            setFilters((prev) => ({
+                              ...prev,
+                              province: e.target.value,
+                              district: '',
+                            }))
+                          }
+                          className="mt-1 block w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm focus:border-[var(--main-blue)] focus:outline-none focus:ring-2 focus:ring-blue-100"
+                        >
+                          <option value="">All provinces</option>
+                          {provinceOptions.map((name) => (
+                            <option key={name} value={name}>
+                              {name}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <label className="text-xs font-medium text-slate-600">
+                        <span className="inline-flex items-center gap-1.5">
+                          <MapPin className="h-3.5 w-3.5 text-slate-400" />
+                          District
+                        </span>
+                        <select
+                          value={filters.district ?? ''}
+                          disabled={!filters.province}
+                          onChange={(e) =>
+                            setFilters((prev) => ({ ...prev, district: e.target.value }))
+                          }
+                          className="mt-1 block w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm focus:border-[var(--main-blue)] focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+                        >
+                          <option value="">
+                            {filters.province ? 'All districts' : 'Select province first'}
+                          </option>
+                          {districtOptions.map((name) => (
+                            <option key={name} value={name}>
+                              {name}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
           </header>
 
           {error && (
@@ -357,6 +607,15 @@ export function RenewalsWorkspacePage({
                     <th className="whitespace-nowrap px-4 py-3 sm:px-5">Application</th>
                     <th className="whitespace-nowrap px-4 py-3">Client</th>
                     <th className="whitespace-nowrap px-4 py-3">Contact</th>
+                    {showCategoryColumn && (
+                      <th className="whitespace-nowrap px-4 py-3">Category</th>
+                    )}
+                    {showAgentColumn && (
+                      <th className="whitespace-nowrap px-4 py-3">{producerLabel}</th>
+                    )}
+                    {showLocationColumn && (
+                      <th className="whitespace-nowrap px-4 py-3">Location</th>
+                    )}
                     <th className="whitespace-nowrap px-4 py-3">
                       {activeTab === 'eligible' ? 'Expired' : 'Expires'}
                     </th>
@@ -398,6 +657,26 @@ export function RenewalsWorkspacePage({
                               <p className="text-xs text-slate-400">No contact on file</p>
                             ) : null}
                           </td>
+                          {showCategoryColumn && (
+                            <td className="px-4 py-3.5 text-slate-700">
+                              {item.insuranceCategory ?? '—'}
+                            </td>
+                          )}
+                          {showAgentColumn && (
+                            <td className="px-4 py-3.5 text-slate-700">
+                              {item.agent?.fullName ?? (
+                                <span className="text-xs text-slate-400">Company / unassigned</span>
+                              )}
+                            </td>
+                          )}
+                          {showLocationColumn && (
+                            <td className="px-4 py-3.5 text-slate-700">
+                              <span className="inline-flex items-start gap-1.5">
+                                <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400" />
+                                <span>{locationSummary(item)}</span>
+                              </span>
+                            </td>
+                          )}
                           <td className="px-4 py-3.5 text-slate-700">
                             <span className="inline-flex items-center gap-1.5">
                               <Calendar className="h-3.5 w-3.5 text-slate-400" />
@@ -442,8 +721,8 @@ export function RenewalsWorkspacePage({
                         <p className="font-medium text-slate-800">No applications in this view</p>
                         <p className="mt-1 text-sm text-slate-500">
                           {activeTab === 'eligible'
-                            ? 'No expired applications match this date range or search.'
-                            : 'No upcoming renewals match this date range or search.'}
+                            ? 'No expired applications match this date range or filters.'
+                            : 'No upcoming renewals match this date range or filters.'}
                         </p>
                       </td>
                     </tr>
@@ -547,8 +826,11 @@ export function RenewalsWorkspacePage({
                   1% renewal discount
                 </p>
                 <p className="mt-1 text-xs leading-relaxed text-blue-900/90">
-                  Clients receive 1% off net premium. That amount is deducted from the agent or
-                  vet commission. The server recalculates the stored figures on submit.
+                  Clients receive 1% off net premium. That amount is deducted from{' '}
+                  <strong>company commission</strong> by default. If an{' '}
+                  {module === 'livestock' ? 'vet' : 'agent'} brought the application, it is deducted
+                  from the {renewalDiscountBearerLabel('agent', module)} instead. The server
+                  recalculates stored figures on submit.
                 </p>
               </div>
               <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">

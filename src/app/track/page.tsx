@@ -798,6 +798,7 @@ const EditApplicationModal = ({ isOpen, onClose, onSave, application, isLoading 
                       <option value="Travel Insurance">Travel Insurance</option>
                       <option value="Health Insurance">Health Insurance</option>
                       <option value="Fire Insurance Coverage">Fire Insurance Coverage</option>
+                      <option value="Tourist Insurance">Tourist Insurance</option>
                     </select>
                     {errors.insuranceCategory && (
                       <p className="mt-1 text-sm text-red-600">{errors.insuranceCategory}</p>
