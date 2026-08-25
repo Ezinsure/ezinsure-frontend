@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  Calendar,
   CheckCircle2,
   Download,
   Loader2,
@@ -10,6 +11,7 @@ import {
   XCircle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { DataExportActions } from '@/components/ui/data-export-actions';
 import { useToast } from '@/components/ui/toast';
 import { useExternalVetCommissionsApi } from './api';
 import {
@@ -26,6 +28,11 @@ import { BatchDetailPanel } from './components/batch-detail-panel';
 import { BatchListTable } from './components/batch-list-table';
 import { UploadCommissionWizard } from './components/upload-commission-wizard';
 import { downloadExternalVetCommissionTemplate } from './export/commission-sheet-template';
+import {
+  batchCreatedInDateRange,
+  exportExternalVetBatchesToExcel,
+  exportExternalVetBatchesToPdf,
+} from './export/batch-list-export';
 
 const TAB_DEFS: {
   id: ExternalVetsHubTab;
@@ -71,6 +78,10 @@ function statusForTab(
   }
 }
 
+function canExportTab(tab: ExternalVetsHubTab): boolean {
+  return tab === 'admin-review' || tab === 'payments' || tab === 'initiated';
+}
+
 export interface ExternalVetsHubProps {
   viewRole: ExternalVetsViewRole;
 }
@@ -87,6 +98,8 @@ export default function ExternalVetsHub({ viewRole }: ExternalVetsHubProps) {
     () => TAB_DEFS.find((t) => t.roles.includes(viewRole))?.id ?? 'overview',
   );
   const [search, setSearch] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [batches, setBatches] = useState<ExternalVetCommissionBatchSummary[]>([]);
   const [overview, setOverview] = useState<ExternalVetsOverviewStats | null>(null);
@@ -130,7 +143,10 @@ export default function ExternalVetsHub({ viewRole }: ExternalVetsHubProps) {
         setBatches([]);
       } else {
         const status = statusForTab(tab);
-        const list = await api.listBatches(status ?? 'ALL');
+        const list = await api.listBatches(status ?? 'ALL', {
+          startDate: startDate || undefined,
+          endDate: endDate || undefined,
+        });
         setBatches(list);
       }
       setSelectedIds(new Set());
@@ -142,7 +158,7 @@ export default function ExternalVetsHub({ viewRole }: ExternalVetsHubProps) {
     } finally {
       setIsLoading(false);
     }
-  }, [api, showToast, tab]);
+  }, [api, endDate, showToast, startDate, tab]);
 
   useEffect(() => {
     void reload();
@@ -154,17 +170,59 @@ export default function ExternalVetsHub({ viewRole }: ExternalVetsHubProps) {
     }
   }, [tab, visibleTabs]);
 
-  const filteredBatches = batches.filter((b) => {
+  const filteredBatches = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return true;
-    return (
-      b.batchNumber.toLowerCase().includes(q) ||
-      (b.payee?.name ?? '').toLowerCase().includes(q) ||
-      (b.payee?.phoneNumber ?? '').includes(q) ||
-      (b.periodLabel ?? '').toLowerCase().includes(q) ||
-      b.sourceFileName.toLowerCase().includes(q)
-    );
-  });
+    return batches.filter((b) => {
+      if (!batchCreatedInDateRange(b.createdAt, startDate || undefined, endDate || undefined)) {
+        return false;
+      }
+      if (!q) return true;
+      return (
+        b.batchNumber.toLowerCase().includes(q) ||
+        (b.payee?.name ?? '').toLowerCase().includes(q) ||
+        (b.payee?.phoneNumber ?? '').includes(q) ||
+        (b.periodLabel ?? '').toLowerCase().includes(q) ||
+        b.sourceFileName.toLowerCase().includes(q)
+      );
+    });
+  }, [batches, endDate, search, startDate]);
+
+  const exportParams = useMemo(
+    () => ({
+      rows: filteredBatches,
+      tab,
+      startDate: startDate || undefined,
+      endDate: endDate || undefined,
+      search: search || undefined,
+    }),
+    [endDate, filteredBatches, search, startDate, tab],
+  );
+
+  const handleExportExcel = useCallback(async () => {
+    if (filteredBatches.length === 0) {
+      showToast('No batches to export for the current filters', 'error');
+      return;
+    }
+    try {
+      await exportExternalVetBatchesToExcel(exportParams);
+      showToast('Exported to Excel', 'success');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Excel export failed', 'error');
+    }
+  }, [exportParams, filteredBatches.length, showToast]);
+
+  const handleExportPdf = useCallback(async () => {
+    if (filteredBatches.length === 0) {
+      showToast('No batches to export for the current filters', 'error');
+      return;
+    }
+    try {
+      await exportExternalVetBatchesToPdf(exportParams);
+      showToast('Exported to PDF', 'success');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'PDF export failed', 'error');
+    }
+  }, [exportParams, filteredBatches.length, showToast]);
 
   async function openDetail(id: string) {
     const batch = await api.getBatch(id);
@@ -372,32 +430,100 @@ export default function ExternalVetsHub({ viewRole }: ExternalVetsHubProps) {
         />
       ) : (
         <div className="space-y-4">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="relative max-w-md flex-1">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-              <input
-                className="w-full rounded-md border border-slate-300 py-2 pl-9 pr-3 text-sm"
-                placeholder="Search batch, vet, phone, file…"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
+          <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+              <label className="block">
+                <span className="mb-1 flex items-center gap-1 text-xs font-medium uppercase tracking-wide text-slate-500">
+                  <Calendar className="h-3.5 w-3.5" aria-hidden />
+                  From
+                </span>
+                <input
+                  type="date"
+                  value={startDate}
+                  max={endDate || undefined}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-400"
+                />
+              </label>
+              <label className="block">
+                <span className="mb-1 flex items-center gap-1 text-xs font-medium uppercase tracking-wide text-slate-500">
+                  <Calendar className="h-3.5 w-3.5" aria-hidden />
+                  To
+                </span>
+                <input
+                  type="date"
+                  value={endDate}
+                  min={startDate || undefined}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-400"
+                />
+              </label>
+              <label className="block md:col-span-2">
+                <span className="mb-1 flex items-center gap-1 text-xs font-medium uppercase tracking-wide text-slate-500">
+                  <Search className="h-3.5 w-3.5" aria-hidden />
+                  Search
+                </span>
+                <div className="relative">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <input
+                    className="w-full rounded-lg border border-slate-300 py-2 pl-9 pr-3 text-sm"
+                    placeholder="Search batch, vet, phone, file…"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                  />
+                </div>
+              </label>
             </div>
-            {canPay && tab === 'payments' && selectedIds.size > 0 ? (
-              <Button
-                onClick={() => void handleInitiate([...selectedIds])}
-                disabled={actionBusy}
-              >
-                Initiate selected ({selectedIds.size})
-              </Button>
-            ) : null}
-            {canPay && tab === 'initiated' && selectedIds.size > 0 ? (
-              <Button
-                onClick={() => void handleMarkPaid([...selectedIds])}
-                disabled={actionBusy}
-              >
-                Mark selected paid ({selectedIds.size})
-              </Button>
-            ) : null}
+            {(startDate || endDate) && (
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700">
+                  Created: {startDate || '…'} → {endDate || '…'}
+                </span>
+                <button
+                  type="button"
+                  className="text-xs font-medium text-slate-500 underline-offset-2 hover:text-slate-800 hover:underline"
+                  onClick={() => {
+                    setStartDate('');
+                    setEndDate('');
+                  }}
+                >
+                  Clear dates
+                </button>
+              </div>
+            )}
+          </div>
+
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm text-slate-500">
+              {filteredBatches.length} batch
+              {filteredBatches.length === 1 ? '' : 'es'}
+              {startDate || endDate || search ? ' matching filters' : ''}
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              {canExportTab(tab) ? (
+                <DataExportActions
+                  disabled={isLoading || filteredBatches.length === 0}
+                  onExportExcel={handleExportExcel}
+                  onExportPdf={handleExportPdf}
+                />
+              ) : null}
+              {canPay && tab === 'payments' && selectedIds.size > 0 ? (
+                <Button
+                  onClick={() => void handleInitiate([...selectedIds])}
+                  disabled={actionBusy}
+                >
+                  Initiate selected ({selectedIds.size})
+                </Button>
+              ) : null}
+              {canPay && tab === 'initiated' && selectedIds.size > 0 ? (
+                <Button
+                  onClick={() => void handleMarkPaid([...selectedIds])}
+                  disabled={actionBusy}
+                >
+                  Mark selected paid ({selectedIds.size})
+                </Button>
+              ) : null}
+            </div>
           </div>
 
           <BatchListTable

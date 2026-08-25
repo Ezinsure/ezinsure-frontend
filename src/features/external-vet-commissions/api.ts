@@ -229,9 +229,14 @@ export function useExternalVetCommissionsApi() {
   const listBatches = useCallback(
     async (
       status?: ExternalVetCommissionStatus | 'ALL',
+      range?: { startDate?: string; endDate?: string },
     ): Promise<ExternalVetCommissionBatchSummary[]> => {
       const response = await apiFetch(
-        EXTERNAL_VET_COMMISSION_ENDPOINTS.listBatches(status),
+        EXTERNAL_VET_COMMISSION_ENDPOINTS.listBatches({
+          status,
+          startDate: range?.startDate,
+          endDate: range?.endDate,
+        }),
       );
       if (!response.ok) {
         throw new Error(await errorMessage(response, 'Failed to list batches'));

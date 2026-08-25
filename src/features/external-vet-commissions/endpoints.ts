@@ -16,9 +16,17 @@ export const EXTERNAL_VET_COMMISSION_ENDPOINTS = {
 
   createExternalVet: (): string => `${BASE}/vets`,
 
-  listBatches: (status?: string): string => {
+  listBatches: (params?: {
+    status?: string;
+    startDate?: string;
+    endDate?: string;
+  }): string => {
     const search = new URLSearchParams();
-    if (status && status !== 'ALL') search.set('status', status);
+    if (params?.status && params.status !== 'ALL') {
+      search.set('status', params.status);
+    }
+    if (params?.startDate) search.set('startDate', params.startDate);
+    if (params?.endDate) search.set('endDate', params.endDate);
     const qs = search.toString();
     return qs ? `${BASE}/batches?${qs}` : `${BASE}/batches`;
   },
