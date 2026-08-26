@@ -239,6 +239,80 @@ const Pagination = ({ currentPage, totalPages, totalItems, itemsPerPage, onPageC
 type SortField = 'applicationNumber' | 'clientName' | 'insuranceEndAt' | 'amount' | 'insuranceCategory';
 type SortDirection = 'asc' | 'desc';
 
+type OriginatorSummary = {
+  _id: string;
+  fullName: string;
+  email?: string;
+  phoneNumber?: string;
+  role: 'agent' | 'admin';
+};
+
+type LocationSummary = {
+  province?: string;
+  district?: string;
+  sector?: string;
+};
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === 'object' ? (value as Record<string, unknown>) : null;
+}
+
+function firstNonEmpty(...values: unknown[]): string | undefined {
+  for (const value of values) {
+    if (value == null) continue;
+    const text = String(value).trim();
+    if (text) return text;
+  }
+  return undefined;
+}
+
+/** Prefer agent; fall back to admin for staff-created applications. */
+function getOriginator(app: ExpiringApplication): OriginatorSummary | null {
+  if (app.agent?._id && app.agent.fullName) {
+    return {
+      _id: app.agent._id,
+      fullName: app.agent.fullName,
+      email: app.agent.email,
+      phoneNumber: app.agent.phoneNumber,
+      role: 'agent',
+    };
+  }
+  if (app.admin?._id && app.admin.fullName) {
+    return {
+      _id: app.admin._id,
+      fullName: app.admin.fullName,
+      email: app.admin.email,
+      role: 'admin',
+    };
+  }
+  return null;
+}
+
+/** Client address fields, with optional locationInfo fallback. */
+function getClientLocation(app: ExpiringApplication): LocationSummary {
+  const info = asRecord(app.locationInfo);
+  return {
+    province: firstNonEmpty(
+      app.client?.province,
+      info?.province,
+      info?.Province,
+      asRecord(info?.address)?.province,
+    ),
+    district: firstNonEmpty(
+      app.client?.district,
+      info?.district,
+      info?.District,
+      asRecord(info?.address)?.district,
+    ),
+    sector: firstNonEmpty(
+      app.client?.sector,
+      info?.sector,
+      info?.Sector,
+      asRecord(info?.address)?.sector,
+    ),
+  };
+}
+
 export default function ExpiringInsurancePage() {
   const { token, user } = useAuth();
   const { showToast, ToastContainer } = useToast();
@@ -322,6 +396,8 @@ export default function ExpiringInsurancePage() {
   // Filtered and sorted applications
   const filteredAndSortedApplications = useMemo(() => {
     const filtered = applications.filter(app => {
+      const originator = getOriginator(app);
+      const location = getClientLocation(app);
       const query = searchQuery.trim().toLowerCase();
       const matchesSearch =
         !query ||
@@ -331,9 +407,11 @@ export default function ExpiringInsurancePage() {
           app.client?.email,
           app.client?.phoneNumber,
           app.vehicle?.plateNumber,
-          app.agent?.fullName,
-          app.client?.province,
-          app.client?.district,
+          originator?.fullName,
+          originator?.email,
+          location.province,
+          location.district,
+          location.sector,
         ].some((value) => (value ?? '').toLowerCase().includes(query));
 
       const matchesCategory =
@@ -341,15 +419,15 @@ export default function ExpiringInsurancePage() {
         insuranceCategoriesMatch(app.insuranceCategory || '', categoryFilter);
       
       const matchesAgent =
-        agentFilter === 'all' || app.agent?._id === agentFilter;
+        agentFilter === 'all' || originator?._id === agentFilter;
 
       const matchesProvince =
         !provinceFilter ||
-        (app.client?.province ?? '').toLowerCase() === provinceFilter.toLowerCase();
+        (location.province ?? '').toLowerCase() === provinceFilter.toLowerCase();
 
       const matchesDistrict =
         !districtFilter ||
-        (app.client?.district ?? '').toLowerCase() === districtFilter.toLowerCase();
+        (location.district ?? '').toLowerCase() === districtFilter.toLowerCase();
 
       return matchesSearch && matchesCategory && matchesAgent && matchesProvince && matchesDistrict;
     });
@@ -423,7 +501,11 @@ export default function ExpiringInsurancePage() {
   const agentOptions = useMemo(() => {
     const map = new Map<string, string>();
     for (const app of applications) {
-      if (app.agent?._id) map.set(app.agent._id, app.agent.fullName);
+      const originator = getOriginator(app);
+      if (originator) {
+        const suffix = originator.role === 'admin' ? ' (Admin)' : '';
+        map.set(originator._id, `${originator.fullName}${suffix}`);
+      }
     }
     return Array.from(map.entries())
       .map(([id, name]) => ({ id, name }))
@@ -493,7 +575,8 @@ export default function ExpiringInsurancePage() {
       'Client Name',
       'Email',
       'Phone',
-      'Agent',
+      'Agent / Admin',
+      'Role',
       'Province',
       'District',
       'Sector',
@@ -507,15 +590,18 @@ export default function ExpiringInsurancePage() {
     ];
     const rows = filteredAndSortedApplications.map(app => {
       const daysUntil = getDaysUntilExpiration(app.insuranceEndAt);
+      const originator = getOriginator(app);
+      const location = getClientLocation(app);
       return [
         app.applicationNumber,
         app.client.fullName,
         app.client.email,
         app.client.phoneNumber,
-        app.agent?.fullName || '',
-        app.client?.province || '',
-        app.client?.district || '',
-        app.client?.sector || '',
+        originator?.fullName || '',
+        originator?.role === 'admin' ? 'Admin' : originator?.role === 'agent' ? 'Agent' : '',
+        location.province || '',
+        location.district || '',
+        location.sector || '',
         app.vehicle?.vehicleType || 'N/A',
         app.vehicle?.plateNumber || 'N/A',
         formatPoliceNumberForExport(app),
@@ -727,7 +813,7 @@ export default function ExpiringInsurancePage() {
                 <label className="text-[11px] font-medium text-gray-600">
                   <span className="inline-flex items-center gap-1">
                     <UserRound className="h-3 w-3 text-gray-400" />
-                    Agent
+                    Agent / Admin
                   </span>
                   <select
                     value={agentFilter}
@@ -737,7 +823,7 @@ export default function ExpiringInsurancePage() {
                     }}
                     className="mt-1 w-full px-2.5 py-1.5 h-8 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs bg-white"
                   >
-                    <option value="all">All Agents</option>
+                    <option value="all">All agents & admins</option>
                     {agentOptions.map((agent) => (
                       <option key={agent.id} value={agent.id}>
                         {agent.name}
@@ -840,7 +926,7 @@ export default function ExpiringInsurancePage() {
                               </div>
                             </th>
                             <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              Agent
+                              Agent / Admin
                             </th>
                             <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                               Location
@@ -894,20 +980,38 @@ export default function ExpiringInsurancePage() {
                                   <div className="text-sm text-gray-900">{app.insuranceCategory || 'N/A'}</div>
                                 </td>
                                 <td className="px-4 py-4 whitespace-nowrap">
-                                  <div className="text-sm text-gray-900">{app.agent?.fullName || '—'}</div>
-                                  {app.agent?.phoneNumber ? (
-                                    <div className="text-xs text-gray-500">{app.agent.phoneNumber}</div>
-                                  ) : null}
+                                  {(() => {
+                                    const originator = getOriginator(app);
+                                    if (!originator) {
+                                      return <div className="text-sm text-gray-900">—</div>;
+                                    }
+                                    return (
+                                      <>
+                                        <div className="text-sm text-gray-900">{originator.fullName}</div>
+                                        <div className="text-xs text-gray-500">
+                                          {originator.role === 'admin'
+                                            ? originator.email || 'Admin'
+                                            : originator.phoneNumber || 'Agent'}
+                                        </div>
+                                      </>
+                                    );
+                                  })()}
                                 </td>
                                 <td className="px-4 py-4 whitespace-nowrap">
-                                  <div className="text-sm text-gray-900">
-                                    {[app.client?.district, app.client?.province]
+                                  {(() => {
+                                    const location = getClientLocation(app);
+                                    const line = [location.district, location.province]
                                       .filter(Boolean)
-                                      .join(', ') || '—'}
-                                  </div>
-                                  {app.client?.sector ? (
-                                    <div className="text-xs text-gray-500">{app.client.sector}</div>
-                                  ) : null}
+                                      .join(', ');
+                                    return (
+                                      <>
+                                        <div className="text-sm text-gray-900">{line || '—'}</div>
+                                        {location.sector ? (
+                                          <div className="text-xs text-gray-500">{location.sector}</div>
+                                        ) : null}
+                                      </>
+                                    );
+                                  })()}
                                 </td>
                                 <td className="px-4 py-4 whitespace-nowrap">
                                   <div className="text-sm text-gray-900">{formatDateUTC(app.insuranceEndAt)}</div>
@@ -1181,39 +1285,49 @@ function ApplicationDetailModal({ application, onClose, onViewDocument, isSuperA
             </div>
           </div>
 
-          {/* Agent Information */}
-          {application.agent && (
-            <div className="space-y-4">
-              <h4 className="font-semibold text-gray-900 border-b pb-2">Agent Information</h4>
-              <div className="space-y-2 text-sm">
-                <div>
-                  <span className="text-gray-500">Full Name:</span>
-                  <span className="ml-2 font-medium">{application.agent.fullName || 'N/A'}</span>
-                </div>
-                <div>
-                  <span className="text-gray-500">Email:</span>
-                  <span className="ml-2 font-medium">{application.agent.email || 'N/A'}</span>
-                </div>
-                <div>
-                  <span className="text-gray-500">Phone:</span>
-                  <span className="ml-2 font-medium">{application.agent.phoneNumber || 'N/A'}</span>
-                </div>
-                {application.agentCommissionPaymentStatus && (
+          {/* Brought-by (agent or admin) */}
+          {(() => {
+            const originator = getOriginator(application);
+            if (!originator) return null;
+            return (
+              <div className="space-y-4">
+                <h4 className="font-semibold text-gray-900 border-b pb-2">
+                  {originator.role === 'admin' ? 'Created by Admin' : 'Agent Information'}
+                </h4>
+                <div className="space-y-2 text-sm">
                   <div>
-                    <span className="text-gray-500">Commission Status:</span>
-                    <span className="ml-2">
-                      <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">
-                        {application.agentCommissionPaymentStatus}
-                      </span>
-                    </span>
+                    <span className="text-gray-500">Full Name:</span>
+                    <span className="ml-2 font-medium">{originator.fullName || 'N/A'}</span>
                   </div>
-                )}
+                  {originator.email ? (
+                    <div>
+                      <span className="text-gray-500">Email:</span>
+                      <span className="ml-2 font-medium">{originator.email}</span>
+                    </div>
+                  ) : null}
+                  {originator.phoneNumber ? (
+                    <div>
+                      <span className="text-gray-500">Phone:</span>
+                      <span className="ml-2 font-medium">{originator.phoneNumber}</span>
+                    </div>
+                  ) : null}
+                  {originator.role === 'agent' && application.agentCommissionPaymentStatus ? (
+                    <div>
+                      <span className="text-gray-500">Commission Status:</span>
+                      <span className="ml-2">
+                        <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">
+                          {application.agentCommissionPaymentStatus}
+                        </span>
+                      </span>
+                    </div>
+                  ) : null}
+                </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
 
-          {/* Admin Information (only for super admin) */}
-          {isSuperAdmin && application.admin && (
+          {/* Admin Information (only for super admin when both agent and admin exist) */}
+          {isSuperAdmin && application.admin && application.agent && (
             <div className="space-y-4">
               <h4 className="font-semibold text-gray-900 border-b pb-2">Admin Information</h4>
               <div className="space-y-2 text-sm">
