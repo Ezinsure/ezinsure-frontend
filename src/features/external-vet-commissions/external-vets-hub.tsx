@@ -79,7 +79,12 @@ function statusForTab(
 }
 
 function canExportTab(tab: ExternalVetsHubTab): boolean {
-  return tab === 'admin-review' || tab === 'payments' || tab === 'initiated';
+  return (
+    tab === 'applications' ||
+    tab === 'admin-review' ||
+    tab === 'payments' ||
+    tab === 'initiated'
+  );
 }
 
 export interface ExternalVetsHubProps {

@@ -24,8 +24,36 @@ export async function exportTableToExcel<T>(options: ExportTableOptions<T>): Pro
     return record;
   });
 
-  const worksheet = XLSX.utils.json_to_sheet(sheetRows);
   const workbook = XLSX.utils.book_new();
+
+  const summaryRows: Array<Record<string, string>> = [
+    { Field: 'Title', Value: options.title },
+  ];
+  if (options.subtitle) {
+    summaryRows.push({ Field: 'Subtitle', Value: options.subtitle });
+  }
+  summaryRows.push({ Field: 'Generated', Value: new Date().toLocaleString() });
+  for (const line of options.contextLines ?? []) {
+    const [field, ...rest] = line.split(':');
+    summaryRows.push({
+      Field: (field ?? 'Context').trim(),
+      Value: rest.length ? rest.join(':').trim() : line,
+    });
+  }
+  for (const line of options.summaryLines ?? []) {
+    const [field, ...rest] = line.split(':');
+    summaryRows.push({
+      Field: (field ?? 'Summary').trim(),
+      Value: rest.length ? rest.join(':').trim() : line,
+    });
+  }
+
+  if (summaryRows.length > 2) {
+    const summarySheet = XLSX.utils.json_to_sheet(summaryRows);
+    XLSX.utils.book_append_sheet(workbook, summarySheet, 'Summary');
+  }
+
+  const worksheet = XLSX.utils.json_to_sheet(sheetRows);
   XLSX.utils.book_append_sheet(workbook, worksheet, options.sheetName ?? 'Data');
 
   XLSX.writeFile(workbook, buildFilename(options.filenameBase, 'xlsx'));
