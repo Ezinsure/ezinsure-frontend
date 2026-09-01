@@ -439,10 +439,6 @@ export function ProspectsWorkspacePage({
               <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
               <div>
                 <p className="font-medium">{error}</p>
-                <p className="mt-1 text-xs text-amber-800/90">
-                  If the prospects API is not live yet, the backend can follow the Phase 3 contract
-                  in <code className="rounded bg-amber-100 px-1">PHASE_3_PROSPECTS_BACKEND.md</code>.
-                </p>
               </div>
             </div>
           )}
