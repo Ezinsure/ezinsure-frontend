@@ -26,6 +26,7 @@ import {
 } from './domain';
 import { BatchDetailPanel } from './components/batch-detail-panel';
 import { BatchListTable } from './components/batch-list-table';
+import { CommissionLinesPanel } from './components/commission-lines-panel';
 import { UploadCommissionWizard } from './components/upload-commission-wizard';
 import { downloadExternalVetCommissionTemplate } from './export/commission-sheet-template';
 import {
@@ -52,6 +53,7 @@ const TAB_DEFS: {
   },
   { id: 'payments', label: 'Payments', roles: ['finance'] },
   { id: 'initiated', label: 'Initiated', roles: ['finance'] },
+  { id: 'lines', label: 'Lines', roles: ['finance'] },
   {
     id: 'history',
     label: 'Paid / History',
@@ -73,6 +75,8 @@ function statusForTab(
       return 'PAYMENT_INITIATED';
     case 'history':
       return 'PAID';
+    case 'lines':
+    case 'overview':
     default:
       return null;
   }
@@ -146,6 +150,37 @@ export default function ExternalVetsHub({ viewRole }: ExternalVetsHubProps) {
         setOverview(stats);
         setPerformance(perf);
         setBatches([]);
+      } else if (tab === 'lines') {
+        setBatches([]);
+      } else if (tab === 'history') {
+        const range = {
+          startDate: startDate || undefined,
+          endDate: endDate || undefined,
+        };
+        const historyStatuses: ExternalVetCommissionStatus[] = [
+          'PAID',
+          'AWAITING_SONARWA_REIMBURSEMENT',
+          'REIMBURSED_BY_SONARWA',
+        ];
+        const lists = await Promise.all(
+          historyStatuses.map(async (status) => {
+            try {
+              return await api.listBatches(status, range);
+            } catch {
+              return [] as ExternalVetCommissionBatchSummary[];
+            }
+          }),
+        );
+        const byId = new Map<string, ExternalVetCommissionBatchSummary>();
+        for (const batch of lists.flat()) {
+          byId.set(batch.id, batch);
+        }
+        setBatches(
+          [...byId.values()].sort(
+            (a, b) =>
+              new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+          ),
+        );
       } else {
         const status = statusForTab(tab);
         const list = await api.listBatches(status ?? 'ALL', {
@@ -433,6 +468,8 @@ export default function ExternalVetsHub({ viewRole }: ExternalVetsHubProps) {
           performance={performance}
           isLoading={isLoading}
         />
+      ) : tab === 'lines' ? (
+        <CommissionLinesPanel />
       ) : (
         <div className="space-y-4">
           <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -542,7 +579,7 @@ export default function ExternalVetsHub({ viewRole }: ExternalVetsHubProps) {
                   : tab === 'initiated'
                     ? 'No initiated payments.'
                     : tab === 'history'
-                      ? 'No paid batches yet.'
+                      ? 'No paid or reimbursed batches yet.'
                       : 'No external vet commission batches yet.'
             }
             selectedIds={

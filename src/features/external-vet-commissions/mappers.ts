@@ -2,12 +2,18 @@ import type {
   ExternalVetCommissionBatch,
   ExternalVetCommissionBatchSummary,
   ExternalVetCommissionLine,
+  ExternalVetCommissionLineListItem,
+  ExternalVetCommissionLinesResult,
   ExternalVetCommissionStatus,
   ExternalVetPayeeSnapshot,
   ExternalVetPerformanceRow,
   ExternalVetsOverviewStats,
 } from './domain';
-import { EXTERNAL_VET_COMMISSION_STATUSES, DEFAULT_COMPANY_COMMISSION_PERCENT } from './domain';
+import {
+  EXTERNAL_VET_COMMISSION_STATUSES,
+  DEFAULT_COMPANY_COMMISSION_PERCENT,
+  summarizeCommissionLines,
+} from './domain';
 
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object'
@@ -148,7 +154,89 @@ export function mapBatchSummary(raw: unknown): ExternalVetCommissionBatchSummary
     paidAt: asOptionalString(row.paidAt),
     paidById: asOptionalString(row.paidById),
     paidByName: asOptionalString(row.paidByName),
+    awaitingSonarwaReimbursementAt: asOptionalString(
+      row.awaitingSonarwaReimbursementAt,
+    ),
+    exportReference: asOptionalString(row.exportReference),
+    reimbursedBySonarwaAt: asOptionalString(row.reimbursedBySonarwaAt),
+    reimbursementReference: asOptionalString(row.reimbursementReference),
   };
+}
+
+export function mapLineListItem(raw: unknown): ExternalVetCommissionLineListItem {
+  const row = asRecord(raw);
+  const line = mapLine(raw);
+  const payee =
+    row.payee || row.payeeName || row.batchId
+      ? mapPayee(row)
+      : { name: '—', phoneNumber: '' };
+
+  return {
+    ...line,
+    batchId: asString(row.batchId ?? row.commissionBatchId),
+    batchNumber: asString(row.batchNumber, '—'),
+    batchStatus: mapStatus(row.batchStatus ?? row.status),
+    externalVetId: asString(row.externalVetId),
+    payee,
+    periodLabel: asOptionalString(row.periodLabel),
+    batchCreatedAt: asString(
+      row.batchCreatedAt ?? row.createdAt,
+      new Date().toISOString(),
+    ),
+    paidAt: asOptionalString(row.paidAt),
+  };
+}
+
+/** Accept `{ lines, summary }`, `{ data: { lines, summary } }`, or a bare lines array. */
+export function mapLinesResult(payload: unknown): ExternalVetCommissionLinesResult {
+  const root = asRecord(payload);
+  const nested = asRecord(root.data);
+  const linesRaw = Array.isArray(root.lines)
+    ? root.lines
+    : Array.isArray(nested.lines)
+      ? nested.lines
+      : Array.isArray(root.data)
+        ? root.data
+        : Array.isArray(payload)
+          ? payload
+          : [];
+
+  const lines = linesRaw.map(mapLineListItem);
+  const summaryRaw = asRecord(root.summary ?? nested.summary);
+  const computed = summarizeCommissionLines(lines);
+
+  return {
+    lines,
+    summary: {
+      lineCount: asNumber(summaryRaw.lineCount, computed.lineCount),
+      batchCount: asNumber(summaryRaw.batchCount, computed.batchCount),
+      vetCount: asNumber(summaryRaw.vetCount, computed.vetCount),
+      totalVetCommission: asNumber(
+        summaryRaw.totalVetCommission,
+        computed.totalVetCommission,
+      ),
+      totalCompanyCommission: asNumber(
+        summaryRaw.totalCompanyCommission,
+        computed.totalCompanyCommission,
+      ),
+    },
+  };
+}
+
+export function linesFromBatch(
+  batch: ExternalVetCommissionBatch,
+): ExternalVetCommissionLineListItem[] {
+  return (batch.lines ?? []).map((line) => ({
+    ...line,
+    batchId: batch.id,
+    batchNumber: batch.batchNumber,
+    batchStatus: batch.status,
+    externalVetId: batch.externalVetId,
+    payee: batch.payee,
+    periodLabel: batch.periodLabel,
+    batchCreatedAt: batch.createdAt,
+    paidAt: batch.paidAt,
+  }));
 }
 
 export function mapBatch(raw: unknown): ExternalVetCommissionBatch {

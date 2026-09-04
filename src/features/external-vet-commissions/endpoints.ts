@@ -48,6 +48,29 @@ export const EXTERNAL_VET_COMMISSION_ENDPOINTS = {
 
   markPaidBulk: (): string => `${BASE}/batches/markPaid`,
 
+  listLines: (params?: {
+    status?: string;
+    startDate?: string;
+    endDate?: string;
+    externalVetId?: string;
+  }): string => {
+    const search = new URLSearchParams();
+    if (params?.status && params.status !== 'ALL') {
+      search.set('status', params.status);
+    }
+    if (params?.startDate) search.set('startDate', params.startDate);
+    if (params?.endDate) search.set('endDate', params.endDate);
+    if (params?.externalVetId) search.set('externalVetId', params.externalVetId);
+    const qs = search.toString();
+    return qs ? `${BASE}/lines?${qs}` : `${BASE}/lines`;
+  },
+
+  markAwaitingSonarwaReimbursement: (): string =>
+    `${BASE}/batches/markAwaitingSonarwaReimbursement`,
+
+  markReimbursedBySonarwa: (): string =>
+    `${BASE}/batches/markReimbursedBySonarwa`,
+
   getOverview: (): string => `${BASE}/overview`,
 
   getPerformance: (): string => `${BASE}/performance`,

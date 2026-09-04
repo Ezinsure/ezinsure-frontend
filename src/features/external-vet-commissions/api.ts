@@ -9,18 +9,28 @@ import type {
   ExternalVet,
   ExternalVetCommissionBatch,
   ExternalVetCommissionBatchSummary,
+  ExternalVetCommissionLinesResult,
   ExternalVetCommissionStatus,
   ExternalVetPerformanceRow,
   ExternalVetsOverviewStats,
+  MarkAwaitingSonarwaReimbursementInput,
+  MarkReimbursedBySonarwaInput,
   PlatformVetSearchHit,
 } from './domain';
 import {
+  EXTERNAL_VET_REIMBURSEMENT_STATUSES,
+  summarizeCommissionLines,
+} from './domain';
+import {
+  linesFromBatch,
   mapBatch,
   mapBatchSummary,
+  mapLinesResult,
   mapOverview,
   mapPerformanceRow,
   normalizeList,
 } from './mappers';
+import { batchCreatedInDateRange } from './export/batch-list-export';
 
 async function readJson(response: Response): Promise<unknown> {
   try {
@@ -391,6 +401,161 @@ export function useExternalVetCommissionsApi() {
     [apiFetch],
   );
 
+  /**
+   * Prefer GET /lines. If unavailable (404), expand matching reimbursement
+   * batches so the Lines workspace still works during backend rollout.
+   */
+  const listLines = useCallback(
+    async (params?: {
+      status?: ExternalVetCommissionStatus | 'ALL';
+      startDate?: string;
+      endDate?: string;
+      externalVetId?: string;
+    }): Promise<ExternalVetCommissionLinesResult> => {
+      const response = await apiFetch(
+        EXTERNAL_VET_COMMISSION_ENDPOINTS.listLines({
+          status: params?.status,
+          startDate: params?.startDate,
+          endDate: params?.endDate,
+          externalVetId: params?.externalVetId,
+        }),
+      );
+
+      if (response.ok) {
+        return mapLinesResult(await readJson(response));
+      }
+
+      if (response.status !== 404) {
+        throw new Error(await errorMessage(response, 'Failed to list lines'));
+      }
+
+      const statuses: Array<ExternalVetCommissionStatus | 'ALL'> =
+        params?.status && params.status !== 'ALL'
+          ? [params.status]
+          : [...EXTERNAL_VET_REIMBURSEMENT_STATUSES];
+
+      const batchLists = await Promise.all(
+        statuses.map((status) =>
+          listBatches(status, {
+            startDate: params?.startDate,
+            endDate: params?.endDate,
+          }),
+        ),
+      );
+
+      const byId = new Map<string, ExternalVetCommissionBatchSummary>();
+      for (const list of batchLists) {
+        for (const batch of list) {
+          if (
+            params?.externalVetId &&
+            batch.externalVetId !== params.externalVetId
+          ) {
+            continue;
+          }
+          if (
+            !batchCreatedInDateRange(
+              batch.createdAt,
+              params?.startDate,
+              params?.endDate,
+            )
+          ) {
+            continue;
+          }
+          byId.set(batch.id, batch);
+        }
+      }
+
+      const details = await Promise.all(
+        [...byId.keys()].map(async (id) => {
+          try {
+            return await getBatch(id);
+          } catch {
+            return null;
+          }
+        }),
+      );
+
+      const lines = details
+        .filter((batch): batch is ExternalVetCommissionBatch => batch != null)
+        .flatMap(linesFromBatch);
+
+      return {
+        lines,
+        summary: summarizeCommissionLines(lines),
+      };
+    },
+    [apiFetch, getBatch, listBatches],
+  );
+
+  const markAwaitingSonarwaReimbursement = useCallback(
+    async (
+      input: MarkAwaitingSonarwaReimbursementInput,
+    ): Promise<ExternalVetCommissionBatch[]> => {
+      const body: Record<string, unknown> = {
+        batchIds: input.batchIds,
+        ids: input.batchIds,
+      };
+      if (input.exportReference?.trim()) {
+        body.exportReference = input.exportReference.trim();
+      }
+
+      const response = await apiFetch(
+        EXTERNAL_VET_COMMISSION_ENDPOINTS.markAwaitingSonarwaReimbursement(),
+        {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        },
+      );
+      if (!response.ok) {
+        throw new Error(
+          await errorMessage(
+            response,
+            'Failed to mark awaiting SONARWA reimbursement',
+          ),
+        );
+      }
+      return normalizeList(await readJson(response)).map(mapBatch);
+    },
+    [apiFetch],
+  );
+
+  const markReimbursedBySonarwa = useCallback(
+    async (
+      input: MarkReimbursedBySonarwaInput,
+    ): Promise<ExternalVetCommissionBatch[]> => {
+      const body: Record<string, unknown> = {
+        batchIds: input.batchIds,
+        ids: input.batchIds,
+      };
+      if (input.reimbursedAt?.trim()) {
+        body.reimbursedAt = input.reimbursedAt.trim();
+      }
+      if (input.reimbursementReference?.trim()) {
+        body.reimbursementReference = input.reimbursementReference.trim();
+      }
+
+      const response = await apiFetch(
+        EXTERNAL_VET_COMMISSION_ENDPOINTS.markReimbursedBySonarwa(),
+        {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        },
+      );
+      if (!response.ok) {
+        throw new Error(
+          await errorMessage(
+            response,
+            'Failed to mark reimbursed by SONARWA',
+          ),
+        );
+      }
+      return normalizeList(await readJson(response)).map(mapBatch);
+    },
+    [apiFetch],
+  );
+
   const getOverview = useCallback(async (): Promise<ExternalVetsOverviewStats> => {
     const response = await apiFetch(
       EXTERNAL_VET_COMMISSION_ENDPOINTS.getOverview(),
@@ -427,6 +592,9 @@ export function useExternalVetCommissionsApi() {
       markPaid,
       initiatePaymentBulk,
       markPaidBulk,
+      listLines,
+      markAwaitingSonarwaReimbursement,
+      markReimbursedBySonarwa,
       getOverview,
       getPerformance,
     }),
@@ -443,6 +611,9 @@ export function useExternalVetCommissionsApi() {
       markPaid,
       initiatePaymentBulk,
       markPaidBulk,
+      listLines,
+      markAwaitingSonarwaReimbursement,
+      markReimbursedBySonarwa,
       getOverview,
       getPerformance,
     ],

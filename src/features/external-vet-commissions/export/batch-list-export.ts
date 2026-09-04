@@ -90,6 +90,8 @@ export function exportTabLabel(tab: ExternalVetsHubTab): string {
       return 'Paid History';
     case 'applications':
       return 'Applications';
+    case 'lines':
+      return 'Commission Lines';
     default:
       return 'Batches';
   }
@@ -107,6 +109,8 @@ export function exportFilenameBase(tab: ExternalVetsHubTab): string {
       return 'external_vet_paid_history';
     case 'applications':
       return 'external_vet_applications';
+    case 'lines':
+      return 'external_vet_commission_lines';
     default:
       return 'external_vet_batches';
   }

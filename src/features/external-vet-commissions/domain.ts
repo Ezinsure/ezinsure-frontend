@@ -8,11 +8,23 @@ export const EXTERNAL_VET_COMMISSION_STATUSES = [
   'READY_TO_BE_PAID',
   'PAYMENT_INITIATED',
   'PAID',
+  'AWAITING_SONARWA_REIMBURSEMENT',
+  'REIMBURSED_BY_SONARWA',
   'REJECTED',
 ] as const;
 
 export type ExternalVetCommissionStatus =
   (typeof EXTERNAL_VET_COMMISSION_STATUSES)[number];
+
+/** Post-payout statuses used on the finance Lines (SONARWA reclaim) workspace. */
+export const EXTERNAL_VET_REIMBURSEMENT_STATUSES = [
+  'PAID',
+  'AWAITING_SONARWA_REIMBURSEMENT',
+  'REIMBURSED_BY_SONARWA',
+] as const;
+
+export type ExternalVetReimbursementStatus =
+  (typeof EXTERNAL_VET_REIMBURSEMENT_STATUSES)[number];
 
 export type ExternalVetsHubTab =
   | 'overview'
@@ -20,6 +32,7 @@ export type ExternalVetsHubTab =
   | 'admin-review'
   | 'payments'
   | 'initiated'
+  | 'lines'
   | 'history';
 
 export type ExternalVetsViewRole = 'admin' | 'super_admin' | 'finance';
@@ -119,6 +132,51 @@ export type ExternalVetCommissionBatch = {
   paidAt?: string;
   paidById?: string;
   paidByName?: string;
+  /** When finance prepared the SONARWA reclaim file. */
+  awaitingSonarwaReimbursementAt?: string;
+  exportReference?: string;
+  /** When SONARWA reimbursed Solektra. */
+  reimbursedBySonarwaAt?: string;
+  reimbursementReference?: string;
+};
+
+/**
+ * Flat commission line with batch context for the Lines / reclaim workspace.
+ * Status remains on the parent batch; lines are the selection surface.
+ */
+export type ExternalVetCommissionLineListItem = ExternalVetCommissionLine & {
+  batchId: string;
+  batchNumber: string;
+  batchStatus: ExternalVetCommissionStatus;
+  externalVetId: string;
+  payee: ExternalVetPayeeSnapshot;
+  periodLabel?: string;
+  batchCreatedAt: string;
+  paidAt?: string;
+};
+
+export type ExternalVetCommissionLinesSummary = {
+  lineCount: number;
+  batchCount: number;
+  vetCount: number;
+  totalVetCommission: number;
+  totalCompanyCommission: number;
+};
+
+export type ExternalVetCommissionLinesResult = {
+  lines: ExternalVetCommissionLineListItem[];
+  summary: ExternalVetCommissionLinesSummary;
+};
+
+export type MarkAwaitingSonarwaReimbursementInput = {
+  batchIds: string[];
+  exportReference?: string;
+};
+
+export type MarkReimbursedBySonarwaInput = {
+  batchIds: string[];
+  reimbursedAt?: string;
+  reimbursementReference?: string;
 };
 
 /** List row without full line payload. */
@@ -289,8 +347,40 @@ export const EXTERNAL_VET_STATUS_LABELS: Record<
   READY_TO_BE_PAID: 'Ready to be paid',
   PAYMENT_INITIATED: 'Payment initiated',
   PAID: 'Paid',
+  AWAITING_SONARWA_REIMBURSEMENT: 'Awaiting SONARWA reimbursement',
+  REIMBURSED_BY_SONARWA: 'Reimbursed by SONARWA',
   REJECTED: 'Rejected',
 };
+
+export function isReimbursementStatus(
+  status: ExternalVetCommissionStatus,
+): status is ExternalVetReimbursementStatus {
+  return (EXTERNAL_VET_REIMBURSEMENT_STATUSES as readonly string[]).includes(
+    status,
+  );
+}
+
+export function summarizeCommissionLines(
+  lines: ExternalVetCommissionLineListItem[],
+): ExternalVetCommissionLinesSummary {
+  const batchIds = new Set<string>();
+  const vetIds = new Set<string>();
+  let totalVetCommission = 0;
+  let totalCompanyCommission = 0;
+  for (const line of lines) {
+    batchIds.add(line.batchId);
+    vetIds.add(line.externalVetId);
+    totalVetCommission += line.vetCommission || 0;
+    totalCompanyCommission += line.companyCommission || 0;
+  }
+  return {
+    lineCount: lines.length,
+    batchCount: batchIds.size,
+    vetCount: vetIds.size,
+    totalVetCommission,
+    totalCompanyCommission,
+  };
+}
 
 export function formatRwf(value: number): string {
   return `${Math.round(value).toLocaleString()} RWF`;

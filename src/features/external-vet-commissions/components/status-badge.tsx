@@ -8,6 +8,9 @@ const STATUS_CLASS: Record<ExternalVetCommissionStatus, string> = {
   READY_TO_BE_PAID: 'bg-sky-50 text-sky-800 border-sky-200',
   PAYMENT_INITIATED: 'bg-violet-50 text-violet-800 border-violet-200',
   PAID: 'bg-emerald-50 text-emerald-800 border-emerald-200',
+  AWAITING_SONARWA_REIMBURSEMENT:
+    'bg-orange-50 text-orange-900 border-orange-200',
+  REIMBURSED_BY_SONARWA: 'bg-teal-50 text-teal-900 border-teal-200',
   REJECTED: 'bg-rose-50 text-rose-800 border-rose-200',
 };
 
