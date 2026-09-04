@@ -171,19 +171,28 @@ export default function CompanyPerformancePage({
 
   const exportRows = useMemo<CompanyPerformanceExportRow[]>(
     () =>
-      filteredApplications.map((app) => ({
-        applicationNumber: app.applicationNumber,
-        clientName: app.clientName,
-        channel: app.channelLabel,
-        performerName: app.channel === 'admin' ? app.performerName : '—',
-        insuranceCategory: app.insuranceCategory,
-        status: app.status,
-        submittedAt: app.submittedAt,
-        policeNumber: formatPoliceNumberForExport(app.application),
-        netPremium: app.netPremium,
-        companyCommission: app.companyCommission,
-        administrationFees: app.administrationFees,
-      })),
+      filteredApplications.map((app) => {
+        // Prefer nested application payload; never fall back to `amount`.
+        const netPremium = Number(
+          app.application?.netPremium ?? app.netPremium ?? 0,
+        );
+        const amount = Number(app.application?.amount ?? app.amount ?? 0);
+
+        return {
+          applicationNumber: app.applicationNumber,
+          clientName: app.clientName,
+          channel: app.channelLabel,
+          performerName: app.channel === 'admin' ? app.performerName : '—',
+          insuranceCategory: app.insuranceCategory,
+          status: app.status,
+          submittedAt: app.submittedAt,
+          policeNumber: formatPoliceNumberForExport(app.application),
+          amount: Number.isFinite(amount) ? amount : 0,
+          netPremium: Number.isFinite(netPremium) ? netPremium : 0,
+          companyCommission: app.companyCommission,
+          administrationFees: app.administrationFees,
+        };
+      }),
     [filteredApplications],
   );
 

@@ -18,6 +18,9 @@ export interface CompanyPerformanceExportRow {
   status: string;
   submittedAt: string;
   policeNumber: string;
+  /** Total billed amount (not net premium). */
+  amount: number;
+  /** True net premium from API `netPremium`. */
   netPremium: number;
   companyCommission: number;
   administrationFees: number;
@@ -33,29 +36,35 @@ export interface CompanyPerformanceExportParams {
 
 export interface CompanyPerformanceExportSummary {
   applicationCount: number;
+  totalAmount: number;
   totalNetPremium: number;
   totalCompanyCommission: number;
   totalAdministrationFees: number;
 }
 
 const COMPANY_PERFORMANCE_COLUMNS: ExportColumn<CompanyPerformanceExportRow>[] = [
-  { header: 'Application #', getValue: (r) => r.applicationNumber, pdfWidth: 28 },
-  { header: 'Client', getValue: (r) => r.clientName, pdfWidth: 30 },
-  { header: 'Channel', getValue: (r) => r.channel, pdfWidth: 18 },
-  { header: 'Performed by', getValue: (r) => r.performerName, pdfWidth: 26 },
-  { header: 'Category', getValue: (r) => r.insuranceCategory, pdfWidth: 24 },
-  { header: 'Status', getValue: (r) => formatApplicationStatus(r.status), pdfWidth: 26 },
+  { header: 'Application #', getValue: (r) => r.applicationNumber, pdfWidth: 26 },
+  { header: 'Client', getValue: (r) => r.clientName, pdfWidth: 28 },
+  { header: 'Channel', getValue: (r) => r.channel, pdfWidth: 16 },
+  { header: 'Performed by', getValue: (r) => r.performerName, pdfWidth: 24 },
+  { header: 'Category', getValue: (r) => r.insuranceCategory, pdfWidth: 22 },
+  { header: 'Status', getValue: (r) => formatApplicationStatus(r.status), pdfWidth: 24 },
   { header: 'Police Number', getValue: (r) => r.policeNumber, pdfWidth: 22 },
-  { header: 'Submitted', getValue: (r) => formatExportDate(r.submittedAt), pdfWidth: 22 },
+  { header: 'Submitted', getValue: (r) => formatExportDate(r.submittedAt), pdfWidth: 20 },
+  {
+    header: 'Amount (RWF)',
+    getValue: (r) => formatRwfExportNumber(r.amount),
+    pdfWidth: 24,
+  },
   {
     header: 'Net premium (RWF)',
     getValue: (r) => formatRwfExportNumber(r.netPremium),
-    pdfWidth: 28,
+    pdfWidth: 26,
   },
   {
     header: 'Company commission (RWF)',
     getValue: (r) => formatRwfExportNumber(r.companyCommission),
-    pdfWidth: 30,
+    pdfWidth: 28,
   },
 ];
 
@@ -75,6 +84,7 @@ export function buildCompanyPerformanceSummary(
 ): CompanyPerformanceExportSummary {
   return {
     applicationCount: rows.length,
+    totalAmount: rows.reduce((sum, row) => sum + row.amount, 0),
     totalNetPremium: rows.reduce((sum, row) => sum + row.netPremium, 0),
     totalCompanyCommission: rows.reduce((sum, row) => sum + row.companyCommission, 0),
     totalAdministrationFees: rows.reduce((sum, row) => sum + row.administrationFees, 0),
@@ -84,6 +94,7 @@ export function buildCompanyPerformanceSummary(
 function buildCompanyPerformanceSummaryLines(summary: CompanyPerformanceExportSummary): string[] {
   return [
     `Applications: ${summary.applicationCount}`,
+    `Total amount: ${formatRwfExport(summary.totalAmount)}`,
     `Total net premium: ${formatRwfExport(summary.totalNetPremium)}`,
     `Total company commission: ${formatRwfExport(summary.totalCompanyCommission)}`,
     `Total administration fees: ${formatRwfExport(summary.totalAdministrationFees)}`,
@@ -121,6 +132,10 @@ export async function exportCompanyPerformanceToExcel(
   sheetRows.push({
     'Application #': 'Applications',
     Client: summary.applicationCount,
+  });
+  sheetRows.push({
+    'Application #': 'Total amount (RWF)',
+    Client: formatRwfExportNumber(summary.totalAmount),
   });
   sheetRows.push({
     'Application #': 'Total net premium (RWF)',

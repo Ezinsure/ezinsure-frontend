@@ -76,7 +76,12 @@ export function normalizeCompanyPerformanceApplication(
     insuranceCategory: String(record.insuranceCategory ?? '—'),
     status: String(record.status ?? ''),
     amount: parseAmount(record.amount),
-    netPremium: parseAmount(record.netPremium),
+    // Keep netPremium independent of amount — never coalesce the two.
+    netPremium: parseAmount(
+      record.netPremium !== undefined && record.netPremium !== null
+        ? record.netPremium
+        : 0,
+    ),
     companyCommission: parseAmount(record.companyCommission),
     administrationFees: parseAmount(record.administrationFees),
     submittedAt: String(record.submittedAt ?? record.submitted_at ?? ''),
