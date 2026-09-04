@@ -28,6 +28,7 @@ import { BatchDetailPanel } from './components/batch-detail-panel';
 import { BatchListTable } from './components/batch-list-table';
 import { CommissionLinesPanel } from './components/commission-lines-panel';
 import { UploadCommissionWizard } from './components/upload-commission-wizard';
+import { getMonthToDateRange } from './date-range';
 import { downloadExternalVetCommissionTemplate } from './export/commission-sheet-template';
 import {
   batchCreatedInDateRange,
@@ -53,7 +54,11 @@ const TAB_DEFS: {
   },
   { id: 'payments', label: 'Payments', roles: ['finance'] },
   { id: 'initiated', label: 'Initiated', roles: ['finance'] },
-  { id: 'lines', label: 'Lines', roles: ['finance'] },
+  {
+    id: 'lines',
+    label: 'Lines',
+    roles: ['admin', 'super_admin', 'finance'],
+  },
   {
     id: 'history',
     label: 'Paid / History',
@@ -107,8 +112,9 @@ export default function ExternalVetsHub({ viewRole }: ExternalVetsHubProps) {
     () => TAB_DEFS.find((t) => t.roles.includes(viewRole))?.id ?? 'overview',
   );
   const [search, setSearch] = useState('');
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
+  const monthRange = useMemo(() => getMonthToDateRange(), []);
+  const [startDate, setStartDate] = useState(monthRange.startDate);
+  const [endDate, setEndDate] = useState(monthRange.endDate);
   const [isLoading, setIsLoading] = useState(false);
   const [batches, setBatches] = useState<ExternalVetCommissionBatchSummary[]>([]);
   const [overview, setOverview] = useState<ExternalVetsOverviewStats | null>(null);
@@ -469,7 +475,7 @@ export default function ExternalVetsHub({ viewRole }: ExternalVetsHubProps) {
           isLoading={isLoading}
         />
       ) : tab === 'lines' ? (
-        <CommissionLinesPanel />
+        <CommissionLinesPanel canMutate={canPay} />
       ) : (
         <div className="space-y-4">
           <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -525,11 +531,12 @@ export default function ExternalVetsHub({ viewRole }: ExternalVetsHubProps) {
                   type="button"
                   className="text-xs font-medium text-slate-500 underline-offset-2 hover:text-slate-800 hover:underline"
                   onClick={() => {
-                    setStartDate('');
-                    setEndDate('');
+                    const range = getMonthToDateRange();
+                    setStartDate(range.startDate);
+                    setEndDate(range.endDate);
                   }}
                 >
-                  Clear dates
+                  Reset to this month
                 </button>
               </div>
             )}

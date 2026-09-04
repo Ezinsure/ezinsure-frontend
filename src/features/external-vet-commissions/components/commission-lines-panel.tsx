@@ -5,7 +5,9 @@ import {
   Calendar,
   CheckCircle2,
   ChevronDown,
+  ChevronLeft,
   ChevronRight,
+  Eye,
   FileSpreadsheet,
   Loader2,
   Search,
@@ -15,6 +17,7 @@ import { Button } from '@/components/ui/button';
 import { DataExportActions } from '@/components/ui/data-export-actions';
 import { useToast } from '@/components/ui/toast';
 import { useExternalVetCommissionsApi } from '../api';
+import { getMonthToDateRange } from '../date-range';
 import {
   EXTERNAL_VET_STATUS_LABELS,
   formatRwf,
@@ -29,10 +32,13 @@ import {
   exportExternalVetLinesToPdf,
 } from '../export/lines-export';
 import { ExternalVetStatusBadge } from './status-badge';
+import { LineDetailModal } from './line-detail-modal';
 import {
   ReimbursementConfirmDialog,
   type ReimbursementConfirmMode,
 } from './reimbursement-confirm-dialog';
+
+const GROUPS_PER_PAGE = 8;
 
 type VetGroup = {
   externalVetId: string;
@@ -90,15 +96,23 @@ function selectionTriState(
   return 'some';
 }
 
-export function CommissionLinesPanel() {
+export type CommissionLinesPanelProps = {
+  /** Finance can change reclaim statuses; admin/super_admin are read-only. */
+  canMutate?: boolean;
+};
+
+export function CommissionLinesPanel({
+  canMutate = false,
+}: CommissionLinesPanelProps) {
   const api = useExternalVetCommissionsApi();
   const { showToast, ToastContainer } = useToast();
+  const monthRange = useMemo(() => getMonthToDateRange(), []);
 
   const [statusFilter, setStatusFilter] = useState<
     ExternalVetReimbursementStatus | 'ALL'
   >('PAID');
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
+  const [startDate, setStartDate] = useState(monthRange.startDate);
+  const [endDate, setEndDate] = useState(monthRange.endDate);
   const [search, setSearch] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [lines, setLines] = useState<ExternalVetCommissionLineListItem[]>([]);
@@ -106,6 +120,9 @@ export function CommissionLinesPanel() {
     new Set(),
   );
   const [collapsedVets, setCollapsedVets] = useState<Set<string>>(new Set());
+  const [page, setPage] = useState(1);
+  const [detailLine, setDetailLine] =
+    useState<ExternalVetCommissionLineListItem | null>(null);
   const [actionBusy, setActionBusy] = useState(false);
   const [confirmMode, setConfirmMode] =
     useState<ReimbursementConfirmMode | null>(null);
@@ -125,6 +142,7 @@ export function CommissionLinesPanel() {
       });
       setLines(result.lines);
       setSelectedLineIds(new Set());
+      setPage(1);
     } catch (err) {
       showToast(
         err instanceof Error ? err.message : 'Failed to load commission lines',
@@ -165,6 +183,10 @@ export function CommissionLinesPanel() {
     });
   }, [endDate, lines, search, startDate]);
 
+  useEffect(() => {
+    setPage(1);
+  }, [search, statusFilter, startDate, endDate]);
+
   const summary = useMemo(
     () => summarizeCommissionLines(filteredLines),
     [filteredLines],
@@ -174,6 +196,13 @@ export function CommissionLinesPanel() {
     () => groupLinesByVet(filteredLines),
     [filteredLines],
   );
+
+  const totalPages = Math.max(1, Math.ceil(groups.length / GROUPS_PER_PAGE));
+  const safePage = Math.min(page, totalPages);
+  const pagedGroups = useMemo(() => {
+    const start = (safePage - 1) * GROUPS_PER_PAGE;
+    return groups.slice(start, start + GROUPS_PER_PAGE);
+  }, [groups, safePage]);
 
   const selectedLines = useMemo(
     () => filteredLines.filter((line) => selectedLineIds.has(line.id)),
@@ -191,10 +220,12 @@ export function CommissionLinesPanel() {
   }, [selectedLines]);
 
   const canPrepareReclaim =
+    canMutate &&
     selectedLines.length > 0 &&
     [...selectedStatuses].every((s) => s === 'PAID');
 
   const canMarkReimbursed =
+    canMutate &&
     selectedLines.length > 0 &&
     [...selectedStatuses].every((s) => s === 'AWAITING_SONARWA_REIMBURSEMENT');
 
@@ -267,8 +298,8 @@ export function CommissionLinesPanel() {
       });
       showToast(
         selectedLines.length
-          ? 'Selected lines exported to Excel'
-          : 'Exported to Excel',
+          ? `Exported ${selectedLines.length} selected line${selectedLines.length === 1 ? '' : 's'} to Excel`
+          : `Exported ${exportRows.length} line${exportRows.length === 1 ? '' : 's'} to Excel`,
         'success',
       );
     } catch (err) {
@@ -288,8 +319,8 @@ export function CommissionLinesPanel() {
       });
       showToast(
         selectedLines.length
-          ? 'Selected lines exported to PDF'
-          : 'Exported to PDF',
+          ? `Exported ${selectedLines.length} selected line${selectedLines.length === 1 ? '' : 's'} to PDF`
+          : `Exported ${exportRows.length} line${exportRows.length === 1 ? '' : 's'} to PDF`,
         'success',
       );
     } catch (err) {
@@ -362,6 +393,12 @@ export function CommissionLinesPanel() {
     }
   }
 
+  function resetToThisMonth() {
+    const range = getMonthToDateRange();
+    setStartDate(range.startDate);
+    setEndDate(range.endDate);
+  }
+
   return (
     <div className="space-y-4">
       <ToastContainer />
@@ -372,26 +409,30 @@ export function CommissionLinesPanel() {
             <div className="flex items-center gap-2">
               <WalletCards className="h-5 w-5 text-slate-700" aria-hidden />
               <h2 className="text-base font-semibold text-slate-900">
-                SONARWA reclaim workspace
+                {canMutate
+                  ? 'SONARWA reclaim workspace'
+                  : 'Commission lines'}
               </h2>
             </div>
             <p className="mt-1 max-w-2xl text-sm text-slate-500">
-              Select commission lines (or whole vet groups), prepare the reclaim
-              file when exporting, then mark batches reimbursed once SONARWA
-              settles. Status is applied to each parent batch.
+              {canMutate
+                ? 'Select lines or whole vet groups, export the line ledger for verification, prepare the reclaim file, then mark batches reimbursed once SONARWA settles.'
+                : 'Browse and export commission lines for verification. Select one or more vets to export only their lines. Double-click a row or use View for full details.'}
             </p>
           </div>
-          <ol className="flex flex-wrap gap-2 text-xs">
-            <li className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 font-medium text-emerald-900">
-              1. Paid
-            </li>
-            <li className="rounded-full border border-orange-200 bg-orange-50 px-2.5 py-1 font-medium text-orange-900">
-              2. Awaiting reimbursement
-            </li>
-            <li className="rounded-full border border-teal-200 bg-teal-50 px-2.5 py-1 font-medium text-teal-900">
-              3. Reimbursed by SONARWA
-            </li>
-          </ol>
+          {canMutate ? (
+            <ol className="flex flex-wrap gap-2 text-xs">
+              <li className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 font-medium text-emerald-900">
+                1. Paid
+              </li>
+              <li className="rounded-full border border-orange-200 bg-orange-50 px-2.5 py-1 font-medium text-orange-900">
+                2. Awaiting reimbursement
+              </li>
+              <li className="rounded-full border border-teal-200 bg-teal-50 px-2.5 py-1 font-medium text-teal-900">
+                3. Reimbursed by SONARWA
+              </li>
+            </ol>
+          ) : null}
         </div>
       </div>
 
@@ -470,12 +511,9 @@ export function CommissionLinesPanel() {
             <button
               type="button"
               className="text-xs font-medium text-slate-500 underline-offset-2 hover:text-slate-800 hover:underline"
-              onClick={() => {
-                setStartDate('');
-                setEndDate('');
-              }}
+              onClick={resetToThisMonth}
             >
-              Clear dates
+              Reset to this month
             </button>
           </div>
         )}
@@ -525,7 +563,7 @@ export function CommissionLinesPanel() {
               />
               <span>
                 {selectedLineIds.size > 0
-                  ? `${selectedSummary.lineCount} lines · ${selectedSummary.batchCount} batches · ${selectedSummary.vetCount} vets`
+                  ? `${selectedSummary.lineCount} lines · ${selectedSummary.batchCount} batches · ${selectedSummary.vetCount} vets selected`
                   : `${filteredLines.length} line${filteredLines.length === 1 ? '' : 's'} matching filters`}
               </span>
             </label>
@@ -546,48 +584,42 @@ export function CommissionLinesPanel() {
               onExportExcel={handleExportExcel}
               onExportPdf={handleExportPdf}
             />
-            <Button
-              variant="outline"
-              disabled={!canPrepareReclaim || actionBusy}
-              onClick={() => setConfirmMode('prepare_reclaim')}
-              title={
-                canPrepareReclaim
-                  ? undefined
-                  : 'Select only Paid lines to prepare a reclaim'
-              }
-            >
-              <FileSpreadsheet className="mr-2 h-4 w-4" />
-              Prepare SONARWA reclaim
-            </Button>
-            <Button
-              disabled={!canMarkReimbursed || actionBusy}
-              onClick={() => setConfirmMode('mark_reimbursed')}
-              title={
-                canMarkReimbursed
-                  ? undefined
-                  : 'Select only Awaiting SONARWA reimbursement lines'
-              }
-            >
-              <CheckCircle2 className="mr-2 h-4 w-4" />
-              Mark reimbursed by SONARWA
-            </Button>
+            {canMutate ? (
+              <>
+                <Button
+                  variant="outline"
+                  disabled={!canPrepareReclaim || actionBusy}
+                  onClick={() => setConfirmMode('prepare_reclaim')}
+                  title={
+                    canPrepareReclaim
+                      ? undefined
+                      : 'Select only Paid lines to prepare a reclaim'
+                  }
+                >
+                  <FileSpreadsheet className="mr-2 h-4 w-4" />
+                  Prepare SONARWA reclaim
+                </Button>
+                <Button
+                  disabled={!canMarkReimbursed || actionBusy}
+                  onClick={() => setConfirmMode('mark_reimbursed')}
+                  title={
+                    canMarkReimbursed
+                      ? undefined
+                      : 'Select only Awaiting SONARWA reimbursement lines'
+                  }
+                >
+                  <CheckCircle2 className="mr-2 h-4 w-4" />
+                  Mark reimbursed by SONARWA
+                </Button>
+              </>
+            ) : null}
           </div>
         </div>
-        {selectedLineIds.size > 0 ? (
-          <p className="mt-2 text-xs text-slate-500">
-            Selected totals: {formatRwf(selectedSummary.totalVetCommission)} vet
-            · {formatRwf(selectedSummary.totalCompanyCommission)} company
-            {selectedStatuses.size > 1
-              ? ' — mixed statuses selected; actions require a single stage'
-              : ''}
-          </p>
-        ) : (
-          <p className="mt-2 text-xs text-slate-500">
-            Export uses the current filter result. With a selection, export and
-            status actions apply only to selected lines (and their parent
-            batches).
-          </p>
-        )}
+        <p className="mt-2 text-xs text-slate-500">
+          {selectedLineIds.size > 0
+            ? `Export will include ${selectedSummary.lineCount} selected line${selectedSummary.lineCount === 1 ? '' : 's'} (all lines under the selected vets/rows), not only the summary.`
+            : 'Export includes every line matching the current filters. Tick vet groups or rows to export a subset.'}
+        </p>
       </div>
 
       {isLoading ? (
@@ -602,7 +634,7 @@ export function CommissionLinesPanel() {
         </div>
       ) : (
         <div className="space-y-3">
-          {groups.map((group) => {
+          {pagedGroups.map((group) => {
             const groupIds = group.lines.map((l) => l.id);
             const groupTri = selectionTriState(groupIds, selectedLineIds);
             const collapsed = collapsedVets.has(group.externalVetId);
@@ -675,37 +707,56 @@ export function CommissionLinesPanel() {
                     <table className="min-w-full text-left text-sm">
                       <thead className="bg-white text-xs uppercase tracking-wide text-slate-500">
                         <tr>
-                          <th className="px-3 py-2 w-10" />
-                          <th className="px-3 py-2 font-medium">Batch</th>
-                          <th className="px-3 py-2 font-medium">Status</th>
+                          <th className="w-10 px-3 py-2" />
+                          <th className="px-3 py-2 font-medium">Client ID</th>
+                          <th className="px-3 py-2 font-medium">Client name</th>
                           <th className="px-3 py-2 font-medium">Contract</th>
-                          <th className="px-3 py-2 font-medium">Client</th>
                           <th className="px-3 py-2 font-medium">Branch</th>
+                          <th className="px-3 py-2 font-medium">ProdDate</th>
+                          <th className="px-3 py-2 font-medium">Net premium</th>
                           <th className="px-3 py-2 font-medium">
                             Vet commission
                           </th>
-                          <th className="px-3 py-2 font-medium">
-                            Company commission
-                          </th>
-                          <th className="px-3 py-2 font-medium">Period</th>
+                          <th className="px-3 py-2 font-medium">Status</th>
+                          <th className="px-3 py-2 font-medium">Actions</th>
                         </tr>
                       </thead>
                       <tbody>
                         {group.lines.map((line) => (
                           <tr
                             key={line.id}
-                            className="border-t border-slate-100 hover:bg-slate-50/80"
+                            className="cursor-pointer border-t border-slate-100 hover:bg-slate-50/80"
+                            onDoubleClick={() => setDetailLine(line)}
                           >
                             <td className="px-3 py-2">
                               <input
                                 type="checkbox"
                                 checked={selectedLineIds.has(line.id)}
                                 onChange={() => toggleLine(line.id)}
+                                onClick={(e) => e.stopPropagation()}
                                 aria-label={`Select line ${line.contract || line.sn}`}
                               />
                             </td>
                             <td className="px-3 py-2 font-medium text-slate-900">
-                              {line.batchNumber}
+                              {line.clientId || '—'}
+                            </td>
+                            <td className="px-3 py-2 text-slate-800">
+                              {line.clientName || '—'}
+                            </td>
+                            <td className="px-3 py-2 text-slate-700">
+                              {line.contract || '—'}
+                            </td>
+                            <td className="px-3 py-2 text-slate-600">
+                              {line.branch || '—'}
+                            </td>
+                            <td className="px-3 py-2 text-slate-600">
+                              {line.prodDate || '—'}
+                            </td>
+                            <td className="px-3 py-2 font-medium">
+                              {formatRwf(line.netPremium)}
+                            </td>
+                            <td className="px-3 py-2 font-medium">
+                              {formatRwf(line.vetCommission)}
                             </td>
                             <td className="px-3 py-2">
                               <ExternalVetStatusBadge
@@ -714,28 +765,18 @@ export function CommissionLinesPanel() {
                                 }
                               />
                             </td>
-                            <td className="px-3 py-2 text-slate-700">
-                              {line.contract || '—'}
-                            </td>
                             <td className="px-3 py-2">
-                              <div className="text-slate-800">
-                                {line.clientName || '—'}
-                              </div>
-                              <div className="text-xs text-slate-500">
-                                {line.clientId || ''}
-                              </div>
-                            </td>
-                            <td className="px-3 py-2 text-slate-600">
-                              {line.branch || '—'}
-                            </td>
-                            <td className="px-3 py-2 font-medium">
-                              {formatRwf(line.vetCommission)}
-                            </td>
-                            <td className="px-3 py-2 font-medium">
-                              {formatRwf(line.companyCommission)}
-                            </td>
-                            <td className="px-3 py-2 text-slate-600">
-                              {line.periodLabel || '—'}
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setDetailLine(line);
+                                }}
+                              >
+                                <Eye className="mr-1 h-3.5 w-3.5" />
+                                View
+                              </Button>
                             </td>
                           </tr>
                         ))}
@@ -746,35 +787,75 @@ export function CommissionLinesPanel() {
               </div>
             );
           })}
+
+          <div className="flex flex-col gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600 sm:flex-row sm:items-center sm:justify-between">
+            <p>
+              Showing vets {(safePage - 1) * GROUPS_PER_PAGE + 1}–
+              {Math.min(safePage * GROUPS_PER_PAGE, groups.length)} of{' '}
+              {groups.length}
+            </p>
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={safePage <= 1}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+              >
+                <ChevronLeft className="mr-1 h-4 w-4" />
+                Previous
+              </Button>
+              <span className="min-w-[5rem] text-center text-xs font-medium text-slate-700">
+                Page {safePage} / {totalPages}
+              </span>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={safePage >= totalPages}
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              >
+                Next
+                <ChevronRight className="ml-1 h-4 w-4" />
+              </Button>
+            </div>
+          </div>
         </div>
       )}
 
-      <ReimbursementConfirmDialog
-        open={confirmMode != null}
-        mode={confirmMode ?? 'prepare_reclaim'}
-        lineCount={selectedSummary.lineCount}
-        batchCount={selectedSummary.batchCount}
-        vetCount={selectedSummary.vetCount}
-        totalVetCommission={selectedSummary.totalVetCommission}
-        totalCompanyCommission={selectedSummary.totalCompanyCommission}
-        exportReference={exportReference}
-        onExportReferenceChange={setExportReference}
-        reimbursedAt={reimbursedAt}
-        onReimbursedAtChange={setReimbursedAt}
-        reimbursementReference={reimbursementReference}
-        onReimbursementReferenceChange={setReimbursementReference}
-        busy={actionBusy}
-        onCancel={() => {
-          if (!actionBusy) setConfirmMode(null);
-        }}
-        onConfirm={() => {
-          if (confirmMode === 'prepare_reclaim') {
-            void confirmPrepareReclaim();
-          } else {
-            void confirmMarkReimbursed();
-          }
-        }}
-      />
+      {detailLine ? (
+        <LineDetailModal
+          line={detailLine}
+          onClose={() => setDetailLine(null)}
+        />
+      ) : null}
+
+      {canMutate ? (
+        <ReimbursementConfirmDialog
+          open={confirmMode != null}
+          mode={confirmMode ?? 'prepare_reclaim'}
+          lineCount={selectedSummary.lineCount}
+          batchCount={selectedSummary.batchCount}
+          vetCount={selectedSummary.vetCount}
+          totalVetCommission={selectedSummary.totalVetCommission}
+          totalCompanyCommission={selectedSummary.totalCompanyCommission}
+          exportReference={exportReference}
+          onExportReferenceChange={setExportReference}
+          reimbursedAt={reimbursedAt}
+          onReimbursedAtChange={setReimbursedAt}
+          reimbursementReference={reimbursementReference}
+          onReimbursementReferenceChange={setReimbursementReference}
+          busy={actionBusy}
+          onCancel={() => {
+            if (!actionBusy) setConfirmMode(null);
+          }}
+          onConfirm={() => {
+            if (confirmMode === 'prepare_reclaim') {
+              void confirmPrepareReclaim();
+            } else {
+              void confirmMarkReimbursed();
+            }
+          }}
+        />
+      ) : null}
     </div>
   );
 }

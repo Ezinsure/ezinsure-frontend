@@ -1,9 +1,6 @@
 import type { ExportColumn } from '@/shared/export/types';
 import { exportTableToExcel, exportTableToPdf } from '@/shared/export/table-export';
-import {
-  formatExportDate,
-  formatRwfExportNumber,
-} from '@/shared/export/formatters';
+import { formatRwfExportNumber } from '@/shared/export/formatters';
 import {
   EXTERNAL_VET_STATUS_LABELS,
   summarizeCommissionLines,
@@ -11,67 +8,101 @@ import {
   type ExternalVetCommissionStatus,
 } from '../domain';
 
-const LINE_EXPORT_COLUMNS: ExportColumn<ExternalVetCommissionLineListItem>[] = [
+/**
+ * Finance verification columns: animal-owner payment proof + vet identifiers.
+ * Excel includes a fuller set; PDF uses a landscape-friendly subset.
+ */
+const EXCEL_LINE_COLUMNS: ExportColumn<ExternalVetCommissionLineListItem>[] = [
+  {
+    header: 'Vet name',
+    getValue: (row) => row.payee?.name ?? '—',
+  },
+  {
+    header: 'Vet phone',
+    getValue: (row) => row.payee?.phoneNumber ?? '—',
+  },
+  {
+    header: 'Client ID/NO',
+    getValue: (row) => row.clientId || '—',
+  },
+  {
+    header: 'Client name',
+    getValue: (row) => row.clientName || '—',
+  },
+  {
+    header: 'Contract',
+    getValue: (row) => row.contract || '—',
+  },
+  {
+    header: 'Branch',
+    getValue: (row) => row.branch || '—',
+  },
+  {
+    header: 'ProdDate',
+    getValue: (row) => row.prodDate || '—',
+  },
+  {
+    header: 'EffecDate',
+    getValue: (row) => row.effecDate || '—',
+  },
+  {
+    header: 'ExpiryDate',
+    getValue: (row) => row.expiryDate || '—',
+  },
+  {
+    header: 'Type Livestock',
+    getValue: (row) => row.typeLivestock || '—',
+  },
+  {
+    header: 'Net premium (RWF)',
+    getValue: (row) => formatRwfExportNumber(row.netPremium),
+  },
+  {
+    header: 'Sum insured (RWF)',
+    getValue: (row) => formatRwfExportNumber(row.sumInsured),
+  },
+  {
+    header: 'Vet commission (RWF)',
+    getValue: (row) => formatRwfExportNumber(row.vetCommission),
+  },
+  {
+    header: 'Company commission (RWF)',
+    getValue: (row) => formatRwfExportNumber(row.companyCommission),
+  },
+  {
+    header: 'Agent',
+    getValue: (row) => row.agent || '—',
+  },
   {
     header: 'Batch',
     getValue: (row) => row.batchNumber,
-    pdfWidth: 24,
   },
   {
     header: 'Status',
     getValue: (row) =>
       EXTERNAL_VET_STATUS_LABELS[row.batchStatus] ?? row.batchStatus,
-    pdfWidth: 30,
-  },
-  {
-    header: 'Vet name',
-    getValue: (row) => row.payee?.name ?? '—',
-    pdfWidth: 28,
-  },
-  {
-    header: 'Phone',
-    getValue: (row) => row.payee?.phoneNumber ?? '—',
-    pdfWidth: 22,
-  },
-  {
-    header: 'Bank',
-    getValue: (row) => row.payee?.bankName ?? '—',
-    pdfWidth: 22,
-  },
-  {
-    header: 'Account',
-    getValue: (row) => row.payee?.bankAccountNumber ?? '—',
-    pdfWidth: 24,
   },
   {
     header: 'Period',
     getValue: (row) => row.periodLabel || '—',
-    pdfWidth: 22,
+  },
+];
+
+const PDF_LINE_COLUMNS: ExportColumn<ExternalVetCommissionLineListItem>[] = [
+  {
+    header: 'Vet',
+    getValue: (row) => row.payee?.name ?? '—',
+    pdfWidth: 26,
   },
   {
-    header: 'S/N',
-    getValue: (row) => row.sn,
-    pdfWidth: 12,
-  },
-  {
-    header: 'ProdDate',
-    getValue: (row) => row.prodDate || '—',
+    header: 'Client ID',
+    getValue: (row) => row.clientId || '—',
     pdfWidth: 20,
   },
   {
-    header: 'Branch',
-    getValue: (row) => row.branch || '—',
-    pdfWidth: 18,
-  },
-  {
-    header: 'EffecDate',
-    getValue: (row) => row.effecDate || '—',
-    pdfWidth: 20,
-  },
-  {
-    header: 'ExpiryDate',
-    getValue: (row) => row.expiryDate || '—',
-    pdfWidth: 20,
+    header: 'Client name',
+    getValue: (row) => row.clientName || '—',
+    pdfWidth: 28,
   },
   {
     header: 'Contract',
@@ -79,58 +110,33 @@ const LINE_EXPORT_COLUMNS: ExportColumn<ExternalVetCommissionLineListItem>[] = [
     pdfWidth: 22,
   },
   {
-    header: 'Type Livestock',
-    getValue: (row) => row.typeLivestock || '—',
-    pdfWidth: 22,
+    header: 'Branch',
+    getValue: (row) => row.branch || '—',
+    pdfWidth: 18,
   },
   {
-    header: 'ClientID',
-    getValue: (row) => row.clientId || '—',
+    header: 'ProdDate',
+    getValue: (row) => row.prodDate || '—',
     pdfWidth: 20,
   },
   {
-    header: 'ClientName',
-    getValue: (row) => row.clientName || '—',
-    pdfWidth: 28,
-  },
-  {
-    header: 'Agent',
-    getValue: (row) => row.agent || '—',
-    pdfWidth: 22,
-  },
-  {
-    header: 'SumInsured (RWF)',
-    getValue: (row) => formatRwfExportNumber(row.sumInsured),
-    pdfWidth: 24,
-  },
-  {
-    header: 'NetPremium (RWF)',
+    header: 'Net premium',
     getValue: (row) => formatRwfExportNumber(row.netPremium),
-    pdfWidth: 24,
+    pdfWidth: 22,
   },
   {
-    header: 'Vet commission (RWF)',
+    header: 'Vet comm.',
     getValue: (row) => formatRwfExportNumber(row.vetCommission),
-    pdfWidth: 26,
+    pdfWidth: 20,
   },
   {
-    header: 'Company commission (RWF)',
+    header: 'Co. comm.',
     getValue: (row) => formatRwfExportNumber(row.companyCommission),
-    pdfWidth: 28,
+    pdfWidth: 20,
   },
   {
-    header: 'UserName',
-    getValue: (row) => row.userName || '—',
-    pdfWidth: 22,
-  },
-  {
-    header: 'Batch created',
-    getValue: (row) => formatExportDate(row.batchCreatedAt),
-    pdfWidth: 22,
-  },
-  {
-    header: 'Paid at',
-    getValue: (row) => (row.paidAt ? formatExportDate(row.paidAt) : '—'),
+    header: 'Batch',
+    getValue: (row) => row.batchNumber,
     pdfWidth: 22,
   },
 ];
@@ -155,7 +161,10 @@ function purposeTitle(purpose?: ExternalVetLinesExportOptions['purpose']): strin
   }
 }
 
-function buildReportMeta(options: ExternalVetLinesExportOptions) {
+function buildReportMeta(
+  options: ExternalVetLinesExportOptions,
+  format: 'excel' | 'pdf',
+) {
   const summary = summarizeCommissionLines(options.rows);
   const statusLabel =
     options.status && options.status !== 'ALL'
@@ -172,12 +181,10 @@ function buildReportMeta(options: ExternalVetLinesExportOptions) {
     contextLines.push(`Search: ${options.search.trim()}`);
   }
 
-  const title = `External Vet Commissions — ${purposeTitle(options.purpose)}`;
-
   return {
-    title,
+    title: `External Vet Commissions — ${purposeTitle(options.purpose)}`,
     subtitle:
-      'Line-level SONARWA commission ledger for finance reclaim and reimbursement',
+      'Line-level ledger for verifying owner payment and SONARWA reclaim',
     contextLines,
     summaryLines: [
       `Lines: ${summary.lineCount}`,
@@ -193,7 +200,7 @@ function buildReportMeta(options: ExternalVetLinesExportOptions) {
           ? 'sonarwa_reimbursed_lines'
           : 'external_vet_commission_lines',
     sheetName: 'Lines',
-    columns: LINE_EXPORT_COLUMNS,
+    columns: format === 'pdf' ? PDF_LINE_COLUMNS : EXCEL_LINE_COLUMNS,
     rows: options.rows,
   };
 }
@@ -201,11 +208,11 @@ function buildReportMeta(options: ExternalVetLinesExportOptions) {
 export async function exportExternalVetLinesToExcel(
   options: ExternalVetLinesExportOptions,
 ): Promise<void> {
-  await exportTableToExcel(buildReportMeta(options));
+  await exportTableToExcel(buildReportMeta(options, 'excel'));
 }
 
 export async function exportExternalVetLinesToPdf(
   options: ExternalVetLinesExportOptions,
 ): Promise<void> {
-  await exportTableToPdf(buildReportMeta(options));
+  await exportTableToPdf(buildReportMeta(options, 'pdf'));
 }

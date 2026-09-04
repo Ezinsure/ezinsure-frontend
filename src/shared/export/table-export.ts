@@ -26,6 +26,10 @@ export async function exportTableToExcel<T>(options: ExportTableOptions<T>): Pro
 
   const workbook = XLSX.utils.book_new();
 
+  // Data sheet first so Excel opens on the rows (not the Summary metadata sheet).
+  const worksheet = XLSX.utils.json_to_sheet(sheetRows);
+  XLSX.utils.book_append_sheet(workbook, worksheet, options.sheetName ?? 'Data');
+
   const summaryRows: Array<Record<string, string>> = [
     { Field: 'Title', Value: options.title },
   ];
@@ -52,9 +56,6 @@ export async function exportTableToExcel<T>(options: ExportTableOptions<T>): Pro
     const summarySheet = XLSX.utils.json_to_sheet(summaryRows);
     XLSX.utils.book_append_sheet(workbook, summarySheet, 'Summary');
   }
-
-  const worksheet = XLSX.utils.json_to_sheet(sheetRows);
-  XLSX.utils.book_append_sheet(workbook, worksheet, options.sheetName ?? 'Data');
 
   XLSX.writeFile(workbook, buildFilename(options.filenameBase, 'xlsx'));
 }
