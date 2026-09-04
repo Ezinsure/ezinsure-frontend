@@ -180,6 +180,7 @@ export default function CompanyPerformancePage({
         status: app.status,
         submittedAt: app.submittedAt,
         policeNumber: formatPoliceNumberForExport(app.application),
+        netPremium: app.amount,
         companyCommission: app.companyCommission,
         administrationFees: app.administrationFees,
       })),
