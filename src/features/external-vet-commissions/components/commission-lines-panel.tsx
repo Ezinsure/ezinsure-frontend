@@ -769,10 +769,7 @@ export function CommissionLinesPanel({
                               <Button
                                 size="sm"
                                 variant="outline"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setDetailLine(line);
-                                }}
+                                onClick={() => setDetailLine(line)}
                               >
                                 <Eye className="mr-1 h-3.5 w-3.5" />
                                 View
