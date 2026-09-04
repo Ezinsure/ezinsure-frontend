@@ -14,6 +14,7 @@ export interface CompanyPerformanceApplication {
   insuranceCategory: string;
   status: string;
   amount: number;
+  netPremium: number;
   companyCommission: number;
   administrationFees: number;
   submittedAt: string;

@@ -70,45 +70,71 @@ export async function exportTableToPdf<T>(options: ExportTableOptions<T>): Promi
 
   const orientation = options.pdfOrientation ?? 'landscape';
   const doc = new jsPDF(orientation, 'mm', 'a4');
+  const pageWidth = doc.internal.pageSize.getWidth();
 
   const marginX = 14;
-  let cursorY = 18;
+  const contentWidth = pageWidth - marginX * 2;
+  let cursorY = 12;
 
-  doc.setFontSize(18);
-  doc.setTextColor(...BRAND_COLOR);
-  doc.text(options.title, marginX, cursorY);
-  cursorY += 8;
+  // Brand header bar
+  doc.setFillColor(...BRAND_COLOR);
+  doc.rect(0, 0, pageWidth, 28, 'F');
+
+  doc.setTextColor(255, 255, 255);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(16);
+  doc.text(options.title, marginX, 12);
 
   if (options.subtitle) {
-    doc.setFontSize(11);
-    doc.setTextColor(100, 100, 100);
-    doc.text(options.subtitle, marginX, cursorY);
-    cursorY += 6;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9.5);
+    doc.setTextColor(210, 220, 235);
+    doc.text(options.subtitle, marginX, 19);
   }
 
-  const generatedAt = new Date().toLocaleString();
-  doc.setFontSize(9);
-  doc.setTextColor(120, 120, 120);
-  doc.text(`Generated: ${generatedAt}`, marginX, cursorY);
-  cursorY += 6;
+  doc.setFontSize(8);
+  doc.setTextColor(180, 195, 215);
+  doc.text(`Generated ${new Date().toLocaleString()}`, pageWidth - marginX, 12, {
+    align: 'right',
+  });
 
-  if (options.contextLines?.length) {
-    doc.setFontSize(9);
-    doc.setTextColor(70, 70, 70);
-    for (const line of options.contextLines) {
-      doc.text(line, marginX, cursorY);
-      cursorY += 5;
-    }
-  }
+  cursorY = 36;
 
-  if (options.summaryLines?.length) {
-    cursorY += 2;
-    doc.setFontSize(9);
-    doc.setTextColor(50, 50, 50);
-    for (const line of options.summaryLines) {
-      doc.text(line, marginX, cursorY);
-      cursorY += 5;
+  const metaLines = [...(options.contextLines ?? []), ...(options.summaryLines ?? [])];
+  if (metaLines.length) {
+    const boxTop = cursorY;
+    const rowHeight = 5.2;
+    const boxPadding = 4;
+    const boxHeight = boxPadding * 2 + metaLines.length * rowHeight;
+
+    doc.setFillColor(245, 247, 250);
+    doc.setDrawColor(220, 226, 234);
+    doc.roundedRect(marginX, boxTop, contentWidth, boxHeight, 2, 2, 'FD');
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8.5);
+    let lineY = boxTop + boxPadding + 3.2;
+
+    for (const line of metaLines) {
+      const separator = line.indexOf(':');
+      if (separator > 0) {
+        const label = line.slice(0, separator).trim();
+        const value = line.slice(separator + 1).trim();
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(...BRAND_COLOR);
+        doc.text(`${label}:`, marginX + 4, lineY);
+        const labelWidth = doc.getTextWidth(`${label}: `);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(55, 65, 81);
+        doc.text(value, marginX + 4 + labelWidth, lineY);
+      } else {
+        doc.setTextColor(55, 65, 81);
+        doc.text(line, marginX + 4, lineY);
+      }
+      lineY += rowHeight;
     }
+
+    cursorY = boxTop + boxHeight + 6;
   }
 
   const head = [options.columns.map((col) => col.header)];
@@ -120,7 +146,7 @@ export async function exportTableToPdf<T>(options: ExportTableOptions<T>): Promi
   );
 
   autoTable.default(doc, {
-    startY: cursorY + 4,
+    startY: cursorY,
     head,
     body,
     styles: {

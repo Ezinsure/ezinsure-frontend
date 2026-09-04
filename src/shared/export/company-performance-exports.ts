@@ -148,8 +148,8 @@ export async function exportCompanyPerformanceToPdf(
   const summary = buildCompanyPerformanceSummary(params.rows);
 
   await exportTableToPdf({
-    title: 'EZInsure — Company Performance Report',
-    subtitle: 'Direct-channel motor applications (admin & client)',
+    title: 'EZInsure Company Performance',
+    subtitle: 'Direct-channel motor applications · Admin & Client',
     filenameBase: buildFilenameBase(),
     columns: COMPANY_PERFORMANCE_COLUMNS,
     rows: params.rows,
