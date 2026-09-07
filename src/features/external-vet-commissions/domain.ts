@@ -307,12 +307,12 @@ export const EXTERNAL_VET_STATUS_LABELS: Record<
   ExternalVetCommissionStatus,
   string
 > = {
-  PENDING_ADMIN_REVIEW: 'Pending admin review',
-  READY_TO_BE_PAID: 'Ready to be paid',
+  PENDING_ADMIN_REVIEW: 'Pending review',
+  READY_TO_BE_PAID: 'Ready to pay',
   PAYMENT_INITIATED: 'Payment initiated',
   PAID: 'Paid',
-  AWAITING_SONARWA_REIMBURSEMENT: 'Awaiting SONARWA reimbursement',
-  REIMBURSED_BY_SONARWA: 'Reimbursed by SONARWA',
+  AWAITING_SONARWA_REIMBURSEMENT: 'Awaiting reimbursement',
+  REIMBURSED_BY_SONARWA: 'Reimbursed',
   REJECTED: 'Rejected',
 };
 

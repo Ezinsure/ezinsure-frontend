@@ -55,15 +55,60 @@ const EXACT_THRESHOLD = 95;
 /** Header rows always sit near the top; never scan the whole sheet for one. */
 const HEADER_SCAN_LIMIT = 60;
 
+/**
+ * Excel often displays long IDs as `1.2E+13` while the underlying cell value is
+ * the full integer. Prefer that raw value, never the abbreviated display text.
+ */
+function expandScientificNotation(text: string): string {
+  const match = text.trim().match(/^([+-]?)(\d+(?:\.\d+)?)[eE]([+-]?\d+)$/);
+  if (!match) return text;
+
+  const sign = match[1] === '-' ? '-' : '';
+  const [whole, fraction = ''] = match[2].split('.');
+  const digits = `${whole}${fraction}`;
+  const exponent = Number(match[3]) - fraction.length;
+  if (!Number.isFinite(exponent)) return text;
+
+  if (exponent >= 0) return `${sign}${digits}${'0'.repeat(exponent)}`;
+  const splitAt = digits.length + exponent;
+  if (splitAt <= 0) return `${sign}0.${'0'.repeat(-splitAt)}${digits}`;
+  return `${sign}${digits.slice(0, splitAt)}.${digits.slice(splitAt)}`;
+}
+
+/** Formats a JS number without scientific notation (e.g. Client ID / Tag). */
+function numberToPlainString(value: number): string {
+  if (!Number.isFinite(value)) return '';
+  if (Object.is(value, -0)) return '0';
+
+  // Integers within the safe range keep every digit exactly.
+  if (Number.isInteger(value) && Math.abs(value) <= Number.MAX_SAFE_INTEGER) {
+    return value.toLocaleString('en-US', {
+      useGrouping: false,
+      maximumFractionDigits: 0,
+    });
+  }
+
+  // Dates/amounts that are floats: keep a stable decimal form, then strip noise.
+  const fixed = value.toFixed(10).replace(/\.?0+$/, '');
+  return expandScientificNotation(fixed);
+}
+
 function cellString(raw: unknown): string {
   if (raw == null) return '';
-  if (typeof raw === 'number') return Number.isFinite(raw) ? String(raw) : '';
+  if (typeof raw === 'number') return numberToPlainString(raw);
+  if (typeof raw === 'boolean') return raw ? 'TRUE' : 'FALSE';
   if (raw instanceof Date) {
     const day = String(raw.getDate()).padStart(2, '0');
     const month = String(raw.getMonth() + 1).padStart(2, '0');
     return `${day}/${month}/${raw.getFullYear()}`;
   }
-  return String(raw).trim();
+
+  const text = String(raw).trim();
+  // Defensive: some exporters still hand us the display string "1.2E+13".
+  if (/^[+-]?\d+(?:\.\d+)?[eE][+-]?\d+$/.test(text)) {
+    return expandScientificNotation(text);
+  }
+  return text;
 }
 
 /** Parses `"1,250,000"`, `"1 250 000"` or `1250000`. Blank means 0. */
@@ -302,10 +347,12 @@ async function readSheetMatrix(file: File): Promise<string[][]> {
   const sheetName = workbook.SheetNames[0];
   if (!sheetName) throw new Error('Workbook has no sheets');
 
+  // `raw: true` returns the underlying cell value, not Excel's scientific
+  // display text (e.g. 12000000000082 instead of "1.2E+13").
   const matrix = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], {
     header: 1,
     defval: '',
-    raw: false,
+    raw: true,
     blankrows: true,
   }) as unknown[][];
 

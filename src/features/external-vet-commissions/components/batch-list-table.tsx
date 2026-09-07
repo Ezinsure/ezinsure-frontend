@@ -111,7 +111,7 @@ export function BatchListTable({
               <td className="px-3 py-3 font-medium">
                 {formatRwf(batch.totalCompanyCommission)}
               </td>
-              <td className="px-3 py-3">
+              <td className="px-3 py-3 align-middle">
                 <ExternalVetStatusBadge status={batch.status} />
               </td>
               <td className="px-3 py-3 text-slate-600">
