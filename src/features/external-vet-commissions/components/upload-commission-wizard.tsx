@@ -24,8 +24,12 @@ import {
   type ExternalVetPayeeSnapshot,
   type PlatformVetSearchHit,
 } from '../domain';
-import { downloadExternalVetCommissionTemplate } from '../export/commission-sheet-template';
-import { parseCommissionSheet } from '../parse-commission-sheet';
+import type { ClaimFormLanguage } from '../commission-sheet-schema';
+import { downloadCommissionClaimForm } from '../export/commission-sheet-template';
+import {
+  parseCommissionSheet,
+  type ColumnMatch,
+} from '../parse-commission-sheet';
 import { rwandaBanks } from '@/utils/rwanda-banks';
 
 type Props = {
@@ -56,9 +60,15 @@ export function UploadCommissionWizard({ open, onClose, onCreated }: Props) {
   >([]);
   const [parseErrors, setParseErrors] = useState<string[]>([]);
   const [parseWarnings, setParseWarnings] = useState<string[]>([]);
+  const [columnMatches, setColumnMatches] = useState<ColumnMatch[]>([]);
+  const [detectedLanguage, setDetectedLanguage] = useState<
+    ClaimFormLanguage | undefined
+  >();
   const [isParsing, setIsParsing] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isExportingTemplate, setIsExportingTemplate] = useState(false);
+  const [templateBusy, setTemplateBusy] = useState<ClaimFormLanguage | null>(
+    null,
+  );
 
   const [externalVets, setExternalVets] = useState<ExternalVet[]>([]);
   const [platformHits, setPlatformHits] = useState<PlatformVetSearchHit[]>([]);
@@ -117,18 +127,18 @@ export function UploadCommissionWizard({ open, onClose, onCreated }: Props) {
 
   if (!open) return null;
 
-  async function handleDownloadTemplate() {
-    setIsExportingTemplate(true);
+  async function handleDownloadTemplate(language: ClaimFormLanguage) {
+    setTemplateBusy(language);
     try {
-      await downloadExternalVetCommissionTemplate();
-      showToast('Template downloaded', 'success');
+      await downloadCommissionClaimForm(language);
+      showToast('Claim form downloaded', 'success');
     } catch (err) {
       showToast(
-        err instanceof Error ? err.message : 'Failed to download template',
+        err instanceof Error ? err.message : 'Failed to download claim form',
         'error',
       );
     } finally {
-      setIsExportingTemplate(false);
+      setTemplateBusy(null);
     }
   }
 
@@ -142,6 +152,8 @@ export function UploadCommissionWizard({ open, onClose, onCreated }: Props) {
       const result = await parseCommissionSheet(file);
       setParseErrors(result.errors);
       setParseWarnings(result.warnings);
+      setColumnMatches(result.columnMatches);
+      setDetectedLanguage(result.detectedLanguage);
       setSheetLines(result.lines);
       if (result.errors.length) {
         showToast(result.errors[0], 'error');
@@ -256,6 +268,8 @@ export function UploadCommissionWizard({ open, onClose, onCreated }: Props) {
     setSheetLines([]);
     setParseErrors([]);
     setParseWarnings([]);
+    setColumnMatches([]);
+    setDetectedLanguage(undefined);
     setSelectedExternalVetId(null);
     setLinkedUserId(undefined);
     setPayee({
@@ -299,9 +313,9 @@ export function UploadCommissionWizard({ open, onClose, onCreated }: Props) {
             Step {step} of 3 — {stepLabel}
           </p>
           <p className="mt-2 text-xs text-slate-500">
-            Vet details are entered in the form. The Excel sheet includes the
-            usual Commission column (shown as VetCommission). CompanyCommission
-            is calculated from net premium × the rate you set (default{' '}
+            Vet payout details are entered in this form. The uploaded claim form
+            supplies the contract lines, and company commission is calculated
+            from net premium × the rate you set (default{' '}
             {DEFAULT_COMPANY_COMMISSION_PERCENT}%).
           </p>
         </div>
@@ -491,35 +505,51 @@ export function UploadCommissionWizard({ open, onClose, onCreated }: Props) {
 
           {step === 2 ? (
             <div className="space-y-4">
-              <div className="flex flex-col gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex flex-col gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4 lg:flex-row lg:items-center lg:justify-between">
                 <div className="flex items-start gap-3">
                   <FileSpreadsheet className="mt-0.5 h-5 w-5 shrink-0 text-slate-500" />
                   <div>
                     <p className="text-sm font-medium text-slate-800">
-                      Commission lines Excel only
+                      Official livestock commission claim form
                     </p>
                     <p className="mt-0.5 text-xs text-slate-500">
-                      Required headers: S/N, ProdDate, Branch, EffecDate,
-                      ExpiryDate, Contract, Type Livestock, ClientID,
-                      ClientName, Agent, SumInsured, NetPremium, Commission,
-                      UserName. Sheet Commission maps to VetCommission.
-                      CompanyCommission is calculated from the rate below.
+                      Upload the filled claim form in Kinyarwanda or English.
+                      Only the table under section 2 (&ldquo;URUTONDE
+                      RW&rsquo;AMATUNGO&rdquo; / &ldquo;LIST OF
+                      CONTRACTS&rdquo;) is read, up to the TOTAL / IGITERANYO
+                      row — the identification and signature blocks are ignored.
+                      Empty rows are skipped, and company commission is
+                      calculated from the rate below.
                     </p>
                   </div>
                 </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => void handleDownloadTemplate()}
-                  disabled={isExportingTemplate}
-                >
-                  {isExportingTemplate ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
-                    <Download className="mr-2 h-4 w-4" />
-                  )}
-                  Download template
-                </Button>
+                <div className="flex shrink-0 flex-wrap gap-2">
+                  <Button
+                    size="sm"
+                    onClick={() => void handleDownloadTemplate('rw')}
+                    disabled={templateBusy != null}
+                  >
+                    {templateBusy === 'rw' ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Download className="mr-2 h-4 w-4" />
+                    )}
+                    Ifishi (Kinyarwanda)
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => void handleDownloadTemplate('en')}
+                    disabled={templateBusy != null}
+                  >
+                    {templateBusy === 'en' ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Download className="mr-2 h-4 w-4" />
+                    )}
+                    English form
+                  </Button>
+                </div>
               </div>
 
               <div className="grid gap-3 sm:grid-cols-2">
@@ -641,8 +671,58 @@ export function UploadCommissionWizard({ open, onClose, onCreated }: Props) {
                   </div>
                 </div>
               </div>
+              {columnMatches.length ? (
+                <div className="rounded-lg border border-slate-200 p-4">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-sm font-semibold text-slate-800">
+                      Detected columns
+                    </p>
+                    <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-700">
+                      {detectedLanguage === 'rw'
+                        ? 'Kinyarwanda form'
+                        : detectedLanguage === 'en'
+                          ? 'English form'
+                          : 'Custom headers'}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Every column below is stored in English regardless of the
+                    uploaded language.
+                  </p>
+                  <ul className="mt-3 grid gap-1.5 sm:grid-cols-2">
+                    {columnMatches.map((match) => (
+                      <li
+                        key={match.field}
+                        className="flex flex-wrap items-baseline gap-x-1.5 text-xs"
+                      >
+                        <span className="text-slate-500">
+                          {match.sourceHeader.replace(/\s+/g, ' ').trim() ||
+                            '(blank header)'}
+                        </span>
+                        <span className="text-slate-400">→</span>
+                        <span className="font-medium text-slate-800">
+                          {match.label}
+                        </span>
+                        {match.method !== 'exact' ? (
+                          <span
+                            className={`rounded px-1.5 py-0.5 text-[10px] font-medium uppercase ${
+                              match.method === 'position'
+                                ? 'bg-amber-100 text-amber-800'
+                                : 'bg-sky-100 text-sky-800'
+                            }`}
+                          >
+                            {match.method === 'position'
+                              ? 'by position'
+                              : 'close match'}
+                          </span>
+                        ) : null}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
               {parseWarnings.length ? (
-                <ul className="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                <ul className="space-y-1 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800">
                   {parseWarnings.map((w) => (
                     <li key={w}>{w}</li>
                   ))}

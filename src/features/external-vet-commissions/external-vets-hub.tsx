@@ -28,8 +28,9 @@ import { BatchDetailPanel } from './components/batch-detail-panel';
 import { BatchListTable } from './components/batch-list-table';
 import { CommissionLinesPanel } from './components/commission-lines-panel';
 import { UploadCommissionWizard } from './components/upload-commission-wizard';
+import type { ClaimFormLanguage } from './commission-sheet-schema';
 import { getMonthToDateRange } from './date-range';
-import { downloadExternalVetCommissionTemplate } from './export/commission-sheet-template';
+import { downloadCommissionClaimForm } from './export/commission-sheet-template';
 import {
   batchCreatedInDateRange,
   exportExternalVetBatchesToExcel,
@@ -124,24 +125,26 @@ export default function ExternalVetsHub({ viewRole }: ExternalVetsHubProps) {
   const [uploadOpen, setUploadOpen] = useState(false);
   const [reviewNote, setReviewNote] = useState('');
   const [actionBusy, setActionBusy] = useState(false);
-  const [isExportingTemplate, setIsExportingTemplate] = useState(false);
+  const [templateBusy, setTemplateBusy] = useState<ClaimFormLanguage | null>(
+    null,
+  );
 
   const canUpload = viewRole === 'admin' || viewRole === 'super_admin';
   const canReview = canUpload;
   const canPay = viewRole === 'finance';
 
-  async function handleDownloadTemplate() {
-    setIsExportingTemplate(true);
+  async function handleDownloadTemplate(language: ClaimFormLanguage) {
+    setTemplateBusy(language);
     try {
-      await downloadExternalVetCommissionTemplate();
-      showToast('Template downloaded', 'success');
+      await downloadCommissionClaimForm(language);
+      showToast('Claim form downloaded', 'success');
     } catch (err) {
       showToast(
-        err instanceof Error ? err.message : 'Failed to download template',
+        err instanceof Error ? err.message : 'Failed to download claim form',
         'error',
       );
     } finally {
-      setIsExportingTemplate(false);
+      setTemplateBusy(null);
     }
   }
 
@@ -430,15 +433,27 @@ export default function ExternalVetsHub({ viewRole }: ExternalVetsHubProps) {
           <div className="flex flex-wrap gap-2">
             <Button
               variant="outline"
-              onClick={() => void handleDownloadTemplate()}
-              disabled={isExportingTemplate}
+              onClick={() => void handleDownloadTemplate('rw')}
+              disabled={templateBusy != null}
             >
-              {isExportingTemplate ? (
+              {templateBusy === 'rw' ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               ) : (
                 <Download className="mr-2 h-4 w-4" />
               )}
-              Export template
+              Claim form (Kinyarwanda)
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => void handleDownloadTemplate('en')}
+              disabled={templateBusy != null}
+            >
+              {templateBusy === 'en' ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Download className="mr-2 h-4 w-4" />
+              )}
+              Claim form (English)
             </Button>
             <Button onClick={() => setUploadOpen(true)}>
               <Upload className="mr-2 h-4 w-4" />

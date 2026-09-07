@@ -31,13 +31,15 @@ const LINE_EXPORT_COLUMNS: ExportColumn<ExternalVetCommissionLine>[] =
       return String(value ?? '');
     },
     pdfWidth:
-      key === 'contract'
-        ? 28
-        : key === 'clientName' || key === 'agent'
+      key === 'contract' || key === 'microchipNumber'
+        ? 26
+        : key === 'clientName' || key === 'branch'
           ? 24
           : key === 'typeLivestock'
-            ? 22
-            : 16,
+            ? 20
+            : key === 'sn'
+              ? 10
+              : 16,
   }));
 
 function buildBatchSummaryLines(batch: ExternalVetCommissionBatch): string[] {

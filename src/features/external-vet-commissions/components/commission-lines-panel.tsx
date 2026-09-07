@@ -710,6 +710,7 @@ export function CommissionLinesPanel({
                           <th className="w-10 px-3 py-2" />
                           <th className="px-3 py-2 font-medium">Client ID</th>
                           <th className="px-3 py-2 font-medium">Client name</th>
+                          <th className="px-3 py-2 font-medium">District</th>
                           <th className="px-3 py-2 font-medium">Contract</th>
                           <th className="px-3 py-2 font-medium">Branch</th>
                           <th className="px-3 py-2 font-medium">ProdDate</th>
@@ -742,6 +743,9 @@ export function CommissionLinesPanel({
                             </td>
                             <td className="px-3 py-2 text-slate-800">
                               {line.clientName || '—'}
+                            </td>
+                            <td className="px-3 py-2 text-slate-600">
+                              {line.clientDistrict || '—'}
                             </td>
                             <td className="px-3 py-2 text-slate-700">
                               {line.contract || '—'}

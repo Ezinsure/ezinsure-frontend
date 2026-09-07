@@ -1,48 +1,60 @@
-import {
-  COMMISSION_SHEET_COLUMN_KEYS,
-  COMMISSION_SHEET_COLUMN_LABELS,
-} from '../domain';
+/**
+ * Serves the official commission claim forms shipped in `public/templates/`.
+ * Vets fill these in and admins upload them back, so the downloaded file must
+ * be the untouched original rather than a generated look-alike.
+ */
 
-/** One sample data row matching the upload sheet (no companyCommission). */
-const SAMPLE_ROW: Record<
-  (typeof COMMISSION_SHEET_COLUMN_KEYS)[number],
-  string | number
-> = {
-  sn: 1,
-  prodDate: '18/03/2026 10:52:10',
-  branch: 'Butare',
-  effecDate: '18/03/2026',
-  expiryDate: '17/03/2027',
-  contract: '0717484|BASE|00',
-  typeLivestock: 'Cattle-Non-Girinka',
-  clientId: '0500866',
-  clientName: 'TUMUSIFU JEROME',
-  agent: 'SOLEKTRA R',
-  sumInsured: 1000000,
-  netPremium: 55000,
-  vetCommission: 5500,
-  userName: 'NYAMWASA',
+import type { ClaimFormLanguage } from '../commission-sheet-schema';
+
+type ClaimFormTemplate = {
+  language: ClaimFormLanguage;
+  /** Button label in the UI. */
+  label: string;
+  /** Path under `public/`. */
+  path: string;
+  /** File name suggested to the browser. */
+  downloadName: string;
 };
 
-/**
- * Download an Excel template with the sheet columns expected by upload.
- * Sheet header for vet commission remains "Commission" (SONARWA).
- * companyCommission is NOT included — calculated in the form from
- * net premium × company commission %.
- */
-export async function downloadExternalVetCommissionTemplate(): Promise<void> {
-  const XLSX = await import('@e965/xlsx');
-  const headers = COMMISSION_SHEET_COLUMN_KEYS.map(
-    (key) => COMMISSION_SHEET_COLUMN_LABELS[key],
-  );
-  const sample = COMMISSION_SHEET_COLUMN_KEYS.map((key) => SAMPLE_ROW[key]);
+/** Kinyarwanda is the primary form; English is offered as an alternative. */
+export const CLAIM_FORM_TEMPLATES: Record<ClaimFormLanguage, ClaimFormTemplate> = {
+  rw: {
+    language: 'rw',
+    label: 'Kinyarwanda',
+    path: "/templates/Ifishi_yo_gusaba_Komisiyo_y'ubwishingizi_bw'amatungo_Final.xlsx",
+    downloadName: "Ifishi_yo_gusaba_Komisiyo_y'ubwishingizi_bw'amatungo.xlsx",
+  },
+  en: {
+    language: 'en',
+    label: 'English',
+    path: '/templates/Commission_Claim_Form_Vet_English_vestion_excel_Final.xlsx',
+    downloadName: 'Commission_Claim_Form_Vet_English.xlsx',
+  },
+};
 
-  const worksheet = XLSX.utils.aoa_to_sheet([headers, sample]);
-  worksheet['!cols'] = headers.map((h) => ({
-    wch: Math.max(12, String(h).length + 2),
-  }));
+async function downloadStaticFile(template: ClaimFormTemplate): Promise<void> {
+  const response = await fetch(encodeURI(template.path));
+  if (!response.ok) {
+    throw new Error(
+      `Could not load the ${template.label} claim form (${response.status})`,
+    );
+  }
 
-  const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, worksheet, 'Commission Lines');
-  XLSX.writeFile(workbook, 'external_vet_commission_lines_template.xlsx');
+  const url = URL.createObjectURL(await response.blob());
+  try {
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = template.downloadName;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+export async function downloadCommissionClaimForm(
+  language: ClaimFormLanguage,
+): Promise<void> {
+  await downloadStaticFile(CLAIM_FORM_TEMPLATES[language]);
 }

@@ -144,8 +144,9 @@ function buildCreateBatchBody(input: CreateCommissionBatchInput) {
     totalVetCommission,
     totalCompanyCommission,
     lineCount: input.lines.length,
+    // `sn` is a display-only counter from the claim form and is not persisted.
     lines: input.lines.map((line) => ({
-      sn: line.sn,
+      microchipNumber: line.microchipNumber,
       prodDate: line.prodDate,
       branch: line.branch,
       effecDate: line.effecDate,
@@ -154,12 +155,12 @@ function buildCreateBatchBody(input: CreateCommissionBatchInput) {
       typeLivestock: line.typeLivestock,
       clientId: line.clientId,
       clientName: line.clientName,
-      agent: line.agent,
+      clientDistrict: line.clientDistrict,
+      clientSector: line.clientSector,
       sumInsured: line.sumInsured,
       netPremium: line.netPremium,
       vetCommission: line.vetCommission,
       companyCommission: line.companyCommission,
-      userName: line.userName,
     })),
   };
 }

@@ -60,17 +60,17 @@ export type ExternalVetPayeeSnapshot = {
 };
 
 /**
- * One Excel row. API field → document header:
- * sn→S/N, prodDate→ProdDate, branch→Branch, effecDate→EffecDate,
- * expiryDate→ExpiryDate, contract→Contract, typeLivestock→Type Livestock,
- * clientId→ClientID, clientName→ClientName, agent→Agent,
- * sumInsured→SumInsured, netPremium→NetPremium, vetCommission→Commission,
- * userName→UserName.
+ * One row of section 2 of the commission claim form. Column headers arrive in
+ * Kinyarwanda or English and are normalised on upload — see
+ * `commission-sheet-schema.ts` for the accepted spellings.
+ *
  * companyCommission is NOT in the sheet — computed from netPremium × rate.
  */
 export type ExternalVetCommissionLine = {
   id: string;
+  /** Display-only row counter; the sheet's "N°" column is never sent to the API. */
   sn: number;
+  microchipNumber: string;
   prodDate: string;
   branch: string;
   effecDate: string;
@@ -79,14 +79,17 @@ export type ExternalVetCommissionLine = {
   typeLivestock: string;
   clientId: string;
   clientName: string;
-  agent: string;
+  clientDistrict: string;
+  clientSector: string;
   sumInsured: number;
   netPremium: number;
-  /** From sheet Commission column (vet payout line amount). */
+  /** Agent/vet commission claimed on this contract. */
   vetCommission: number;
   /** netPremium × (companyCommissionPercent / 100). */
   companyCommission: number;
-  userName: string;
+  /** Legacy SONARWA export columns; absent from the current claim form. */
+  agent?: string;
+  userName?: string;
 };
 
 /** Default company commission rate (% of net premium). */
@@ -236,75 +239,13 @@ export type PlatformVetSearchHit = {
   email?: string;
 };
 
-export const COMMISSION_LINE_COLUMN_LABELS: Record<
-  keyof Omit<ExternalVetCommissionLine, 'id'>,
-  string
-> = {
-  sn: 'S/N',
-  prodDate: 'ProdDate',
-  branch: 'Branch',
-  effecDate: 'EffecDate',
-  expiryDate: 'ExpiryDate',
-  contract: 'Contract',
-  typeLivestock: 'Type Livestock',
-  clientId: 'ClientID',
-  clientName: 'ClientName',
-  agent: 'Agent',
-  sumInsured: 'SumInsured',
-  netPremium: 'NetPremium',
-  vetCommission: 'VetCommission',
-  companyCommission: 'CompanyCommission',
-  userName: 'UserName',
-};
-
 /**
- * Columns expected in the uploaded Excel/CSV (and downloadable template).
- * Sheet still uses header "Commission" for vetCommission (SONARWA export).
- * companyCommission is intentionally excluded — set in the upload form.
+ * Line column order for UI previews, detail tables and exports. Mirrors the
+ * claim form left-to-right, with the derived company commission appended.
  */
-export const COMMISSION_SHEET_COLUMN_KEYS = [
-  'sn',
-  'prodDate',
-  'branch',
-  'effecDate',
-  'expiryDate',
-  'contract',
-  'typeLivestock',
-  'clientId',
-  'clientName',
-  'agent',
-  'sumInsured',
-  'netPremium',
-  'vetCommission',
-  'userName',
-] as const satisfies ReadonlyArray<
-  Exclude<keyof Omit<ExternalVetCommissionLine, 'id'>, 'companyCommission'>
->;
-
-/** Sheet header labels (SONARWA uses "Commission" for vet commission). */
-export const COMMISSION_SHEET_COLUMN_LABELS: Record<
-  (typeof COMMISSION_SHEET_COLUMN_KEYS)[number],
-  string
-> = {
-  sn: 'S/N',
-  prodDate: 'ProdDate',
-  branch: 'Branch',
-  effecDate: 'EffecDate',
-  expiryDate: 'ExpiryDate',
-  contract: 'Contract',
-  typeLivestock: 'Type Livestock',
-  clientId: 'ClientID',
-  clientName: 'ClientName',
-  agent: 'Agent',
-  sumInsured: 'SumInsured',
-  netPremium: 'NetPremium',
-  vetCommission: 'Commission',
-  userName: 'UserName',
-};
-
-/** Full line column order for UI preview / detail tables. */
 export const COMMISSION_LINE_COLUMN_KEYS = [
   'sn',
+  'microchipNumber',
   'prodDate',
   'branch',
   'effecDate',
@@ -313,15 +254,38 @@ export const COMMISSION_LINE_COLUMN_KEYS = [
   'typeLivestock',
   'clientId',
   'clientName',
-  'agent',
+  'clientDistrict',
+  'clientSector',
   'sumInsured',
   'netPremium',
   'vetCommission',
   'companyCommission',
-  'userName',
 ] as const satisfies ReadonlyArray<keyof Omit<ExternalVetCommissionLine, 'id'>>;
 
 export type CommissionLineColumnKey = (typeof COMMISSION_LINE_COLUMN_KEYS)[number];
+
+/** English labels shown for every claim-form column, whatever the upload language. */
+export const COMMISSION_LINE_COLUMN_LABELS: Record<
+  CommissionLineColumnKey,
+  string
+> = {
+  sn: 'N°',
+  microchipNumber: 'Microchip / Tag number',
+  prodDate: 'Production date',
+  branch: 'Branch / production district',
+  effecDate: 'Effective date',
+  expiryDate: 'Expiry date',
+  contract: 'Contract number',
+  typeLivestock: 'Livestock type',
+  clientId: 'Client ID',
+  clientName: 'Client name',
+  clientDistrict: 'Client district',
+  clientSector: 'Client sector',
+  sumInsured: 'Sum insured (RWF)',
+  netPremium: 'Net premium (RWF)',
+  vetCommission: 'Agent commission (RWF)',
+  companyCommission: 'Company commission (RWF)',
+};
 
 export function formatCommissionLineCell(
   line: Omit<ExternalVetCommissionLine, 'id'> | ExternalVetCommissionLine,

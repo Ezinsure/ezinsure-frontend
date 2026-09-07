@@ -92,11 +92,16 @@ function mapStatus(value: unknown): ExternalVetCommissionStatus {
   return 'PENDING_ADMIN_REVIEW';
 }
 
-function mapLine(raw: unknown): ExternalVetCommissionLine {
+/**
+ * `sn` is a display-only counter that is not persisted, so fall back to the
+ * row's position within the batch.
+ */
+function mapLine(raw: unknown, index = 0): ExternalVetCommissionLine {
   const row = asRecord(raw);
   return {
     id: pickId(row) || `line-${Math.random().toString(36).slice(2, 9)}`,
-    sn: asNumber(row.sn, 0),
+    sn: asNumber(row.sn, index + 1) || index + 1,
+    microchipNumber: asString(row.microchipNumber ?? row.tagNumber),
     prodDate: asString(row.prodDate),
     branch: asString(row.branch),
     effecDate: asString(row.effecDate),
@@ -105,13 +110,15 @@ function mapLine(raw: unknown): ExternalVetCommissionLine {
     typeLivestock: asString(row.typeLivestock),
     clientId: asString(row.clientId),
     clientName: asString(row.clientName),
-    agent: asString(row.agent),
+    clientDistrict: asString(row.clientDistrict),
+    clientSector: asString(row.clientSector),
     sumInsured: asNumber(row.sumInsured),
     netPremium: asNumber(row.netPremium),
     // Prefer new fields on all fetch/mutate responses; legacy `commission` = vet only.
     vetCommission: asNumber(row.vetCommission ?? row.commission),
     companyCommission: asNumber(row.companyCommission),
-    userName: asString(row.userName),
+    agent: asOptionalString(row.agent),
+    userName: asOptionalString(row.userName),
   };
 }
 
@@ -242,7 +249,9 @@ export function linesFromBatch(
 export function mapBatch(raw: unknown): ExternalVetCommissionBatch {
   const row = asRecord(raw);
   const summary = mapBatchSummary(raw);
-  const lines = Array.isArray(row.lines) ? row.lines.map(mapLine) : [];
+  const lines = Array.isArray(row.lines)
+    ? row.lines.map((line, index) => mapLine(line, index))
+    : [];
   const totalVetFromLines = lines.reduce(
     (sum, line) => sum + (line.vetCommission || 0),
     0,

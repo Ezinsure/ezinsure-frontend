@@ -30,8 +30,20 @@ const EXCEL_LINE_COLUMNS: ExportColumn<ExternalVetCommissionLineListItem>[] = [
     getValue: (row) => row.clientName || '—',
   },
   {
+    header: 'Client district',
+    getValue: (row) => row.clientDistrict || '—',
+  },
+  {
+    header: 'Client sector',
+    getValue: (row) => row.clientSector || '—',
+  },
+  {
     header: 'Contract',
     getValue: (row) => row.contract || '—',
+  },
+  {
+    header: 'Microchip / Tag',
+    getValue: (row) => row.microchipNumber || '—',
   },
   {
     header: 'Branch',
@@ -70,10 +82,6 @@ const EXCEL_LINE_COLUMNS: ExportColumn<ExternalVetCommissionLineListItem>[] = [
     getValue: (row) => formatRwfExportNumber(row.companyCommission),
   },
   {
-    header: 'Agent',
-    getValue: (row) => row.agent || '—',
-  },
-  {
     header: 'Batch',
     getValue: (row) => row.batchNumber,
   },
@@ -102,7 +110,12 @@ const PDF_LINE_COLUMNS: ExportColumn<ExternalVetCommissionLineListItem>[] = [
   {
     header: 'Client name',
     getValue: (row) => row.clientName || '—',
-    pdfWidth: 28,
+    pdfWidth: 26,
+  },
+  {
+    header: 'District',
+    getValue: (row) => row.clientDistrict || '—',
+    pdfWidth: 18,
   },
   {
     header: 'Contract',
