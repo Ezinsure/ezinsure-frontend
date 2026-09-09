@@ -67,6 +67,11 @@ function mapPayee(raw: unknown): ExternalVetPayeeSnapshot {
     return {
       name: asString(payee.name ?? payee.fullName, '—'),
       phoneNumber: asString(payee.phoneNumber),
+      district: asString(payee.district),
+      sector: asString(payee.sector),
+      commissionRequestDate: asString(
+        payee.commissionRequestDate ?? payee.requestDate,
+      ),
       bankName: asOptionalString(payee.bankName),
       bankAccountNumber: asOptionalString(payee.bankAccountNumber),
     };
@@ -75,6 +80,13 @@ function mapPayee(raw: unknown): ExternalVetPayeeSnapshot {
   return {
     name: asString(row.payeeName ?? row.vetName ?? row.name, '—'),
     phoneNumber: asString(row.payeePhoneNumber ?? row.phoneNumber),
+    district: asString(row.payeeDistrict ?? row.district),
+    sector: asString(row.payeeSector ?? row.sector),
+    commissionRequestDate: asString(
+      row.payeeCommissionRequestDate ??
+        row.commissionRequestDate ??
+        row.requestDate,
+    ),
     bankName: asOptionalString(row.payeeBankName ?? row.bankName),
     bankAccountNumber: asOptionalString(
       row.payeeBankAccountNumber ?? row.bankAccountNumber,
@@ -142,6 +154,12 @@ export function mapBatchSummary(raw: unknown): ExternalVetCommissionBatchSummary
     payee: mapPayee(row),
     periodLabel: asOptionalString(row.periodLabel),
     sourceFileName: asString(row.sourceFileName),
+    sourceDocumentUrl: asOptionalString(
+      row.sourceDocumentUrl ?? row.sourceDocument ?? row.documentUrl,
+    ),
+    sourceDocumentName: asOptionalString(
+      row.sourceDocumentName ?? row.sourceFileName,
+    ),
     companyCommissionPercent: asNumber(
       row.companyCommissionPercent ?? row.commissionPercent,
       DEFAULT_COMPANY_COMMISSION_PERCENT,
@@ -176,7 +194,13 @@ export function mapLineListItem(raw: unknown): ExternalVetCommissionLineListItem
   const payee =
     row.payee || row.payeeName || row.batchId
       ? mapPayee(row)
-      : { name: '—', phoneNumber: '' };
+      : {
+          name: '—',
+          phoneNumber: '',
+          district: '',
+          sector: '',
+          commissionRequestDate: '',
+        };
 
   return {
     ...line,
@@ -225,6 +249,15 @@ export function mapLinesResult(payload: unknown): ExternalVetCommissionLinesResu
       totalCompanyCommission: asNumber(
         summaryRaw.totalCompanyCommission,
         computed.totalCompanyCommission,
+      ),
+      totalCommission: asNumber(
+        summaryRaw.totalCommission,
+        computed.totalCommission,
+      ),
+      vat: asNumber(summaryRaw.vat ?? summaryRaw.totalVat, computed.vat),
+      billableToSonarwa: asNumber(
+        summaryRaw.billableToSonarwa ?? summaryRaw.billableTotal,
+        computed.billableToSonarwa,
       ),
     },
   };

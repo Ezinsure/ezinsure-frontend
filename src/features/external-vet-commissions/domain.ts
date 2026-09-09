@@ -26,6 +26,20 @@ export const EXTERNAL_VET_REIMBURSEMENT_STATUSES = [
 export type ExternalVetReimbursementStatus =
   (typeof EXTERNAL_VET_REIMBURSEMENT_STATUSES)[number];
 
+/**
+ * Statuses available on the Lines tab (pre-payment validation + reclaim).
+ * Finance exports Ready-to-pay lines before initiating payment.
+ */
+export const EXTERNAL_VET_LINES_WORKSPACE_STATUSES = [
+  'READY_TO_BE_PAID',
+  'PAID',
+  'AWAITING_SONARWA_REIMBURSEMENT',
+  'REIMBURSED_BY_SONARWA',
+] as const;
+
+export type ExternalVetLinesWorkspaceStatus =
+  (typeof EXTERNAL_VET_LINES_WORKSPACE_STATUSES)[number];
+
 export type ExternalVetsHubTab =
   | 'overview'
   | 'applications'
@@ -42,7 +56,9 @@ export type ExternalVet = {
   id: string;
   name: string;
   phoneNumber: string;
-  /** Optional until finance needs payout details. */
+  district?: string;
+  sector?: string;
+  /** Optional when a phone / MoMo number is provided. */
   bankName?: string;
   bankAccountNumber?: string;
   linkedUserId?: string;
@@ -55,9 +71,57 @@ export type ExternalVet = {
 export type ExternalVetPayeeSnapshot = {
   name: string;
   phoneNumber: string;
+  district: string;
+  sector: string;
+  /** Date the vet requested commission (claim-form section 1). */
+  commissionRequestDate: string;
+  /** Optional when phone / MoMo is provided. */
   bankName?: string;
   bankAccountNumber?: string;
 };
+
+/** Fixed VAT rate applied to total commission for SONARWA reclaim billing. */
+export const SONARWA_VAT_RATE = 0.18;
+
+/** Vet + company commission claimed on a line (usual case ≈ 13.5% of net). */
+export function calcTotalCommission(
+  vetCommission: number,
+  companyCommission: number,
+): number {
+  return Math.round((vetCommission || 0) + (companyCommission || 0));
+}
+
+export function calcVatOnTotalCommission(totalCommission: number): number {
+  return Math.round((totalCommission || 0) * SONARWA_VAT_RATE);
+}
+
+/** Amount to bill SONARWA = total commission + VAT. */
+export function calcBillableToSonarwa(totalCommission: number): number {
+  return totalCommission + calcVatOnTotalCommission(totalCommission);
+}
+
+export type ReclaimMoneyBreakdown = {
+  totalVetCommission: number;
+  totalCompanyCommission: number;
+  totalCommission: number;
+  vat: number;
+  billableToSonarwa: number;
+};
+
+export function calcReclaimBreakdown(
+  vetCommission: number,
+  companyCommission: number,
+): ReclaimMoneyBreakdown {
+  const totalCommission = calcTotalCommission(vetCommission, companyCommission);
+  const vat = calcVatOnTotalCommission(totalCommission);
+  return {
+    totalVetCommission: Math.round(vetCommission || 0),
+    totalCompanyCommission: Math.round(companyCommission || 0),
+    totalCommission,
+    vat,
+    billableToSonarwa: totalCommission + vat,
+  };
+}
 
 /**
  * One row of section 2 of the commission claim form. Column headers arrive in
@@ -111,6 +175,12 @@ export type ExternalVetCommissionBatch = {
   payee: ExternalVetPayeeSnapshot;
   periodLabel?: string;
   sourceFileName: string;
+  /**
+   * Stored claim-form workbook so admin/finance can re-open the original upload.
+   * Prefer `sourceDocumentUrl`; `sourceDocument` is accepted as an alias.
+   */
+  sourceDocumentUrl?: string;
+  sourceDocumentName?: string;
   /** % of net premium used to compute companyCommission (e.g. 3.5). */
   companyCommissionPercent: number;
   /** Sum of line vetCommission. */
@@ -164,6 +234,12 @@ export type ExternalVetCommissionLinesSummary = {
   vetCount: number;
   totalVetCommission: number;
   totalCompanyCommission: number;
+  /** vet + company */
+  totalCommission: number;
+  /** 18% of totalCommission */
+  vat: number;
+  /** totalCommission + VAT — amount billed to SONARWA */
+  billableToSonarwa: number;
 };
 
 export type ExternalVetCommissionLinesResult = {
@@ -215,6 +291,8 @@ export type ExternalVetsOverviewStats = {
 export type CreateExternalVetInput = {
   name: string;
   phoneNumber: string;
+  district?: string;
+  sector?: string;
   bankName?: string;
   bankAccountNumber?: string;
   linkedUserId?: string;
@@ -223,8 +301,10 @@ export type CreateExternalVetInput = {
 export type CreateCommissionBatchInput = {
   externalVetId: string;
   payee: ExternalVetPayeeSnapshot;
-  periodLabel?: string;
+  periodLabel: string;
   sourceFileName: string;
+  /** Original claim-form workbook (multipart field `sourceDocument`). */
+  sourceFile: File;
   /** % of net premium used for companyCommission (e.g. 3.5). */
   companyCommissionPercent: number;
   lines: Omit<ExternalVetCommissionLine, 'id'>[];
@@ -337,12 +417,19 @@ export function summarizeCommissionLines(
     totalVetCommission += line.vetCommission || 0;
     totalCompanyCommission += line.companyCommission || 0;
   }
+  const money = calcReclaimBreakdown(
+    totalVetCommission,
+    totalCompanyCommission,
+  );
   return {
     lineCount: lines.length,
     batchCount: batchIds.size,
     vetCount: vetIds.size,
-    totalVetCommission,
-    totalCompanyCommission,
+    totalVetCommission: money.totalVetCommission,
+    totalCompanyCommission: money.totalCompanyCommission,
+    totalCommission: money.totalCommission,
+    vat: money.vat,
+    billableToSonarwa: money.billableToSonarwa,
   };
 }
 

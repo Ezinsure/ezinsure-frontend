@@ -122,6 +122,8 @@ export default function ExternalVetsHub({ viewRole }: ExternalVetsHubProps) {
   const [performance, setPerformance] = useState<ExternalVetPerformanceRow[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [detail, setDetail] = useState<ExternalVetCommissionBatch | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailOpen, setDetailOpen] = useState(false);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [reviewNote, setReviewNote] = useState('');
   const [actionBusy, setActionBusy] = useState(false);
@@ -274,13 +276,34 @@ export default function ExternalVetsHub({ viewRole }: ExternalVetsHubProps) {
   }, [exportParams, filteredBatches.length, showToast]);
 
   async function openDetail(id: string) {
-    const batch = await api.getBatch(id);
-    if (!batch) {
-      showToast('Batch not found', 'error');
-      return;
+    setDetailOpen(true);
+    setDetail(null);
+    setDetailLoading(true);
+    setReviewNote('');
+    try {
+      const batch = await api.getBatch(id);
+      if (!batch) {
+        showToast('Batch not found', 'error');
+        setDetailOpen(false);
+        return;
+      }
+      setDetail(batch);
+      setReviewNote(batch.reviewNote ?? '');
+    } catch (err) {
+      showToast(
+        err instanceof Error ? err.message : 'Failed to load batch',
+        'error',
+      );
+      setDetailOpen(false);
+    } finally {
+      setDetailLoading(false);
     }
-    setDetail(batch);
-    setReviewNote(batch.reviewNote ?? '');
+  }
+
+  function closeDetail() {
+    setDetailOpen(false);
+    setDetail(null);
+    setDetailLoading(false);
   }
 
   function toggleSelect(id: string) {
@@ -305,7 +328,7 @@ export default function ExternalVetsHub({ viewRole }: ExternalVetsHubProps) {
     try {
       await api.approveBatch(id, reviewNote || undefined);
       showToast('Batch approved — ready to be paid', 'success');
-      setDetail(null);
+      closeDetail();
       await reload();
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Approve failed', 'error');
@@ -323,7 +346,7 @@ export default function ExternalVetsHub({ viewRole }: ExternalVetsHubProps) {
     try {
       await api.rejectBatch(id, reviewNote.trim());
       showToast('Batch rejected', 'success');
-      setDetail(null);
+      closeDetail();
       await reload();
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Reject failed', 'error');
@@ -339,7 +362,7 @@ export default function ExternalVetsHub({ viewRole }: ExternalVetsHubProps) {
       if (ids.length === 1) await api.initiatePayment(ids[0]);
       else await api.initiatePaymentBulk(ids);
       showToast('Payment initiated', 'success');
-      setDetail(null);
+      closeDetail();
       await reload();
     } catch (err) {
       showToast(
@@ -358,7 +381,7 @@ export default function ExternalVetsHub({ viewRole }: ExternalVetsHubProps) {
       if (ids.length === 1) await api.markPaid(ids[0]);
       else await api.markPaidBulk(ids);
       showToast('Marked as paid', 'success');
-      setDetail(null);
+      closeDetail();
       await reload();
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Mark paid failed', 'error');
@@ -660,10 +683,11 @@ export default function ExternalVetsHub({ viewRole }: ExternalVetsHubProps) {
         </div>
       )}
 
-      {detail ? (
+      {detailOpen ? (
         <BatchDetailPanel
           batch={detail}
-          onClose={() => setDetail(null)}
+          isLoading={detailLoading}
+          onClose={closeDetail}
           footer={detailFooter}
         />
       ) : null}

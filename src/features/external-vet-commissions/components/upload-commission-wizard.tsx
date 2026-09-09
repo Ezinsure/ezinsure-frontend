@@ -30,7 +30,11 @@ import {
   parseCommissionSheet,
   type ColumnMatch,
 } from '../parse-commission-sheet';
-import { rwandaBanks } from '@/utils/rwanda-banks';
+import {
+  emptyPayeeSnapshot,
+  payeeFormComplete,
+  VetPayeeFields,
+} from './vet-payee-fields';
 
 type Props = {
   open: boolean;
@@ -39,10 +43,6 @@ type Props = {
 };
 
 type AssignMode = 'search' | 'new';
-
-function payeeComplete(payee: ExternalVetPayeeSnapshot) {
-  return !!payee.name.trim() && !!payee.phoneNumber.trim();
-}
 
 /** Digits only — used to collapse duplicate registry entries for the same person. */
 function normalizePhone(phone: string): string {
@@ -137,12 +137,7 @@ export function UploadCommissionWizard({ open, onClose, onCreated }: Props) {
     string | null
   >(null);
   const [linkedUserId, setLinkedUserId] = useState<string | undefined>();
-  const [payee, setPayee] = useState<ExternalVetPayeeSnapshot>({
-    name: '',
-    phoneNumber: '',
-    bankName: '',
-    bankAccountNumber: '',
-  });
+  const [payee, setPayee] = useState<ExternalVetPayeeSnapshot>(emptyPayeeSnapshot);
 
   useEffect(() => {
     if (!open) return;
@@ -252,10 +247,7 @@ export function UploadCommissionWizard({ open, onClose, onCreated }: Props) {
         return;
       }
       if (!periodLabel.trim()) {
-        const guess =
-          result.periodLabel ||
-          file.name.replace(/\.(xlsx|xls|csv)$/i, '').replace(/_/g, ' ');
-        setPeriodLabel(guess);
+        if (result.periodLabel) setPeriodLabel(result.periodLabel);
       }
       setStep(3);
     } finally {
@@ -269,6 +261,10 @@ export function UploadCommissionWizard({ open, onClose, onCreated }: Props) {
     setPayee({
       name: vet.name,
       phoneNumber: vet.phoneNumber,
+      district: vet.district ?? '',
+      sector: vet.sector ?? '',
+      commissionRequestDate:
+        payee.commissionRequestDate || new Date().toISOString().slice(0, 10),
       bankName: vet.bankName ?? '',
       bankAccountNumber: vet.bankAccountNumber ?? '',
     });
@@ -281,6 +277,10 @@ export function UploadCommissionWizard({ open, onClose, onCreated }: Props) {
     setPayee({
       name: hit.fullName,
       phoneNumber: hit.phoneNumber ?? '',
+      district: '',
+      sector: '',
+      commissionRequestDate:
+        payee.commissionRequestDate || new Date().toISOString().slice(0, 10),
       bankName: hit.bankName ?? '',
       bankAccountNumber: hit.bankAccountNumber ?? '',
     });
@@ -300,8 +300,11 @@ export function UploadCommissionWizard({ open, onClose, onCreated }: Props) {
       showToast('Company commission % must be between 0 and 100', 'error');
       return;
     }
-    if (!payeeComplete(payee)) {
-      showToast('Vet name and phone number are required', 'error');
+    if (!payeeFormComplete(payee, periodLabel)) {
+      showToast(
+        'Complete vet details: name, district, sector, phone, request date, and period',
+        'error',
+      );
       return;
     }
 
@@ -312,6 +315,8 @@ export function UploadCommissionWizard({ open, onClose, onCreated }: Props) {
         const created = await api.createExternalVet({
           name: payee.name,
           phoneNumber: payee.phoneNumber,
+          district: payee.district || undefined,
+          sector: payee.sector || undefined,
           bankName: payee.bankName || undefined,
           bankAccountNumber: payee.bankAccountNumber || undefined,
           linkedUserId,
@@ -330,11 +335,15 @@ export function UploadCommissionWizard({ open, onClose, onCreated }: Props) {
         payee: {
           name: payee.name.trim(),
           phoneNumber: payee.phoneNumber.trim(),
+          district: payee.district.trim(),
+          sector: payee.sector.trim(),
+          commissionRequestDate: payee.commissionRequestDate.trim(),
           bankName: payee.bankName?.trim() || undefined,
           bankAccountNumber: payee.bankAccountNumber?.trim() || undefined,
         },
-        periodLabel: periodLabel.trim() || undefined,
+        periodLabel: periodLabel.trim(),
         sourceFileName: file.name,
+        sourceFile: file,
         companyCommissionPercent,
         lines,
       });
@@ -364,12 +373,7 @@ export function UploadCommissionWizard({ open, onClose, onCreated }: Props) {
     setDetectedLanguage(undefined);
     setSelectedExternalVetId(null);
     setLinkedUserId(undefined);
-    setPayee({
-      name: '',
-      phoneNumber: '',
-      bankName: '',
-      bankAccountNumber: '',
-    });
+    setPayee(emptyPayeeSnapshot());
     setAssignMode('new');
     setSearchQuery('');
     setPlatformHits([]);
@@ -553,98 +557,12 @@ export function UploadCommissionWizard({ open, onClose, onCreated }: Props) {
                 </>
               ) : null}
 
-              <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-                <p className="mb-3 text-sm font-semibold text-slate-800">
-                  Vet payout details
-                </p>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div>
-                    <label className="text-xs font-medium text-slate-600">
-                      Vet name <span className="text-rose-500">*</span>
-                    </label>
-                    <input
-                      className="mt-1 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm"
-                      value={payee.name}
-                      onChange={(e) =>
-                        setPayee((prev) => ({ ...prev, name: e.target.value }))
-                      }
-                      placeholder="Vet name"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium text-slate-600">
-                      Phone number <span className="text-rose-500">*</span>
-                    </label>
-                    <input
-                      className="mt-1 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm"
-                      value={payee.phoneNumber}
-                      onChange={(e) =>
-                        setPayee((prev) => ({
-                          ...prev,
-                          phoneNumber: e.target.value,
-                        }))
-                      }
-                      placeholder="Phone number"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium text-slate-600">
-                      Bank{' '}
-                      <span className="font-normal text-slate-400">
-                        (optional)
-                      </span>
-                    </label>
-                    <select
-                      className="mt-1 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm"
-                      value={payee.bankName ?? ''}
-                      onChange={(e) =>
-                        setPayee((prev) => ({
-                          ...prev,
-                          bankName: e.target.value,
-                        }))
-                      }
-                    >
-                      <option value="">Select Bank</option>
-                      {rwandaBanks.map((bank) => (
-                        <option key={bank} value={bank}>
-                          {bank}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium text-slate-600">
-                      Bank account number{' '}
-                      <span className="font-normal text-slate-400">
-                        (optional)
-                      </span>
-                    </label>
-                    <input
-                      className="mt-1 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm"
-                      value={payee.bankAccountNumber ?? ''}
-                      onChange={(e) =>
-                        setPayee((prev) => ({
-                          ...prev,
-                          bankAccountNumber: e.target.value,
-                        }))
-                      }
-                      placeholder="Bank account number"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <label className="text-xs font-medium text-slate-600">
-                  Period label (optional)
-                </label>
-                <input
-                  className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-                  placeholder="e.g. UP MAY 2026"
-                  value={periodLabel}
-                  onChange={(e) => setPeriodLabel(e.target.value)}
-                />
-              </div>
+              <VetPayeeFields
+                payee={payee}
+                onChange={setPayee}
+                periodLabel={periodLabel}
+                onPeriodLabelChange={setPeriodLabel}
+              />
             </div>
           ) : null}
 
@@ -768,6 +686,15 @@ export function UploadCommissionWizard({ open, onClose, onCreated }: Props) {
                 <p className="mt-1">
                   <strong>{payee.name}</strong> · {payee.phoneNumber}
                 </p>
+                <p className="text-slate-600">
+                  {[payee.district, payee.sector]
+                    .map((v) => (v ?? '').trim())
+                    .filter(Boolean)
+                    .join(' · ') || '—'}
+                  {payee.commissionRequestDate
+                    ? ` · Request ${payee.commissionRequestDate}`
+                    : ''}
+                </p>
                 {((payee.bankName ?? '').trim() ||
                   (payee.bankAccountNumber ?? '').trim()) && (
                   <p>
@@ -777,6 +704,9 @@ export function UploadCommissionWizard({ open, onClose, onCreated }: Props) {
                       .join(' · ')}
                   </p>
                 )}
+                <p className="mt-1 text-slate-600">
+                  Period <strong>{periodLabel || '—'}</strong>
+                </p>
                 <p className="mt-3 font-semibold text-slate-800">
                   Sheet &amp; company commission
                 </p>
@@ -953,7 +883,7 @@ export function UploadCommissionWizard({ open, onClose, onCreated }: Props) {
           {step === 1 ? (
             <Button
               onClick={() => setStep(2)}
-              disabled={!payeeComplete(payee)}
+              disabled={!payeeFormComplete(payee, periodLabel)}
             >
               Continue to upload
             </Button>

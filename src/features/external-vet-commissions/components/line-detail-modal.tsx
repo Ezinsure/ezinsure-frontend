@@ -5,6 +5,8 @@ import { Button } from '@/components/ui/button';
 import {
   COMMISSION_LINE_COLUMN_KEYS,
   COMMISSION_LINE_COLUMN_LABELS,
+  calcBillableToSonarwa,
+  calcTotalCommission,
   formatCommissionLineCell,
   formatRwf,
   type ExternalVetCommissionLineListItem,
@@ -70,6 +72,24 @@ export function LineDetailModal({ line, onClose }: Props) {
                 </dd>
               </div>
               <div>
+                <dt className="text-slate-500">District</dt>
+                <dd className="font-medium text-slate-900">
+                  {line.payee?.district || '—'}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-slate-500">Sector</dt>
+                <dd className="font-medium text-slate-900">
+                  {line.payee?.sector || '—'}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-slate-500">Request date</dt>
+                <dd className="font-medium text-slate-900">
+                  {line.payee?.commissionRequestDate || '—'}
+                </dd>
+              </div>
+              <div>
                 <dt className="text-slate-500">Bank</dt>
                 <dd className="font-medium text-slate-900">
                   {line.payee?.bankName || '—'}
@@ -84,7 +104,7 @@ export function LineDetailModal({ line, onClose }: Props) {
             </dl>
           </section>
 
-          <section className="mb-5 grid gap-3 sm:grid-cols-3">
+          <section className="mb-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <div className="rounded-lg border border-slate-200 p-3">
               <p className="text-xs uppercase tracking-wide text-slate-500">
                 Net premium
@@ -107,6 +127,21 @@ export function LineDetailModal({ line, onClose }: Props) {
               </p>
               <p className="mt-1 font-semibold text-slate-900">
                 {formatRwf(line.companyCommission)}
+              </p>
+            </div>
+            <div className="rounded-lg border border-slate-200 p-3">
+              <p className="text-xs uppercase tracking-wide text-slate-500">
+                Total + VAT (18%)
+              </p>
+              <p className="mt-1 font-semibold text-slate-900">
+                {formatRwf(
+                  calcBillableToSonarwa(
+                    calcTotalCommission(
+                      line.vetCommission,
+                      line.companyCommission,
+                    ),
+                  ),
+                )}
               </p>
             </div>
           </section>

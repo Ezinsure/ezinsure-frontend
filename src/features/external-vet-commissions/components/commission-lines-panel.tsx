@@ -19,12 +19,13 @@ import { useToast } from '@/components/ui/toast';
 import { useExternalVetCommissionsApi } from '../api';
 import { getMonthToDateRange } from '../date-range';
 import {
+  EXTERNAL_VET_LINES_WORKSPACE_STATUSES,
   EXTERNAL_VET_STATUS_LABELS,
   formatRwf,
   summarizeCommissionLines,
   type ExternalVetCommissionLineListItem,
   type ExternalVetCommissionStatus,
-  type ExternalVetReimbursementStatus,
+  type ExternalVetLinesWorkspaceStatus,
 } from '../domain';
 import { batchCreatedInDateRange } from '../export/batch-list-export';
 import {
@@ -109,7 +110,7 @@ export function CommissionLinesPanel({
   const monthRange = useMemo(() => getMonthToDateRange(), []);
 
   const [statusFilter, setStatusFilter] = useState<
-    ExternalVetReimbursementStatus | 'ALL'
+    ExternalVetLinesWorkspaceStatus | 'ALL'
   >('PAID');
   const [startDate, setStartDate] = useState(monthRange.startDate);
   const [endDate, setEndDate] = useState(monthRange.endDate);
@@ -135,12 +136,18 @@ export function CommissionLinesPanel({
   const reload = useCallback(async () => {
     setIsLoading(true);
     try {
+      // Load the full Lines workspace set so status overview cards stay accurate.
       const result = await api.listLines({
-        status: statusFilter,
+        status: 'ALL',
         startDate: startDate || undefined,
         endDate: endDate || undefined,
       });
-      setLines(result.lines);
+      const workspaceLines = result.lines.filter((line) =>
+        (EXTERNAL_VET_LINES_WORKSPACE_STATUSES as readonly string[]).includes(
+          line.batchStatus,
+        ),
+      );
+      setLines(workspaceLines);
       setSelectedLineIds(new Set());
       setPage(1);
     } catch (err) {
@@ -151,7 +158,7 @@ export function CommissionLinesPanel({
     } finally {
       setIsLoading(false);
     }
-  }, [api, endDate, showToast, startDate, statusFilter]);
+  }, [api, endDate, showToast, startDate]);
 
   useEffect(() => {
     void reload();
@@ -160,6 +167,9 @@ export function CommissionLinesPanel({
   const filteredLines = useMemo(() => {
     const q = search.trim().toLowerCase();
     return lines.filter((line) => {
+      if (statusFilter !== 'ALL' && line.batchStatus !== statusFilter) {
+        return false;
+      }
       if (
         !batchCreatedInDateRange(
           line.batchCreatedAt,
@@ -181,7 +191,33 @@ export function CommissionLinesPanel({
         (line.periodLabel ?? '').toLowerCase().includes(q)
       );
     });
-  }, [endDate, lines, search, startDate]);
+  }, [endDate, lines, search, startDate, statusFilter]);
+
+  const statusOverview = useMemo(() => {
+    const inRange = lines.filter((line) =>
+      batchCreatedInDateRange(
+        line.batchCreatedAt,
+        startDate || undefined,
+        endDate || undefined,
+      ),
+    );
+    return {
+      ready: summarizeCommissionLines(
+        inRange.filter((l) => l.batchStatus === 'READY_TO_BE_PAID'),
+      ),
+      paid: summarizeCommissionLines(
+        inRange.filter((l) => l.batchStatus === 'PAID'),
+      ),
+      awaiting: summarizeCommissionLines(
+        inRange.filter(
+          (l) => l.batchStatus === 'AWAITING_SONARWA_REIMBURSEMENT',
+        ),
+      ),
+      reimbursed: summarizeCommissionLines(
+        inRange.filter((l) => l.batchStatus === 'REIMBURSED_BY_SONARWA'),
+      ),
+    };
+  }, [endDate, lines, startDate]);
 
   useEffect(() => {
     setPage(1);
@@ -422,14 +458,17 @@ export function CommissionLinesPanel({
           </div>
           {canMutate ? (
             <ol className="flex flex-wrap gap-2 text-xs">
+              <li className="rounded-full border border-sky-200 bg-sky-50 px-2.5 py-1 font-medium text-sky-900">
+                1. Ready to pay
+              </li>
               <li className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 font-medium text-emerald-900">
-                1. Paid
+                2. Paid
               </li>
               <li className="rounded-full border border-orange-200 bg-orange-50 px-2.5 py-1 font-medium text-orange-900">
-                2. Awaiting reimbursement
+                3. Awaiting reimbursement
               </li>
               <li className="rounded-full border border-teal-200 bg-teal-50 px-2.5 py-1 font-medium text-teal-900">
-                3. Reimbursed by SONARWA
+                4. Reimbursed
               </li>
             </ol>
           ) : null}
@@ -446,11 +485,14 @@ export function CommissionLinesPanel({
               value={statusFilter}
               onChange={(e) =>
                 setStatusFilter(
-                  e.target.value as ExternalVetReimbursementStatus | 'ALL',
+                  e.target.value as ExternalVetLinesWorkspaceStatus | 'ALL',
                 )
               }
               className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-400"
             >
+              <option value="READY_TO_BE_PAID">
+                {EXTERNAL_VET_STATUS_LABELS.READY_TO_BE_PAID}
+              </option>
               <option value="PAID">{EXTERNAL_VET_STATUS_LABELS.PAID}</option>
               <option value="AWAITING_SONARWA_REIMBURSEMENT">
                 {EXTERNAL_VET_STATUS_LABELS.AWAITING_SONARWA_REIMBURSEMENT}
@@ -458,7 +500,7 @@ export function CommissionLinesPanel({
               <option value="REIMBURSED_BY_SONARWA">
                 {EXTERNAL_VET_STATUS_LABELS.REIMBURSED_BY_SONARWA}
               </option>
-              <option value="ALL">All reclaim statuses</option>
+              <option value="ALL">All line statuses</option>
             </select>
           </label>
           <label className="block">
@@ -519,18 +561,76 @@ export function CommissionLinesPanel({
         )}
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+      <div className="grid gap-3 lg:grid-cols-4">
+        {(
+          [
+            {
+              key: 'ready',
+              label: 'Ready to pay',
+              tone: 'border-sky-200 bg-sky-50/60',
+              data: statusOverview.ready,
+            },
+            {
+              key: 'paid',
+              label: 'Paid',
+              tone: 'border-emerald-200 bg-emerald-50/60',
+              data: statusOverview.paid,
+            },
+            {
+              key: 'awaiting',
+              label: 'Awaiting reimbursement',
+              tone: 'border-orange-200 bg-orange-50/60',
+              data: statusOverview.awaiting,
+            },
+            {
+              key: 'reimbursed',
+              label: 'Reimbursed',
+              tone: 'border-teal-200 bg-teal-50/60',
+              data: statusOverview.reimbursed,
+            },
+          ] as const
+        ).map((card) => (
+          <button
+            key={card.key}
+            type="button"
+            onClick={() =>
+              setStatusFilter(
+                card.key === 'ready'
+                  ? 'READY_TO_BE_PAID'
+                  : card.key === 'paid'
+                    ? 'PAID'
+                    : card.key === 'awaiting'
+                      ? 'AWAITING_SONARWA_REIMBURSEMENT'
+                      : 'REIMBURSED_BY_SONARWA',
+              )
+            }
+            className={`rounded-xl border px-4 py-3 text-left shadow-sm transition hover:ring-2 hover:ring-slate-200 ${card.tone}`}
+          >
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">
+              {card.label}
+            </p>
+            <p className="mt-1 text-lg font-semibold text-slate-900">
+              {card.data.lineCount} lines · {card.data.batchCount} batches
+            </p>
+            <p className="mt-1 text-xs text-slate-600">
+              Total {formatRwf(card.data.totalCommission)} · VAT{' '}
+              {formatRwf(card.data.vat)}
+            </p>
+            <p className="text-xs font-medium text-slate-800">
+              Billable {formatRwf(card.data.billableToSonarwa)}
+            </p>
+          </button>
+        ))}
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {[
-          { label: 'Lines', value: String(summary.lineCount) },
-          { label: 'Batches', value: String(summary.batchCount) },
-          { label: 'External vets', value: String(summary.vetCount) },
+          { label: 'Filtered lines', value: String(summary.lineCount) },
+          { label: 'Total commission', value: formatRwf(summary.totalCommission) },
+          { label: 'VAT (18%)', value: formatRwf(summary.vat) },
           {
-            label: 'Vet commission',
-            value: formatRwf(summary.totalVetCommission),
-          },
-          {
-            label: 'Company commission',
-            value: formatRwf(summary.totalCompanyCommission),
+            label: 'Billable to SONARWA',
+            value: formatRwf(summary.billableToSonarwa),
           },
         ].map((card) => (
           <div
@@ -563,18 +663,24 @@ export function CommissionLinesPanel({
               />
               <span>
                 {selectedLineIds.size > 0
-                  ? `${selectedSummary.lineCount} lines · ${selectedSummary.batchCount} batches · ${selectedSummary.vetCount} vets selected`
+                  ? `${selectedSummary.lineCount} lines · ${selectedSummary.batchCount} batches · billable ${formatRwf(selectedSummary.billableToSonarwa)}`
                   : `${filteredLines.length} line${filteredLines.length === 1 ? '' : 's'} matching filters`}
               </span>
             </label>
             {selectedLineIds.size > 0 ? (
-              <button
-                type="button"
-                className="text-xs font-medium text-slate-500 underline-offset-2 hover:text-slate-800 hover:underline"
-                onClick={() => setSelectedLineIds(new Set())}
-              >
-                Clear selection
-              </button>
+              <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                <span>
+                  Total {formatRwf(selectedSummary.totalCommission)} · VAT{' '}
+                  {formatRwf(selectedSummary.vat)}
+                </span>
+                <button
+                  type="button"
+                  className="font-medium text-slate-500 underline-offset-2 hover:text-slate-800 hover:underline"
+                  onClick={() => setSelectedLineIds(new Set())}
+                >
+                  Clear selection
+                </button>
+              </div>
             ) : null}
           </div>
 

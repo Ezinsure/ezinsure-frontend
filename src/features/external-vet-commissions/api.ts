@@ -18,7 +18,7 @@ import type {
   PlatformVetSearchHit,
 } from './domain';
 import {
-  EXTERNAL_VET_REIMBURSEMENT_STATUSES,
+  EXTERNAL_VET_LINES_WORKSPACE_STATUSES,
   summarizeCommissionLines,
 } from './domain';
 import {
@@ -64,6 +64,14 @@ function mapExternalVet(raw: unknown): ExternalVet {
     id: pickId(row),
     name: String(row.name ?? row.fullName ?? ''),
     phoneNumber: String(row.phoneNumber ?? ''),
+    district:
+      typeof row.district === 'string' && row.district.trim()
+        ? row.district
+        : undefined,
+    sector:
+      typeof row.sector === 'string' && row.sector.trim()
+        ? row.sector
+        : undefined,
     bankName:
       typeof row.bankName === 'string' && row.bankName.trim()
         ? row.bankName
@@ -113,10 +121,13 @@ async function errorMessage(
   return fallback;
 }
 
-function buildCreateBatchBody(input: CreateCommissionBatchInput) {
+function buildCreateBatchFormData(input: CreateCommissionBatchInput): FormData {
   const payee: Record<string, string> = {
     name: input.payee.name.trim(),
     phoneNumber: input.payee.phoneNumber.trim(),
+    district: input.payee.district.trim(),
+    sector: input.payee.sector.trim(),
+    commissionRequestDate: input.payee.commissionRequestDate.trim(),
   };
   if (input.payee.bankName?.trim()) {
     payee.bankName = input.payee.bankName.trim();
@@ -135,34 +146,42 @@ function buildCreateBatchBody(input: CreateCommissionBatchInput) {
     0,
   );
 
-  return {
-    externalVetId: String(input.externalVetId).trim(),
-    payee,
-    periodLabel: input.periodLabel?.trim() || undefined,
-    sourceFileName: input.sourceFileName,
-    companyCommissionPercent,
-    totalVetCommission,
-    totalCompanyCommission,
-    lineCount: input.lines.length,
-    // `sn` is a display-only counter from the claim form and is not persisted.
-    lines: input.lines.map((line) => ({
-      microchipNumber: line.microchipNumber,
-      prodDate: line.prodDate,
-      branch: line.branch,
-      effecDate: line.effecDate,
-      expiryDate: line.expiryDate,
-      contract: line.contract,
-      typeLivestock: line.typeLivestock,
-      clientId: line.clientId,
-      clientName: line.clientName,
-      clientDistrict: line.clientDistrict,
-      clientSector: line.clientSector,
-      sumInsured: line.sumInsured,
-      netPremium: line.netPremium,
-      vetCommission: line.vetCommission,
-      companyCommission: line.companyCommission,
-    })),
-  };
+  const lines = input.lines.map((line) => ({
+    microchipNumber: line.microchipNumber,
+    prodDate: line.prodDate,
+    branch: line.branch,
+    effecDate: line.effecDate,
+    expiryDate: line.expiryDate,
+    contract: line.contract,
+    typeLivestock: line.typeLivestock,
+    clientId: line.clientId,
+    clientName: line.clientName,
+    clientDistrict: line.clientDistrict,
+    clientSector: line.clientSector,
+    sumInsured: line.sumInsured,
+    netPremium: line.netPremium,
+    vetCommission: line.vetCommission,
+    companyCommission: line.companyCommission,
+  }));
+
+  // Same pattern as motor/livestock apply: multipart FormData + file field.
+  const formData = new FormData();
+  formData.append('externalVetId', String(input.externalVetId).trim());
+  formData.append('payee', JSON.stringify(payee));
+  formData.append('periodLabel', input.periodLabel.trim());
+  formData.append('sourceFileName', input.sourceFileName);
+  formData.append('companyCommissionPercent', String(companyCommissionPercent));
+  formData.append('totalVetCommission', String(totalVetCommission));
+  formData.append('totalCompanyCommission', String(totalCompanyCommission));
+  formData.append('lineCount', String(input.lines.length));
+  formData.append('lines', JSON.stringify(lines));
+  formData.append(
+    'sourceDocument',
+    input.sourceFile,
+    input.sourceFile.name || input.sourceFileName || 'commission-claim.xlsx',
+  );
+
+  return formData;
 }
 
 export function useExternalVetCommissionsApi() {
@@ -203,6 +222,8 @@ export function useExternalVetCommissionsApi() {
         name: input.name.trim(),
         phoneNumber: input.phoneNumber.trim(),
       };
+      if (input.district?.trim()) body.district = input.district.trim();
+      if (input.sector?.trim()) body.sector = input.sector.trim();
       if (input.bankName?.trim()) body.bankName = input.bankName.trim();
       if (input.bankAccountNumber?.trim()) {
         body.bankAccountNumber = input.bankAccountNumber.trim();
@@ -275,17 +296,20 @@ export function useExternalVetCommissionsApi() {
     async (
       input: CreateCommissionBatchInput,
     ): Promise<ExternalVetCommissionBatch> => {
-      const body = buildCreateBatchBody(input);
-      if (!body.externalVetId) {
+      const formData = buildCreateBatchFormData(input);
+      if (!String(input.externalVetId).trim()) {
         throw new Error('externalVetId is required');
       }
+      if (!input.sourceFile) {
+        throw new Error('The original claim form file is required');
+      }
 
+      // Do not set Content-Type — the browser sets multipart boundary.
       const response = await apiFetch(
         EXTERNAL_VET_COMMISSION_ENDPOINTS.createBatch(),
         {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body),
+          body: formData,
         },
       );
       if (!response.ok) {
@@ -433,7 +457,7 @@ export function useExternalVetCommissionsApi() {
       const statuses: Array<ExternalVetCommissionStatus | 'ALL'> =
         params?.status && params.status !== 'ALL'
           ? [params.status]
-          : [...EXTERNAL_VET_REIMBURSEMENT_STATUSES];
+          : [...EXTERNAL_VET_LINES_WORKSPACE_STATUSES];
 
       const batchLists = await Promise.all(
         statuses.map((status) =>

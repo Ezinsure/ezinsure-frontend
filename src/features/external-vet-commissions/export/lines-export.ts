@@ -3,6 +3,9 @@ import { exportTableToExcel, exportTableToPdf } from '@/shared/export/table-expo
 import { formatRwfExportNumber } from '@/shared/export/formatters';
 import {
   EXTERNAL_VET_STATUS_LABELS,
+  calcBillableToSonarwa,
+  calcTotalCommission,
+  calcVatOnTotalCommission,
   summarizeCommissionLines,
   type ExternalVetCommissionLineListItem,
   type ExternalVetCommissionStatus,
@@ -82,6 +85,31 @@ const EXCEL_LINE_COLUMNS: ExportColumn<ExternalVetCommissionLineListItem>[] = [
     getValue: (row) => formatRwfExportNumber(row.companyCommission),
   },
   {
+    header: 'Total commission (RWF)',
+    getValue: (row) =>
+      formatRwfExportNumber(
+        calcTotalCommission(row.vetCommission, row.companyCommission),
+      ),
+  },
+  {
+    header: 'VAT 18% (RWF)',
+    getValue: (row) =>
+      formatRwfExportNumber(
+        calcVatOnTotalCommission(
+          calcTotalCommission(row.vetCommission, row.companyCommission),
+        ),
+      ),
+  },
+  {
+    header: 'Total commission + VAT (RWF)',
+    getValue: (row) =>
+      formatRwfExportNumber(
+        calcBillableToSonarwa(
+          calcTotalCommission(row.vetCommission, row.companyCommission),
+        ),
+      ),
+  },
+  {
     header: 'Batch',
     getValue: (row) => row.batchNumber,
   },
@@ -140,17 +168,45 @@ const PDF_LINE_COLUMNS: ExportColumn<ExternalVetCommissionLineListItem>[] = [
   {
     header: 'Vet comm.',
     getValue: (row) => formatRwfExportNumber(row.vetCommission),
-    pdfWidth: 20,
+    pdfWidth: 18,
   },
   {
     header: 'Co. comm.',
     getValue: (row) => formatRwfExportNumber(row.companyCommission),
-    pdfWidth: 20,
+    pdfWidth: 18,
+  },
+  {
+    header: 'Total comm.',
+    getValue: (row) =>
+      formatRwfExportNumber(
+        calcTotalCommission(row.vetCommission, row.companyCommission),
+      ),
+    pdfWidth: 18,
+  },
+  {
+    header: 'VAT 18%',
+    getValue: (row) =>
+      formatRwfExportNumber(
+        calcVatOnTotalCommission(
+          calcTotalCommission(row.vetCommission, row.companyCommission),
+        ),
+      ),
+    pdfWidth: 16,
+  },
+  {
+    header: 'Billable',
+    getValue: (row) =>
+      formatRwfExportNumber(
+        calcBillableToSonarwa(
+          calcTotalCommission(row.vetCommission, row.companyCommission),
+        ),
+      ),
+    pdfWidth: 18,
   },
   {
     header: 'Batch',
     getValue: (row) => row.batchNumber,
-    pdfWidth: 22,
+    pdfWidth: 20,
   },
 ];
 
@@ -205,6 +261,9 @@ function buildReportMeta(
       `External vets: ${summary.vetCount}`,
       `Vet commission total: ${summary.totalVetCommission.toLocaleString('en-US')} RWF`,
       `Company commission total: ${summary.totalCompanyCommission.toLocaleString('en-US')} RWF`,
+      `Total commission (vet + company): ${summary.totalCommission.toLocaleString('en-US')} RWF`,
+      `VAT (18%): ${summary.vat.toLocaleString('en-US')} RWF`,
+      `Billable to SONARWA (total + VAT): ${summary.billableToSonarwa.toLocaleString('en-US')} RWF`,
     ],
     filenameBase:
       options.purpose === 'reclaim'
