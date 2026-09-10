@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - main  # Triggers the deployment whenever you push or merge into your main branch
+      - production
+      - development
+      - staging
 
 env:
   VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
