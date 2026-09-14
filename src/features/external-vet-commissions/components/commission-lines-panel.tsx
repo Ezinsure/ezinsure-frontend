@@ -964,15 +964,16 @@ export function CommissionLinesPanel({
                                 }
                               />
                             </td>
-                            <td className="px-3 py-2">
+                            <td
+                              className="px-3 py-2"
+                              onClick={(e) => e.stopPropagation()}
+                              onDoubleClick={(e) => e.stopPropagation()}
+                            >
                               <div className="flex flex-wrap items-center gap-1.5">
                                 <Button
                                   size="sm"
                                   variant="outline"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setDetailLine(line);
-                                  }}
+                                  onClick={() => setDetailLine(line)}
                                 >
                                   <Eye className="mr-1 h-3.5 w-3.5" />
                                   View
@@ -986,10 +987,7 @@ export function CommissionLinesPanel({
                                     variant="outline"
                                     className="border-rose-200 text-rose-700 hover:border-rose-300 hover:bg-rose-50 hover:text-rose-800"
                                     disabled={actionBusy}
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      openRejectForLine(line);
-                                    }}
+                                    onClick={() => openRejectForLine(line)}
                                     title={`Reject batch ${line.batchNumber}`}
                                   >
                                     <Ban className="mr-1 h-3.5 w-3.5" />
