@@ -27,11 +27,12 @@ export type ExternalVetReimbursementStatus =
   (typeof EXTERNAL_VET_REIMBURSEMENT_STATUSES)[number];
 
 /**
- * Statuses available on the Lines tab (pre-payment validation + reclaim).
- * Finance exports Ready-to-pay lines before initiating payment.
+ * Statuses available on the Lines tab (payment validation + reclaim).
+ * Includes Initiated so finance can verify sheets before marking paid.
  */
 export const EXTERNAL_VET_LINES_WORKSPACE_STATUSES = [
   'READY_TO_BE_PAID',
+  'PAYMENT_INITIATED',
   'PAID',
   'AWAITING_SONARWA_REIMBURSEMENT',
   'REIMBURSED_BY_SONARWA',
@@ -39,6 +40,24 @@ export const EXTERNAL_VET_LINES_WORKSPACE_STATUSES = [
 
 export type ExternalVetLinesWorkspaceStatus =
   (typeof EXTERNAL_VET_LINES_WORKSPACE_STATUSES)[number];
+
+/**
+ * Finance may reject a batch from Lines unless payout / reclaim has started.
+ * Blocked: Paid, Awaiting SONARWA reimbursement, Reimbursed (and already Rejected).
+ */
+const FINANCE_REJECT_BLOCKED_STATUSES: ReadonlySet<ExternalVetCommissionStatus> =
+  new Set([
+    'PAID',
+    'AWAITING_SONARWA_REIMBURSEMENT',
+    'REIMBURSED_BY_SONARWA',
+    'REJECTED',
+  ]);
+
+export function canFinanceRejectBatchStatus(
+  status: ExternalVetCommissionStatus,
+): boolean {
+  return !FINANCE_REJECT_BLOCKED_STATUSES.has(status);
+}
 
 export type ExternalVetsHubTab =
   | 'overview'
