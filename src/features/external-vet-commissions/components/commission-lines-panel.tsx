@@ -1,6 +1,13 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  useCallback,
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useState,
+  useTransition,
+} from 'react';
 import {
   Calendar,
   CheckCircle2,
@@ -11,6 +18,7 @@ import {
   FileSpreadsheet,
   Loader2,
   Search,
+  Ban,
   WalletCards,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -21,6 +29,7 @@ import { getMonthToDateRange } from '../date-range';
 import {
   EXTERNAL_VET_LINES_WORKSPACE_STATUSES,
   EXTERNAL_VET_STATUS_LABELS,
+  canFinanceRejectBatchStatus,
   formatRwf,
   summarizeCommissionLines,
   type ExternalVetCommissionLineListItem,
@@ -35,11 +44,48 @@ import {
 import { ExternalVetStatusBadge } from './status-badge';
 import { LineDetailModal } from './line-detail-modal';
 import {
+  FinanceRejectDialog,
+  type FinanceRejectTarget,
+} from './finance-reject-dialog';
+import {
   ReimbursementConfirmDialog,
   type ReimbursementConfirmMode,
 } from './reimbursement-confirm-dialog';
 
 const GROUPS_PER_PAGE = 8;
+
+const STATUS_OVERVIEW_CARDS = [
+  {
+    key: 'ready',
+    label: 'Ready to pay',
+    status: 'READY_TO_BE_PAID' as const,
+    tone: 'border-sky-200 bg-sky-50/60',
+  },
+  {
+    key: 'initiated',
+    label: 'Initiated',
+    status: 'PAYMENT_INITIATED' as const,
+    tone: 'border-violet-200 bg-violet-50/60',
+  },
+  {
+    key: 'paid',
+    label: 'Paid',
+    status: 'PAID' as const,
+    tone: 'border-emerald-200 bg-emerald-50/60',
+  },
+  {
+    key: 'awaiting',
+    label: 'Awaiting reimbursement',
+    status: 'AWAITING_SONARWA_REIMBURSEMENT' as const,
+    tone: 'border-orange-200 bg-orange-50/60',
+  },
+  {
+    key: 'reimbursed',
+    label: 'Reimbursed',
+    status: 'REIMBURSED_BY_SONARWA' as const,
+    tone: 'border-teal-200 bg-teal-50/60',
+  },
+] as const;
 
 type VetGroup = {
   externalVetId: string;
@@ -115,8 +161,13 @@ export function CommissionLinesPanel({
   const [startDate, setStartDate] = useState(monthRange.startDate);
   const [endDate, setEndDate] = useState(monthRange.endDate);
   const [search, setSearch] = useState('');
+  const deferredSearch = useDeferredValue(search);
+  const [, startFilterTransition] = useTransition();
   const [isLoading, setIsLoading] = useState(false);
   const [lines, setLines] = useState<ExternalVetCommissionLineListItem[]>([]);
+  const [rejectTarget, setRejectTarget] = useState<FinanceRejectTarget | null>(
+    null,
+  );
   const [selectedLineIds, setSelectedLineIds] = useState<Set<string>>(
     new Set(),
   );
@@ -165,7 +216,7 @@ export function CommissionLinesPanel({
   }, [reload]);
 
   const filteredLines = useMemo(() => {
-    const q = search.trim().toLowerCase();
+    const q = deferredSearch.trim().toLowerCase();
     return lines.filter((line) => {
       if (statusFilter !== 'ALL' && line.batchStatus !== statusFilter) {
         return false;
@@ -191,7 +242,7 @@ export function CommissionLinesPanel({
         (line.periodLabel ?? '').toLowerCase().includes(q)
       );
     });
-  }, [endDate, lines, search, startDate, statusFilter]);
+  }, [deferredSearch, endDate, lines, startDate, statusFilter]);
 
   const statusOverview = useMemo(() => {
     const inRange = lines.filter((line) =>
@@ -201,23 +252,37 @@ export function CommissionLinesPanel({
         endDate || undefined,
       ),
     );
+    const byStatus = (status: ExternalVetLinesWorkspaceStatus) =>
+      summarizeCommissionLines(
+        inRange.filter((l) => l.batchStatus === status),
+      );
     return {
-      ready: summarizeCommissionLines(
-        inRange.filter((l) => l.batchStatus === 'READY_TO_BE_PAID'),
-      ),
-      paid: summarizeCommissionLines(
-        inRange.filter((l) => l.batchStatus === 'PAID'),
-      ),
-      awaiting: summarizeCommissionLines(
-        inRange.filter(
-          (l) => l.batchStatus === 'AWAITING_SONARWA_REIMBURSEMENT',
-        ),
-      ),
-      reimbursed: summarizeCommissionLines(
-        inRange.filter((l) => l.batchStatus === 'REIMBURSED_BY_SONARWA'),
-      ),
+      ready: byStatus('READY_TO_BE_PAID'),
+      initiated: byStatus('PAYMENT_INITIATED'),
+      paid: byStatus('PAID'),
+      awaiting: byStatus('AWAITING_SONARWA_REIMBURSEMENT'),
+      reimbursed: byStatus('REIMBURSED_BY_SONARWA'),
     };
   }, [endDate, lines, startDate]);
+
+  /** First line index per batch within the current filtered set — for one Reject CTA per batch. */
+  const firstLineIdByBatch = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const line of filteredLines) {
+      if (!map.has(line.batchId)) map.set(line.batchId, line.id);
+    }
+    return map;
+  }, [filteredLines]);
+
+  const linesByBatchId = useMemo(() => {
+    const map = new Map<string, ExternalVetCommissionLineListItem[]>();
+    for (const line of lines) {
+      const list = map.get(line.batchId);
+      if (list) list.push(line);
+      else map.set(line.batchId, [line]);
+    }
+    return map;
+  }, [lines]);
 
   useEffect(() => {
     setPage(1);
@@ -429,10 +494,58 @@ export function CommissionLinesPanel({
     }
   }
 
+  function openRejectForLine(line: ExternalVetCommissionLineListItem) {
+    if (!canMutate || !canFinanceRejectBatchStatus(line.batchStatus)) return;
+    const batchLines = linesByBatchId.get(line.batchId) ?? [line];
+    setRejectTarget({
+      batchId: line.batchId,
+      batchNumber: line.batchNumber,
+      status: line.batchStatus,
+      payeeName: line.payee?.name || '—',
+      periodLabel: line.periodLabel,
+      lineCount: batchLines.length,
+      totalVetCommission: batchLines.reduce(
+        (sum, row) => sum + (row.vetCommission || 0),
+        0,
+      ),
+      totalCompanyCommission: batchLines.reduce(
+        (sum, row) => sum + (row.companyCommission || 0),
+        0,
+      ),
+    });
+  }
+
+  async function confirmFinanceReject(reason: string) {
+    if (!rejectTarget) return;
+    setActionBusy(true);
+    try {
+      await api.rejectBatch(rejectTarget.batchId, reason);
+      showToast(
+        `Batch ${rejectTarget.batchNumber} rejected`,
+        'success',
+      );
+      setRejectTarget(null);
+      await reload();
+    } catch (err) {
+      showToast(
+        err instanceof Error ? err.message : 'Failed to reject batch',
+        'error',
+      );
+    } finally {
+      setActionBusy(false);
+    }
+  }
+
   function resetToThisMonth() {
     const range = getMonthToDateRange();
     setStartDate(range.startDate);
     setEndDate(range.endDate);
+  }
+
+  function applyStatusFilter(next: ExternalVetLinesWorkspaceStatus | 'ALL') {
+    startFilterTransition(() => {
+      setStatusFilter(next);
+    });
   }
 
   return (
@@ -452,7 +565,7 @@ export function CommissionLinesPanel({
             </div>
             <p className="mt-1 max-w-2xl text-sm text-slate-500">
               {canMutate
-                ? 'Select lines or whole vet groups, export the line ledger for verification, prepare the reclaim file, then mark batches reimbursed once SONARWA settles.'
+                ? 'Review Ready / Initiated lines, reject incomplete claims with a documented reason, then prepare SONARWA reclaim after payment and mark reimbursed once settled.'
                 : 'Browse and export commission lines for verification. Select one or more vets to export only their lines. Double-click a row or use View for full details.'}
             </p>
           </div>
@@ -461,14 +574,17 @@ export function CommissionLinesPanel({
               <li className="rounded-full border border-sky-200 bg-sky-50 px-2.5 py-1 font-medium text-sky-900">
                 1. Ready to pay
               </li>
+              <li className="rounded-full border border-violet-200 bg-violet-50 px-2.5 py-1 font-medium text-violet-900">
+                2. Initiated
+              </li>
               <li className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 font-medium text-emerald-900">
-                2. Paid
+                3. Paid
               </li>
               <li className="rounded-full border border-orange-200 bg-orange-50 px-2.5 py-1 font-medium text-orange-900">
-                3. Awaiting reimbursement
+                4. Awaiting reimbursement
               </li>
               <li className="rounded-full border border-teal-200 bg-teal-50 px-2.5 py-1 font-medium text-teal-900">
-                4. Reimbursed
+                5. Reimbursed
               </li>
             </ol>
           ) : null}
@@ -484,7 +600,7 @@ export function CommissionLinesPanel({
             <select
               value={statusFilter}
               onChange={(e) =>
-                setStatusFilter(
+                applyStatusFilter(
                   e.target.value as ExternalVetLinesWorkspaceStatus | 'ALL',
                 )
               }
@@ -492,6 +608,9 @@ export function CommissionLinesPanel({
             >
               <option value="READY_TO_BE_PAID">
                 {EXTERNAL_VET_STATUS_LABELS.READY_TO_BE_PAID}
+              </option>
+              <option value="PAYMENT_INITIATED">
+                {EXTERNAL_VET_STATUS_LABELS.PAYMENT_INITIATED}
               </option>
               <option value="PAID">{EXTERNAL_VET_STATUS_LABELS.PAID}</option>
               <option value="AWAITING_SONARWA_REIMBURSEMENT">
@@ -561,66 +680,36 @@ export function CommissionLinesPanel({
         )}
       </div>
 
-      <div className="grid gap-3 lg:grid-cols-4">
-        {(
-          [
-            {
-              key: 'ready',
-              label: 'Ready to pay',
-              tone: 'border-sky-200 bg-sky-50/60',
-              data: statusOverview.ready,
-            },
-            {
-              key: 'paid',
-              label: 'Paid',
-              tone: 'border-emerald-200 bg-emerald-50/60',
-              data: statusOverview.paid,
-            },
-            {
-              key: 'awaiting',
-              label: 'Awaiting reimbursement',
-              tone: 'border-orange-200 bg-orange-50/60',
-              data: statusOverview.awaiting,
-            },
-            {
-              key: 'reimbursed',
-              label: 'Reimbursed',
-              tone: 'border-teal-200 bg-teal-50/60',
-              data: statusOverview.reimbursed,
-            },
-          ] as const
-        ).map((card) => (
-          <button
-            key={card.key}
-            type="button"
-            onClick={() =>
-              setStatusFilter(
-                card.key === 'ready'
-                  ? 'READY_TO_BE_PAID'
-                  : card.key === 'paid'
-                    ? 'PAID'
-                    : card.key === 'awaiting'
-                      ? 'AWAITING_SONARWA_REIMBURSEMENT'
-                      : 'REIMBURSED_BY_SONARWA',
-              )
-            }
-            className={`rounded-xl border px-4 py-3 text-left shadow-sm transition hover:ring-2 hover:ring-slate-200 ${card.tone}`}
-          >
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">
-              {card.label}
-            </p>
-            <p className="mt-1 text-lg font-semibold text-slate-900">
-              {card.data.lineCount} lines · {card.data.batchCount} batches
-            </p>
-            <p className="mt-1 text-xs text-slate-600">
-              Total {formatRwf(card.data.totalCommission)} · VAT{' '}
-              {formatRwf(card.data.vat)}
-            </p>
-            <p className="text-xs font-medium text-slate-800">
-              Billable {formatRwf(card.data.billableToSonarwa)}
-            </p>
-          </button>
-        ))}
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+        {STATUS_OVERVIEW_CARDS.map((card) => {
+          const data = statusOverview[card.key];
+          const active = statusFilter === card.status;
+          return (
+            <button
+              key={card.key}
+              type="button"
+              onClick={() => applyStatusFilter(card.status)}
+              aria-pressed={active}
+              className={`rounded-xl border px-4 py-3 text-left shadow-sm transition hover:ring-2 hover:ring-slate-200 ${card.tone} ${
+                active ? 'ring-2 ring-slate-400' : ''
+              }`}
+            >
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">
+                {card.label}
+              </p>
+              <p className="mt-1 text-lg font-semibold text-slate-900">
+                {data.lineCount} lines · {data.batchCount} batches
+              </p>
+              <p className="mt-1 text-xs text-slate-600">
+                Total {formatRwf(data.totalCommission)} · VAT{' '}
+                {formatRwf(data.vat)}
+              </p>
+              <p className="text-xs font-medium text-slate-800">
+                Billable {formatRwf(data.billableToSonarwa)}
+              </p>
+            </button>
+          );
+        })}
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -735,8 +824,8 @@ export function CommissionLinesPanel({
         </div>
       ) : !groups.length ? (
         <div className="rounded-lg border border-dashed border-slate-200 px-4 py-12 text-center text-sm text-slate-500">
-          No commission lines for this filter. Try Paid status after finance has
-          marked batches paid, or widen the date range.
+          No commission lines for this filter. Try Ready to pay, Initiated, or
+          Paid, or widen the date range.
         </div>
       ) : (
         <div className="space-y-3">
@@ -876,14 +965,38 @@ export function CommissionLinesPanel({
                               />
                             </td>
                             <td className="px-3 py-2">
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => setDetailLine(line)}
-                              >
-                                <Eye className="mr-1 h-3.5 w-3.5" />
-                                View
-                              </Button>
+                              <div className="flex flex-wrap items-center gap-1.5">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setDetailLine(line);
+                                  }}
+                                >
+                                  <Eye className="mr-1 h-3.5 w-3.5" />
+                                  View
+                                </Button>
+                                {canMutate &&
+                                canFinanceRejectBatchStatus(line.batchStatus) &&
+                                firstLineIdByBatch.get(line.batchId) ===
+                                  line.id ? (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="border-rose-200 text-rose-700 hover:border-rose-300 hover:bg-rose-50 hover:text-rose-800"
+                                    disabled={actionBusy}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      openRejectForLine(line);
+                                    }}
+                                    title={`Reject batch ${line.batchNumber}`}
+                                  >
+                                    <Ban className="mr-1 h-3.5 w-3.5" />
+                                    Reject
+                                  </Button>
+                                ) : null}
+                              </div>
                             </td>
                           </tr>
                         ))}
@@ -936,32 +1049,45 @@ export function CommissionLinesPanel({
       ) : null}
 
       {canMutate ? (
-        <ReimbursementConfirmDialog
-          open={confirmMode != null}
-          mode={confirmMode ?? 'prepare_reclaim'}
-          lineCount={selectedSummary.lineCount}
-          batchCount={selectedSummary.batchCount}
-          vetCount={selectedSummary.vetCount}
-          totalVetCommission={selectedSummary.totalVetCommission}
-          totalCompanyCommission={selectedSummary.totalCompanyCommission}
-          exportReference={exportReference}
-          onExportReferenceChange={setExportReference}
-          reimbursedAt={reimbursedAt}
-          onReimbursedAtChange={setReimbursedAt}
-          reimbursementReference={reimbursementReference}
-          onReimbursementReferenceChange={setReimbursementReference}
-          busy={actionBusy}
-          onCancel={() => {
-            if (!actionBusy) setConfirmMode(null);
-          }}
-          onConfirm={() => {
-            if (confirmMode === 'prepare_reclaim') {
-              void confirmPrepareReclaim();
-            } else {
-              void confirmMarkReimbursed();
-            }
-          }}
-        />
+        <>
+          <ReimbursementConfirmDialog
+            open={confirmMode != null}
+            mode={confirmMode ?? 'prepare_reclaim'}
+            lineCount={selectedSummary.lineCount}
+            batchCount={selectedSummary.batchCount}
+            vetCount={selectedSummary.vetCount}
+            totalVetCommission={selectedSummary.totalVetCommission}
+            totalCompanyCommission={selectedSummary.totalCompanyCommission}
+            exportReference={exportReference}
+            onExportReferenceChange={setExportReference}
+            reimbursedAt={reimbursedAt}
+            onReimbursedAtChange={setReimbursedAt}
+            reimbursementReference={reimbursementReference}
+            onReimbursementReferenceChange={setReimbursementReference}
+            busy={actionBusy}
+            onCancel={() => {
+              if (!actionBusy) setConfirmMode(null);
+            }}
+            onConfirm={() => {
+              if (confirmMode === 'prepare_reclaim') {
+                void confirmPrepareReclaim();
+              } else {
+                void confirmMarkReimbursed();
+              }
+            }}
+          />
+          <FinanceRejectDialog
+            open={rejectTarget != null}
+            target={rejectTarget}
+            busy={actionBusy}
+            onCancel={() => {
+              if (!actionBusy) setRejectTarget(null);
+            }}
+            onConfirm={(reason) => {
+              void confirmFinanceReject(reason);
+            }}
+          />
+        </>
       ) : null}
     </div>
   );
