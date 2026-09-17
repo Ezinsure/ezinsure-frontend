@@ -24,6 +24,13 @@ import {
   type ExternalVetsHubTab,
   type ExternalVetsViewRole,
 } from './domain';
+import {
+  areAllLinesRejected,
+  canApproveBatchForPayment,
+  isBatchFullyReviewed,
+  reviewStageForViewRole,
+} from './line-review';
+import { useAuth } from '@/context/AuthContext';
 import { BatchDetailPanel } from './components/batch-detail-panel';
 import { BatchListTable } from './components/batch-list-table';
 import { CommissionLinesPanel } from './components/commission-lines-panel';
@@ -103,10 +110,15 @@ export interface ExternalVetsHubProps {
 
 export default function ExternalVetsHub({ viewRole }: ExternalVetsHubProps) {
   const api = useExternalVetCommissionsApi();
+  const { user } = useAuth();
   const { showToast, ToastContainer } = useToast();
 
   const visibleTabs = useMemo(
     () => TAB_DEFS.filter((t) => t.roles.includes(viewRole)),
+    [viewRole],
+  );
+  const reviewStage = useMemo(
+    () => reviewStageForViewRole(viewRole),
     [viewRole],
   );
   const [tab, setTab] = useState<ExternalVetsHubTab>(
@@ -324,6 +336,25 @@ export default function ExternalVetsHub({ viewRole }: ExternalVetsHubProps) {
   }
 
   async function handleApprove(id: string) {
+    if (!detail) return;
+    if (!isBatchFullyReviewed(detail.lines)) {
+      showToast(
+        'Review every line before approving this application',
+        'error',
+      );
+      return;
+    }
+    if (areAllLinesRejected(detail.lines)) {
+      showToast(
+        'All lines are rejected — reject the application instead',
+        'error',
+      );
+      return;
+    }
+    if (!canApproveBatchForPayment(detail)) {
+      showToast('This application cannot be marked ready to pay yet', 'error');
+      return;
+    }
     setActionBusy(true);
     try {
       await api.approveBatch(id, reviewNote || undefined);
@@ -350,6 +381,49 @@ export default function ExternalVetsHub({ viewRole }: ExternalVetsHubProps) {
       await reload();
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Reject failed', 'error');
+    } finally {
+      setActionBusy(false);
+    }
+  }
+
+  async function handleReviewLine(input: {
+    lineId: string;
+    decision: 'APPROVED' | 'REJECTED';
+    reason?: string;
+  }) {
+    if (!detail || !reviewStage) return;
+    setActionBusy(true);
+    try {
+      const updated = await api.reviewLine({
+        batchId: detail.id,
+        lineId: input.lineId,
+        decision: input.decision,
+        reason: input.reason,
+        stage: reviewStage,
+        actorId: user?._id,
+        actorName: user?.fullName || 'Reviewer',
+        actorRole: user?.role,
+        currentBatch: detail,
+      });
+      setDetail(updated);
+      showToast(
+        input.decision === 'REJECTED' ? 'Line rejected' : 'Line approved',
+        'success',
+      );
+      if (
+        areAllLinesRejected(updated.lines) &&
+        updated.status === 'PENDING_ADMIN_REVIEW'
+      ) {
+        showToast(
+          'All lines are rejected — reject the application when ready',
+          'error',
+        );
+      }
+    } catch (err) {
+      showToast(
+        err instanceof Error ? err.message : 'Line review failed',
+        'error',
+      );
     } finally {
       setActionBusy(false);
     }
@@ -393,6 +467,26 @@ export default function ExternalVetsHub({ viewRole }: ExternalVetsHubProps) {
   const detailFooter =
     detail && canReview && detail.status === 'PENDING_ADMIN_REVIEW' ? (
       <div className="space-y-3">
+        {!isBatchFullyReviewed(detail.lines) ? (
+          <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+            Decide every line (approve or reject) before marking this
+            application ready to pay. Pending:{' '}
+            {
+              detail.lines.filter((l) => l.lineStatus === 'PENDING_REVIEW')
+                .length
+            }
+          </p>
+        ) : areAllLinesRejected(detail.lines) ? (
+          <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-900">
+            All lines are rejected. Reject the application — it cannot be marked
+            ready to pay.
+          </p>
+        ) : (
+          <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900">
+            All lines reviewed. Approving will mark the application ready to
+            pay using approved-line totals only.
+          </p>
+        )}
         <textarea
           className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-400"
           rows={2}
@@ -403,15 +497,20 @@ export default function ExternalVetsHub({ viewRole }: ExternalVetsHubProps) {
         <div className="grid grid-cols-1 gap-2 sm:flex sm:flex-wrap">
           <Button
             onClick={() => void handleApprove(detail.id)}
-            disabled={actionBusy}
+            disabled={actionBusy || !canApproveBatchForPayment(detail)}
             className="w-full sm:w-auto"
+            title={
+              canApproveBatchForPayment(detail)
+                ? undefined
+                : 'Finish line reviews first'
+            }
           >
             {actionBusy ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             ) : (
               <CheckCircle2 className="mr-2 h-4 w-4" />
             )}
-            Approve
+            Mark ready to pay
           </Button>
           <Button
             variant="outline"
@@ -420,7 +519,7 @@ export default function ExternalVetsHub({ viewRole }: ExternalVetsHubProps) {
             className="w-full sm:w-auto"
           >
             <XCircle className="mr-2 h-4 w-4" />
-            Reject
+            Reject application
           </Button>
         </div>
       </div>
@@ -517,7 +616,7 @@ export default function ExternalVetsHub({ viewRole }: ExternalVetsHubProps) {
           isLoading={isLoading}
         />
       ) : tab === 'lines' ? (
-        <CommissionLinesPanel canMutate={canPay} />
+        <CommissionLinesPanel canMutate={canPay} viewRole={viewRole} />
       ) : (
         <div className="space-y-4">
           <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -693,6 +792,15 @@ export default function ExternalVetsHub({ viewRole }: ExternalVetsHubProps) {
           isLoading={detailLoading}
           onClose={closeDetail}
           footer={detailFooter}
+          reviewStage={
+            canReview || canPay ? reviewStage : null
+          }
+          reviewBusy={actionBusy}
+          onReviewLine={
+            canReview || canPay
+              ? (input) => handleReviewLine(input)
+              : undefined
+          }
         />
       ) : null}
 

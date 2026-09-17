@@ -1,6 +1,7 @@
 'use client';
 
-import { Receipt, X } from 'lucide-react';
+import { useState } from 'react';
+import { CheckCircle2, Loader2, Receipt, X, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   COMMISSION_LINE_COLUMN_KEYS,
@@ -10,21 +11,38 @@ import {
   formatCommissionLineCell,
   formatRwf,
   type ExternalVetCommissionLineListItem,
+  type ExternalVetReviewStage,
 } from '../domain';
 import { ExternalVetStatusBadge } from './status-badge';
 import { LineDecisionTimeline } from './line-decision-timeline';
+import { LineReviewDialog, type LineReviewDecision } from './line-review-dialog';
 import { LineStatusBadge } from './line-status-badge';
+
+export type LineDetailReviewConfig = {
+  stage: ExternalVetReviewStage;
+  busy?: boolean;
+  onReview: (payload: {
+    decision: LineReviewDecision;
+    reason?: string;
+  }) => void | Promise<void>;
+};
 
 type Props = {
   line: ExternalVetCommissionLineListItem;
   onClose: () => void;
+  /** When set, shows approve / reject controls for the current stage. */
+  review?: LineDetailReviewConfig | null;
 };
 
-export function LineDetailModal({ line, onClose }: Props) {
+export function LineDetailModal({ line, onClose, review }: Props) {
+  const [pendingDecision, setPendingDecision] =
+    useState<LineReviewDecision | null>(null);
+
   const isRejected = line.lineStatus === 'REJECTED';
   const showTransactionId =
     line.batchStatus === 'REIMBURSED_BY_SONARWA' ||
     Boolean(line.reimbursementReference?.trim());
+  const canReview = Boolean(review);
 
   return (
     <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/45 p-0 sm:items-center sm:p-4">
@@ -226,12 +244,62 @@ export function LineDetailModal({ line, onClose }: Props) {
           </section>
         </div>
 
-        <div className="flex justify-end border-t border-slate-200 px-4 py-3 sm:px-5">
-          <Button variant="outline" onClick={onClose} className="w-full sm:w-auto">
+        <div className="flex flex-col gap-2 border-t border-slate-200 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+          {canReview && review ? (
+            <div className="flex flex-wrap gap-2">
+              <Button
+                size="sm"
+                disabled={review.busy}
+                onClick={() => setPendingDecision('APPROVED')}
+                className="flex-1 sm:flex-none"
+              >
+                {review.busy ? (
+                  <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
+                )}
+                Approve line
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={review.busy}
+                onClick={() => setPendingDecision('REJECTED')}
+                className="flex-1 border-rose-200 text-rose-700 hover:bg-rose-50 sm:flex-none"
+              >
+                <XCircle className="mr-1.5 h-3.5 w-3.5" />
+                Reject line
+              </Button>
+            </div>
+          ) : (
+            <span className="hidden sm:block" />
+          )}
+          <Button
+            variant="outline"
+            onClick={onClose}
+            className="w-full sm:w-auto"
+          >
             Close
           </Button>
         </div>
       </div>
+
+      {review ? (
+        <LineReviewDialog
+          open={pendingDecision != null}
+          decision={pendingDecision}
+          stage={review.stage}
+          lineLabel={
+            line.contract || line.clientName || `Line ${line.sn}`
+          }
+          busy={review.busy}
+          onClose={() => setPendingDecision(null)}
+          onConfirm={async (payload) => {
+            await review.onReview(payload);
+            setPendingDecision(null);
+          }}
+        />
+      ) : null}
     </div>
   );
 }

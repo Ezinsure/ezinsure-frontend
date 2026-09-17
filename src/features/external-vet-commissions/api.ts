@@ -22,6 +22,12 @@ import {
   summarizeCommissionLines,
 } from './domain';
 import {
+  applyReviewToBatchLines,
+  buildReviewEvent,
+  type BulkReviewLinesInput,
+  type ReviewLineInput,
+} from './line-review';
+import {
   linesFromBatch,
   mapBatch,
   mapBatchSummary,
@@ -356,6 +362,133 @@ export function useExternalVetCommissionsApi() {
     [apiFetch],
   );
 
+  /**
+   * Review one line. Falls back to a client-side patch when the endpoint
+   * is not deployed yet (404), so the UI can ship ahead of backend.
+   */
+  const reviewLine = useCallback(
+    async (
+      input: ReviewLineInput & {
+        actorId?: string;
+        actorName: string;
+        actorRole?: string;
+        /** Required for optimistic fallback when GET batch is needed. */
+        currentBatch?: ExternalVetCommissionBatch | null;
+      },
+    ): Promise<ExternalVetCommissionBatch> => {
+      if (input.decision === 'REJECTED' && !input.reason?.trim()) {
+        throw new Error('A rejection reason is required');
+      }
+
+      const response = await apiFetch(
+        EXTERNAL_VET_COMMISSION_ENDPOINTS.reviewLine(
+          input.batchId,
+          input.lineId,
+        ),
+        {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            decision: input.decision,
+            reason: input.reason?.trim() || undefined,
+            stage: input.stage,
+            note: input.reason?.trim() || undefined,
+          }),
+        },
+      );
+
+      if (response.ok) {
+        return mapBatch(unwrapData<unknown>(await readJson(response)));
+      }
+
+      if (response.status !== 404) {
+        throw new Error(await errorMessage(response, 'Failed to review line'));
+      }
+
+      let batch = input.currentBatch ?? null;
+      if (!batch || batch.id !== input.batchId) {
+        batch = await getBatch(input.batchId);
+      }
+      if (!batch) {
+        throw new Error('Batch not found');
+      }
+
+      const event = buildReviewEvent({
+        decision: input.decision,
+        reason: input.reason,
+        stage: input.stage,
+        actorId: input.actorId,
+        actorName: input.actorName,
+        actorRole: input.actorRole,
+      });
+      return applyReviewToBatchLines(batch, [input.lineId], event);
+    },
+    [apiFetch, getBatch],
+  );
+
+  const bulkReviewLines = useCallback(
+    async (
+      input: BulkReviewLinesInput & {
+        actorId?: string;
+        actorName: string;
+        actorRole?: string;
+        currentBatch?: ExternalVetCommissionBatch | null;
+      },
+    ): Promise<ExternalVetCommissionBatch> => {
+      if (!input.lineIds.length) {
+        throw new Error('Select at least one line');
+      }
+      if (input.decision === 'REJECTED' && !input.reason?.trim()) {
+        throw new Error('A rejection reason is required');
+      }
+
+      const response = await apiFetch(
+        EXTERNAL_VET_COMMISSION_ENDPOINTS.bulkReviewLines(input.batchId),
+        {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            lineIds: input.lineIds,
+            ids: input.lineIds,
+            decision: input.decision,
+            reason: input.reason?.trim() || undefined,
+            stage: input.stage,
+            note: input.reason?.trim() || undefined,
+          }),
+        },
+      );
+
+      if (response.ok) {
+        return mapBatch(unwrapData<unknown>(await readJson(response)));
+      }
+
+      if (response.status !== 404) {
+        throw new Error(
+          await errorMessage(response, 'Failed to bulk review lines'),
+        );
+      }
+
+      let batch = input.currentBatch ?? null;
+      if (!batch || batch.id !== input.batchId) {
+        batch = await getBatch(input.batchId);
+      }
+      if (!batch) {
+        throw new Error('Batch not found');
+      }
+
+      const event = buildReviewEvent({
+        decision: input.decision,
+        reason: input.reason,
+        stage: input.stage,
+        actorId: input.actorId,
+        actorName: input.actorName,
+        actorRole: input.actorRole,
+      });
+      return applyReviewToBatchLines(batch, input.lineIds, event);
+    },
+    [apiFetch, getBatch],
+  );
+
   const initiatePayment = useCallback(
     async (id: string): Promise<ExternalVetCommissionBatch> => {
       const response = await apiFetch(
@@ -613,6 +746,8 @@ export function useExternalVetCommissionsApi() {
       createBatch,
       approveBatch,
       rejectBatch,
+      reviewLine,
+      bulkReviewLines,
       initiatePayment,
       markPaid,
       initiatePaymentBulk,
@@ -632,6 +767,8 @@ export function useExternalVetCommissionsApi() {
       createBatch,
       approveBatch,
       rejectBatch,
+      reviewLine,
+      bulkReviewLines,
       initiatePayment,
       markPaid,
       initiatePaymentBulk,

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
   AlertTriangle,
   Download,
@@ -15,14 +15,13 @@ import { useApiClient } from '@/utils/apiClient';
 import {
   COMMISSION_LINE_COLUMN_KEYS,
   COMMISSION_LINE_COLUMN_LABELS,
-  calcBillableToSonarwa,
-  calcTotalCommission,
-  calcVatOnTotalCommission,
   formatCommissionLineCell,
   formatRwf,
   type ExportLineIncludeFilter,
   type ExternalVetCommissionBatch,
   type ExternalVetCommissionLine,
+  type ExternalVetCommissionLineListItem,
+  type ExternalVetReviewStage,
 } from '../domain';
 import {
   downloadBatchSourceDocument,
@@ -32,7 +31,18 @@ import {
   exportExternalVetBatchDetailToExcel,
   exportExternalVetBatchDetailToPdf,
 } from '../export/batch-detail-export';
+import {
+  canActorReviewLine,
+  summarizePayableLines,
+  type ReviewLineInput,
+} from '../line-review';
+import { linesFromBatch } from '../mappers';
 import { ExportIncludeDialog } from './export-include-dialog';
+import {
+  LineDetailModal,
+  type LineDetailReviewConfig,
+} from './line-detail-modal';
+import { LineReviewSummaryBar } from './line-review-summary-bar';
 import { ExternalVetStatusBadge } from './status-badge';
 import { LineStatusBadge } from './line-status-badge';
 
@@ -41,6 +51,11 @@ type Props = {
   isLoading?: boolean;
   onClose: () => void;
   footer?: React.ReactNode;
+  reviewStage?: ExternalVetReviewStage | null;
+  reviewBusy?: boolean;
+  onReviewLine?: (
+    input: Omit<ReviewLineInput, 'batchId' | 'stage'> & { lineId: string },
+  ) => Promise<void>;
 };
 
 function formatDisplayDate(value?: string): string {
@@ -72,11 +87,16 @@ export function BatchDetailPanel({
   isLoading = false,
   onClose,
   footer,
+  reviewStage = null,
+  reviewBusy = false,
+  onReviewLine,
 }: Props) {
   const { showToast, ToastContainer } = useToast();
   const { apiFetch } = useApiClient();
   const [exportOpen, setExportOpen] = useState(false);
   const [downloadBusy, setDownloadBusy] = useState(false);
+  const [detailLine, setDetailLine] =
+    useState<ExternalVetCommissionLineListItem | null>(null);
 
   const documentUrl = batch?.sourceDocumentUrl?.trim() || '';
   const documentName =
@@ -86,6 +106,19 @@ export function BatchDetailPanel({
     batch?.sourceFileName,
   );
   const canDownload = Boolean(batch?.id && (documentUrl || batch?.sourceFileName));
+
+  const payable = useMemo(
+    () => (batch ? summarizePayableLines(batch.lines) : null),
+    [batch],
+  );
+
+  const canReviewLines =
+    Boolean(batch && reviewStage && onReviewLine) &&
+    canActorReviewLine({
+      stage: reviewStage as ExternalVetReviewStage,
+      batchStatus: batch!.status,
+      allowed: true,
+    });
 
   const handleDownloadOriginal = useCallback(async () => {
     if (!batch?.id) return;
@@ -137,11 +170,35 @@ export function BatchDetailPanel({
     [batch, showToast],
   );
 
-  const totalCommission = batch
-    ? calcTotalCommission(batch.totalVetCommission, batch.totalCompanyCommission)
-    : 0;
-  const vat = calcVatOnTotalCommission(totalCommission);
-  const billable = calcBillableToSonarwa(totalCommission);
+  const openLine = useCallback(
+    (line: ExternalVetCommissionLine) => {
+      if (!batch) return;
+      setDetailLine(
+        linesFromBatch({
+          ...batch,
+          lines: [line],
+        })[0],
+      );
+    },
+    [batch],
+  );
+
+  const lineReviewConfig: LineDetailReviewConfig | null =
+    canReviewLines && detailLine && reviewStage && onReviewLine
+      ? {
+          stage: reviewStage,
+          busy: reviewBusy,
+          onReview: async (payload) => {
+            await onReviewLine({
+              lineId: detailLine.id,
+              decision: payload.decision,
+              reason: payload.reason,
+            });
+            setDetailLine(null);
+          },
+        }
+      : null;
+
   const isRejected = batch?.status === 'REJECTED';
   const isReimbursed = batch?.status === 'REIMBURSED_BY_SONARWA';
 
@@ -290,6 +347,8 @@ export function BatchDetailPanel({
                 </section>
               ) : null}
 
+              {payable ? <LineReviewSummaryBar summary={payable} /> : null}
+
               <section className="rounded-xl border border-slate-200 bg-slate-50/80 p-3.5 sm:p-4">
                 <h3 className="mb-3 text-sm font-semibold text-slate-800">
                   Veterinary agent
@@ -387,21 +446,24 @@ export function BatchDetailPanel({
                   />
                   <Info label="Lines" value={String(batch.lineCount)} />
                   <Info
-                    label="Vet commission"
-                    value={formatRwf(batch.totalVetCommission)}
+                    label="Payable vet commission"
+                    value={formatRwf(payable?.totalVetCommission ?? 0)}
                   />
                   <Info
-                    label="Company commission"
-                    value={formatRwf(batch.totalCompanyCommission)}
+                    label="Payable company commission"
+                    value={formatRwf(payable?.totalCompanyCommission ?? 0)}
                   />
                   <Info
-                    label="Total commission"
-                    value={formatRwf(totalCommission)}
+                    label="Payable total"
+                    value={formatRwf(payable?.totalCommission ?? 0)}
                   />
-                  <Info label="VAT (18%)" value={formatRwf(vat)} />
                   <Info
                     label="Billable to SONARWA"
-                    value={formatRwf(billable)}
+                    value={formatRwf(payable?.billableToSonarwa ?? 0)}
+                  />
+                  <Info
+                    label="Gross (all lines)"
+                    value={formatRwf(payable?.gross.totalCommission ?? 0)}
                   />
                   {batch.reviewedByName && !isRejected ? (
                     <Info label="Reviewed by" value={batch.reviewedByName} />
@@ -422,12 +484,15 @@ export function BatchDetailPanel({
               </section>
 
               <section>
-                <div className="mb-2 flex items-center justify-between gap-2">
+                <div className="mb-2 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                   <h3 className="text-sm font-semibold text-slate-800">
                     Lines ({batch.lineCount})
                   </h3>
-                  <p className="text-[11px] text-slate-500 sm:hidden">
-                    Swipe sideways to see all columns
+                  <p className="text-[11px] text-slate-500">
+                    {canReviewLines
+                      ? 'Click a row to review that line'
+                      : 'Click a row for full details'}
+                    <span className="sm:hidden"> · swipe for columns</span>
                   </p>
                 </div>
                 {isLoading ? (
@@ -457,13 +522,14 @@ export function BatchDetailPanel({
                         {batch.lines.map((line) => (
                           <tr
                             key={line.id}
-                            className={`border-t border-slate-100 ${
+                            className={`cursor-pointer border-t border-slate-100 hover:bg-slate-50/90 ${
                               line.lineStatus === 'REJECTED'
                                 ? 'bg-rose-50/40'
                                 : line.lineStatus === 'APPROVED'
                                   ? 'bg-emerald-50/20'
                                   : ''
                             }`}
+                            onClick={() => openLine(line)}
                           >
                             <td className="sticky left-0 z-[1] whitespace-nowrap bg-inherit px-3 py-2.5">
                               <LineStatusBadge status={line.lineStatus} />
@@ -514,6 +580,14 @@ export function BatchDetailPanel({
           onClose={() => setExportOpen(false)}
           onExportExcel={(lines, include) => runExport('excel', lines, include)}
           onExportPdf={(lines, include) => runExport('pdf', lines, include)}
+        />
+      ) : null}
+
+      {detailLine ? (
+        <LineDetailModal
+          line={detailLine}
+          onClose={() => setDetailLine(null)}
+          review={lineReviewConfig}
         />
       ) : null}
     </div>

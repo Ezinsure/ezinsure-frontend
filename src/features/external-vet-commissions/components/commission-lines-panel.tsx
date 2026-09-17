@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/toast';
+import { useAuth } from '@/context/AuthContext';
 import { useExternalVetCommissionsApi } from '../api';
 import { getMonthToDateRange } from '../date-range';
 import {
@@ -34,8 +35,13 @@ import {
   type ExportLineIncludeFilter,
   type ExternalVetCommissionLineListItem,
   type ExternalVetCommissionStatus,
+  type ExternalVetsViewRole,
   type ExternalVetLinesWorkspaceStatus,
 } from '../domain';
+import {
+  canReviewLinesAtBatchStatus,
+  reviewStageForViewRole,
+} from '../line-review';
 import { batchCreatedInDateRange } from '../export/batch-list-export';
 import {
   exportExternalVetLinesToExcel,
@@ -44,6 +50,7 @@ import {
 import { ExportIncludeDialog } from './export-include-dialog';
 import { ExternalVetStatusBadge } from './status-badge';
 import { LineDetailModal } from './line-detail-modal';
+import { LineReviewDialog, type LineReviewDecision } from './line-review-dialog';
 import { LineStatusBadge } from './line-status-badge';
 import {
   FinanceRejectDialog,
@@ -146,16 +153,24 @@ function selectionTriState(
 }
 
 export type CommissionLinesPanelProps = {
-  /** Finance can change reclaim statuses; admin/super_admin are read-only. */
+  /** Finance can change reclaim statuses; admin/super_admin are read-only for reclaim. */
   canMutate?: boolean;
+  /** Used to stamp line review events (admin / finance). */
+  viewRole?: ExternalVetsViewRole;
 };
 
 export function CommissionLinesPanel({
   canMutate = false,
+  viewRole = 'finance',
 }: CommissionLinesPanelProps) {
   const api = useExternalVetCommissionsApi();
+  const { user } = useAuth();
   const { showToast, ToastContainer } = useToast();
   const monthRange = useMemo(() => getMonthToDateRange(), []);
+  const reviewStage = useMemo(
+    () => reviewStageForViewRole(viewRole),
+    [viewRole],
+  );
 
   const [statusFilter, setStatusFilter] = useState<
     ExternalVetLinesWorkspaceStatus | 'ALL'
@@ -186,6 +201,9 @@ export function CommissionLinesPanel({
   );
   const [reimbursementReference, setReimbursementReference] = useState('');
   const [exportOpen, setExportOpen] = useState(false);
+  const [bulkDecision, setBulkDecision] = useState<LineReviewDecision | null>(
+    null,
+  );
 
   const reload = useCallback(async () => {
     setIsLoading(true);
@@ -313,6 +331,18 @@ export function CommissionLinesPanel({
     [filteredLines, selectedLineIds],
   );
 
+  const reviewableSelectedLines = useMemo(() => {
+    if (!reviewStage) return [];
+    return selectedLines.filter((line) =>
+      canReviewLinesAtBatchStatus(reviewStage, line.batchStatus),
+    );
+  }, [reviewStage, selectedLines]);
+
+  const canBulkReviewLines =
+    Boolean(reviewStage) &&
+    (canMutate || viewRole === 'admin' || viewRole === 'super_admin') &&
+    reviewableSelectedLines.length > 0;
+
   const selectedSummary = useMemo(
     () => summarizeCommissionLines(selectedLines),
     [selectedLines],
@@ -409,6 +439,79 @@ export function CommissionLinesPanel({
     },
     [endDate, search, showToast, startDate, statusFilter],
   );
+
+  async function applyLineReviews(
+    targetLines: ExternalVetCommissionLineListItem[],
+    decision: LineReviewDecision,
+    reason?: string,
+  ) {
+    if (!reviewStage || !targetLines.length) return;
+    if (decision === 'REJECTED' && !reason?.trim()) {
+      showToast('A rejection reason is required', 'error');
+      return;
+    }
+
+    setActionBusy(true);
+    try {
+      const byBatch = new Map<string, string[]>();
+      for (const line of targetLines) {
+        const list = byBatch.get(line.batchId) ?? [];
+        list.push(line.id);
+        byBatch.set(line.batchId, list);
+      }
+
+      const patched = new Map<string, ExternalVetCommissionLineListItem>();
+
+      for (const [batchId, lineIds] of byBatch) {
+        const updated = await api.bulkReviewLines({
+          batchId,
+          lineIds,
+          decision,
+          reason,
+          stage: reviewStage,
+          actorId: user?._id,
+          actorName: user?.fullName || 'Reviewer',
+          actorRole: user?.role,
+        });
+        for (const line of updated.lines) {
+          if (!lineIds.includes(line.id)) continue;
+          const previous = targetLines.find((t) => t.id === line.id);
+          if (!previous) continue;
+          patched.set(line.id, {
+            ...previous,
+            lineStatus: line.lineStatus,
+            reviewEvents: line.reviewEvents,
+            vetCommission: line.vetCommission,
+            companyCommission: line.companyCommission,
+          });
+        }
+      }
+
+      setLines((prev) =>
+        prev.map((line) => patched.get(line.id) ?? line),
+      );
+      if (detailLine) {
+        const next = patched.get(detailLine.id);
+        if (next) setDetailLine(next);
+      }
+
+      showToast(
+        decision === 'REJECTED'
+          ? `Rejected ${targetLines.length} line${targetLines.length === 1 ? '' : 's'}`
+          : `Approved ${targetLines.length} line${targetLines.length === 1 ? '' : 's'}`,
+        'success',
+      );
+      setBulkDecision(null);
+      setSelectedLineIds(new Set());
+    } catch (err) {
+      showToast(
+        err instanceof Error ? err.message : 'Line review failed',
+        'error',
+      );
+    } finally {
+      setActionBusy(false);
+    }
+  }
 
   async function confirmPrepareReclaim() {
     const batchIds = [...new Set(selectedLines.map((l) => l.batchId))];
@@ -767,6 +870,28 @@ export function CommissionLinesPanel({
               <FileSpreadsheet className="mr-2 h-4 w-4" />
               Export lines
             </Button>
+            {canBulkReviewLines ? (
+              <>
+                <Button
+                  variant="outline"
+                  disabled={actionBusy}
+                  onClick={() => setBulkDecision('APPROVED')}
+                  className="border-emerald-200 text-emerald-800 hover:bg-emerald-50"
+                >
+                  <CheckCircle2 className="mr-2 h-4 w-4" />
+                  Approve selected ({reviewableSelectedLines.length})
+                </Button>
+                <Button
+                  variant="outline"
+                  disabled={actionBusy}
+                  onClick={() => setBulkDecision('REJECTED')}
+                  className="border-rose-200 text-rose-700 hover:bg-rose-50"
+                >
+                  <Ban className="mr-2 h-4 w-4" />
+                  Reject selected ({reviewableSelectedLines.length})
+                </Button>
+              </>
+            ) : null}
             {canMutate ? (
               <>
                 <Button
@@ -1070,6 +1195,26 @@ export function CommissionLinesPanel({
         <LineDetailModal
           line={detailLine}
           onClose={() => setDetailLine(null)}
+          review={
+            reviewStage &&
+            canReviewLinesAtBatchStatus(reviewStage, detailLine.batchStatus) &&
+            (canMutate ||
+              viewRole === 'admin' ||
+              viewRole === 'super_admin')
+              ? {
+                  stage: reviewStage,
+                  busy: actionBusy,
+                  onReview: async (payload) => {
+                    await applyLineReviews(
+                      [detailLine],
+                      payload.decision,
+                      payload.reason,
+                    );
+                    setDetailLine(null);
+                  },
+                }
+              : null
+          }
         />
       ) : null}
 
@@ -1082,6 +1227,25 @@ export function CommissionLinesPanel({
         }
         onExportPdf={(rows, include) => runLinesExport('pdf', rows, include)}
       />
+
+      {reviewStage ? (
+        <LineReviewDialog
+          open={bulkDecision != null}
+          decision={bulkDecision}
+          stage={reviewStage}
+          lineCount={reviewableSelectedLines.length}
+          lineLabel={`${reviewableSelectedLines.length} selected line${reviewableSelectedLines.length === 1 ? '' : 's'}`}
+          busy={actionBusy}
+          onClose={() => setBulkDecision(null)}
+          onConfirm={async (payload) => {
+            await applyLineReviews(
+              reviewableSelectedLines,
+              payload.decision,
+              payload.reason,
+            );
+          }}
+        />
+      ) : null}
 
       {canMutate ? (
         <>

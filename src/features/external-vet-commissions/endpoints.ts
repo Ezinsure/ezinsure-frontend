@@ -47,6 +47,20 @@ export const EXTERNAL_VET_COMMISSION_ENDPOINTS = {
 
   rejectBatch: (id: string): string => `${BASE}/batches/${id}/reject`,
 
+  /**
+   * Decide a single insured line (approve / reject) with optional reason.
+   * Body: `{ decision, reason?, stage }`
+   */
+  reviewLine: (batchId: string, lineId: string): string =>
+    `${BASE}/batches/${batchId}/lines/${lineId}/review`,
+
+  /**
+   * Bulk decide lines in one batch.
+   * Body: `{ lineIds, decision, reason?, stage }`
+   */
+  bulkReviewLines: (batchId: string): string =>
+    `${BASE}/batches/${batchId}/lines/review`,
+
   initiatePayment: (id: string): string =>
     `${BASE}/batches/${id}/initiatePayment`,
 
