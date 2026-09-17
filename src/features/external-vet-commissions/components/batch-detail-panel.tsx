@@ -1,10 +1,17 @@
 'use client';
 
 import { useCallback, useState } from 'react';
-import { Download, FileSpreadsheet, Loader2, X } from 'lucide-react';
+import {
+  AlertTriangle,
+  Download,
+  FileSpreadsheet,
+  Loader2,
+  Receipt,
+  X,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { DataExportActions } from '@/components/ui/data-export-actions';
 import { useToast } from '@/components/ui/toast';
+import { useApiClient } from '@/utils/apiClient';
 import {
   COMMISSION_LINE_COLUMN_KEYS,
   COMMISSION_LINE_COLUMN_LABELS,
@@ -13,13 +20,21 @@ import {
   calcVatOnTotalCommission,
   formatCommissionLineCell,
   formatRwf,
+  type ExportLineIncludeFilter,
   type ExternalVetCommissionBatch,
+  type ExternalVetCommissionLine,
 } from '../domain';
+import {
+  downloadBatchSourceDocument,
+  resolveDownloadFileName,
+} from '../download-source-document';
 import {
   exportExternalVetBatchDetailToExcel,
   exportExternalVetBatchDetailToPdf,
 } from '../export/batch-detail-export';
+import { ExportIncludeDialog } from './export-include-dialog';
 import { ExternalVetStatusBadge } from './status-badge';
+import { LineStatusBadge } from './line-status-badge';
 
 type Props = {
   batch: ExternalVetCommissionBatch | null;
@@ -27,21 +42,6 @@ type Props = {
   onClose: () => void;
   footer?: React.ReactNode;
 };
-
-/**
- * Cloudinary `raw` uploads often omit a file extension in the URL.
- * Always prefer the stored display name (…xlsx / …pdf) when saving locally.
- */
-function resolveDownloadFileName(
-  documentName: string,
-  sourceFileName?: string,
-): string {
-  const named = (documentName || sourceFileName || 'claim-form').trim();
-  if (/\.[a-z0-9]{2,5}$/i.test(named)) return named;
-  const fromSource = (sourceFileName || '').trim();
-  if (/\.[a-z0-9]{2,5}$/i.test(fromSource)) return fromSource;
-  return `${named || 'claim-form'}.xlsx`;
-}
 
 function formatDisplayDate(value?: string): string {
   if (!value?.trim()) return '—';
@@ -54,6 +54,19 @@ function formatDisplayDate(value?: string): string {
   });
 }
 
+function formatDisplayDateTime(value?: string): string {
+  if (!value?.trim()) return '—';
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return value;
+  return d.toLocaleString(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
 export function BatchDetailPanel({
   batch,
   isLoading = false,
@@ -61,40 +74,9 @@ export function BatchDetailPanel({
   footer,
 }: Props) {
   const { showToast, ToastContainer } = useToast();
-  const [exportBusy, setExportBusy] = useState(false);
+  const { apiFetch } = useApiClient();
+  const [exportOpen, setExportOpen] = useState(false);
   const [downloadBusy, setDownloadBusy] = useState(false);
-
-  const handleExportExcel = useCallback(async () => {
-    if (!batch?.lines?.length) {
-      showToast('No commission lines to export', 'error');
-      return;
-    }
-    setExportBusy(true);
-    try {
-      await exportExternalVetBatchDetailToExcel(batch);
-      showToast('Batch exported to Excel', 'success');
-    } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Excel export failed', 'error');
-    } finally {
-      setExportBusy(false);
-    }
-  }, [batch, showToast]);
-
-  const handleExportPdf = useCallback(async () => {
-    if (!batch?.lines?.length) {
-      showToast('No commission lines to export', 'error');
-      return;
-    }
-    setExportBusy(true);
-    try {
-      await exportExternalVetBatchDetailToPdf(batch);
-      showToast('Batch exported to PDF', 'success');
-    } catch (err) {
-      showToast(err instanceof Error ? err.message : 'PDF export failed', 'error');
-    } finally {
-      setExportBusy(false);
-    }
-  }, [batch, showToast]);
 
   const documentUrl = batch?.sourceDocumentUrl?.trim() || '';
   const documentName =
@@ -103,48 +85,70 @@ export function BatchDetailPanel({
     documentName,
     batch?.sourceFileName,
   );
+  const canDownload = Boolean(batch?.id && (documentUrl || batch?.sourceFileName));
 
   const handleDownloadOriginal = useCallback(async () => {
-    if (!documentUrl) return;
+    if (!batch?.id) return;
     setDownloadBusy(true);
     try {
-      const response = await fetch(documentUrl);
-      if (!response.ok) {
-        throw new Error(`Download failed (${response.status})`);
-      }
-      const blob = await response.blob();
-      const objectUrl = URL.createObjectURL(blob);
-      const anchor = document.createElement('a');
-      anchor.href = objectUrl;
-      anchor.download = downloadFileName;
-      document.body.appendChild(anchor);
-      anchor.click();
-      anchor.remove();
-      URL.revokeObjectURL(objectUrl);
+      await downloadBatchSourceDocument({
+        batchId: batch.id,
+        fileName: downloadFileName,
+        fallbackUrl: documentUrl || undefined,
+        apiFetch,
+      });
       showToast('Claim form downloaded', 'success');
-    } catch {
-      // Cross-origin / CORS: open in a new tab as last resort.
-      window.open(documentUrl, '_blank', 'noopener,noreferrer');
+    } catch (err) {
       showToast(
-        'Opened file in a new tab. If the name has no extension, rename it to .xlsx or .pdf after saving.',
+        err instanceof Error ? err.message : 'Failed to download claim form',
         'error',
       );
     } finally {
       setDownloadBusy(false);
     }
-  }, [documentUrl, downloadFileName, showToast]);
+  }, [apiFetch, batch?.id, documentUrl, downloadFileName, showToast]);
+
+  const runExport = useCallback(
+    async (
+      kind: 'excel' | 'pdf',
+      lines: ExternalVetCommissionLine[],
+      include: ExportLineIncludeFilter,
+    ) => {
+      if (!batch) return;
+      const payload: ExternalVetCommissionBatch = {
+        ...batch,
+        lines,
+        lineCount: lines.length,
+      };
+      if (kind === 'excel') {
+        await exportExternalVetBatchDetailToExcel(payload);
+        showToast(
+          `Exported ${lines.length} ${include === 'ALL' ? '' : `${include.toLowerCase().replace('_', ' ')} `}line${lines.length === 1 ? '' : 's'} to Excel`,
+          'success',
+        );
+      } else {
+        await exportExternalVetBatchDetailToPdf(payload);
+        showToast(
+          `Exported ${lines.length} line${lines.length === 1 ? '' : 's'} to PDF`,
+          'success',
+        );
+      }
+    },
+    [batch, showToast],
+  );
 
   const totalCommission = batch
     ? calcTotalCommission(batch.totalVetCommission, batch.totalCompanyCommission)
     : 0;
   const vat = calcVatOnTotalCommission(totalCommission);
   const billable = calcBillableToSonarwa(totalCommission);
+  const isRejected = batch?.status === 'REJECTED';
+  const isReimbursed = batch?.status === 'REIMBURSED_BY_SONARWA';
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-black/40">
       <ToastContainer />
       <div className="flex h-full w-full max-w-full flex-col bg-white shadow-xl sm:max-w-[min(96rem,96vw)]">
-        {/* Header — stacks cleanly on phones */}
         <div className="shrink-0 border-b border-slate-200 px-4 py-3 sm:px-5 sm:py-4">
           <div className="flex items-start gap-3">
             <div className="min-w-0 flex-1">
@@ -182,18 +186,20 @@ export function BatchDetailPanel({
           </div>
 
           <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3 sm:border-0 sm:pt-0">
-            <DataExportActions
-              disabled={exportBusy || isLoading || !batch?.lines?.length}
-              onExportExcel={handleExportExcel}
-              onExportPdf={handleExportPdf}
-              excelLabel="Excel"
-              pdfLabel="PDF"
-              className="w-full sm:w-auto [&_button]:flex-1 sm:[&_button]:flex-none"
-            />
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={isLoading || !batch?.lines?.length}
+              onClick={() => setExportOpen(true)}
+              className="w-full sm:w-auto"
+            >
+              <FileSpreadsheet className="mr-1.5 h-3.5 w-3.5" />
+              Export lines
+            </Button>
           </div>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 sm:px-5 space-y-4 sm:space-y-6">
+        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-4 py-4 sm:space-y-6 sm:px-5">
           {isLoading && !batch ? (
             <div className="flex flex-col items-center justify-center gap-3 py-24 text-slate-500">
               <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
@@ -203,6 +209,87 @@ export function BatchDetailPanel({
 
           {batch ? (
             <>
+              {isRejected ? (
+                <section className="rounded-xl border border-rose-200 bg-gradient-to-br from-rose-50 to-white p-3.5 sm:p-4">
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-rose-100 text-rose-700">
+                      <AlertTriangle className="h-4 w-4" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <h3 className="text-sm font-semibold text-rose-950">
+                        Application rejected
+                      </h3>
+                      <p className="mt-1 text-sm leading-relaxed text-rose-900/90">
+                        {batch.reviewNote?.trim() ||
+                          'No rejection note was recorded for this batch.'}
+                      </p>
+                      <dl className="mt-3 grid gap-2 sm:grid-cols-2">
+                        <div>
+                          <dt className="text-[11px] uppercase tracking-wide text-rose-700/80">
+                            Rejected by
+                          </dt>
+                          <dd className="text-sm font-medium text-rose-950">
+                            {batch.reviewedByName || '—'}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt className="text-[11px] uppercase tracking-wide text-rose-700/80">
+                            Rejected at
+                          </dt>
+                          <dd className="text-sm font-medium text-rose-950">
+                            {formatDisplayDateTime(batch.reviewedAt)}
+                          </dd>
+                        </div>
+                      </dl>
+                    </div>
+                  </div>
+                </section>
+              ) : null}
+
+              {isReimbursed ? (
+                <section className="rounded-xl border border-teal-200 bg-gradient-to-br from-teal-50 to-white p-3.5 sm:p-4">
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-teal-100 text-teal-800">
+                      <Receipt className="h-4 w-4" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <h3 className="text-sm font-semibold text-teal-950">
+                        SONARWA reimbursement
+                      </h3>
+                      <dl className="mt-3 grid gap-2.5 sm:grid-cols-2">
+                        <div className="sm:col-span-2">
+                          <dt className="text-[11px] uppercase tracking-wide text-teal-700/80">
+                            Transaction ID
+                          </dt>
+                          <dd className="mt-0.5 break-all font-mono text-sm font-semibold text-teal-950">
+                            {batch.reimbursementReference?.trim() ||
+                              'Not recorded'}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt className="text-[11px] uppercase tracking-wide text-teal-700/80">
+                            Reimbursed at
+                          </dt>
+                          <dd className="text-sm font-medium text-teal-950">
+                            {formatDisplayDateTime(batch.reimbursedBySonarwaAt)}
+                          </dd>
+                        </div>
+                        {batch.exportReference ? (
+                          <div>
+                            <dt className="text-[11px] uppercase tracking-wide text-teal-700/80">
+                              Export reference
+                            </dt>
+                            <dd className="text-sm font-medium text-teal-950">
+                              {batch.exportReference}
+                            </dd>
+                          </div>
+                        ) : null}
+                      </dl>
+                    </div>
+                  </div>
+                </section>
+              ) : null}
+
               <section className="rounded-xl border border-slate-200 bg-slate-50/80 p-3.5 sm:p-4">
                 <h3 className="mb-3 text-sm font-semibold text-slate-800">
                   Veterinary agent
@@ -238,12 +325,11 @@ export function BatchDetailPanel({
                       Original claim form
                     </h3>
                     <p className="mt-1 text-xs leading-relaxed text-slate-500">
-                      Download the uploaded Excel/PDF to verify lines against
-                      the source document. In-browser preview is not available
-                      for these file types.
+                      Downloaded securely via the API. Use this file to verify
+                      lines against the source document.
                     </p>
                   </div>
-                  {documentUrl ? (
+                  {canDownload ? (
                     <Button
                       size="sm"
                       variant="outline"
@@ -269,7 +355,7 @@ export function BatchDetailPanel({
                     >
                       {documentName}
                     </p>
-                    {documentUrl ? (
+                    {canDownload ? (
                       <p className="mt-1 text-xs text-slate-500">
                         Saves as{' '}
                         <span className="font-medium text-slate-700">
@@ -278,8 +364,7 @@ export function BatchDetailPanel({
                       </p>
                     ) : (
                       <p className="mt-0.5 text-xs text-amber-700">
-                        File name only is stored on this batch. Backend must
-                        return `sourceDocumentUrl` for download.
+                        Original document is not available on this batch yet.
                       </p>
                     )}
                   </div>
@@ -318,14 +403,20 @@ export function BatchDetailPanel({
                     label="Billable to SONARWA"
                     value={formatRwf(billable)}
                   />
-                  {batch.reviewedByName ? (
+                  {batch.reviewedByName && !isRejected ? (
                     <Info label="Reviewed by" value={batch.reviewedByName} />
                   ) : null}
-                  {batch.reviewNote ? (
+                  {batch.reviewNote && !isRejected ? (
                     <Info label="Review note" value={batch.reviewNote} />
                   ) : null}
                   {batch.paidByName ? (
                     <Info label="Paid by" value={batch.paidByName} />
+                  ) : null}
+                  {batch.reimbursementReference && !isReimbursed ? (
+                    <Info
+                      label="SONARWA transaction ID"
+                      value={batch.reimbursementReference}
+                    />
                   ) : null}
                 </div>
               </section>
@@ -349,6 +440,9 @@ export function BatchDetailPanel({
                     <table className="min-w-max w-full text-left text-xs">
                       <thead className="bg-slate-50 text-slate-600">
                         <tr>
+                          <th className="sticky left-0 z-[1] whitespace-nowrap bg-slate-50 px-3 py-2.5 font-medium">
+                            Line status
+                          </th>
                           {COMMISSION_LINE_COLUMN_KEYS.map((key) => (
                             <th
                               key={key}
@@ -363,8 +457,17 @@ export function BatchDetailPanel({
                         {batch.lines.map((line) => (
                           <tr
                             key={line.id}
-                            className="border-t border-slate-100"
+                            className={`border-t border-slate-100 ${
+                              line.lineStatus === 'REJECTED'
+                                ? 'bg-rose-50/40'
+                                : line.lineStatus === 'APPROVED'
+                                  ? 'bg-emerald-50/20'
+                                  : ''
+                            }`}
                           >
+                            <td className="sticky left-0 z-[1] whitespace-nowrap bg-inherit px-3 py-2.5">
+                              <LineStatusBadge status={line.lineStatus} />
+                            </td>
                             {COMMISSION_LINE_COLUMN_KEYS.map((key) => (
                               <td
                                 key={key}
@@ -376,6 +479,10 @@ export function BatchDetailPanel({
                                   key === 'vetCommission' ||
                                   key === 'companyCommission'
                                     ? 'font-medium'
+                                    : ''
+                                } ${
+                                  line.lineStatus === 'REJECTED'
+                                    ? 'text-slate-500 line-through decoration-rose-300'
                                     : ''
                                 }`}
                               >
@@ -399,6 +506,16 @@ export function BatchDetailPanel({
           </div>
         ) : null}
       </div>
+
+      {batch ? (
+        <ExportIncludeDialog
+          open={exportOpen}
+          lines={batch.lines}
+          onClose={() => setExportOpen(false)}
+          onExportExcel={(lines, include) => runExport('excel', lines, include)}
+          onExportPdf={(lines, include) => runExport('pdf', lines, include)}
+        />
+      ) : null}
     </div>
   );
 }

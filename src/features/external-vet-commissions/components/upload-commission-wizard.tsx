@@ -113,7 +113,7 @@ export function UploadCommissionWizard({ open, onClose, onCreated }: Props) {
     DEFAULT_COMPANY_COMMISSION_PERCENT,
   );
   const [sheetLines, setSheetLines] = useState<
-    Omit<ExternalVetCommissionLine, 'id'>[]
+    Omit<ExternalVetCommissionLine, 'id' | 'lineStatus' | 'reviewEvents'>[]
   >([]);
   const [parseErrors, setParseErrors] = useState<string[]>([]);
   const [parseWarnings, setParseWarnings] = useState<string[]>([]);

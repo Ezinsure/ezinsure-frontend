@@ -22,7 +22,6 @@ import {
   WalletCards,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { DataExportActions } from '@/components/ui/data-export-actions';
 import { useToast } from '@/components/ui/toast';
 import { useExternalVetCommissionsApi } from '../api';
 import { getMonthToDateRange } from '../date-range';
@@ -32,6 +31,7 @@ import {
   canFinanceRejectBatchStatus,
   formatRwf,
   summarizeCommissionLines,
+  type ExportLineIncludeFilter,
   type ExternalVetCommissionLineListItem,
   type ExternalVetCommissionStatus,
   type ExternalVetLinesWorkspaceStatus,
@@ -41,8 +41,10 @@ import {
   exportExternalVetLinesToExcel,
   exportExternalVetLinesToPdf,
 } from '../export/lines-export';
+import { ExportIncludeDialog } from './export-include-dialog';
 import { ExternalVetStatusBadge } from './status-badge';
 import { LineDetailModal } from './line-detail-modal';
+import { LineStatusBadge } from './line-status-badge';
 import {
   FinanceRejectDialog,
   type FinanceRejectTarget,
@@ -183,6 +185,7 @@ export function CommissionLinesPanel({
     () => new Date().toISOString().slice(0, 10),
   );
   const [reimbursementReference, setReimbursementReference] = useState('');
+  const [exportOpen, setExportOpen] = useState(false);
 
   const reload = useCallback(async () => {
     setIsLoading(true);
@@ -332,17 +335,6 @@ export function CommissionLinesPanel({
 
   const exportRows = selectedLines.length > 0 ? selectedLines : filteredLines;
 
-  const exportParams = useMemo(
-    () => ({
-      rows: exportRows,
-      startDate: startDate || undefined,
-      endDate: endDate || undefined,
-      status: statusFilter,
-      search: search || undefined,
-    }),
-    [endDate, exportRows, search, startDate, statusFilter],
-  );
-
   const allFilteredIds = useMemo(
     () => filteredLines.map((l) => l.id),
     [filteredLines],
@@ -387,47 +379,36 @@ export function CommissionLinesPanel({
     });
   }
 
-  const handleExportExcel = useCallback(async () => {
-    if (!exportRows.length) {
-      showToast('No lines to export for the current filters', 'error');
-      return;
-    }
-    try {
-      await exportExternalVetLinesToExcel({
-        ...exportParams,
-        purpose: 'review',
-      });
-      showToast(
-        selectedLines.length
-          ? `Exported ${selectedLines.length} selected line${selectedLines.length === 1 ? '' : 's'} to Excel`
-          : `Exported ${exportRows.length} line${exportRows.length === 1 ? '' : 's'} to Excel`,
-        'success',
-      );
-    } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Excel export failed', 'error');
-    }
-  }, [exportParams, exportRows.length, selectedLines.length, showToast]);
-
-  const handleExportPdf = useCallback(async () => {
-    if (!exportRows.length) {
-      showToast('No lines to export for the current filters', 'error');
-      return;
-    }
-    try {
-      await exportExternalVetLinesToPdf({
-        ...exportParams,
-        purpose: 'review',
-      });
-      showToast(
-        selectedLines.length
-          ? `Exported ${selectedLines.length} selected line${selectedLines.length === 1 ? '' : 's'} to PDF`
-          : `Exported ${exportRows.length} line${exportRows.length === 1 ? '' : 's'} to PDF`,
-        'success',
-      );
-    } catch (err) {
-      showToast(err instanceof Error ? err.message : 'PDF export failed', 'error');
-    }
-  }, [exportParams, exportRows.length, selectedLines.length, showToast]);
+  const runLinesExport = useCallback(
+    async (
+      kind: 'excel' | 'pdf',
+      rows: ExternalVetCommissionLineListItem[],
+      include: ExportLineIncludeFilter,
+    ) => {
+      const params = {
+        rows,
+        startDate: startDate || undefined,
+        endDate: endDate || undefined,
+        status: statusFilter,
+        search: search || undefined,
+        purpose: 'review' as const,
+      };
+      if (kind === 'excel') {
+        await exportExternalVetLinesToExcel(params);
+        showToast(
+          `Exported ${rows.length} ${include === 'ALL' ? '' : `${include.toLowerCase().replace('_', ' ')} `}line${rows.length === 1 ? '' : 's'} to Excel`,
+          'success',
+        );
+      } else {
+        await exportExternalVetLinesToPdf(params);
+        showToast(
+          `Exported ${rows.length} line${rows.length === 1 ? '' : 's'} to PDF`,
+          'success',
+        );
+      }
+    },
+    [endDate, search, showToast, startDate, statusFilter],
+  );
 
   async function confirmPrepareReclaim() {
     const batchIds = [...new Set(selectedLines.map((l) => l.batchId))];
@@ -467,13 +448,17 @@ export function CommissionLinesPanel({
   async function confirmMarkReimbursed() {
     const batchIds = [...new Set(selectedLines.map((l) => l.batchId))];
     if (!batchIds.length) return;
+    if (!reimbursementReference.trim()) {
+      showToast('SONARWA transaction ID is required', 'error');
+      return;
+    }
 
     setActionBusy(true);
     try {
       await api.markReimbursedBySonarwa({
         batchIds,
         reimbursedAt: reimbursedAt || undefined,
-        reimbursementReference: reimbursementReference || undefined,
+        reimbursementReference: reimbursementReference.trim(),
       });
       showToast(
         `Marked ${batchIds.length} batch${batchIds.length === 1 ? '' : 'es'} reimbursed by SONARWA`,
@@ -774,11 +759,14 @@ export function CommissionLinesPanel({
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <DataExportActions
+            <Button
+              variant="outline"
               disabled={isLoading || exportRows.length === 0}
-              onExportExcel={handleExportExcel}
-              onExportPdf={handleExportPdf}
-            />
+              onClick={() => setExportOpen(true)}
+            >
+              <FileSpreadsheet className="mr-2 h-4 w-4" />
+              Export lines
+            </Button>
             {canMutate ? (
               <>
                 <Button
@@ -812,8 +800,8 @@ export function CommissionLinesPanel({
         </div>
         <p className="mt-2 text-xs text-slate-500">
           {selectedLineIds.size > 0
-            ? `Export will include ${selectedSummary.lineCount} selected line${selectedSummary.lineCount === 1 ? '' : 's'} (all lines under the selected vets/rows), not only the summary.`
-            : 'Export includes every line matching the current filters. Tick vet groups or rows to export a subset.'}
+            ? `Export will start from ${selectedSummary.lineCount} selected line${selectedSummary.lineCount === 1 ? '' : 's'}; you can still filter by approved / rejected / pending.`
+            : 'Choose which line statuses to include before exporting Excel or PDF. Tick vet groups or rows to narrow the set first.'}
         </p>
       </div>
 
@@ -913,7 +901,9 @@ export function CommissionLinesPanel({
                           <th className="px-3 py-2 font-medium">
                             Vet commission
                           </th>
-                          <th className="px-3 py-2 font-medium">Status</th>
+                          <th className="px-3 py-2 font-medium">Line</th>
+                          <th className="px-3 py-2 font-medium">Batch</th>
+                          <th className="px-3 py-2 font-medium">Txn ID</th>
                           <th className="px-3 py-2 font-medium">Actions</th>
                         </tr>
                       </thead>
@@ -921,7 +911,13 @@ export function CommissionLinesPanel({
                         {group.lines.map((line) => (
                           <tr
                             key={line.id}
-                            className="cursor-pointer border-t border-slate-100 hover:bg-slate-50/80"
+                            className={`cursor-pointer border-t border-slate-100 hover:bg-slate-50/80 ${
+                              line.lineStatus === 'REJECTED'
+                                ? 'bg-rose-50/40'
+                                : line.lineStatus === 'APPROVED'
+                                  ? 'bg-emerald-50/20'
+                                  : ''
+                            }`}
                             onDoubleClick={() => setDetailLine(line)}
                           >
                             <td className="px-3 py-2">
@@ -951,11 +947,26 @@ export function CommissionLinesPanel({
                             <td className="px-3 py-2 text-slate-600">
                               {line.prodDate || '—'}
                             </td>
-                            <td className="px-3 py-2 font-medium">
+                            <td
+                              className={`px-3 py-2 font-medium ${
+                                line.lineStatus === 'REJECTED'
+                                  ? 'text-slate-500 line-through decoration-rose-300'
+                                  : ''
+                              }`}
+                            >
                               {formatRwf(line.netPremium)}
                             </td>
-                            <td className="px-3 py-2 font-medium">
+                            <td
+                              className={`px-3 py-2 font-medium ${
+                                line.lineStatus === 'REJECTED'
+                                  ? 'text-slate-500 line-through decoration-rose-300'
+                                  : ''
+                              }`}
+                            >
                               {formatRwf(line.vetCommission)}
+                            </td>
+                            <td className="px-3 py-2">
+                              <LineStatusBadge status={line.lineStatus} />
                             </td>
                             <td className="px-3 py-2">
                               <ExternalVetStatusBadge
@@ -963,6 +974,22 @@ export function CommissionLinesPanel({
                                   line.batchStatus as ExternalVetCommissionStatus
                                 }
                               />
+                            </td>
+                            <td className="max-w-[9rem] px-3 py-2">
+                              {line.batchStatus === 'REIMBURSED_BY_SONARWA' ||
+                              line.reimbursementReference ? (
+                                <span
+                                  className="block truncate font-mono text-[11px] text-teal-900"
+                                  title={
+                                    line.reimbursementReference?.trim() ||
+                                    undefined
+                                  }
+                                >
+                                  {line.reimbursementReference?.trim() || '—'}
+                                </span>
+                              ) : (
+                                <span className="text-xs text-slate-400">—</span>
+                              )}
                             </td>
                             <td
                               className="px-3 py-2"
@@ -1045,6 +1072,16 @@ export function CommissionLinesPanel({
           onClose={() => setDetailLine(null)}
         />
       ) : null}
+
+      <ExportIncludeDialog
+        open={exportOpen}
+        lines={exportRows}
+        onClose={() => setExportOpen(false)}
+        onExportExcel={(rows, include) =>
+          runLinesExport('excel', rows, include)
+        }
+        onExportPdf={(rows, include) => runLinesExport('pdf', rows, include)}
+      />
 
       {canMutate ? (
         <>

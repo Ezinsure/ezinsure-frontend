@@ -1,6 +1,6 @@
 'use client';
 
-import { Eye, Loader2 } from 'lucide-react';
+import { Eye, Loader2, MessageSquareWarning, Receipt } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   formatRwf,
@@ -40,7 +40,7 @@ export function BatchListTable({
 
   if (!batches.length) {
     return (
-      <div className="rounded-lg border border-dashed border-slate-200 px-4 py-12 text-center text-sm text-slate-500">
+      <div className="rounded-xl border border-dashed border-slate-200 px-4 py-12 text-center text-sm text-slate-500">
         {emptyMessage}
       </div>
     );
@@ -52,7 +52,7 @@ export function BatchListTable({
     batches.every((b) => selectedIds.has(b.id));
 
   return (
-    <div className="overflow-x-auto rounded-lg border border-slate-200">
+    <div className="overflow-x-auto rounded-xl border border-slate-200">
       <table className="min-w-full text-left text-sm">
         <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
           <tr>
@@ -73,66 +73,112 @@ export function BatchListTable({
             <th className="px-3 py-3 font-medium">Vet commission</th>
             <th className="px-3 py-3 font-medium">Company commission</th>
             <th className="px-3 py-3 font-medium">Status</th>
+            <th className="min-w-[12rem] px-3 py-3 font-medium">Notes / ref</th>
             <th className="px-3 py-3 font-medium">Created</th>
             <th className="px-3 py-3 font-medium">Actions</th>
           </tr>
         </thead>
         <tbody>
-          {batches.map((batch) => (
-            <tr key={batch.id} className="border-t border-slate-100 hover:bg-slate-50/80">
-              {selectedIds && onToggleSelect ? (
-                <td className="px-3 py-3">
-                  <input
-                    type="checkbox"
-                    checked={selectedIds.has(batch.id)}
-                    onChange={() => onToggleSelect(batch.id)}
-                    aria-label={`Select ${batch.batchNumber}`}
-                  />
+          {batches.map((batch) => {
+            const isRejected = batch.status === 'REJECTED';
+            const isReimbursed = batch.status === 'REIMBURSED_BY_SONARWA';
+            const rejectionNote = batch.reviewNote?.trim();
+            const transactionId = batch.reimbursementReference?.trim();
+
+            return (
+              <tr
+                key={batch.id}
+                className={`border-t border-slate-100 hover:bg-slate-50/80 ${
+                  isRejected ? 'bg-rose-50/30' : ''
+                }`}
+              >
+                {selectedIds && onToggleSelect ? (
+                  <td className="px-3 py-3">
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.has(batch.id)}
+                      onChange={() => onToggleSelect(batch.id)}
+                      aria-label={`Select ${batch.batchNumber}`}
+                    />
+                  </td>
+                ) : null}
+                <td className="px-3 py-3 font-medium text-slate-900">
+                  {batch.batchNumber}
                 </td>
-              ) : null}
-              <td className="px-3 py-3 font-medium text-slate-900">
-                {batch.batchNumber}
-              </td>
-              <td className="px-3 py-3">
-                <div className="font-medium text-slate-800">
-                  {batch.payee?.name ?? '—'}
-                </div>
-                <div className="text-xs text-slate-500">
-                  {batch.payee?.phoneNumber ?? '—'}
-                </div>
-              </td>
-              <td className="px-3 py-3 text-slate-600">
-                {batch.periodLabel || '—'}
-              </td>
-              <td className="px-3 py-3">{batch.lineCount}</td>
-              <td className="px-3 py-3 font-medium">
-                {formatRwf(batch.totalVetCommission)}
-              </td>
-              <td className="px-3 py-3 font-medium">
-                {formatRwf(batch.totalCompanyCommission)}
-              </td>
-              <td className="px-3 py-3 align-middle">
-                <ExternalVetStatusBadge status={batch.status} />
-              </td>
-              <td className="px-3 py-3 text-slate-600">
-                <div>{new Date(batch.createdAt).toLocaleDateString()}</div>
-                <div className="text-xs">{batch.createdByName}</div>
-              </td>
-              <td className="px-3 py-3">
-                <div className="flex flex-wrap items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => onView(batch.id)}
-                  >
-                    <Eye className="mr-1 h-3.5 w-3.5" />
-                    View
-                  </Button>
-                  {rowActions?.(batch)}
-                </div>
-              </td>
-            </tr>
-          ))}
+                <td className="px-3 py-3">
+                  <div className="font-medium text-slate-800">
+                    {batch.payee?.name ?? '—'}
+                  </div>
+                  <div className="text-xs text-slate-500">
+                    {batch.payee?.phoneNumber ?? '—'}
+                  </div>
+                </td>
+                <td className="px-3 py-3 text-slate-600">
+                  {batch.periodLabel || '—'}
+                </td>
+                <td className="px-3 py-3">{batch.lineCount}</td>
+                <td className="px-3 py-3 font-medium">
+                  {formatRwf(batch.totalVetCommission)}
+                </td>
+                <td className="px-3 py-3 font-medium">
+                  {formatRwf(batch.totalCompanyCommission)}
+                </td>
+                <td className="px-3 py-3 align-middle">
+                  <ExternalVetStatusBadge status={batch.status} />
+                </td>
+                <td className="max-w-[16rem] px-3 py-3">
+                  {isRejected && rejectionNote ? (
+                    <div
+                      className="flex items-start gap-1.5 text-xs text-rose-800"
+                      title={rejectionNote}
+                    >
+                      <MessageSquareWarning className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                      <span className="line-clamp-2 leading-relaxed">
+                        {rejectionNote}
+                      </span>
+                    </div>
+                  ) : isRejected ? (
+                    <span className="text-xs text-rose-600">
+                      Rejected · no note
+                    </span>
+                  ) : isReimbursed && transactionId ? (
+                    <div
+                      className="flex items-start gap-1.5 text-xs text-teal-900"
+                      title={transactionId}
+                    >
+                      <Receipt className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                      <span className="break-all font-mono leading-relaxed">
+                        {transactionId}
+                      </span>
+                    </div>
+                  ) : isReimbursed ? (
+                    <span className="text-xs text-slate-500">
+                      Reimbursed · no txn ID
+                    </span>
+                  ) : (
+                    <span className="text-xs text-slate-400">—</span>
+                  )}
+                </td>
+                <td className="px-3 py-3 text-slate-600">
+                  <div>{new Date(batch.createdAt).toLocaleDateString()}</div>
+                  <div className="text-xs">{batch.createdByName}</div>
+                </td>
+                <td className="px-3 py-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => onView(batch.id)}
+                    >
+                      <Eye className="mr-1 h-3.5 w-3.5" />
+                      View
+                    </Button>
+                    {rowActions?.(batch)}
+                  </div>
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>

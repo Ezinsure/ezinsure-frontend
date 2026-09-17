@@ -149,6 +149,96 @@ export function calcReclaimBreakdown(
  *
  * companyCommission is NOT in the sheet — computed from netPremium × rate.
  */
+/** Per-line decision status (independent of batch process status). */
+export const EXTERNAL_VET_LINE_STATUSES = [
+  'PENDING_REVIEW',
+  'APPROVED',
+  'REJECTED',
+] as const;
+
+export type ExternalVetLineStatus = (typeof EXTERNAL_VET_LINE_STATUSES)[number];
+
+export const EXTERNAL_VET_LINE_STATUS_LABELS: Record<
+  ExternalVetLineStatus,
+  string
+> = {
+  PENDING_REVIEW: 'Pending review',
+  APPROVED: 'Approved',
+  REJECTED: 'Rejected',
+};
+
+/** Review gate that produced a line decision. */
+export const EXTERNAL_VET_REVIEW_STAGES = [
+  'SONARWA',
+  'ADMIN',
+  'FINANCE',
+] as const;
+
+export type ExternalVetReviewStage = (typeof EXTERNAL_VET_REVIEW_STAGES)[number];
+
+export const EXTERNAL_VET_REVIEW_STAGE_LABELS: Record<
+  ExternalVetReviewStage,
+  string
+> = {
+  SONARWA: 'SONARWA',
+  ADMIN: 'Admin',
+  FINANCE: 'Finance',
+};
+
+/** Append-only audit entry for a line approve/reject decision. */
+export type ExternalVetLineReviewEvent = {
+  id: string;
+  actorId?: string;
+  actorName: string;
+  actorRole?: string;
+  stage: ExternalVetReviewStage;
+  decision: 'APPROVED' | 'REJECTED';
+  reason?: string;
+  at: string;
+};
+
+/** Line-status filter used before Excel/PDF export. */
+export type ExportLineIncludeFilter =
+  | 'ALL'
+  | 'APPROVED'
+  | 'REJECTED'
+  | 'PENDING_REVIEW';
+
+export const EXPORT_LINE_INCLUDE_OPTIONS: {
+  value: ExportLineIncludeFilter;
+  label: string;
+  description: string;
+}[] = [
+  {
+    value: 'ALL',
+    label: 'All lines',
+    description: 'Include every insured animal in this export',
+  },
+  {
+    value: 'APPROVED',
+    label: 'Approved only',
+    description: 'Payable / reclaim-eligible lines',
+  },
+  {
+    value: 'REJECTED',
+    label: 'Rejected only',
+    description: 'Lines excluded from payout',
+  },
+  {
+    value: 'PENDING_REVIEW',
+    label: 'Pending review',
+    description: 'Lines still awaiting a decision',
+  },
+];
+
+export function filterLinesByIncludeStatus<T extends { lineStatus: ExternalVetLineStatus }>(
+  lines: T[],
+  include: ExportLineIncludeFilter,
+): T[] {
+  if (include === 'ALL') return lines;
+  return lines.filter((line) => line.lineStatus === include);
+}
+
 export type ExternalVetCommissionLine = {
   id: string;
   /** Display-only row counter; the sheet's "N°" column is never sent to the API. */
@@ -170,6 +260,10 @@ export type ExternalVetCommissionLine = {
   vetCommission: number;
   /** netPremium × (companyCommissionPercent / 100). */
   companyCommission: number;
+  /** Line-level review status (defaults to pending until backend ships). */
+  lineStatus: ExternalVetLineStatus;
+  /** Append-only decisions from SONARWA / admin / finance. */
+  reviewEvents: ExternalVetLineReviewEvent[];
   /** Legacy SONARWA export columns; absent from the current claim form. */
   agent?: string;
   userName?: string;
@@ -234,7 +328,7 @@ export type ExternalVetCommissionBatch = {
 
 /**
  * Flat commission line with batch context for the Lines / reclaim workspace.
- * Status remains on the parent batch; lines are the selection surface.
+ * Line review status is independent of batch process status.
  */
 export type ExternalVetCommissionLineListItem = ExternalVetCommissionLine & {
   batchId: string;
@@ -245,6 +339,8 @@ export type ExternalVetCommissionLineListItem = ExternalVetCommissionLine & {
   periodLabel?: string;
   batchCreatedAt: string;
   paidAt?: string;
+  /** SONARWA remittance / bank transaction id from the parent batch when reimbursed. */
+  reimbursementReference?: string;
 };
 
 export type ExternalVetCommissionLinesSummary = {
@@ -326,7 +422,10 @@ export type CreateCommissionBatchInput = {
   sourceFile: File;
   /** % of net premium used for companyCommission (e.g. 3.5). */
   companyCommissionPercent: number;
-  lines: Omit<ExternalVetCommissionLine, 'id'>[];
+  lines: Omit<
+    ExternalVetCommissionLine,
+    'id' | 'lineStatus' | 'reviewEvents'
+  >[];
 };
 
 export type PlatformVetSearchHit = {
@@ -387,7 +486,10 @@ export const COMMISSION_LINE_COLUMN_LABELS: Record<
 };
 
 export function formatCommissionLineCell(
-  line: Omit<ExternalVetCommissionLine, 'id'> | ExternalVetCommissionLine,
+  line:
+    | ExternalVetCommissionLine
+    | Omit<ExternalVetCommissionLine, 'id'>
+    | Omit<ExternalVetCommissionLine, 'id' | 'lineStatus' | 'reviewEvents'>,
   key: CommissionLineColumnKey,
 ): string {
   const value = line[key];

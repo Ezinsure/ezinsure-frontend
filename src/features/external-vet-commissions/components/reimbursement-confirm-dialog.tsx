@@ -46,23 +46,25 @@ export function ReimbursementConfirmDialog({
   if (!open) return null;
 
   const isPrepare = mode === 'prepare_reclaim';
+  const txnId = reimbursementReference.trim();
+  const canConfirmReimbursed = isPrepare || txnId.length > 0;
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/45 p-4">
+    <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/45 p-0 sm:items-center sm:p-4">
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby="reimbursement-confirm-title"
-        className="w-full max-w-lg rounded-xl border border-slate-200 bg-white shadow-2xl"
+        className="flex max-h-[92vh] w-full max-w-lg flex-col overflow-hidden rounded-t-2xl border border-slate-200 bg-white shadow-2xl sm:rounded-2xl"
       >
-        <div className="flex items-start justify-between gap-3 border-b border-slate-200 px-5 py-4">
-          <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+        <div className="flex items-start justify-between gap-3 border-b border-slate-200 px-4 py-4 sm:px-5">
+          <div className="min-w-0">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
               Confirm action
             </p>
             <h2
               id="reimbursement-confirm-title"
-              className="mt-1 text-lg font-semibold text-slate-900"
+              className="mt-1 text-lg font-semibold tracking-tight text-slate-900"
             >
               {isPrepare
                 ? 'Prepare SONARWA reclaim'
@@ -80,22 +82,22 @@ export function ReimbursementConfirmDialog({
           </button>
         </div>
 
-        <div className="space-y-4 px-5 py-4">
-          <p className="text-sm text-slate-600">
+        <div className="min-h-0 space-y-4 overflow-y-auto px-4 py-4 sm:px-5">
+          <p className="text-sm leading-relaxed text-slate-600">
             {isPrepare
               ? 'Selected batches will move to Awaiting SONARWA reimbursement, and an Excel reclaim file will download.'
-              : 'Selected batches will move to Reimbursed by SONARWA. This should only be done after SONARWA has settled the reclaim.'}
+              : 'Record the SONARWA remittance details after settlement. The transaction ID will appear on reimbursed applications and line details.'}
           </p>
 
-          <dl className="grid grid-cols-2 gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm">
+          <dl className="grid grid-cols-2 gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm">
             <div>
-              <dt className="text-xs uppercase tracking-wide text-slate-500">
+              <dt className="text-[11px] uppercase tracking-wide text-slate-500">
                 Lines
               </dt>
               <dd className="mt-0.5 font-semibold text-slate-900">{lineCount}</dd>
             </div>
             <div>
-              <dt className="text-xs uppercase tracking-wide text-slate-500">
+              <dt className="text-[11px] uppercase tracking-wide text-slate-500">
                 Batches
               </dt>
               <dd className="mt-0.5 font-semibold text-slate-900">
@@ -103,13 +105,13 @@ export function ReimbursementConfirmDialog({
               </dd>
             </div>
             <div>
-              <dt className="text-xs uppercase tracking-wide text-slate-500">
+              <dt className="text-[11px] uppercase tracking-wide text-slate-500">
                 External vets
               </dt>
               <dd className="mt-0.5 font-semibold text-slate-900">{vetCount}</dd>
             </div>
             <div>
-              <dt className="text-xs uppercase tracking-wide text-slate-500">
+              <dt className="text-[11px] uppercase tracking-wide text-slate-500">
                 Vet commission
               </dt>
               <dd className="mt-0.5 font-semibold text-slate-900">
@@ -117,7 +119,7 @@ export function ReimbursementConfirmDialog({
               </dd>
             </div>
             <div className="col-span-2">
-              <dt className="text-xs uppercase tracking-wide text-slate-500">
+              <dt className="text-[11px] uppercase tracking-wide text-slate-500">
                 Company commission
               </dt>
               <dd className="mt-0.5 font-semibold text-slate-900">
@@ -136,7 +138,7 @@ export function ReimbursementConfirmDialog({
                 value={exportReference}
                 onChange={(e) => onExportReferenceChange(e.target.value)}
                 placeholder="e.g. reclaim-2026-03-W1"
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-400"
+                className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-400"
                 disabled={busy}
               />
             </label>
@@ -150,13 +152,14 @@ export function ReimbursementConfirmDialog({
                   type="date"
                   value={reimbursedAt}
                   onChange={(e) => onReimbursedAtChange(e.target.value)}
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-400"
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-400"
                   disabled={busy}
                 />
               </label>
               <label className="block sm:col-span-2">
                 <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">
-                  Remittance / bank reference (optional)
+                  SONARWA transaction ID{' '}
+                  <span className="text-rose-600">*</span>
                 </span>
                 <input
                   type="text"
@@ -164,20 +167,41 @@ export function ReimbursementConfirmDialog({
                   onChange={(e) =>
                     onReimbursementReferenceChange(e.target.value)
                   }
-                  placeholder="e.g. bank transfer ref"
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-400"
+                  placeholder="Bank remittance / transfer reference"
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2.5 font-mono text-sm focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-400"
                   disabled={busy}
+                  required
+                  aria-required
                 />
+                {!txnId ? (
+                  <p className="mt-1.5 text-xs text-rose-600">
+                    Required so reimbursed applications can show the remittance
+                    reference.
+                  </p>
+                ) : (
+                  <p className="mt-1.5 text-xs text-slate-500">
+                    Shown on batch history and individual line details.
+                  </p>
+                )}
               </label>
             </div>
           )}
         </div>
 
-        <div className="flex flex-wrap justify-end gap-2 border-t border-slate-200 px-5 py-4">
-          <Button variant="outline" onClick={onCancel} disabled={busy}>
+        <div className="flex flex-col-reverse gap-2 border-t border-slate-200 px-4 py-4 sm:flex-row sm:justify-end sm:px-5">
+          <Button
+            variant="outline"
+            onClick={onCancel}
+            disabled={busy}
+            className="w-full sm:w-auto"
+          >
             Cancel
           </Button>
-          <Button onClick={onConfirm} disabled={busy}>
+          <Button
+            onClick={onConfirm}
+            disabled={busy || !canConfirmReimbursed}
+            className="w-full sm:w-auto"
+          >
             {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
             {isPrepare ? 'Prepare & download Excel' : 'Confirm reimbursed'}
           </Button>

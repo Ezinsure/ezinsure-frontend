@@ -33,6 +33,14 @@ export const EXTERNAL_VET_COMMISSION_ENDPOINTS = {
 
   getBatch: (id: string): string => `${BASE}/batches/${id}`,
 
+  /**
+   * Authenticated stream (or JSON `{ url }` signed redirect) for the original
+   * claim-form workbook. Prefer this over fetching `sourceDocumentUrl` in the
+   * browser — Cloudinary raw/authenticated assets are often CORS-blocked.
+   */
+  downloadSourceDocument: (id: string): string =>
+    `${BASE}/batches/${id}/sourceDocument`,
+
   createBatch: (): string => `${BASE}/batches`,
 
   approveBatch: (id: string): string => `${BASE}/batches/${id}/approve`,

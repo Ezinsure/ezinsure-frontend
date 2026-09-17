@@ -34,7 +34,10 @@ export type ColumnMatch = {
 
 export type ParseCommissionSheetResult = {
   /** Parsed table rows; companyCommission is 0 until the upload form applies %. */
-  lines: Omit<ExternalVetCommissionLine, 'id'>[];
+  lines: Omit<
+    ExternalVetCommissionLine,
+    'id' | 'lineStatus' | 'reviewEvents'
+  >[];
   totalNetPremium: number;
   totalSumInsured: number;
   totalVetCommission: number;
@@ -421,7 +424,10 @@ export async function parseCommissionSheet(
     }
   }
 
-  const lines: Omit<ExternalVetCommissionLine, 'id'>[] = [];
+  const lines: Omit<
+    ExternalVetCommissionLine,
+    'id' | 'lineStatus' | 'reviewEvents'
+  >[] = [];
 
   for (let r = headerIndex + 1; r < matrix.length; r += 1) {
     const row = matrix[r] ?? [];

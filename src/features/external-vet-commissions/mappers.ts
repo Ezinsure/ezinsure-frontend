@@ -5,12 +5,17 @@ import type {
   ExternalVetCommissionLineListItem,
   ExternalVetCommissionLinesResult,
   ExternalVetCommissionStatus,
+  ExternalVetLineReviewEvent,
+  ExternalVetLineStatus,
   ExternalVetPayeeSnapshot,
   ExternalVetPerformanceRow,
+  ExternalVetReviewStage,
   ExternalVetsOverviewStats,
 } from './domain';
 import {
   EXTERNAL_VET_COMMISSION_STATUSES,
+  EXTERNAL_VET_LINE_STATUSES,
+  EXTERNAL_VET_REVIEW_STAGES,
   DEFAULT_COMPANY_COMMISSION_PERCENT,
   summarizeCommissionLines,
 } from './domain';
@@ -104,12 +109,89 @@ function mapStatus(value: unknown): ExternalVetCommissionStatus {
   return 'PENDING_ADMIN_REVIEW';
 }
 
+function mapLineStatus(value: unknown): ExternalVetLineStatus {
+  const status = asString(value).toUpperCase();
+  if ((EXTERNAL_VET_LINE_STATUSES as readonly string[]).includes(status)) {
+    return status as ExternalVetLineStatus;
+  }
+  // Legacy aliases from early backend drafts
+  if (status === 'APPROVE' || status === 'ACCEPTED') return 'APPROVED';
+  if (status === 'REJECT' || status === 'DECLINED') return 'REJECTED';
+  if (status === 'PENDING' || status === 'UNREVIEWED') return 'PENDING_REVIEW';
+  return 'PENDING_REVIEW';
+}
+
+function mapReviewStage(value: unknown): ExternalVetReviewStage {
+  const stage = asString(value).toUpperCase();
+  if ((EXTERNAL_VET_REVIEW_STAGES as readonly string[]).includes(stage)) {
+    return stage as ExternalVetReviewStage;
+  }
+  if (stage.includes('SONARWA')) return 'SONARWA';
+  if (stage.includes('FINANCE')) return 'FINANCE';
+  return 'ADMIN';
+}
+
+function mapReviewEvent(raw: unknown, index = 0): ExternalVetLineReviewEvent {
+  const row = asRecord(raw);
+  const decisionRaw = asString(row.decision ?? row.action ?? row.status).toUpperCase();
+  const decision: 'APPROVED' | 'REJECTED' =
+    decisionRaw.includes('REJECT') || decisionRaw.includes('DECLINE')
+      ? 'REJECTED'
+      : 'APPROVED';
+
+  return {
+    id: pickId(row) || `evt-${index}`,
+    actorId: asOptionalString(row.actorId ?? row.userId ?? row.reviewedById),
+    actorName: asString(
+      row.actorName ?? row.userName ?? row.reviewedByName ?? row.fullName,
+      'Unknown reviewer',
+    ),
+    actorRole: asOptionalString(row.actorRole ?? row.role),
+    stage: mapReviewStage(row.stage ?? row.level ?? row.portal),
+    decision,
+    reason: asOptionalString(
+      row.reason ?? row.note ?? row.comment ?? row.rejectionReason,
+    ),
+    at: asString(row.at ?? row.createdAt ?? row.reviewedAt, new Date().toISOString()),
+  };
+}
+
+function mapReviewEvents(raw: unknown): ExternalVetLineReviewEvent[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.map((event, index) => mapReviewEvent(event, index));
+}
+
 /**
  * `sn` is a display-only counter that is not persisted, so fall back to the
  * row's position within the batch.
  */
 function mapLine(raw: unknown, index = 0): ExternalVetCommissionLine {
   const row = asRecord(raw);
+  const reviewEvents = mapReviewEvents(
+    row.reviewEvents ?? row.reviews ?? row.rejectionHistory,
+  );
+  // Prefer explicit line fields. Avoid treating batch `status` as line status
+  // when the payload also carries `batchStatus` (Lines list endpoint).
+  const explicitLineStatus =
+    row.lineStatus ?? row.reviewStatus ?? row.lineReviewStatus;
+  const fallbackStatus =
+    explicitLineStatus != null
+      ? explicitLineStatus
+      : row.batchStatus != null
+        ? undefined
+        : row.status;
+  let lineStatus = mapLineStatus(fallbackStatus);
+  // Infer from events when backend has not yet denormalized lineStatus.
+  if (
+    lineStatus === 'PENDING_REVIEW' &&
+    reviewEvents.length > 0 &&
+    row.lineStatus == null &&
+    row.reviewStatus == null
+  ) {
+    const last = reviewEvents[reviewEvents.length - 1];
+    lineStatus = last.decision === 'REJECTED' ? 'REJECTED' : 'APPROVED';
+  }
+
   return {
     id: pickId(row) || `line-${Math.random().toString(36).slice(2, 9)}`,
     sn: asNumber(row.sn, index + 1) || index + 1,
@@ -129,6 +211,8 @@ function mapLine(raw: unknown, index = 0): ExternalVetCommissionLine {
     // Prefer new fields on all fetch/mutate responses; legacy `commission` = vet only.
     vetCommission: asNumber(row.vetCommission ?? row.commission),
     companyCommission: asNumber(row.companyCommission),
+    lineStatus,
+    reviewEvents,
     agent: asOptionalString(row.agent),
     userName: asOptionalString(row.userName),
   };
@@ -215,6 +299,9 @@ export function mapLineListItem(raw: unknown): ExternalVetCommissionLineListItem
       new Date().toISOString(),
     ),
     paidAt: asOptionalString(row.paidAt),
+    reimbursementReference: asOptionalString(
+      row.reimbursementReference ?? row.transactionId ?? row.sonarwaTransactionId,
+    ),
   };
 }
 
@@ -276,6 +363,7 @@ export function linesFromBatch(
     periodLabel: batch.periodLabel,
     batchCreatedAt: batch.createdAt,
     paidAt: batch.paidAt,
+    reimbursementReference: batch.reimbursementReference,
   }));
 }
 
