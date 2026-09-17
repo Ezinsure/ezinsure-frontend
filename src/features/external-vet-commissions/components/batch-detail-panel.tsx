@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   AlertTriangle,
   Download,
@@ -45,6 +45,7 @@ import {
 import { LineReviewSummaryBar } from './line-review-summary-bar';
 import { ExternalVetStatusBadge } from './status-badge';
 import { LineStatusBadge } from './line-status-badge';
+import { useWindowedList, WindowedListFooter } from './windowed-rows';
 
 type Props = {
   batch: ExternalVetCommissionBatch | null;
@@ -106,6 +107,19 @@ export function BatchDetailPanel({
     batch?.sourceFileName,
   );
   const canDownload = Boolean(batch?.id && (documentUrl || batch?.sourceFileName));
+
+  const lineWindow = useWindowedList(batch?.lines ?? [], {
+    chunkSize: 40,
+    threshold: 50,
+  });
+
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') onClose();
+    }
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [onClose]);
 
   const payable = useMemo(
     () => (batch ? summarizePayableLines(batch.lines) : null),
@@ -203,9 +217,20 @@ export function BatchDetailPanel({
   const isReimbursed = batch?.status === 'REIMBURSED_BY_SONARWA';
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-black/40">
+    <div
+      className="fixed inset-0 z-50 flex justify-end bg-black/40"
+      role="presentation"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
       <ToastContainer />
-      <div className="flex h-full w-full max-w-full flex-col bg-white shadow-xl sm:max-w-[min(96rem,96vw)]">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="batch-detail-title"
+        className="flex h-full w-full max-w-full flex-col bg-white shadow-xl sm:max-w-[min(96rem,96vw)]"
+      >
         <div className="shrink-0 border-b border-slate-200 px-4 py-3 sm:px-5 sm:py-4">
           <div className="flex items-start gap-3">
             <div className="min-w-0 flex-1">
@@ -213,6 +238,7 @@ export function BatchDetailPanel({
                 Commission batch
               </p>
               <h2
+                id="batch-detail-title"
                 className="mt-0.5 truncate text-base font-semibold tracking-tight text-slate-900 sm:text-lg"
                 title={
                   isLoading && !batch
@@ -519,7 +545,7 @@ export function BatchDetailPanel({
                         </tr>
                       </thead>
                       <tbody className="bg-white">
-                        {batch.lines.map((line) => (
+                        {lineWindow.slice.map((line) => (
                           <tr
                             key={line.id}
                             className={`cursor-pointer border-t border-slate-100 hover:bg-slate-50/90 ${
@@ -559,6 +585,14 @@ export function BatchDetailPanel({
                         ))}
                       </tbody>
                     </table>
+                    <WindowedListFooter
+                      total={lineWindow.total}
+                      visibleCount={lineWindow.visibleCount}
+                      remaining={lineWindow.remaining}
+                      needsWindow={lineWindow.needsWindow}
+                      onShowMore={lineWindow.showMore}
+                      onShowAll={lineWindow.showAll}
+                    />
                   </div>
                 )}
               </section>

@@ -52,9 +52,10 @@ export function BatchListTable({
     batches.every((b) => selectedIds.has(b.id));
 
   return (
-    <div className="overflow-x-auto rounded-xl border border-slate-200">
+    <div className="max-h-[70vh] overflow-auto rounded-xl border border-slate-200">
       <table className="min-w-full text-left text-sm">
-        <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+        <caption className="sr-only">Commission claim batches</caption>
+        <thead className="sticky top-0 z-10 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
           <tr>
             {selectedIds && onToggleSelectAll ? (
               <th className="px-3 py-3">
@@ -66,16 +67,16 @@ export function BatchListTable({
                 />
               </th>
             ) : null}
-            <th className="px-3 py-3 font-medium">Batch</th>
-            <th className="px-3 py-3 font-medium">Vet</th>
-            <th className="px-3 py-3 font-medium">Period</th>
-            <th className="px-3 py-3 font-medium">Lines</th>
-            <th className="px-3 py-3 font-medium">Vet commission</th>
-            <th className="px-3 py-3 font-medium">Company commission</th>
-            <th className="px-3 py-3 font-medium">Status</th>
-            <th className="min-w-[12rem] px-3 py-3 font-medium">Notes / ref</th>
-            <th className="px-3 py-3 font-medium">Created</th>
-            <th className="px-3 py-3 font-medium">Actions</th>
+            <th scope="col" className="px-3 py-3 font-medium">Batch</th>
+            <th scope="col" className="px-3 py-3 font-medium">Vet</th>
+            <th scope="col" className="px-3 py-3 font-medium">Period</th>
+            <th scope="col" className="px-3 py-3 font-medium">Lines</th>
+            <th scope="col" className="px-3 py-3 font-medium">Vet commission</th>
+            <th scope="col" className="px-3 py-3 font-medium">Company commission</th>
+            <th scope="col" className="px-3 py-3 font-medium">Status</th>
+            <th scope="col" className="min-w-[12rem] px-3 py-3 font-medium">Notes / ref</th>
+            <th scope="col" className="px-3 py-3 font-medium">Created</th>
+            <th scope="col" className="px-3 py-3 font-medium">Actions</th>
           </tr>
         </thead>
         <tbody>

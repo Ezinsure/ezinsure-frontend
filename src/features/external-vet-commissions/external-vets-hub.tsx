@@ -2,11 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  Calendar,
   CheckCircle2,
   Download,
   Loader2,
-  Search,
   Upload,
   XCircle,
 } from 'lucide-react';
@@ -37,8 +35,10 @@ import {
 import { useAuth } from '@/context/AuthContext';
 import { BatchDetailPanel } from './components/batch-detail-panel';
 import { BatchListTable } from './components/batch-list-table';
+import { ClaimsFunnel, type ClaimsFunnelStage } from './components/claims-funnel';
 import { CommissionLinesPanel } from './components/commission-lines-panel';
 import { UploadCommissionWizard } from './components/upload-commission-wizard';
+import { WorkbenchDateFilters } from './components/workbench-date-filters';
 import type { ClaimFormLanguage } from './commission-sheet-schema';
 import { getMonthToDateRange } from './date-range';
 import { downloadCommissionClaimForm } from './export/commission-sheet-template';
@@ -192,7 +192,33 @@ export default function ExternalVetsHub({ viewRole }: ExternalVetsHubProps) {
           api.getOverview(),
           api.getPerformance(),
         ]);
-        setOverview(stats);
+        let enriched = stats;
+        if (
+          stats.draftCount == null ||
+          stats.pendingSonarwaCount == null
+        ) {
+          try {
+            const [drafts, sonarwa] = await Promise.all([
+              api.listBatches('DRAFT'),
+              api.listBatches('PENDING_SONARWA_REVIEW'),
+            ]);
+            enriched = {
+              ...stats,
+              draftCount: stats.draftCount ?? drafts.length,
+              draftCommission:
+                stats.draftCommission ??
+                drafts.reduce((sum, b) => sum + (b.totalVetCommission || 0), 0),
+              pendingSonarwaCount:
+                stats.pendingSonarwaCount ?? sonarwa.length,
+              pendingSonarwaCommission:
+                stats.pendingSonarwaCommission ??
+                sonarwa.reduce((sum, b) => sum + (b.totalVetCommission || 0), 0),
+            };
+          } catch {
+            enriched = stats;
+          }
+        }
+        setOverview(enriched);
         setPerformance(perf);
         setBatches([]);
       } else if (tab === 'lines') {
@@ -735,16 +761,25 @@ export default function ExternalVetsHub({ viewRole }: ExternalVetsHubProps) {
         ) : null}
       </div>
 
-      <div className="flex flex-wrap gap-1 border-b border-slate-200">
+      <div
+        className="flex flex-wrap gap-1 border-b border-slate-200"
+        role="tablist"
+        aria-label="Commission claims sections"
+      >
         {visibleTabs.map((t) => (
           <button
             key={t.id}
             type="button"
+            role="tab"
+            id={`claims-tab-${t.id}`}
+            aria-selected={tab === t.id}
+            aria-controls={`claims-panel-${t.id}`}
+            tabIndex={tab === t.id ? 0 : -1}
             onClick={() => {
               setTab(t.id);
               setSearch('');
             }}
-            className={`-mb-px border-b-2 px-3 py-2 text-sm font-medium transition-colors ${
+            className={`-mb-px border-b-2 px-3 py-2 text-sm font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-400 ${
               tab === t.id
                 ? 'border-slate-900 text-slate-900'
                 : 'border-transparent text-slate-500 hover:text-slate-800'
@@ -755,11 +790,17 @@ export default function ExternalVetsHub({ viewRole }: ExternalVetsHubProps) {
         ))}
       </div>
 
+      <div
+        role="tabpanel"
+        id={`claims-panel-${tab}`}
+        aria-labelledby={`claims-tab-${tab}`}
+      >
       {tab === 'overview' ? (
         <OverviewSection
           overview={overview}
           performance={performance}
           isLoading={isLoading}
+          onSelectTab={setTab}
         />
       ) : tab === 'lines' ? (
         <CommissionLinesPanel
@@ -769,69 +810,20 @@ export default function ExternalVetsHub({ viewRole }: ExternalVetsHubProps) {
         />
       ) : (
         <div className="space-y-4">
-          <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
-              <label className="block">
-                <span className="mb-1 flex items-center gap-1 text-xs font-medium uppercase tracking-wide text-slate-500">
-                  <Calendar className="h-3.5 w-3.5" aria-hidden />
-                  From
-                </span>
-                <input
-                  type="date"
-                  value={startDate}
-                  max={endDate || undefined}
-                  onChange={(e) => setStartDate(e.target.value)}
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-400"
-                />
-              </label>
-              <label className="block">
-                <span className="mb-1 flex items-center gap-1 text-xs font-medium uppercase tracking-wide text-slate-500">
-                  <Calendar className="h-3.5 w-3.5" aria-hidden />
-                  To
-                </span>
-                <input
-                  type="date"
-                  value={endDate}
-                  min={startDate || undefined}
-                  onChange={(e) => setEndDate(e.target.value)}
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-400"
-                />
-              </label>
-              <label className="block md:col-span-2">
-                <span className="mb-1 flex items-center gap-1 text-xs font-medium uppercase tracking-wide text-slate-500">
-                  <Search className="h-3.5 w-3.5" aria-hidden />
-                  Search
-                </span>
-                <div className="relative">
-                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                  <input
-                    className="w-full rounded-lg border border-slate-300 py-2 pl-9 pr-3 text-sm"
-                    placeholder="Search batch, vet, phone, file…"
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                  />
-                </div>
-              </label>
-            </div>
-            {(startDate || endDate) && (
-              <div className="mt-3 flex flex-wrap items-center gap-2">
-                <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700">
-                  Created: {startDate || '…'} → {endDate || '…'}
-                </span>
-                <button
-                  type="button"
-                  className="text-xs font-medium text-slate-500 underline-offset-2 hover:text-slate-800 hover:underline"
-                  onClick={() => {
-                    const range = getMonthToDateRange();
-                    setStartDate(range.startDate);
-                    setEndDate(range.endDate);
-                  }}
-                >
-                  Reset to this month
-                </button>
-              </div>
-            )}
-          </div>
+          <WorkbenchDateFilters
+            startDate={startDate}
+            endDate={endDate}
+            onStartDateChange={setStartDate}
+            onEndDateChange={setEndDate}
+            search={search}
+            onSearchChange={setSearch}
+            searchPlaceholder="Search batch, vet, phone, file…"
+            onResetToMonth={() => {
+              const range = getMonthToDateRange();
+              setStartDate(range.startDate);
+              setEndDate(range.endDate);
+            }}
+          />
 
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm text-slate-500">
@@ -962,6 +954,7 @@ export default function ExternalVetsHub({ viewRole }: ExternalVetsHubProps) {
           />
         </div>
       )}
+      </div>
 
       {detailOpen ? (
         <BatchDetailPanel
@@ -1004,10 +997,12 @@ function OverviewSection({
   overview,
   performance,
   isLoading,
+  onSelectTab,
 }: {
   overview: ExternalVetsOverviewStats | null;
   performance: ExternalVetPerformanceRow[];
   isLoading: boolean;
+  onSelectTab?: (tab: ExternalVetsHubTab) => void;
 }) {
   if (isLoading || !overview) {
     return (
@@ -1017,6 +1012,57 @@ function OverviewSection({
       </div>
     );
   }
+
+  const funnelStages: ClaimsFunnelStage[] = [
+    {
+      id: 'draft',
+      label: 'Draft',
+      count: overview.draftCount ?? 0,
+      amount: overview.draftCommission ?? 0,
+      tab: 'applications',
+      tone: 'slate',
+    },
+    {
+      id: 'sonarwa',
+      label: 'SONARWA',
+      count: overview.pendingSonarwaCount ?? 0,
+      amount: overview.pendingSonarwaCommission ?? 0,
+      tab: 'sonarwa-review',
+      tone: 'cyan',
+    },
+    {
+      id: 'admin',
+      label: 'Admin review',
+      count: overview.pendingReviewCount,
+      amount: overview.pendingReviewCommission,
+      tab: 'admin-review',
+      tone: 'amber',
+    },
+    {
+      id: 'ready',
+      label: 'Ready to pay',
+      count: overview.readyToPayCount,
+      amount: overview.readyToPayCommission,
+      tab: 'payments',
+      tone: 'emerald',
+    },
+    {
+      id: 'initiated',
+      label: 'Initiated',
+      count: overview.initiatedCount,
+      amount: overview.initiatedCommission,
+      tab: 'initiated',
+      tone: 'violet',
+    },
+    {
+      id: 'paid',
+      label: 'Paid YTD',
+      count: overview.paidYtdCount,
+      amount: overview.paidYtdCommission,
+      tab: 'history',
+      tone: 'blue',
+    },
+  ];
 
   const cards = [
     {
@@ -1043,6 +1089,13 @@ function OverviewSection({
 
   return (
     <div className="space-y-6">
+      <ClaimsFunnel
+        stages={funnelStages}
+        onSelectStage={(stage) => {
+          if (stage.tab) onSelectTab?.(stage.tab);
+        }}
+      />
+
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {cards.map((card) => (
           <div
@@ -1063,7 +1116,7 @@ function OverviewSection({
       <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-sm font-semibold text-slate-900">
-            External vet performance
+            Vet performance
           </h2>
           <span className="text-xs text-slate-500">
             {overview.externalVetCount} registered
@@ -1071,14 +1124,17 @@ function OverviewSection({
         </div>
         <div className="overflow-x-auto">
           <table className="min-w-full text-left text-sm">
-            <thead className="text-xs uppercase tracking-wide text-slate-500">
+            <caption className="sr-only">
+              Commission performance by veterinarian
+            </caption>
+            <thead className="sticky top-0 bg-white text-xs uppercase tracking-wide text-slate-500">
               <tr>
-                <th className="px-2 py-2 font-medium">Vet</th>
-                <th className="px-2 py-2 font-medium">Batches</th>
-                <th className="px-2 py-2 font-medium">Pending</th>
-                <th className="px-2 py-2 font-medium">In pipeline</th>
-                <th className="px-2 py-2 font-medium">Paid</th>
-                <th className="px-2 py-2 font-medium">Total</th>
+                <th scope="col" className="px-2 py-2 font-medium">Vet</th>
+                <th scope="col" className="px-2 py-2 font-medium">Batches</th>
+                <th scope="col" className="px-2 py-2 font-medium">Pending</th>
+                <th scope="col" className="px-2 py-2 font-medium">In pipeline</th>
+                <th scope="col" className="px-2 py-2 font-medium">Paid</th>
+                <th scope="col" className="px-2 py-2 font-medium">Total</th>
               </tr>
             </thead>
             <tbody>
@@ -1103,7 +1159,7 @@ function OverviewSection({
                     colSpan={6}
                     className="px-2 py-8 text-center text-slate-500"
                   >
-                    No external vets yet.
+                    No commission claimants yet.
                   </td>
                 </tr>
               ) : null}

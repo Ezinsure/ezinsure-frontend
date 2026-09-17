@@ -48,6 +48,7 @@ import {
   exportExternalVetLinesToPdf,
 } from '../export/lines-export';
 import { ExportIncludeDialog } from './export-include-dialog';
+import { useWindowedList, WindowedListFooter } from './windowed-rows';
 import { ExternalVetStatusBadge } from './status-badge';
 import { LineDetailModal } from './line-detail-modal';
 import { LineReviewDialog, type LineReviewDecision } from './line-review-dialog';
@@ -107,6 +108,173 @@ type VetGroup = {
   totalCompanyCommission: number;
   batchCount: number;
 };
+
+function VetGroupLinesTable({
+  lines,
+  selectedLineIds,
+  firstLineIdByBatch,
+  canMutate,
+  actionBusy,
+  onToggleLine,
+  onOpenDetail,
+  onRejectLine,
+}: {
+  lines: ExternalVetCommissionLineListItem[];
+  selectedLineIds: Set<string>;
+  firstLineIdByBatch: Map<string, string>;
+  canMutate: boolean;
+  actionBusy: boolean;
+  onToggleLine: (id: string) => void;
+  onOpenDetail: (line: ExternalVetCommissionLineListItem) => void;
+  onRejectLine: (line: ExternalVetCommissionLineListItem) => void;
+}) {
+  const windowed = useWindowedList(lines, { chunkSize: 40, threshold: 50 });
+
+  return (
+    <div className="overflow-x-auto">
+      <table className="min-w-full text-left text-sm">
+        <thead className="sticky top-0 z-[1] bg-white text-xs uppercase tracking-wide text-slate-500">
+          <tr>
+            <th className="w-10 px-3 py-2" />
+            <th className="px-3 py-2 font-medium">Client ID</th>
+            <th className="px-3 py-2 font-medium">Client name</th>
+            <th className="px-3 py-2 font-medium">District</th>
+            <th className="px-3 py-2 font-medium">Contract</th>
+            <th className="px-3 py-2 font-medium">Branch</th>
+            <th className="px-3 py-2 font-medium">ProdDate</th>
+            <th className="px-3 py-2 font-medium">Net premium</th>
+            <th className="px-3 py-2 font-medium">Vet commission</th>
+            <th className="px-3 py-2 font-medium">Line</th>
+            <th className="px-3 py-2 font-medium">Batch</th>
+            <th className="px-3 py-2 font-medium">Txn ID</th>
+            <th className="px-3 py-2 font-medium">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {windowed.slice.map((line) => (
+            <tr
+              key={line.id}
+              className={`cursor-pointer border-t border-slate-100 hover:bg-slate-50/80 ${
+                line.lineStatus === 'REJECTED'
+                  ? 'bg-rose-50/40'
+                  : line.lineStatus === 'APPROVED'
+                    ? 'bg-emerald-50/20'
+                    : ''
+              }`}
+              onDoubleClick={() => onOpenDetail(line)}
+            >
+              <td className="px-3 py-2">
+                <input
+                  type="checkbox"
+                  checked={selectedLineIds.has(line.id)}
+                  onChange={() => onToggleLine(line.id)}
+                  onClick={(e) => e.stopPropagation()}
+                  aria-label={`Select line ${line.contract || line.sn}`}
+                />
+              </td>
+              <td className="px-3 py-2 font-medium text-slate-900">
+                {line.clientId || '—'}
+              </td>
+              <td className="px-3 py-2 text-slate-800">
+                {line.clientName || '—'}
+              </td>
+              <td className="px-3 py-2 text-slate-600">
+                {line.clientDistrict || '—'}
+              </td>
+              <td className="px-3 py-2 text-slate-700">
+                {line.contract || '—'}
+              </td>
+              <td className="px-3 py-2 text-slate-600">
+                {line.branch || '—'}
+              </td>
+              <td className="px-3 py-2 text-slate-600">
+                {line.prodDate || '—'}
+              </td>
+              <td
+                className={`px-3 py-2 font-medium ${
+                  line.lineStatus === 'REJECTED'
+                    ? 'text-slate-500 line-through decoration-rose-300'
+                    : ''
+                }`}
+              >
+                {formatRwf(line.netPremium)}
+              </td>
+              <td
+                className={`px-3 py-2 font-medium ${
+                  line.lineStatus === 'REJECTED'
+                    ? 'text-slate-500 line-through decoration-rose-300'
+                    : ''
+                }`}
+              >
+                {formatRwf(line.vetCommission)}
+              </td>
+              <td className="px-3 py-2">
+                <LineStatusBadge status={line.lineStatus} />
+              </td>
+              <td className="px-3 py-2">
+                <ExternalVetStatusBadge
+                  status={line.batchStatus as ExternalVetCommissionStatus}
+                />
+              </td>
+              <td className="max-w-[9rem] px-3 py-2">
+                {line.batchStatus === 'REIMBURSED_BY_SONARWA' ||
+                line.reimbursementReference ? (
+                  <span
+                    className="block truncate font-mono text-[11px] text-teal-900"
+                    title={line.reimbursementReference?.trim() || undefined}
+                  >
+                    {line.reimbursementReference?.trim() || '—'}
+                  </span>
+                ) : (
+                  <span className="text-xs text-slate-400">—</span>
+                )}
+              </td>
+              <td
+                className="px-3 py-2"
+                onClick={(e) => e.stopPropagation()}
+                onDoubleClick={(e) => e.stopPropagation()}
+              >
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => onOpenDetail(line)}
+                  >
+                    <Eye className="mr-1 h-3.5 w-3.5" />
+                    View
+                  </Button>
+                  {canMutate &&
+                  canFinanceRejectBatchStatus(line.batchStatus) &&
+                  firstLineIdByBatch.get(line.batchId) === line.id ? (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="border-rose-200 text-rose-700 hover:border-rose-300 hover:bg-rose-50 hover:text-rose-800"
+                      disabled={actionBusy}
+                      onClick={() => onRejectLine(line)}
+                      title={`Reject batch ${line.batchNumber}`}
+                    >
+                      <Ban className="mr-1 h-3.5 w-3.5" />
+                      Reject
+                    </Button>
+                  ) : null}
+                </div>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <WindowedListFooter
+        total={windowed.total}
+        visibleCount={windowed.visibleCount}
+        remaining={windowed.remaining}
+        needsWindow={windowed.needsWindow}
+        onShowMore={windowed.showMore}
+        onShowAll={windowed.showAll}
+      />
+    </div>
+  );
+}
 
 function groupLinesByVet(
   lines: ExternalVetCommissionLineListItem[],
@@ -1014,148 +1182,16 @@ export function CommissionLinesPanel({
                 </div>
 
                 {!collapsed ? (
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full text-left text-sm">
-                      <thead className="bg-white text-xs uppercase tracking-wide text-slate-500">
-                        <tr>
-                          <th className="w-10 px-3 py-2" />
-                          <th className="px-3 py-2 font-medium">Client ID</th>
-                          <th className="px-3 py-2 font-medium">Client name</th>
-                          <th className="px-3 py-2 font-medium">District</th>
-                          <th className="px-3 py-2 font-medium">Contract</th>
-                          <th className="px-3 py-2 font-medium">Branch</th>
-                          <th className="px-3 py-2 font-medium">ProdDate</th>
-                          <th className="px-3 py-2 font-medium">Net premium</th>
-                          <th className="px-3 py-2 font-medium">
-                            Vet commission
-                          </th>
-                          <th className="px-3 py-2 font-medium">Line</th>
-                          <th className="px-3 py-2 font-medium">Batch</th>
-                          <th className="px-3 py-2 font-medium">Txn ID</th>
-                          <th className="px-3 py-2 font-medium">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {group.lines.map((line) => (
-                          <tr
-                            key={line.id}
-                            className={`cursor-pointer border-t border-slate-100 hover:bg-slate-50/80 ${
-                              line.lineStatus === 'REJECTED'
-                                ? 'bg-rose-50/40'
-                                : line.lineStatus === 'APPROVED'
-                                  ? 'bg-emerald-50/20'
-                                  : ''
-                            }`}
-                            onDoubleClick={() => setDetailLine(line)}
-                          >
-                            <td className="px-3 py-2">
-                              <input
-                                type="checkbox"
-                                checked={selectedLineIds.has(line.id)}
-                                onChange={() => toggleLine(line.id)}
-                                onClick={(e) => e.stopPropagation()}
-                                aria-label={`Select line ${line.contract || line.sn}`}
-                              />
-                            </td>
-                            <td className="px-3 py-2 font-medium text-slate-900">
-                              {line.clientId || '—'}
-                            </td>
-                            <td className="px-3 py-2 text-slate-800">
-                              {line.clientName || '—'}
-                            </td>
-                            <td className="px-3 py-2 text-slate-600">
-                              {line.clientDistrict || '—'}
-                            </td>
-                            <td className="px-3 py-2 text-slate-700">
-                              {line.contract || '—'}
-                            </td>
-                            <td className="px-3 py-2 text-slate-600">
-                              {line.branch || '—'}
-                            </td>
-                            <td className="px-3 py-2 text-slate-600">
-                              {line.prodDate || '—'}
-                            </td>
-                            <td
-                              className={`px-3 py-2 font-medium ${
-                                line.lineStatus === 'REJECTED'
-                                  ? 'text-slate-500 line-through decoration-rose-300'
-                                  : ''
-                              }`}
-                            >
-                              {formatRwf(line.netPremium)}
-                            </td>
-                            <td
-                              className={`px-3 py-2 font-medium ${
-                                line.lineStatus === 'REJECTED'
-                                  ? 'text-slate-500 line-through decoration-rose-300'
-                                  : ''
-                              }`}
-                            >
-                              {formatRwf(line.vetCommission)}
-                            </td>
-                            <td className="px-3 py-2">
-                              <LineStatusBadge status={line.lineStatus} />
-                            </td>
-                            <td className="px-3 py-2">
-                              <ExternalVetStatusBadge
-                                status={
-                                  line.batchStatus as ExternalVetCommissionStatus
-                                }
-                              />
-                            </td>
-                            <td className="max-w-[9rem] px-3 py-2">
-                              {line.batchStatus === 'REIMBURSED_BY_SONARWA' ||
-                              line.reimbursementReference ? (
-                                <span
-                                  className="block truncate font-mono text-[11px] text-teal-900"
-                                  title={
-                                    line.reimbursementReference?.trim() ||
-                                    undefined
-                                  }
-                                >
-                                  {line.reimbursementReference?.trim() || '—'}
-                                </span>
-                              ) : (
-                                <span className="text-xs text-slate-400">—</span>
-                              )}
-                            </td>
-                            <td
-                              className="px-3 py-2"
-                              onClick={(e) => e.stopPropagation()}
-                              onDoubleClick={(e) => e.stopPropagation()}
-                            >
-                              <div className="flex flex-wrap items-center gap-1.5">
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => setDetailLine(line)}
-                                >
-                                  <Eye className="mr-1 h-3.5 w-3.5" />
-                                  View
-                                </Button>
-                                {canMutate &&
-                                canFinanceRejectBatchStatus(line.batchStatus) &&
-                                firstLineIdByBatch.get(line.batchId) ===
-                                  line.id ? (
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    className="border-rose-200 text-rose-700 hover:border-rose-300 hover:bg-rose-50 hover:text-rose-800"
-                                    disabled={actionBusy}
-                                    onClick={() => openRejectForLine(line)}
-                                    title={`Reject batch ${line.batchNumber}`}
-                                  >
-                                    <Ban className="mr-1 h-3.5 w-3.5" />
-                                    Reject
-                                  </Button>
-                                ) : null}
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                  <VetGroupLinesTable
+                    lines={group.lines}
+                    selectedLineIds={selectedLineIds}
+                    firstLineIdByBatch={firstLineIdByBatch}
+                    canMutate={canMutate}
+                    actionBusy={actionBusy}
+                    onToggleLine={toggleLine}
+                    onOpenDetail={setDetailLine}
+                    onRejectLine={openRejectForLine}
+                  />
                 ) : null}
               </div>
             );

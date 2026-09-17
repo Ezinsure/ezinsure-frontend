@@ -415,6 +415,11 @@ export type ExternalVetsOverviewStats = {
   paidYtdCommission: number;
   externalVetCount: number;
   topVets: ExternalVetPerformanceRow[];
+  /** Optional funnel stages (Phase 5). Filled by API or client enrich. */
+  draftCount?: number;
+  draftCommission?: number;
+  pendingSonarwaCount?: number;
+  pendingSonarwaCommission?: number;
 };
 
 export type CreateExternalVetInput = {

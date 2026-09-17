@@ -408,6 +408,18 @@ export function mapOverview(raw: unknown): ExternalVetsOverviewStats {
     paidYtdCommission: asNumber(row.paidYtdCommission),
     externalVetCount: asNumber(row.externalVetCount),
     topVets: Array.isArray(topRaw) ? topRaw.map(mapPerformanceRow) : [],
+    draftCount:
+      row.draftCount != null ? asNumber(row.draftCount) : undefined,
+    draftCommission:
+      row.draftCommission != null ? asNumber(row.draftCommission) : undefined,
+    pendingSonarwaCount:
+      row.pendingSonarwaCount != null
+        ? asNumber(row.pendingSonarwaCount)
+        : undefined,
+    pendingSonarwaCommission:
+      row.pendingSonarwaCommission != null
+        ? asNumber(row.pendingSonarwaCommission)
+        : undefined,
   };
 }
 
