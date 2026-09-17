@@ -230,6 +230,54 @@ export const UserCreateModal = ({
       rules.nationalIdDocument = { required: true };
       rules.rcvdLicenceDocument = { required: true };
       rules.veterinaryType = { required: true };
+      // One optional emergency contact — if any field is filled, validate the set
+      rules.emergencyContact1Name = {
+        required: false,
+        minLength: 2,
+        validate: (value: string) => {
+          const started =
+            Boolean(value?.trim()) ||
+            Boolean(formData.emergencyContact1PhoneNumber.trim()) ||
+            Boolean(formData.emergencyContact1Relationship.trim());
+          if (!started) return true;
+          if (!value?.trim() || value.trim().length < 2) {
+            return 'Enter the contact name (or clear all emergency fields)';
+          }
+          return true;
+        },
+      };
+      rules.emergencyContact1PhoneNumber = {
+        required: false,
+        pattern: /^250\d{9}$/,
+        validate: (value: string) => {
+          const started =
+            Boolean(formData.emergencyContact1Name.trim()) ||
+            Boolean(value?.trim()) ||
+            Boolean(formData.emergencyContact1Relationship.trim());
+          if (!started) return true;
+          if (!value?.trim()) {
+            return 'Enter the contact phone (or clear all emergency fields)';
+          }
+          if (!/^250\d{9}$/.test(value.trim())) {
+            return 'Enter a valid phone number (250XXXXXXXXX)';
+          }
+          return true;
+        },
+      };
+      rules.emergencyContact1Relationship = {
+        required: false,
+        validate: (value: string) => {
+          const started =
+            Boolean(formData.emergencyContact1Name.trim()) ||
+            Boolean(formData.emergencyContact1PhoneNumber.trim()) ||
+            Boolean(value?.trim());
+          if (!started) return true;
+          if (!value?.trim()) {
+            return 'Select a relationship (or clear all emergency fields)';
+          }
+          return true;
+        },
+      };
     } else {
       rules.emergencyContact1Name = { required: true, minLength: 2 };
       rules.emergencyContact1PhoneNumber = { required: true, pattern: /^250\d{9}$/ };
@@ -243,7 +291,13 @@ export const UserCreateModal = ({
     }
 
     return rules;
-  }, [isVeterinaryForm, isSonarwaForm]);
+  }, [
+    isVeterinaryForm,
+    isSonarwaForm,
+    formData.emergencyContact1Name,
+    formData.emergencyContact1PhoneNumber,
+    formData.emergencyContact1Relationship,
+  ]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -757,12 +811,14 @@ export const UserCreateModal = ({
 
           <div className="bg-gray-50 p-4 rounded-lg">
             <h4 className="font-medium mb-3">
-              Emergency Contacts
+              {isVeterinaryForm ? 'Emergency Contact' : 'Emergency Contacts'}
               {isVeterinaryForm && (
                 <span className="ml-1 text-sm font-normal text-gray-500">(optional)</span>
               )}
             </h4>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+            <div
+              className={`grid grid-cols-1 md:grid-cols-3 gap-4${isVeterinaryForm ? '' : ' mb-4'}`}
+            >
               <Input
                 label="Full Name"
                 name="emergencyContact1Name"
@@ -804,6 +860,7 @@ export const UserCreateModal = ({
                 )}
               </div>
             </div>
+            {!isVeterinaryForm ? (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <Input
                 label="Full Name"
@@ -812,7 +869,7 @@ export const UserCreateModal = ({
                 value={formData.emergencyContact2Name}
                 onChange={handleInputChange}
                 error={errors.emergencyContact2Name}
-                required={!isVeterinaryForm}
+                required
               />
               <Input
                 label="Phone Number"
@@ -822,12 +879,12 @@ export const UserCreateModal = ({
                 value={formData.emergencyContact2PhoneNumber}
                 onChange={handleInputChange}
                 error={errors.emergencyContact2PhoneNumber}
-                required={!isVeterinaryForm}
+                required
               />
               <div>
                 <label className="block text-sm font-medium mb-1">
                   Relationship
-                  {!isVeterinaryForm && <span className="text-red-500"> *</span>}
+                  <span className="text-red-500"> *</span>
                 </label>
                 <select
                   name="emergencyContact2Relationship"
@@ -846,6 +903,7 @@ export const UserCreateModal = ({
                 )}
               </div>
             </div>
+            ) : null}
           </div>
             </>
           )}

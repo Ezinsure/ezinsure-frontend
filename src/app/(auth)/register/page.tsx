@@ -439,6 +439,54 @@ export default function AgentRegistrationPage() {
     ...(isVeterinary
       ? {
           veterinaryType: { required: true },
+          // One optional emergency contact — if any field is filled, validate the set
+          emergencyContact1Name: {
+            required: false,
+            minLength: 2,
+            validate: (value: string) => {
+              const started =
+                Boolean(value?.trim()) ||
+                Boolean(formState.emergencyContact1PhoneNumber.trim()) ||
+                Boolean(formState.emergencyContact1Relationship.trim());
+              if (!started) return true;
+              if (!value?.trim() || value.trim().length < 2) {
+                return 'Enter the contact name (or clear all emergency fields)';
+              }
+              return true;
+            },
+          },
+          emergencyContact1PhoneNumber: {
+            required: false,
+            pattern: validationPatterns.phone,
+            validate: (value: string) => {
+              const started =
+                Boolean(formState.emergencyContact1Name.trim()) ||
+                Boolean(value?.trim()) ||
+                Boolean(formState.emergencyContact1Relationship.trim());
+              if (!started) return true;
+              if (!value?.trim()) {
+                return 'Enter the contact phone (or clear all emergency fields)';
+              }
+              if (!validationPatterns.phone.test(value.trim())) {
+                return 'Enter a valid phone number (250XXXXXXXXX)';
+              }
+              return true;
+            },
+          },
+          emergencyContact1Relationship: {
+            required: false,
+            validate: (value: string) => {
+              const started =
+                Boolean(formState.emergencyContact1Name.trim()) ||
+                Boolean(formState.emergencyContact1PhoneNumber.trim()) ||
+                Boolean(value?.trim());
+              if (!started) return true;
+              if (!value?.trim()) {
+                return 'Select a relationship (or clear all emergency fields)';
+              }
+              return true;
+            },
+          },
         }
       : {
           emergencyContact1Name: { required: true, minLength: 2 },
@@ -656,7 +704,7 @@ const handleSubmit = async (e: React.FormEvent) => {
         formData.append('passportPhoto', formState.passportPhoto);
       }
       
-      // Emergency Contacts (individual fields as per Swagger)
+      // Emergency contacts (Swagger individual fields). Vets: at most one, optional.
       if (
         formState.emergencyContact1Name.trim() ||
         formState.emergencyContact1PhoneNumber.trim() ||
@@ -668,9 +716,10 @@ const handleSubmit = async (e: React.FormEvent) => {
       }
 
       if (
-        formState.emergencyContact2Name.trim() ||
-        formState.emergencyContact2PhoneNumber.trim() ||
-        formState.emergencyContact2Relationship.trim()
+        !isVeterinary &&
+        (formState.emergencyContact2Name.trim() ||
+          formState.emergencyContact2PhoneNumber.trim() ||
+          formState.emergencyContact2Relationship.trim())
       ) {
         formData.append('emergencyContacts2Name', formState.emergencyContact2Name);
         formData.append('emergencyContacts2Phone', formState.emergencyContact2PhoneNumber);
@@ -1289,20 +1338,21 @@ const resetApplicationState = () => {
             </div>
             </div>
 
-            {/* Emergency Contacts */}
+            {/* Emergency Contacts — agents: two required; vets: one optional */}
             <div className="bg-gray-50 p-6 rounded-lg">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">
-              Emergency Contacts
+              {isVeterinary ? 'Emergency Contact' : 'Emergency Contacts'}
               {isVeterinary ? (
                 <span className="ml-2 text-sm font-normal text-gray-500">
-                  (optional for veterinarians)
+                  (optional)
                 </span>
               ) : null}
             </h3>
             
-            {/* Emergency Contact 1 */}
-            <div className="mb-6">
-              <h4 className="text-md font-medium text-gray-700 mb-3">Emergency Contact 1</h4>
+            <div className={isVeterinary ? undefined : 'mb-6'}>
+              {!isVeterinary ? (
+                <h4 className="text-md font-medium text-gray-700 mb-3">Emergency Contact 1</h4>
+              ) : null}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <Input
                 label="Full Name"
@@ -1311,7 +1361,7 @@ const resetApplicationState = () => {
                 value={formState.emergencyContact1Name}
                 onChange={handleInputChange}
                 error={errors.emergencyContact1Name}
-                required
+                required={!isVeterinary}
               />
 
               <Input
@@ -1322,12 +1372,13 @@ const resetApplicationState = () => {
                 value={formState.emergencyContact1PhoneNumber}
                 onChange={handleInputChange}
                 error={errors.emergencyContact1PhoneNumber}
-                required
+                required={!isVeterinary}
               />
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                Relationship <span className="text-red-500">*</span>
+                Relationship
+                {!isVeterinary ? <span className="text-red-500"> *</span> : null}
                 </label>
                 <select
                 name="emergencyContact1Relationship"
@@ -1348,7 +1399,7 @@ const resetApplicationState = () => {
               </div>
             </div>
 
-            {/* Emergency Contact 2 */}
+            {!isVeterinary ? (
             <div>
               <h4 className="text-md font-medium text-gray-700 mb-3">Emergency Contact 2</h4>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -1395,6 +1446,7 @@ const resetApplicationState = () => {
               </div>
               </div>
             </div>
+            ) : null}
             </div>
 
             {/* Terms and Conditions */}
