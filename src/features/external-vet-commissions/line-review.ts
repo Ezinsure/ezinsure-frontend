@@ -119,14 +119,21 @@ export function reviewStageForViewRole(
 
 /**
  * Batch statuses where a role may still decide individual lines.
- * Phase 1: admin during pending review; finance before payout completes.
+ * Flow: Sonarwa → Admin → Finance (before payout completes).
  */
 export function canReviewLinesAtBatchStatus(
   stage: ExternalVetReviewStage,
   batchStatus: ExternalVetCommissionStatus,
 ): boolean {
-  if (batchStatus === 'REJECTED' || batchStatus === 'REIMBURSED_BY_SONARWA') {
+  if (
+    batchStatus === 'REJECTED' ||
+    batchStatus === 'REIMBURSED_BY_SONARWA' ||
+    batchStatus === 'DRAFT'
+  ) {
     return false;
+  }
+  if (stage === 'SONARWA') {
+    return batchStatus === 'PENDING_SONARWA_REVIEW';
   }
   if (stage === 'ADMIN') {
     return batchStatus === 'PENDING_ADMIN_REVIEW';
@@ -136,9 +143,6 @@ export function canReviewLinesAtBatchStatus(
       batchStatus === 'READY_TO_BE_PAID' ||
       batchStatus === 'PAYMENT_INITIATED'
     );
-  }
-  if (stage === 'SONARWA') {
-    return batchStatus === 'PENDING_ADMIN_REVIEW';
   }
   return false;
 }
@@ -170,6 +174,24 @@ export function hasPayableApprovedLines(
   lines: Pick<ExternalVetCommissionLine, 'lineStatus'>[],
 ): boolean {
   return lines.some((l) => l.lineStatus === 'APPROVED');
+}
+
+export function canSubmitDraftBatch(
+  batch: Pick<ExternalVetCommissionBatch, 'status' | 'lines'>,
+): boolean {
+  return batch.status === 'DRAFT' && batch.lines.length > 0;
+}
+
+/**
+ * Sonarwa may send the claim to ezInsure admin once every line is decided
+ * and at least one line remains approved.
+ */
+export function canSendBatchToAdminReview(
+  batch: Pick<ExternalVetCommissionBatch, 'status' | 'lines'>,
+): boolean {
+  if (batch.status !== 'PENDING_SONARWA_REVIEW') return false;
+  if (!isBatchFullyReviewed(batch.lines)) return false;
+  return hasPayableApprovedLines(batch.lines);
 }
 
 /**

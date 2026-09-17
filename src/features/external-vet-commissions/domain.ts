@@ -4,6 +4,8 @@
  */
 
 export const EXTERNAL_VET_COMMISSION_STATUSES = [
+  'DRAFT',
+  'PENDING_SONARWA_REVIEW',
   'PENDING_ADMIN_REVIEW',
   'READY_TO_BE_PAID',
   'PAYMENT_INITIATED',
@@ -62,13 +64,24 @@ export function canFinanceRejectBatchStatus(
 export type ExternalVetsHubTab =
   | 'overview'
   | 'applications'
+  | 'sonarwa-review'
   | 'admin-review'
   | 'payments'
   | 'initiated'
   | 'lines'
   | 'history';
 
-export type ExternalVetsViewRole = 'admin' | 'super_admin' | 'finance';
+export type ExternalVetsViewRole =
+  | 'admin'
+  | 'super_admin'
+  | 'finance'
+  | 'sonarwa';
+
+/** Product label used across portals (replaces “External Vets”). */
+export const COMMISSION_CLAIMS_PRODUCT_NAME = 'Commission Claims';
+
+export const COMMISSION_CLAIMS_PRODUCT_SUBTITLE =
+  'Vet commission claim batches, line review, payout, and SONARWA reclaim.';
 
 /** Registry payee — not a login user. */
 export type ExternalVet = {
@@ -508,7 +521,9 @@ export const EXTERNAL_VET_STATUS_LABELS: Record<
   ExternalVetCommissionStatus,
   string
 > = {
-  PENDING_ADMIN_REVIEW: 'Pending review',
+  DRAFT: 'Draft',
+  PENDING_SONARWA_REVIEW: 'SONARWA review',
+  PENDING_ADMIN_REVIEW: 'Admin review',
   READY_TO_BE_PAID: 'Ready to pay',
   PAYMENT_INITIATED: 'Payment initiated',
   PAID: 'Paid',

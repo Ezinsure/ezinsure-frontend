@@ -15,6 +15,8 @@ import { DataExportActions } from '@/components/ui/data-export-actions';
 import { useToast } from '@/components/ui/toast';
 import { useExternalVetCommissionsApi } from './api';
 import {
+  COMMISSION_CLAIMS_PRODUCT_NAME,
+  COMMISSION_CLAIMS_PRODUCT_SUBTITLE,
   formatRwf,
   type ExternalVetCommissionBatch,
   type ExternalVetCommissionBatchSummary,
@@ -27,6 +29,8 @@ import {
 import {
   areAllLinesRejected,
   canApproveBatchForPayment,
+  canSendBatchToAdminReview,
+  canSubmitDraftBatch,
   isBatchFullyReviewed,
   reviewStageForViewRole,
 } from './line-review';
@@ -49,11 +53,20 @@ const TAB_DEFS: {
   label: string;
   roles: ExternalVetsViewRole[];
 }[] = [
-  { id: 'overview', label: 'Overview', roles: ['admin', 'super_admin', 'finance'] },
+  {
+    id: 'overview',
+    label: 'Overview',
+    roles: ['admin', 'super_admin', 'finance', 'sonarwa'],
+  },
   {
     id: 'applications',
     label: 'Applications',
-    roles: ['admin', 'super_admin', 'finance'],
+    roles: ['admin', 'super_admin', 'finance', 'sonarwa'],
+  },
+  {
+    id: 'sonarwa-review',
+    label: 'SONARWA Review',
+    roles: ['sonarwa', 'admin', 'super_admin'],
   },
   {
     id: 'admin-review',
@@ -70,7 +83,7 @@ const TAB_DEFS: {
   {
     id: 'history',
     label: 'Paid / History',
-    roles: ['admin', 'super_admin', 'finance'],
+    roles: ['admin', 'super_admin', 'finance', 'sonarwa'],
   },
 ];
 
@@ -80,6 +93,8 @@ function statusForTab(
   switch (tab) {
     case 'applications':
       return 'ALL';
+    case 'sonarwa-review':
+      return 'PENDING_SONARWA_REVIEW';
     case 'admin-review':
       return 'PENDING_ADMIN_REVIEW';
     case 'payments':
@@ -98,6 +113,7 @@ function statusForTab(
 function canExportTab(tab: ExternalVetsHubTab): boolean {
   return (
     tab === 'applications' ||
+    tab === 'sonarwa-review' ||
     tab === 'admin-review' ||
     tab === 'payments' ||
     tab === 'initiated'
@@ -146,6 +162,8 @@ export default function ExternalVetsHub({ viewRole }: ExternalVetsHubProps) {
   const canUpload = viewRole === 'admin' || viewRole === 'super_admin';
   const canReview = canUpload;
   const canPay = viewRole === 'finance';
+  const isSonarwa = viewRole === 'sonarwa';
+  const canLineReview = canReview || canPay || isSonarwa;
 
   async function handleDownloadTemplate(language: ClaimFormLanguage) {
     setTemplateBusy(language);
@@ -335,6 +353,57 @@ export default function ExternalVetsHub({ viewRole }: ExternalVetsHubProps) {
     }
   }
 
+  async function handleSubmitDraft(id: string) {
+    if (!detail || !canSubmitDraftBatch(detail)) {
+      showToast('Only draft applications with lines can be submitted', 'error');
+      return;
+    }
+    setActionBusy(true);
+    try {
+      const updated = await api.submitBatch(id, detail);
+      setDetail(updated);
+      showToast('Submitted for SONARWA review', 'success');
+      await reload();
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Submit failed', 'error');
+    } finally {
+      setActionBusy(false);
+    }
+  }
+
+  async function handleSendToAdmin(id: string) {
+    if (!detail) return;
+    if (!isBatchFullyReviewed(detail.lines)) {
+      showToast('Review every line before sending to admin', 'error');
+      return;
+    }
+    if (areAllLinesRejected(detail.lines)) {
+      showToast(
+        'All lines are rejected — reject the application instead',
+        'error',
+      );
+      return;
+    }
+    if (!canSendBatchToAdminReview(detail)) {
+      showToast('This application cannot be sent to admin yet', 'error');
+      return;
+    }
+    setActionBusy(true);
+    try {
+      await api.sendToAdminReview(id, reviewNote || undefined, detail);
+      showToast('Sent to ezInsure admin for review', 'success');
+      closeDetail();
+      await reload();
+    } catch (err) {
+      showToast(
+        err instanceof Error ? err.message : 'Failed to send to admin',
+        'error',
+      );
+    } finally {
+      setActionBusy(false);
+    }
+  }
+
   async function handleApprove(id: string) {
     if (!detail) return;
     if (!isBatchFullyReviewed(detail.lines)) {
@@ -465,7 +534,75 @@ export default function ExternalVetsHub({ viewRole }: ExternalVetsHubProps) {
   }
 
   const detailFooter =
-    detail && canReview && detail.status === 'PENDING_ADMIN_REVIEW' ? (
+    detail && canUpload && detail.status === 'DRAFT' ? (
+      <div className="space-y-3">
+        <p className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+          This claim is still a draft. Submit it to start SONARWA line review.
+        </p>
+        <Button
+          onClick={() => void handleSubmitDraft(detail.id)}
+          disabled={actionBusy || !canSubmitDraftBatch(detail)}
+          className="w-full sm:w-auto"
+        >
+          {actionBusy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+          Submit for SONARWA review
+        </Button>
+      </div>
+    ) : detail &&
+      isSonarwa &&
+      detail.status === 'PENDING_SONARWA_REVIEW' ? (
+      <div className="space-y-3">
+        {!isBatchFullyReviewed(detail.lines) ? (
+          <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+            Decide every line before sending this claim to ezInsure admin.
+            Pending:{' '}
+            {
+              detail.lines.filter((l) => l.lineStatus === 'PENDING_REVIEW')
+                .length
+            }
+          </p>
+        ) : areAllLinesRejected(detail.lines) ? (
+          <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-900">
+            All lines are rejected. Reject the application — it cannot proceed
+            to admin.
+          </p>
+        ) : (
+          <p className="rounded-lg border border-cyan-200 bg-cyan-50 px-3 py-2 text-sm text-cyan-950">
+            All lines reviewed. Send to ezInsure admin for the next gate.
+          </p>
+        )}
+        <textarea
+          className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-400"
+          rows={2}
+          placeholder="Review note (required for reject)"
+          value={reviewNote}
+          onChange={(e) => setReviewNote(e.target.value)}
+        />
+        <div className="grid grid-cols-1 gap-2 sm:flex sm:flex-wrap">
+          <Button
+            onClick={() => void handleSendToAdmin(detail.id)}
+            disabled={actionBusy || !canSendBatchToAdminReview(detail)}
+            className="w-full sm:w-auto"
+          >
+            {actionBusy ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <CheckCircle2 className="mr-2 h-4 w-4" />
+            )}
+            Send to admin
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => void handleReject(detail.id)}
+            disabled={actionBusy}
+            className="w-full sm:w-auto"
+          >
+            <XCircle className="mr-2 h-4 w-4" />
+            Reject application
+          </Button>
+        </div>
+      </div>
+    ) : detail && canReview && detail.status === 'PENDING_ADMIN_REVIEW' ? (
       <div className="space-y-3">
         {!isBatchFullyReviewed(detail.lines) ? (
           <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
@@ -549,10 +686,11 @@ export default function ExternalVetsHub({ viewRole }: ExternalVetsHubProps) {
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-slate-900">External Vets</h1>
+          <h1 className="text-2xl font-semibold text-slate-900">
+            {COMMISSION_CLAIMS_PRODUCT_NAME}
+          </h1>
           <p className="mt-1 text-sm text-slate-500">
-            Track SONARWA commission sheets for vets who do not use ezInsure —
-            separate from normal livestock applications.
+            {COMMISSION_CLAIMS_PRODUCT_SUBTITLE}
           </p>
         </div>
         {canUpload && tab === 'applications' ? (
@@ -616,7 +754,11 @@ export default function ExternalVetsHub({ viewRole }: ExternalVetsHubProps) {
           isLoading={isLoading}
         />
       ) : tab === 'lines' ? (
-        <CommissionLinesPanel canMutate={canPay} viewRole={viewRole} />
+        <CommissionLinesPanel
+          canMutate={canPay}
+          viewRole={viewRole}
+          canReviewLines={canLineReview}
+        />
       ) : (
         <div className="space-y-4">
           <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -720,15 +862,17 @@ export default function ExternalVetsHub({ viewRole }: ExternalVetsHubProps) {
             batches={filteredBatches}
             isLoading={isLoading}
             emptyMessage={
-              tab === 'admin-review'
-                ? 'No batches pending admin review.'
-                : tab === 'payments'
-                  ? 'No batches ready to be paid.'
-                  : tab === 'initiated'
-                    ? 'No initiated payments.'
-                    : tab === 'history'
-                      ? 'No paid or reimbursed batches yet.'
-                      : 'No external vet commission batches yet.'
+              tab === 'sonarwa-review'
+                ? 'No claims pending SONARWA review.'
+                : tab === 'admin-review'
+                  ? 'No claims pending admin review.'
+                  : tab === 'payments'
+                    ? 'No claims ready to be paid.'
+                    : tab === 'initiated'
+                      ? 'No initiated payments.'
+                      : tab === 'history'
+                        ? 'No paid or reimbursed claims yet.'
+                        : 'No commission claims yet.'
             }
             selectedIds={
               canPay && (tab === 'payments' || tab === 'initiated')
@@ -747,6 +891,20 @@ export default function ExternalVetsHub({ viewRole }: ExternalVetsHubProps) {
             }
             onView={(id) => void openDetail(id)}
             rowActions={(batch) => {
+              if (
+                isSonarwa &&
+                batch.status === 'PENDING_SONARWA_REVIEW'
+              ) {
+                return (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => void openDetail(batch.id)}
+                  >
+                    Review lines
+                  </Button>
+                );
+              }
               if (canReview && batch.status === 'PENDING_ADMIN_REVIEW') {
                 return (
                   <Button
@@ -755,6 +913,17 @@ export default function ExternalVetsHub({ viewRole }: ExternalVetsHubProps) {
                     onClick={() => void openDetail(batch.id)}
                   >
                     Review
+                  </Button>
+                );
+              }
+              if (canUpload && batch.status === 'DRAFT') {
+                return (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => void openDetail(batch.id)}
+                  >
+                    Submit
                   </Button>
                 );
               }
@@ -792,14 +961,10 @@ export default function ExternalVetsHub({ viewRole }: ExternalVetsHubProps) {
           isLoading={detailLoading}
           onClose={closeDetail}
           footer={detailFooter}
-          reviewStage={
-            canReview || canPay ? reviewStage : null
-          }
+          reviewStage={canLineReview ? reviewStage : null}
           reviewBusy={actionBusy}
           onReviewLine={
-            canReview || canPay
-              ? (input) => handleReviewLine(input)
-              : undefined
+            canLineReview ? (input) => handleReviewLine(input) : undefined
           }
         />
       ) : null}
@@ -809,7 +974,6 @@ export default function ExternalVetsHub({ viewRole }: ExternalVetsHubProps) {
           open={uploadOpen}
           onClose={() => setUploadOpen(false)}
           onCreated={() => {
-            showToast('Commission batch submitted for admin review', 'success');
             setTab('applications');
             void reload();
           }}

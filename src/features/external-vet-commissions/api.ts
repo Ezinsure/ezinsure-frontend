@@ -362,6 +362,70 @@ export function useExternalVetCommissionsApi() {
     [apiFetch],
   );
 
+  const submitBatch = useCallback(
+    async (
+      id: string,
+      currentBatch?: ExternalVetCommissionBatch | null,
+    ): Promise<ExternalVetCommissionBatch> => {
+      const response = await apiFetch(
+        EXTERNAL_VET_COMMISSION_ENDPOINTS.submitBatch(id),
+        { method: 'PUT' },
+      );
+      if (response.ok) {
+        return mapBatch(unwrapData<unknown>(await readJson(response)));
+      }
+      if (response.status !== 404) {
+        throw new Error(await errorMessage(response, 'Failed to submit batch'));
+      }
+      let batch = currentBatch ?? null;
+      if (!batch || batch.id !== id) batch = await getBatch(id);
+      if (!batch) throw new Error('Batch not found');
+      if (batch.status !== 'DRAFT') {
+        throw new Error('Only draft applications can be submitted');
+      }
+      return { ...batch, status: 'PENDING_SONARWA_REVIEW' };
+    },
+    [apiFetch, getBatch],
+  );
+
+  const sendToAdminReview = useCallback(
+    async (
+      id: string,
+      note?: string,
+      currentBatch?: ExternalVetCommissionBatch | null,
+    ): Promise<ExternalVetCommissionBatch> => {
+      const response = await apiFetch(
+        EXTERNAL_VET_COMMISSION_ENDPOINTS.sendToAdminReview(id),
+        {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ note }),
+        },
+      );
+      if (response.ok) {
+        return mapBatch(unwrapData<unknown>(await readJson(response)));
+      }
+      if (response.status !== 404) {
+        throw new Error(
+          await errorMessage(response, 'Failed to send to admin review'),
+        );
+      }
+      let batch = currentBatch ?? null;
+      if (!batch || batch.id !== id) batch = await getBatch(id);
+      if (!batch) throw new Error('Batch not found');
+      if (batch.status !== 'PENDING_SONARWA_REVIEW') {
+        throw new Error('Batch is not awaiting SONARWA review');
+      }
+      return {
+        ...batch,
+        status: 'PENDING_ADMIN_REVIEW',
+        reviewNote: note?.trim() || batch.reviewNote,
+        reviewedAt: new Date().toISOString(),
+      };
+    },
+    [apiFetch, getBatch],
+  );
+
   /**
    * Review one line. Falls back to a client-side patch when the endpoint
    * is not deployed yet (404), so the UI can ship ahead of backend.
@@ -746,6 +810,8 @@ export function useExternalVetCommissionsApi() {
       createBatch,
       approveBatch,
       rejectBatch,
+      submitBatch,
+      sendToAdminReview,
       reviewLine,
       bulkReviewLines,
       initiatePayment,
@@ -767,6 +833,8 @@ export function useExternalVetCommissionsApi() {
       createBatch,
       approveBatch,
       rejectBatch,
+      submitBatch,
+      sendToAdminReview,
       reviewLine,
       bulkReviewLines,
       initiatePayment,

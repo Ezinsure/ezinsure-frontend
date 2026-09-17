@@ -13,6 +13,14 @@ type StatusTone = {
  * Dot + single-line label reads cleaner than a large pill that wraps mid-phrase.
  */
 const STATUS_TONE: Record<ExternalVetCommissionStatus, StatusTone> = {
+  DRAFT: {
+    wrap: 'bg-slate-100 text-slate-800 ring-slate-200/80',
+    dot: 'bg-slate-400',
+  },
+  PENDING_SONARWA_REVIEW: {
+    wrap: 'bg-cyan-50 text-cyan-950 ring-cyan-200/80',
+    dot: 'bg-cyan-500',
+  },
   PENDING_ADMIN_REVIEW: {
     wrap: 'bg-amber-50 text-amber-900 ring-amber-200/80',
     dot: 'bg-amber-500',

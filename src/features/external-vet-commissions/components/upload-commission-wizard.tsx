@@ -348,7 +348,10 @@ export function UploadCommissionWizard({ open, onClose, onCreated }: Props) {
         lines,
       });
 
-      showToast('Commission batch submitted for admin review', 'success');
+      showToast(
+        'Commission claim saved as draft. Open it and submit for SONARWA review.',
+        'success',
+      );
       // Brief delay so the success toast can paint before the modal unmounts.
       await new Promise((resolve) => setTimeout(resolve, 400));
       resetAndClose(true);

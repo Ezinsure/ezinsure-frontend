@@ -1,4 +1,4 @@
-import { LayoutDashboard, FileText, UserCircle } from 'lucide-react';
+import { LayoutDashboard, FileText, UserCircle, ClipboardCheck } from 'lucide-react';
 import type { NavGroup } from '@/shared/navigation/types';
 
 const base = '/sonarwa/livestock';
@@ -9,6 +9,11 @@ export const livestockSonarwaNavigation: NavGroup[] = [
     items: [
       { href: `${base}/dashboard`, label: 'Dashboard', icon: LayoutDashboard },
       { href: `${base}/applications`, label: 'Applications', icon: FileText },
+      {
+        href: `${base}/commission-claims`,
+        label: 'Commission Claims',
+        icon: ClipboardCheck,
+      },
     ],
   },
   {

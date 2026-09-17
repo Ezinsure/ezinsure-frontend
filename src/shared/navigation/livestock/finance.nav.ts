@@ -27,7 +27,7 @@ export const livestockFinanceNavigation: NavGroup[] = [
       { href: `${base}/vet-analytics`, label: 'Vet Analytics', icon: Stethoscope },
       {
         href: `${base}/external-vets`,
-        label: 'External Vets',
+        label: 'Commission Claims',
         icon: UserRoundSearch,
       },
       { href: `${base}/payment-cycles`, label: 'Payment Cycles', icon: CalendarRange },

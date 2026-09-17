@@ -155,13 +155,16 @@ function selectionTriState(
 export type CommissionLinesPanelProps = {
   /** Finance can change reclaim statuses; admin/super_admin are read-only for reclaim. */
   canMutate?: boolean;
-  /** Used to stamp line review events (admin / finance). */
+  /** Used to stamp line review events (admin / finance / sonarwa). */
   viewRole?: ExternalVetsViewRole;
+  /** When false, hide line approve/reject even if viewRole maps to a stage. */
+  canReviewLines?: boolean;
 };
 
 export function CommissionLinesPanel({
   canMutate = false,
   viewRole = 'finance',
+  canReviewLines = true,
 }: CommissionLinesPanelProps) {
   const api = useExternalVetCommissionsApi();
   const { user } = useAuth();
@@ -339,8 +342,8 @@ export function CommissionLinesPanel({
   }, [reviewStage, selectedLines]);
 
   const canBulkReviewLines =
+    canReviewLines &&
     Boolean(reviewStage) &&
-    (canMutate || viewRole === 'admin' || viewRole === 'super_admin') &&
     reviewableSelectedLines.length > 0;
 
   const selectedSummary = useMemo(
@@ -1196,11 +1199,9 @@ export function CommissionLinesPanel({
           line={detailLine}
           onClose={() => setDetailLine(null)}
           review={
+            canReviewLines &&
             reviewStage &&
-            canReviewLinesAtBatchStatus(reviewStage, detailLine.batchStatus) &&
-            (canMutate ||
-              viewRole === 'admin' ||
-              viewRole === 'super_admin')
+            canReviewLinesAtBatchStatus(reviewStage, detailLine.batchStatus)
               ? {
                   stage: reviewStage,
                   busy: actionBusy,

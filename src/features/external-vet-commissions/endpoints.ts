@@ -47,6 +47,13 @@ export const EXTERNAL_VET_COMMISSION_ENDPOINTS = {
 
   rejectBatch: (id: string): string => `${BASE}/batches/${id}/reject`,
 
+  /** DRAFT → PENDING_SONARWA_REVIEW */
+  submitBatch: (id: string): string => `${BASE}/batches/${id}/submit`,
+
+  /** PENDING_SONARWA_REVIEW → PENDING_ADMIN_REVIEW (all lines reviewed). */
+  sendToAdminReview: (id: string): string =>
+    `${BASE}/batches/${id}/sendToAdminReview`,
+
   /**
    * Decide a single insured line (approve / reject) with optional reason.
    * Body: `{ decision, reason?, stage }`
