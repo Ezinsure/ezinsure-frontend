@@ -20,6 +20,8 @@ export const EXTERNAL_VET_COMMISSION_ENDPOINTS = {
     status?: string;
     startDate?: string;
     endDate?: string;
+    /** When true, backend should return only batches for the authenticated vet. */
+    mine?: boolean;
   }): string => {
     const search = new URLSearchParams();
     if (params?.status && params.status !== 'ALL') {
@@ -27,9 +29,13 @@ export const EXTERNAL_VET_COMMISSION_ENDPOINTS = {
     }
     if (params?.startDate) search.set('startDate', params.startDate);
     if (params?.endDate) search.set('endDate', params.endDate);
+    if (params?.mine) search.set('mine', 'true');
     const qs = search.toString();
     return qs ? `${BASE}/batches?${qs}` : `${BASE}/batches`;
   },
+
+  /** Resolve ExternalVet registry row for the authenticated VETERINARY user. */
+  myExternalVet: (): string => `${BASE}/vets/me`,
 
   getBatch: (id: string): string => `${BASE}/batches/${id}`,
 

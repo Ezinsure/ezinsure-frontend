@@ -40,6 +40,19 @@ type Props = {
   open: boolean;
   onClose: () => void;
   onCreated: () => void;
+  /**
+   * When set, skip payee assignment UI and bind the claim to this authenticated
+   * vet (linkedUserId / registry auto-resolve).
+   */
+  selfServiceProfile?: {
+    userId: string;
+    fullName: string;
+    phoneNumber?: string;
+    district?: string;
+    sector?: string;
+    bankName?: string;
+    bankAccountNumber?: string;
+  };
 };
 
 type AssignMode = 'search' | 'new';
@@ -101,11 +114,17 @@ const PREVIEW_MONEY_KEYS = new Set([
   'companyCommission',
 ]);
 
-export function UploadCommissionWizard({ open, onClose, onCreated }: Props) {
+export function UploadCommissionWizard({
+  open,
+  onClose,
+  onCreated,
+  selfServiceProfile,
+}: Props) {
   const api = useExternalVetCommissionsApi();
   const { showToast, ToastContainer } = useToast();
+  const isSelfService = Boolean(selfServiceProfile);
 
-  // 1 = vet form, 2 = upload lines sheet, 3 = confirm
+  // Self-service: start on upload; admin: start on vet assignment
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [file, setFile] = useState<File | null>(null);
   const [periodLabel, setPeriodLabel] = useState('');
@@ -141,6 +160,22 @@ export function UploadCommissionWizard({ open, onClose, onCreated }: Props) {
 
   useEffect(() => {
     if (!open) return;
+    if (isSelfService && selfServiceProfile) {
+      setStep(1);
+      setAssignMode('new');
+      setLinkedUserId(selfServiceProfile.userId);
+      setPayee((prev) => ({
+        ...prev,
+        name: selfServiceProfile.fullName,
+        phoneNumber: selfServiceProfile.phoneNumber || prev.phoneNumber,
+        district: selfServiceProfile.district || prev.district,
+        sector: selfServiceProfile.sector || prev.sector,
+        bankName: selfServiceProfile.bankName || prev.bankName,
+        bankAccountNumber:
+          selfServiceProfile.bankAccountNumber || prev.bankAccountNumber,
+      }));
+      return;
+    }
     let cancelled = false;
     setIsLoadingVets(true);
     void api
@@ -160,7 +195,7 @@ export function UploadCommissionWizard({ open, onClose, onCreated }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [api, open, showToast]);
+  }, [api, open, showToast, isSelfService, selfServiceProfile]);
 
   useEffect(() => {
     if (!open || assignMode !== 'search') return;
@@ -311,7 +346,31 @@ export function UploadCommissionWizard({ open, onClose, onCreated }: Props) {
     setIsSubmitting(true);
     try {
       let externalVetId = selectedExternalVetId?.trim() || '';
-      if (!externalVetId) {
+      let payeeForBatch = payee;
+
+      if (isSelfService && selfServiceProfile) {
+        const mine = await api.resolveMyExternalVet(selfServiceProfile);
+        externalVetId = mine.id;
+        setSelectedExternalVetId(externalVetId);
+        setLinkedUserId(selfServiceProfile.userId);
+        payeeForBatch = {
+          ...payee,
+          name: mine.name || selfServiceProfile.fullName,
+          phoneNumber:
+            mine.phoneNumber ||
+            selfServiceProfile.phoneNumber ||
+            payee.phoneNumber,
+          district:
+            mine.district || selfServiceProfile.district || payee.district,
+          sector: mine.sector || selfServiceProfile.sector || payee.sector,
+          bankName: mine.bankName || selfServiceProfile.bankName || payee.bankName,
+          bankAccountNumber:
+            mine.bankAccountNumber ||
+            selfServiceProfile.bankAccountNumber ||
+            payee.bankAccountNumber,
+        };
+        setPayee(payeeForBatch);
+      } else if (!externalVetId) {
         const created = await api.createExternalVet({
           name: payee.name,
           phoneNumber: payee.phoneNumber,
@@ -333,13 +392,14 @@ export function UploadCommissionWizard({ open, onClose, onCreated }: Props) {
       await api.createBatch({
         externalVetId,
         payee: {
-          name: payee.name.trim(),
-          phoneNumber: payee.phoneNumber.trim(),
-          district: payee.district.trim(),
-          sector: payee.sector.trim(),
-          commissionRequestDate: payee.commissionRequestDate.trim(),
-          bankName: payee.bankName?.trim() || undefined,
-          bankAccountNumber: payee.bankAccountNumber?.trim() || undefined,
+          name: payeeForBatch.name.trim(),
+          phoneNumber: payeeForBatch.phoneNumber.trim(),
+          district: payeeForBatch.district.trim(),
+          sector: payeeForBatch.sector.trim(),
+          commissionRequestDate: payeeForBatch.commissionRequestDate.trim(),
+          bankName: payeeForBatch.bankName?.trim() || undefined,
+          bankAccountNumber:
+            payeeForBatch.bankAccountNumber?.trim() || undefined,
         },
         periodLabel: periodLabel.trim(),
         sourceFileName: file.name,
@@ -349,7 +409,9 @@ export function UploadCommissionWizard({ open, onClose, onCreated }: Props) {
       });
 
       showToast(
-        'Commission claim saved as draft. Open it and submit for SONARWA review.',
+        isSelfService
+          ? 'Commission claim saved as draft. Submit it for SONARWA review from My Claims.'
+          : 'Commission claim saved as draft. Open it and submit for SONARWA review.',
         'success',
       );
       // Brief delay so the success toast can paint before the modal unmounts.
@@ -409,22 +471,30 @@ export function UploadCommissionWizard({ open, onClose, onCreated }: Props) {
       <div className="flex max-h-[90vh] w-full max-w-[min(96rem,96vw)] flex-col rounded-xl bg-white shadow-xl">
         <div className="border-b border-slate-200 px-5 py-4">
           <h2 className="text-lg font-semibold text-slate-900">
-            New external vet commission batch
+            {isSelfService
+              ? 'New commission claim'
+              : 'New external vet commission batch'}
           </h2>
           <p className="mt-1 text-sm text-slate-500">
             Step {step} of 3 — {stepLabel}
           </p>
           <p className="mt-2 text-xs text-slate-500">
-            Vet payout details are entered in this form. The uploaded claim form
-            supplies the contract lines, and company commission is calculated
-            from net premium × the rate you set (default{' '}
-            {DEFAULT_COMPANY_COMMISSION_PERCENT}%).
+            {isSelfService
+              ? 'Your payout profile is linked automatically. Confirm bank and location details, then upload your claim form lines.'
+              : `Vet payout details are entered in this form. The uploaded claim form supplies the contract lines, and company commission is calculated from net premium × the rate you set (default ${DEFAULT_COMPANY_COMMISSION_PERCENT}%).`}
           </p>
         </div>
 
         <div className="flex-1 overflow-y-auto px-5 py-4">
           {step === 1 ? (
             <div className="space-y-4">
+              {isSelfService ? (
+                <p className="rounded-lg border border-cyan-200 bg-cyan-50 px-3 py-2 text-sm text-cyan-950">
+                  Payee is locked to your verified veterinarian account. Confirm
+                  the details below before uploading lines.
+                </p>
+              ) : (
+              <>
               <div className="flex flex-wrap gap-2">
                 <Button
                   variant={assignMode === 'new' ? 'primary' : 'outline'}
@@ -559,6 +629,8 @@ export function UploadCommissionWizard({ open, onClose, onCreated }: Props) {
                   </div>
                 </>
               ) : null}
+              </>
+              )}
 
               <VetPayeeFields
                 payee={payee}

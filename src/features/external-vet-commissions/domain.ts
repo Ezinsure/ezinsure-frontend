@@ -75,7 +75,8 @@ export type ExternalVetsViewRole =
   | 'admin'
   | 'super_admin'
   | 'finance'
-  | 'sonarwa';
+  | 'sonarwa'
+  | 'vet';
 
 /** Product label used across portals (replaces “External Vets”). */
 export const COMMISSION_CLAIMS_PRODUCT_NAME = 'Commission Claims';

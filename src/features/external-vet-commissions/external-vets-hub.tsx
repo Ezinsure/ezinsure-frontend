@@ -61,7 +61,7 @@ const TAB_DEFS: {
   {
     id: 'applications',
     label: 'Applications',
-    roles: ['admin', 'super_admin', 'finance', 'sonarwa'],
+    roles: ['admin', 'super_admin', 'finance', 'sonarwa', 'vet'],
   },
   {
     id: 'sonarwa-review',
@@ -83,7 +83,7 @@ const TAB_DEFS: {
   {
     id: 'history',
     label: 'Paid / History',
-    roles: ['admin', 'super_admin', 'finance', 'sonarwa'],
+    roles: ['admin', 'super_admin', 'finance', 'sonarwa', 'vet'],
   },
 ];
 
@@ -159,10 +159,14 @@ export default function ExternalVetsHub({ viewRole }: ExternalVetsHubProps) {
     null,
   );
 
-  const canUpload = viewRole === 'admin' || viewRole === 'super_admin';
-  const canReview = canUpload;
+  const canUpload =
+    viewRole === 'admin' ||
+    viewRole === 'super_admin' ||
+    viewRole === 'vet';
+  const canReview = viewRole === 'admin' || viewRole === 'super_admin';
   const canPay = viewRole === 'finance';
   const isSonarwa = viewRole === 'sonarwa';
+  const isVet = viewRole === 'vet';
   const canLineReview = canReview || canPay || isSonarwa;
 
   async function handleDownloadTemplate(language: ClaimFormLanguage) {
@@ -206,7 +210,10 @@ export default function ExternalVetsHub({ viewRole }: ExternalVetsHubProps) {
         const lists = await Promise.all(
           historyStatuses.map(async (status) => {
             try {
-              return await api.listBatches(status, range);
+              return await api.listBatches(status, {
+                ...range,
+                mine: isVet || undefined,
+              });
             } catch {
               return [] as ExternalVetCommissionBatchSummary[];
             }
@@ -227,6 +234,7 @@ export default function ExternalVetsHub({ viewRole }: ExternalVetsHubProps) {
         const list = await api.listBatches(status ?? 'ALL', {
           startDate: startDate || undefined,
           endDate: endDate || undefined,
+          mine: isVet || undefined,
         });
         setBatches(list);
       }
@@ -239,7 +247,7 @@ export default function ExternalVetsHub({ viewRole }: ExternalVetsHubProps) {
     } finally {
       setIsLoading(false);
     }
-  }, [api, endDate, showToast, startDate, tab]);
+  }, [api, endDate, isVet, showToast, startDate, tab]);
 
   useEffect(() => {
     void reload();
@@ -742,7 +750,7 @@ export default function ExternalVetsHub({ viewRole }: ExternalVetsHubProps) {
                 : 'border-transparent text-slate-500 hover:text-slate-800'
             }`}
           >
-            {t.label}
+            {isVet && t.id === 'applications' ? 'My Claims' : t.label}
           </button>
         ))}
       </div>
@@ -977,6 +985,15 @@ export default function ExternalVetsHub({ viewRole }: ExternalVetsHubProps) {
             setTab('applications');
             void reload();
           }}
+          selfServiceProfile={
+            isVet && user
+              ? {
+                  userId: user._id,
+                  fullName: user.fullName,
+                  phoneNumber: user.phoneNumber,
+                }
+              : undefined
+          }
         />
       ) : null}
     </div>

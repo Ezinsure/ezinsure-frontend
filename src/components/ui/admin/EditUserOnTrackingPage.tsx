@@ -18,9 +18,14 @@ export interface Application {
   district: string;
   sector: string;
   status: string;
+  /** AGENT or VETERINARY when returned by the API. */
+  role?: string;
   nationalIdDocument: string;
   criminalRecordCertificate: string;
   passportPhoto: string;
+  /** Veterinarian RCVD licence when role is VETERINARY. */
+  rcvdLicenceDocument?: string;
+  veterinaryType?: string;
   emergencyContacts: Array<{
     fullName: string;
     phoneNumber: string;

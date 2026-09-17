@@ -267,13 +267,14 @@ export function useExternalVetCommissionsApi() {
   const listBatches = useCallback(
     async (
       status?: ExternalVetCommissionStatus | 'ALL',
-      range?: { startDate?: string; endDate?: string },
+      range?: { startDate?: string; endDate?: string; mine?: boolean },
     ): Promise<ExternalVetCommissionBatchSummary[]> => {
       const response = await apiFetch(
         EXTERNAL_VET_COMMISSION_ENDPOINTS.listBatches({
           status,
           startDate: range?.startDate,
           endDate: range?.endDate,
+          mine: range?.mine,
         }),
       );
       if (!response.ok) {
@@ -282,6 +283,55 @@ export function useExternalVetCommissionsApi() {
       return normalizeList(await readJson(response)).map(mapBatchSummary);
     },
     [apiFetch],
+  );
+
+  /**
+   * Resolve the commission payee registry row for the logged-in vet.
+   * Prefers `GET /vets/me`, then linkedUserId match, then creates a row.
+   */
+  const resolveMyExternalVet = useCallback(
+    async (profile: {
+      userId: string;
+      fullName: string;
+      phoneNumber?: string;
+      district?: string;
+      sector?: string;
+      bankName?: string;
+      bankAccountNumber?: string;
+    }): Promise<ExternalVet> => {
+      const meResponse = await apiFetch(
+        EXTERNAL_VET_COMMISSION_ENDPOINTS.myExternalVet(),
+      );
+      if (meResponse.ok) {
+        return mapExternalVet(
+          unwrapData<unknown>(await readJson(meResponse)),
+        );
+      }
+      if (meResponse.status !== 404) {
+        throw new Error(
+          await errorMessage(meResponse, 'Failed to load your vet registry'),
+        );
+      }
+
+      const all = await listExternalVets().catch(() => [] as ExternalVet[]);
+      const linked = all.find(
+        (v) =>
+          v.linkedUserId &&
+          v.linkedUserId === profile.userId,
+      );
+      if (linked) return linked;
+
+      return createExternalVet({
+        name: profile.fullName,
+        phoneNumber: profile.phoneNumber || '',
+        district: profile.district,
+        sector: profile.sector,
+        bankName: profile.bankName,
+        bankAccountNumber: profile.bankAccountNumber,
+        linkedUserId: profile.userId,
+      });
+    },
+    [apiFetch, createExternalVet, listExternalVets],
   );
 
   const getBatch = useCallback(
@@ -805,6 +855,7 @@ export function useExternalVetCommissionsApi() {
       listExternalVets,
       searchPlatformVets,
       createExternalVet,
+      resolveMyExternalVet,
       listBatches,
       getBatch,
       createBatch,
@@ -828,6 +879,7 @@ export function useExternalVetCommissionsApi() {
       listExternalVets,
       searchPlatformVets,
       createExternalVet,
+      resolveMyExternalVet,
       listBatches,
       getBatch,
       createBatch,

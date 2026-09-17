@@ -648,6 +648,14 @@ export function LivestockUsersPage({ viewerRole }: LivestockUsersPageProps) {
 
   const totalPages = Math.max(1, Math.ceil(filteredUsers.length / itemsPerPage));
 
+  const pendingVetCount = useMemo(
+    () =>
+      users.filter(
+        (u) => u.role === VETERINARY_ROLE && u.status === 'PENDING',
+      ).length,
+    [users],
+  );
+
   return (
     <div className="p-6 lg:p-8">
       <div className="mb-8">
@@ -658,6 +666,29 @@ export function LivestockUsersPage({ viewerRole }: LivestockUsersPageProps) {
             : 'Create and manage veterinarians and SONARWA representatives for the livestock insurance workspace'}
         </p>
       </div>
+
+      {pendingVetCount > 0 ? (
+        <div className="mb-6 flex flex-col gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950 sm:flex-row sm:items-center sm:justify-between">
+          <p>
+            <strong>{pendingVetCount}</strong> veterinarian registration
+            {pendingVetCount === 1 ? '' : 's'} waiting for admin verification.
+            Approve to unlock portal access and commission claims.
+          </p>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="shrink-0 border-amber-300 bg-white"
+            onClick={() => {
+              setRoleFilter(VETERINARY_ROLE);
+              setStatusFilter('PENDING');
+              setCurrentPage(1);
+            }}
+          >
+            Review pending
+          </Button>
+        </div>
+      ) : null}
 
       <div className="mb-6 rounded-lg bg-white p-4 shadow-sm">
         <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">

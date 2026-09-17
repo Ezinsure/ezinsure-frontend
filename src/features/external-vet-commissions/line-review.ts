@@ -102,7 +102,7 @@ export function summarizePayableLines(
 
 /** Map hub view role → review stage stamped on audit events. */
 export function reviewStageForViewRole(
-  viewRole: ExternalVetsViewRole | 'sonarwa' | 'vet',
+  viewRole: ExternalVetsViewRole | 'vet',
 ): ExternalVetReviewStage | null {
   switch (viewRole) {
     case 'sonarwa':
@@ -112,6 +112,7 @@ export function reviewStageForViewRole(
       return 'ADMIN';
     case 'finance':
       return 'FINANCE';
+    case 'vet':
     default:
       return null;
   }
