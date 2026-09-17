@@ -22,6 +22,10 @@ import {
 } from '@/features/livestock-application/api/dashboard-stats-api';
 import type { LivestockListScope } from '@/features/livestock-application/api/livestock-applications.repository';
 import { formatRwfDisplay } from '@/features/livestock-application/utils/format-rwf';
+import {
+  PerformanceCompareCards,
+  usePerformanceCompare,
+} from '@/features/performance-compare';
 import { useApiClient } from '@/utils/apiClient';
 
 const getFirstDayOfMonth = (): string => {
@@ -84,6 +88,14 @@ export function LivestockWorkspaceDashboard({
     void load();
   }, [load]);
 
+  const compare = usePerformanceCompare({
+    audience: vetScoped ? 'vet' : 'admin',
+    actorId: vetScoped ? user?._id : undefined,
+    livestockScope: scope,
+    hideCompanyCommission,
+    enabled: !vetScoped || Boolean(user?._id),
+  });
+
   const animals = stats?.animalsInsured;
 
   return (
@@ -142,6 +154,13 @@ export function LivestockWorkspaceDashboard({
               {error}
             </div>
           )}
+
+          <PerformanceCompareCards
+            className="mt-6"
+            data={compare.data}
+            isLoading={compare.isLoading}
+            error={compare.error}
+          />
 
           <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <StatCard

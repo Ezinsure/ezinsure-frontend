@@ -10,6 +10,10 @@ import { useLivestockApplicationsList } from '@/features/livestock-application/h
 import type { LivestockApplicationStatus } from '@/features/livestock-application/domain/application-types';
 import { formatRwfDisplay } from '@/features/livestock-application/utils/format-rwf';
 import { VetDashboardRecentTable } from '@/features/vet-portal/vet-dashboard-recent-table';
+import {
+  PerformanceCompareCards,
+  usePerformanceCompare,
+} from '@/features/performance-compare';
 
 const VET_LIVESTOCK_BASE = '/vet/livestock';
 const DASHBOARD_PAGE_SIZE = 100;
@@ -66,6 +70,14 @@ export default function VetDashboardPage() {
     if (!user?._id) return;
     void load(startDate, endDate, 1, DASHBOARD_PAGE_SIZE);
   }, [load, startDate, endDate, user?._id]);
+
+  const compare = usePerformanceCompare({
+    audience: 'vet',
+    actorId: user?._id,
+    livestockScope: 'vet',
+    hideCompanyCommission: true,
+    enabled: Boolean(user?._id),
+  });
 
   const stats = useMemo(() => {
     const totalCommission = applications.reduce(
@@ -217,6 +229,13 @@ export default function VetDashboardPage() {
               </div>
             </div>
           </header>
+
+          <PerformanceCompareCards
+            className="mt-6"
+            data={compare.data}
+            isLoading={compare.isLoading}
+            error={compare.error}
+          />
 
           <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
             {statCards.map((card) => {

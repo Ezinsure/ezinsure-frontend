@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { MainLayout } from '@/components/ui/main-layout';
 import type { TooltipProps } from 'recharts';
 import { useAuth } from '@/context/AuthContext';
+import { AgentPerformanceCompareSection } from '@/features/performance-compare/agent-performance-compare-section';
 
 const INSURANCE_COLORS: Record<string, string> = {
   'Car Insurance': '#2563EB',
@@ -471,6 +472,8 @@ const CustomTooltip = ({ active, payload, label }: TooltipProps<number, string>)
                 </div>
               </div>
             </div>
+
+            <AgentPerformanceCompareSection />
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
               {highlightCards.map((card) => (
