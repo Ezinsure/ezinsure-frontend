@@ -394,16 +394,17 @@ export default function ExternalVetsHub({ viewRole }: ExternalVetsHubProps) {
     detail && canReview && detail.status === 'PENDING_ADMIN_REVIEW' ? (
       <div className="space-y-3">
         <textarea
-          className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+          className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-400"
           rows={2}
           placeholder="Review note (required for reject)"
           value={reviewNote}
           onChange={(e) => setReviewNote(e.target.value)}
         />
-        <div className="flex flex-wrap gap-2">
+        <div className="grid grid-cols-1 gap-2 sm:flex sm:flex-wrap">
           <Button
             onClick={() => void handleApprove(detail.id)}
             disabled={actionBusy}
+            className="w-full sm:w-auto"
           >
             {actionBusy ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -416,6 +417,7 @@ export default function ExternalVetsHub({ viewRole }: ExternalVetsHubProps) {
             variant="outline"
             onClick={() => void handleReject(detail.id)}
             disabled={actionBusy}
+            className="w-full sm:w-auto"
           >
             <XCircle className="mr-2 h-4 w-4" />
             Reject
@@ -426,6 +428,7 @@ export default function ExternalVetsHub({ viewRole }: ExternalVetsHubProps) {
       <Button
         onClick={() => void handleInitiate([detail.id])}
         disabled={actionBusy}
+        className="w-full sm:w-auto"
       >
         {actionBusy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
         Initiate payment
@@ -434,6 +437,7 @@ export default function ExternalVetsHub({ viewRole }: ExternalVetsHubProps) {
       <Button
         onClick={() => void handleMarkPaid([detail.id])}
         disabled={actionBusy}
+        className="w-full sm:w-auto"
       >
         {actionBusy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
         Mark as paid
