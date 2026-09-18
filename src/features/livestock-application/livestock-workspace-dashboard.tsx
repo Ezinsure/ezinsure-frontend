@@ -160,6 +160,8 @@ export function LivestockWorkspaceDashboard({
             data={compare.data}
             isLoading={compare.isLoading}
             error={compare.error}
+            scopeLabel={vetScoped ? 'Your book' : 'Company'}
+            channelLabel="Livestock"
           />
 
           <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">

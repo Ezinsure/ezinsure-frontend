@@ -182,6 +182,11 @@ export async function fetchPerformanceCompare(
     /** Livestock list scope when falling back. */
     livestockScope?: LivestockListScope;
     hideCompanyCommission?: boolean;
+    /**
+     * When `motor`, do not fall back to livestock day stats
+     * (caller supplies motor-specific fallback).
+     */
+    domain?: 'motor' | 'livestock';
   },
 ): Promise<PerformanceCompareResult> {
   const asOf = options.asOf || getTodayIso();
@@ -211,8 +216,8 @@ export async function fetchPerformanceCompare(
     // Fall through until backend ships the compare endpoint.
   }
 
-  if (options.audience === 'agent') {
-    // Agent motor dashboards use a lightweight client-side fallback below.
+  if (options.audience === 'agent' || options.domain === 'motor') {
+    // Motor / agent callers build their own fallback metrics.
     return base;
   }
 

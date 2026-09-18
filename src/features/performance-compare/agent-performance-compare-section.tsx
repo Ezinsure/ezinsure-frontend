@@ -128,6 +128,8 @@ export function AgentPerformanceCompareSection() {
       data={data}
       isLoading={isLoading}
       error={error}
+      scopeLabel="Your book"
+      channelLabel="Motor"
     />
   );
 }

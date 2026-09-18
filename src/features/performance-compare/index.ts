@@ -7,6 +7,7 @@ export {
 } from './dates';
 export { PerformanceCompareCards } from './performance-compare-cards';
 export { AgentPerformanceCompareSection } from './agent-performance-compare-section';
+export { MotorPerformanceCompareSection } from './motor-performance-compare-section';
 export { usePerformanceCompare } from './use-performance-compare';
 export { computeDelta } from './types';
 export type {

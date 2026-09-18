@@ -16,6 +16,7 @@ import {
   type MonthlyCommissionSummary,
 } from '@/utils/monthly-commission-summary';
 import { parseRevenueAnalyticsPayload, type RevenueChartDataPoint } from '@/utils/revenue-analytics';
+import { MotorPerformanceCompareSection } from '@/features/performance-compare';
 
 // Define types for the data
 interface Application {
@@ -731,6 +732,8 @@ const SuperAdminDashboard = () => {
         </section>
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <MotorPerformanceCompareSection />
+
           {/* Stats Cards Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
             {statsCards.map((card, index) => (
