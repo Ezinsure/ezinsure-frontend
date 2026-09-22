@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   CheckCircle2,
   Download,
@@ -121,6 +122,16 @@ function canExportTab(tab: ExternalVetsHubTab): boolean {
   );
 }
 
+function parseHubTab(
+  value: string | null,
+  allowed: ExternalVetsHubTab[],
+): ExternalVetsHubTab | null {
+  if (!value) return null;
+  return allowed.includes(value as ExternalVetsHubTab)
+    ? (value as ExternalVetsHubTab)
+    : null;
+}
+
 export interface ExternalVetsHubProps {
   viewRole: ExternalVetsViewRole;
 }
@@ -129,18 +140,58 @@ export default function ExternalVetsHub({ viewRole }: ExternalVetsHubProps) {
   const api = useExternalVetCommissionsApi();
   const { user } = useAuth();
   const { showToast, ToastContainer } = useToast();
+  const router = useRouter();
+  const searchParams = useSearchParams();
 
   const visibleTabs = useMemo(
     () => TAB_DEFS.filter((t) => t.roles.includes(viewRole)),
     [viewRole],
   );
+  const visibleTabIds = useMemo(
+    () => visibleTabs.map((t) => t.id),
+    [visibleTabs],
+  );
   const reviewStage = useMemo(
     () => reviewStageForViewRole(viewRole),
     [viewRole],
   );
-  const [tab, setTab] = useState<ExternalVetsHubTab>(
-    () => TAB_DEFS.find((t) => t.roles.includes(viewRole))?.id ?? 'overview',
+  const [tab, setTabState] = useState<ExternalVetsHubTab>(() => {
+    const fromUrl = parseHubTab(
+      typeof window !== 'undefined'
+        ? new URLSearchParams(window.location.search).get('tab')
+        : null,
+      TAB_DEFS.filter((t) => t.roles.includes(viewRole)).map((t) => t.id),
+    );
+    return (
+      fromUrl ??
+      TAB_DEFS.find((t) => t.roles.includes(viewRole))?.id ??
+      'overview'
+    );
+  });
+
+  const setTab = useCallback(
+    (next: ExternalVetsHubTab) => {
+      setTabState(next);
+      const params = new URLSearchParams(searchParams.toString());
+      if (next === (visibleTabIds[0] ?? 'overview')) {
+        params.delete('tab');
+      } else {
+        params.set('tab', next);
+      }
+      const query = params.toString();
+      router.replace(query ? `?${query}` : '?', { scroll: false });
+    },
+    [router, searchParams, visibleTabIds],
   );
+
+  useEffect(() => {
+    const fromUrl = parseHubTab(searchParams.get('tab'), visibleTabIds);
+    const fallback = visibleTabIds[0] ?? 'overview';
+    const next = fromUrl ?? fallback;
+    if (next !== tab) {
+      setTabState(next);
+    }
+  }, [searchParams, tab, visibleTabIds]);
   const [search, setSearch] = useState('');
   const monthRange = useMemo(() => getMonthToDateRange(), []);
   const [startDate, setStartDate] = useState(monthRange.startDate);
@@ -284,7 +335,7 @@ export default function ExternalVetsHub({ viewRole }: ExternalVetsHubProps) {
     if (!visibleTabs.some((t) => t.id === tab)) {
       setTab(visibleTabs[0]?.id ?? 'overview');
     }
-  }, [tab, visibleTabs]);
+  }, [setTab, tab, visibleTabs]);
 
   const filteredBatches = useMemo(() => {
     const q = search.trim().toLowerCase();

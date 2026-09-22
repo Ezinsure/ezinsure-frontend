@@ -95,6 +95,12 @@ const STATUS_OVERVIEW_CARDS = [
     status: 'REIMBURSED_BY_SONARWA' as const,
     tone: 'border-teal-200 bg-teal-50/60',
   },
+  {
+    key: 'rejected',
+    label: 'Rejected',
+    status: 'REJECTED' as const,
+    tone: 'border-rose-200 bg-rose-50/60',
+  },
 ] as const;
 
 type VetGroup = {
@@ -164,7 +170,7 @@ function VetGroupLinesTable({
             <tr
               key={line.id}
               className={`cursor-pointer border-t border-slate-100 hover:bg-slate-50/80 ${
-                line.lineStatus === 'REJECTED'
+                line.lineStatus === 'REJECTED' || line.batchStatus === 'REJECTED'
                   ? 'bg-rose-50/40'
                   : line.lineStatus === 'APPROVED'
                     ? 'bg-emerald-50/20'
@@ -201,7 +207,8 @@ function VetGroupLinesTable({
               </td>
               <td
                 className={`px-3 py-2 font-medium ${
-                  line.lineStatus === 'REJECTED'
+                  line.lineStatus === 'REJECTED' ||
+                  line.batchStatus === 'REJECTED'
                     ? 'text-slate-500 line-through decoration-rose-300'
                     : ''
                 }`}
@@ -210,7 +217,8 @@ function VetGroupLinesTable({
               </td>
               <td
                 className={`px-3 py-2 font-medium ${
-                  line.lineStatus === 'REJECTED'
+                  line.lineStatus === 'REJECTED' ||
+                  line.batchStatus === 'REJECTED'
                     ? 'text-slate-500 line-through decoration-rose-300'
                     : ''
                 }`}
@@ -467,6 +475,7 @@ export function CommissionLinesPanel({
       paid: byStatus('PAID'),
       awaiting: byStatus('AWAITING_SONARWA_REIMBURSEMENT'),
       reimbursed: byStatus('REIMBURSED_BY_SONARWA'),
+      rejected: byStatus('REJECTED'),
     };
   }, [endDate, lines, startDate]);
 
@@ -655,10 +664,18 @@ export function CommissionLinesPanel({
           if (!previous) continue;
           patched.set(line.id, {
             ...previous,
-            lineStatus: line.lineStatus,
-            reviewEvents: line.reviewEvents,
+            lineStatus:
+              line.lineStatus === 'APPROVED' || line.lineStatus === 'REJECTED'
+                ? line.lineStatus
+                : decision === 'REJECTED'
+                  ? 'REJECTED'
+                  : 'APPROVED',
+            reviewEvents: line.reviewEvents?.length
+              ? line.reviewEvents
+              : previous.reviewEvents,
             vetCommission: line.vetCommission,
             companyCommission: line.companyCommission,
+            batchStatus: updated.status ?? previous.batchStatus,
           });
         }
       }
@@ -781,15 +798,78 @@ export function CommissionLinesPanel({
 
   async function confirmFinanceReject(reason: string) {
     if (!rejectTarget) return;
+    const batchId = rejectTarget.batchId;
+    const batchNumber = rejectTarget.batchNumber;
     setActionBusy(true);
     try {
-      await api.rejectBatch(rejectTarget.batchId, reason);
-      showToast(
-        `Batch ${rejectTarget.batchNumber} rejected`,
-        'success',
-      );
+      const updated = await api.rejectBatch(batchId, reason);
+
+      // Immediate in-place patch so the table updates without a full page reload.
+      const lineById = new Map(updated.lines.map((line) => [line.id, line]));
+      const applyRejectedPatch = (
+        line: ExternalVetCommissionLineListItem,
+      ): ExternalVetCommissionLineListItem => {
+        if (line.batchId !== batchId) return line;
+        const fromBatch = lineById.get(line.id);
+        return {
+          ...line,
+          batchStatus: 'REJECTED',
+          lineStatus: fromBatch?.lineStatus ?? 'REJECTED',
+          reviewEvents: fromBatch?.reviewEvents ?? line.reviewEvents,
+          vetCommission: fromBatch?.vetCommission ?? line.vetCommission,
+          companyCommission:
+            fromBatch?.companyCommission ?? line.companyCommission,
+        };
+      };
+
+      setLines((prev) => prev.map(applyRejectedPatch));
+      if (detailLine?.batchId === batchId) {
+        setDetailLine(applyRejectedPatch(detailLine));
+      }
+
       setRejectTarget(null);
-      await reload();
+      applyStatusFilter('REJECTED');
+      showToast(`Batch ${batchNumber} rejected`, 'success');
+
+      // Soft reconcile with the server while staying on Lines. If /lines still
+      // omits REJECTED batches, keep the optimistic rows so finance can confirm.
+      setIsLoading(true);
+      try {
+        const result = await api.listLines({
+          status: 'ALL',
+          startDate: startDate || undefined,
+          endDate: endDate || undefined,
+        });
+        const workspaceLines = result.lines.filter((line) =>
+          (EXTERNAL_VET_LINES_WORKSPACE_STATUSES as readonly string[]).includes(
+            line.batchStatus,
+          ),
+        );
+        const byId = new Map(workspaceLines.map((line) => [line.id, line]));
+        setLines((prev) => {
+          for (const line of prev) {
+            if (
+              line.batchId === batchId &&
+              line.batchStatus === 'REJECTED' &&
+              !byId.has(line.id)
+            ) {
+              byId.set(line.id, line);
+            }
+          }
+          return [...byId.values()];
+        });
+        setSelectedLineIds(new Set());
+        setPage(1);
+      } catch (reloadErr) {
+        showToast(
+          reloadErr instanceof Error
+            ? reloadErr.message
+            : 'Rejected locally — refresh Lines if the server list is stale',
+          'error',
+        );
+      } finally {
+        setIsLoading(false);
+      }
     } catch (err) {
       showToast(
         err instanceof Error ? err.message : 'Failed to reject batch',
@@ -883,6 +963,9 @@ export function CommissionLinesPanel({
               <option value="REIMBURSED_BY_SONARWA">
                 {EXTERNAL_VET_STATUS_LABELS.REIMBURSED_BY_SONARWA}
               </option>
+              <option value="REJECTED">
+                {EXTERNAL_VET_STATUS_LABELS.REJECTED}
+              </option>
               <option value="ALL">All line statuses</option>
             </select>
           </label>
@@ -944,7 +1027,7 @@ export function CommissionLinesPanel({
         )}
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
         {STATUS_OVERVIEW_CARDS.map((card) => {
           const data = statusOverview[card.key];
           const active = statusFilter === card.status;

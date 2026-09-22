@@ -30,7 +30,8 @@ export type ExternalVetReimbursementStatus =
 
 /**
  * Statuses available on the Lines tab (payment validation + reclaim).
- * Includes Initiated so finance can verify sheets before marking paid.
+ * Includes Initiated so finance can verify sheets before marking paid,
+ * and Rejected so finance can confirm a batch reject without leaving Lines.
  */
 export const EXTERNAL_VET_LINES_WORKSPACE_STATUSES = [
   'READY_TO_BE_PAID',
@@ -38,6 +39,7 @@ export const EXTERNAL_VET_LINES_WORKSPACE_STATUSES = [
   'PAID',
   'AWAITING_SONARWA_REIMBURSEMENT',
   'REIMBURSED_BY_SONARWA',
+  'REJECTED',
 ] as const;
 
 export type ExternalVetLinesWorkspaceStatus =
