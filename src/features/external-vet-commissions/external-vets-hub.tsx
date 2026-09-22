@@ -29,6 +29,7 @@ import {
   canApproveBatchForPayment,
   canSendBatchToAdminReview,
   canSubmitDraftBatch,
+  countLinesMissingStageReview,
   isBatchFullyReviewed,
   reviewStageForViewRole,
 } from './line-review';
@@ -447,6 +448,17 @@ export default function ExternalVetsHub({ viewRole }: ExternalVetsHubProps) {
       );
       return;
     }
+    const missingAdmin = countLinesMissingStageReview(detail.lines, 'ADMIN');
+    if (
+      detail.lines.some((l) => (l.reviewEvents?.length ?? 0) > 0) &&
+      missingAdmin > 0
+    ) {
+      showToast(
+        `Confirm your admin decision on every line (${missingAdmin} still need an admin review)`,
+        'error',
+      );
+      return;
+    }
     if (areAllLinesRejected(detail.lines)) {
       showToast(
         'All lines are rejected — reject the application instead',
@@ -647,6 +659,12 @@ export default function ExternalVetsHub({ viewRole }: ExternalVetsHubProps) {
                 .length
             }
           </p>
+        ) : countLinesMissingStageReview(detail.lines, 'ADMIN') > 0 ? (
+          <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+            SONARWA already decided some lines — you must still record an{' '}
+            <strong>admin</strong> decision on every line. Remaining:{' '}
+            {countLinesMissingStageReview(detail.lines, 'ADMIN')}
+          </p>
         ) : areAllLinesRejected(detail.lines) ? (
           <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-900">
             All lines are rejected. Reject the application — it cannot be marked
@@ -654,8 +672,8 @@ export default function ExternalVetsHub({ viewRole }: ExternalVetsHubProps) {
           </p>
         ) : (
           <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900">
-            All lines reviewed. Approving will mark the application ready to
-            pay using approved-line totals only.
+            All lines have an admin decision. Approving will mark the application
+            ready to pay using approved-line totals only.
           </p>
         )}
         <textarea
@@ -673,7 +691,7 @@ export default function ExternalVetsHub({ viewRole }: ExternalVetsHubProps) {
             title={
               canApproveBatchForPayment(detail)
                 ? undefined
-                : 'Finish line reviews first'
+                : 'Finish admin line reviews first'
             }
           >
             {actionBusy ? (

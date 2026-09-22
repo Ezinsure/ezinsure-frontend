@@ -112,23 +112,32 @@ type VetGroup = {
 function VetGroupLinesTable({
   lines,
   selectedLineIds,
-  firstLineIdByBatch,
   canMutate,
+  canReviewLines,
+  reviewStage,
   actionBusy,
   onToggleLine,
   onOpenDetail,
-  onRejectLine,
+  onRejectBatch,
 }: {
   lines: ExternalVetCommissionLineListItem[];
   selectedLineIds: Set<string>;
-  firstLineIdByBatch: Map<string, string>;
   canMutate: boolean;
+  canReviewLines: boolean;
+  reviewStage: ReturnType<typeof reviewStageForViewRole>;
   actionBusy: boolean;
   onToggleLine: (id: string) => void;
   onOpenDetail: (line: ExternalVetCommissionLineListItem) => void;
-  onRejectLine: (line: ExternalVetCommissionLineListItem) => void;
+  onRejectBatch: (line: ExternalVetCommissionLineListItem) => void;
 }) {
   const windowed = useWindowedList(lines, { chunkSize: 40, threshold: 50 });
+  const firstLineIdByBatch = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const line of lines) {
+      if (!map.has(line.batchId)) map.set(line.batchId, line.id);
+    }
+    return map;
+  }, [lines]);
 
   return (
     <div className="overflow-x-auto">
@@ -241,7 +250,11 @@ function VetGroupLinesTable({
                     onClick={() => onOpenDetail(line)}
                   >
                     <Eye className="mr-1 h-3.5 w-3.5" />
-                    View
+                    {canReviewLines &&
+                    reviewStage &&
+                    canReviewLinesAtBatchStatus(reviewStage, line.batchStatus)
+                      ? 'Review'
+                      : 'View'}
                   </Button>
                   {canMutate &&
                   canFinanceRejectBatchStatus(line.batchStatus) &&
@@ -251,11 +264,11 @@ function VetGroupLinesTable({
                       variant="outline"
                       className="border-rose-200 text-rose-700 hover:border-rose-300 hover:bg-rose-50 hover:text-rose-800"
                       disabled={actionBusy}
-                      onClick={() => onRejectLine(line)}
-                      title={`Reject batch ${line.batchNumber}`}
+                      onClick={() => onRejectBatch(line)}
+                      title={`Reject entire batch ${line.batchNumber}`}
                     >
                       <Ban className="mr-1 h-3.5 w-3.5" />
-                      Reject
+                      Reject batch
                     </Button>
                   ) : null}
                 </div>
@@ -457,15 +470,7 @@ export function CommissionLinesPanel({
     };
   }, [endDate, lines, startDate]);
 
-  /** First line index per batch within the current filtered set — for one Reject CTA per batch. */
-  const firstLineIdByBatch = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const line of filteredLines) {
-      if (!map.has(line.batchId)) map.set(line.batchId, line.id);
-    }
-    return map;
-  }, [filteredLines]);
-
+  /** @deprecated kept for finance batch reject dialog targeting; first-line map lives in table. */
   const linesByBatchId = useMemo(() => {
     const map = new Map<string, ExternalVetCommissionLineListItem[]>();
     for (const line of lines) {
@@ -1185,12 +1190,13 @@ export function CommissionLinesPanel({
                   <VetGroupLinesTable
                     lines={group.lines}
                     selectedLineIds={selectedLineIds}
-                    firstLineIdByBatch={firstLineIdByBatch}
                     canMutate={canMutate}
+                    canReviewLines={canReviewLines}
+                    reviewStage={reviewStage}
                     actionBusy={actionBusy}
                     onToggleLine={toggleLine}
                     onOpenDetail={setDetailLine}
-                    onRejectLine={openRejectForLine}
+                    onRejectBatch={openRejectForLine}
                   />
                 ) : null}
               </div>

@@ -114,9 +114,21 @@ function mapLineStatus(value: unknown): ExternalVetLineStatus {
   if ((EXTERNAL_VET_LINE_STATUSES as readonly string[]).includes(status)) {
     return status as ExternalVetLineStatus;
   }
-  // Legacy aliases from early backend drafts
-  if (status === 'APPROVE' || status === 'ACCEPTED') return 'APPROVED';
-  if (status === 'REJECT' || status === 'DECLINED') return 'REJECTED';
+  // Wire / legacy aliases (backend may store APPROVE / REJECT)
+  if (
+    status === 'APPROVE' ||
+    status === 'ACCEPTED' ||
+    status === 'APPROVEDD'
+  ) {
+    return 'APPROVED';
+  }
+  if (
+    status === 'REJECT' ||
+    status === 'DECLINED' ||
+    status === 'REJECTEDED'
+  ) {
+    return 'REJECTED';
+  }
   if (status === 'PENDING' || status === 'UNREVIEWED') return 'PENDING_REVIEW';
   return 'PENDING_REVIEW';
 }

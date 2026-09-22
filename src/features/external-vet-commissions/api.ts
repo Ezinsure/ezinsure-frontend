@@ -38,6 +38,17 @@ import {
 } from './mappers';
 import { batchCreatedInDateRange } from './export/batch-list-export';
 
+/**
+ * Wire format for line-review PUT bodies.
+ * Backend enum expects APPROVE / REJECT (not APPROVED / REJECTED).
+ * Sending the longer form caused validation errors like APPROVEDD / REJECTEDED.
+ */
+export function toLineReviewDecisionWire(
+  decision: 'APPROVED' | 'REJECTED',
+): 'APPROVE' | 'REJECT' {
+  return decision === 'REJECTED' ? 'REJECT' : 'APPROVE';
+}
+
 async function readJson(response: Response): Promise<unknown> {
   try {
     return await response.json();
@@ -503,7 +514,7 @@ export function useExternalVetCommissionsApi() {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            decision: input.decision,
+            decision: toLineReviewDecisionWire(input.decision),
             reason: input.reason?.trim() || undefined,
             stage: input.stage,
             note: input.reason?.trim() || undefined,
@@ -564,7 +575,7 @@ export function useExternalVetCommissionsApi() {
           body: JSON.stringify({
             lineIds: input.lineIds,
             ids: input.lineIds,
-            decision: input.decision,
+            decision: toLineReviewDecisionWire(input.decision),
             reason: input.reason?.trim() || undefined,
             stage: input.stage,
             note: input.reason?.trim() || undefined,

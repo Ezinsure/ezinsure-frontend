@@ -165,6 +165,40 @@ export function isBatchFullyReviewed(
   return lines.every((l) => l.lineStatus !== 'PENDING_REVIEW');
 }
 
+/**
+ * True when every line has an audit event from this review stage.
+ * Used so Admin cannot skip re-confirmation after SONARWA decisions.
+ */
+export function isBatchFullyReviewedAtStage(
+  lines: Pick<ExternalVetCommissionLine, 'reviewEvents'>[],
+  stage: ExternalVetReviewStage,
+): boolean {
+  if (!lines.length) return false;
+  return lines.every((line) =>
+    (line.reviewEvents ?? []).some((event) => event.stage === stage),
+  );
+}
+
+export function countLinesMissingStageReview(
+  lines: Pick<ExternalVetCommissionLine, 'reviewEvents'>[],
+  stage: ExternalVetReviewStage,
+): number {
+  return lines.filter(
+    (line) =>
+      !(line.reviewEvents ?? []).some((event) => event.stage === stage),
+  ).length;
+}
+
+/** Latest decision recorded for a given stage, if any. */
+export function latestStageDecision(
+  events: ExternalVetLineReviewEvent[] | undefined,
+  stage: ExternalVetReviewStage,
+): 'APPROVED' | 'REJECTED' | null {
+  const matching = (events ?? []).filter((e) => e.stage === stage);
+  if (!matching.length) return null;
+  return matching[matching.length - 1]!.decision;
+}
+
 export function areAllLinesRejected(
   lines: Pick<ExternalVetCommissionLine, 'lineStatus'>[],
 ): boolean {
@@ -184,6 +218,26 @@ export function canSubmitDraftBatch(
 }
 
 /**
+ * Admin may mark the batch ready to pay only when every line is decided
+ * and at least one line remains approved.
+ * When reviewEvents exist, every line must also have an ADMIN-stage decision
+ * (SONARWA approval alone is not enough).
+ */
+export function canApproveBatchForPayment(
+  batch: Pick<ExternalVetCommissionBatch, 'status' | 'lines'>,
+): boolean {
+  if (batch.status !== 'PENDING_ADMIN_REVIEW') return false;
+  if (!isBatchFullyReviewed(batch.lines)) return false;
+  const hasAuditTrail = batch.lines.some(
+    (l) => (l.reviewEvents?.length ?? 0) > 0,
+  );
+  if (hasAuditTrail && !isBatchFullyReviewedAtStage(batch.lines, 'ADMIN')) {
+    return false;
+  }
+  return hasPayableApprovedLines(batch.lines);
+}
+
+/**
  * Sonarwa may send the claim to ezInsure admin once every line is decided
  * and at least one line remains approved.
  */
@@ -192,18 +246,12 @@ export function canSendBatchToAdminReview(
 ): boolean {
   if (batch.status !== 'PENDING_SONARWA_REVIEW') return false;
   if (!isBatchFullyReviewed(batch.lines)) return false;
-  return hasPayableApprovedLines(batch.lines);
-}
-
-/**
- * Admin may mark the batch ready to pay only when every line is decided
- * and at least one line remains approved.
- */
-export function canApproveBatchForPayment(
-  batch: Pick<ExternalVetCommissionBatch, 'status' | 'lines'>,
-): boolean {
-  if (batch.status !== 'PENDING_ADMIN_REVIEW') return false;
-  if (!isBatchFullyReviewed(batch.lines)) return false;
+  const hasAuditTrail = batch.lines.some(
+    (l) => (l.reviewEvents?.length ?? 0) > 0,
+  );
+  if (hasAuditTrail && !isBatchFullyReviewedAtStage(batch.lines, 'SONARWA')) {
+    return false;
+  }
   return hasPayableApprovedLines(batch.lines);
 }
 
