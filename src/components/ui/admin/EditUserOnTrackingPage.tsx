@@ -11,22 +11,23 @@ export interface Application {
   _id: string;
   fullName: string;
   email: string;
-  phoneNumber: string;
-  dateOfBirth: string;
-  address: string;
-  province: string;
-  district: string;
-  sector: string;
+  phoneNumber?: string;
+  dateOfBirth?: string;
+  address?: string;
+  province?: string;
+  district?: string;
+  sector?: string;
   status: string;
   /** AGENT or VETERINARY when returned by the API. */
   role?: string;
-  nationalIdDocument: string;
-  criminalRecordCertificate: string;
-  passportPhoto: string;
+  nationalIdDocument?: string;
+  criminalRecordCertificate?: string;
+  passportPhoto?: string;
   /** Veterinarian RCVD licence when role is VETERINARY. */
   rcvdLicenceDocument?: string;
   veterinaryType?: string;
-  emergencyContacts: Array<{
+  /** Optional; apply/create responses may omit this array. */
+  emergencyContacts?: Array<{
     fullName: string;
     phoneNumber: string;
     relationship: string;
@@ -34,8 +35,8 @@ export interface Application {
   createdAt: string;
   submittedAt?: string; // Keep for backward compatibility
   rejectionReason?: string;
-  bankName: string;
-  bankAccountNumber: string;
+  bankName?: string;
+  bankAccountNumber?: string;
 }
 
 interface EditUserModalProps {
@@ -62,7 +63,7 @@ export const EditUserOnTrackingPage = ({
     province: application.province,
     district: application.district,
     sector: application.sector,
-    emergencyContacts: [...application.emergencyContacts]
+    emergencyContacts: [...(application.emergencyContacts ?? [])],
   });
 
   const [files, setFiles] = useState<Record<string, File | null>>({
@@ -95,7 +96,7 @@ export const EditUserOnTrackingPage = ({
         province: application.province,
         district: application.district,
         sector: application.sector,
-        emergencyContacts: [...application.emergencyContacts]
+        emergencyContacts: [...(application.emergencyContacts ?? [])],
       });
 
       // Set up districts based on current province

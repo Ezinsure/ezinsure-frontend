@@ -740,7 +740,27 @@ const handleSubmit = async (e: React.FormEvent) => {
           : 'Registration successful! Your application is under review.',
         'success',
       );
-      setApplication(data.data ?? null);
+      // Apply responses may be sparse (id/email/status only). Normalize so the
+      // status view never crashes on missing arrays/fields.
+      const created = data.data;
+      setApplication(
+        created
+          ? {
+              ...created,
+              emergencyContacts: created.emergencyContacts ?? [],
+              phoneNumber: created.phoneNumber ?? formState.phoneNumber,
+              dateOfBirth: created.dateOfBirth ?? formState.dateOfBirth,
+              address: created.address ?? formState.address,
+              province: created.province ?? formState.province,
+              district: created.district ?? formState.district,
+              sector: created.sector ?? formState.sector,
+              bankName: created.bankName ?? formState.bankName,
+              bankAccountNumber:
+                created.bankAccountNumber ?? formState.bankAccountNumber,
+              role: created.role ?? accountType,
+            }
+          : null,
+      );
       setMode('track');
     } catch (error: unknown) {
       console.error('Registration error:', error);
@@ -857,7 +877,11 @@ const handleSubmit = async (e: React.FormEvent) => {
     setTrackingEmail('');
   };
 
-  const handleViewDocument = (name: string, path: string) => {
+  const handleViewDocument = (name: string, path?: string) => {
+    if (!path?.trim()) {
+      showToast('Document is not available yet. Track your application later to view files.', 'error');
+      return;
+    }
     setViewingDocument({ name, path });
   };
 
@@ -1601,46 +1625,59 @@ const resetApplicationState = () => {
               </div>
               <div>
                 <p className="text-sm text-gray-500">Phone</p>
-                <p className="font-medium">{application.phoneNumber}</p>
+                <p className="font-medium">{application.phoneNumber || '—'}</p>
               </div>
               <div>
                 <p className="text-sm text-gray-500">Date of Birth</p>
-                <p className="font-medium">{formatDateText(application.dateOfBirth, 'long')}</p>
+                <p className="font-medium">
+                  {application.dateOfBirth
+                    ? formatDateText(application.dateOfBirth, 'long')
+                    : '—'}
+                </p>
               </div>
               <div>
                 <p className="text-sm text-gray-500">Address</p>
-                <p className="font-medium">{application.address}</p>
+                <p className="font-medium">{application.address || '—'}</p>
               </div>
               <div>
                 <p className="text-sm text-gray-500">Province</p>
-                <p className="font-medium">{application.province}</p>
+                <p className="font-medium">{application.province || '—'}</p>
               </div>
               <div>
                 <p className="text-sm text-gray-500">District</p>
-                <p className="font-medium">{application.district}</p>
+                <p className="font-medium">{application.district || '—'}</p>
               </div>
               <div>
                 <p className="text-sm text-gray-500">Sector</p>
-                <p className="font-medium">{application.sector}</p>
+                <p className="font-medium">{application.sector || '—'}</p>
               </div>
                <div>
       <p className="text-sm text-gray-500">Bank Name</p>
-      <p className="font-medium">{application.bankName}</p>
+      <p className="font-medium">{application.bankName || '—'}</p>
     </div>
     <div>
       <p className="text-sm text-gray-500">Bank Account Number</p>
-      <p className="font-medium">{application.bankAccountNumber}</p>
+      <p className="font-medium">{application.bankAccountNumber || '—'}</p>
     </div>
               </div>
             </div>
 
             {/* Emergency Contacts */}
             <div className="bg-gray-50 p-4 rounded-lg">
-              <h3 className="font-medium text-gray-900 mb-3">Emergency Contacts</h3>
+              <h3 className="font-medium text-gray-900 mb-3">
+                {isVeterinary || application.role === VETERINARY_ROLE
+                  ? 'Emergency Contact'
+                  : 'Emergency Contacts'}
+              </h3>
               <div className="space-y-4">
-              {application.emergencyContacts.map((contact, index) => (
+              {(application.emergencyContacts?.length ?? 0) > 0 ? (
+                application.emergencyContacts!.map((contact, index) => (
                 <div key={index} className="bg-white p-3 rounded border">
-                <h4 className="text-sm font-medium mb-2">Emergency Contact {index + 1}</h4>
+                <h4 className="text-sm font-medium mb-2">
+                  {isVeterinary || application.role === VETERINARY_ROLE
+                    ? 'Emergency contact'
+                    : `Emergency Contact ${index + 1}`}
+                </h4>
                 <div className="grid grid-cols-2 gap-2">
                   <div>
                   <p className="text-xs text-gray-500">Name</p>
@@ -1656,7 +1693,10 @@ const resetApplicationState = () => {
                   </div>
                 </div>
                 </div>
-              ))}
+                ))
+              ) : (
+                <p className="text-sm text-gray-500">No emergency contact provided.</p>
+              )}
               </div>
             </div>
             </div>
