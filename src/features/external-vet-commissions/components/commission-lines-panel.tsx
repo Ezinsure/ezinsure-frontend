@@ -909,7 +909,7 @@ export function CommissionLinesPanel({
             </div>
             <p className="mt-1 max-w-2xl text-sm text-slate-500">
               {canMutate
-                ? 'Review Ready / Initiated lines, reject incomplete claims with a documented reason, then prepare SONARWA reclaim after payment and mark reimbursed once settled.'
+                ? 'Review Ready / Initiated lines, reject incomplete requests with a documented reason, then prepare SONARWA reclaim after payment and mark reimbursed once settled.'
                 : 'Browse and export commission lines for verification. Select one or more vets to export only their lines. Double-click a row or use View for full details.'}
             </p>
           </div>

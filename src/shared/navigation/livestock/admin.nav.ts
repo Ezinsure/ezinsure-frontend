@@ -29,7 +29,7 @@ export function getLivestockAdminNavigation(rolePrefix: LivestockAdminRolePrefix
         { href: `${base}/vet-analytics`, label: 'Vet Analytics', icon: Stethoscope },
         {
           href: `${base}/external-vets`,
-          label: 'Commission Claims',
+          label: 'Commission Requests',
           icon: UserRoundSearch,
         },
       ],

@@ -10,8 +10,8 @@ export const livestockSonarwaNavigation: NavGroup[] = [
       { href: `${base}/dashboard`, label: 'Dashboard', icon: LayoutDashboard },
       { href: `${base}/applications`, label: 'Applications', icon: FileText },
       {
-        href: `${base}/commission-claims`,
-        label: 'Commission Claims',
+        href: `${base}/commission-requests`,
+        label: 'Commission Requests',
         icon: ClipboardCheck,
       },
     ],

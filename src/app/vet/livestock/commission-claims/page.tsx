@@ -1,5 +1,6 @@
-import ExternalVetsHub from '@/features/external-vet-commissions/external-vets-hub';
+import { redirect } from 'next/navigation';
 
-export default function VetLivestockCommissionClaimsPage() {
-  return <ExternalVetsHub viewRole="vet" />;
+/** Legacy path — renamed to commission-requests. */
+export default function LegacyVetCommissionClaimsRedirect() {
+  redirect('/vet/livestock/commission-requests');
 }

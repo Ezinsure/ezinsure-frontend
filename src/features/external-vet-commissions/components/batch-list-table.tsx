@@ -54,7 +54,7 @@ export function BatchListTable({
   return (
     <div className="max-h-[70vh] overflow-auto rounded-xl border border-slate-200">
       <table className="min-w-full text-left text-sm">
-        <caption className="sr-only">Commission claim batches</caption>
+        <caption className="sr-only">Commission request batches</caption>
         <thead className="sticky top-0 z-10 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
           <tr>
             {selectedIds && onToggleSelectAll ? (

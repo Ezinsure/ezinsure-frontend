@@ -664,7 +664,7 @@ export function LivestockUsersPage({ viewerRole }: LivestockUsersPageProps) {
           <p>
             <strong>{pendingVetCount}</strong> veterinarian registration
             {pendingVetCount === 1 ? '' : 's'} waiting for admin verification.
-            Approve to unlock portal access and commission claims.
+            Approve to unlock portal access and commission requests.
           </p>
           <Button
             type="button"

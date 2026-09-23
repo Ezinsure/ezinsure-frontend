@@ -1,10 +1,10 @@
 /**
- * Authenticated download of the original claim-form workbook.
+ * Authenticated download of the original commission request form.
  *
  * Prefer `GET /batches/:id/sourceDocument` (Bearer) so Cloudinary raw /
  * authenticated assets are not fetched cross-origin from the browser.
  * Falls back to a public `sourceDocumentUrl` when the dedicated endpoint
- * is not yet available (404).
+ * is missing (404) or the caller's role is not yet ACL'd (401/403).
  */
 
 import { EXTERNAL_VET_COMMISSION_ENDPOINTS } from './endpoints';
@@ -13,7 +13,7 @@ export type DownloadSourceDocumentInput = {
   batchId: string;
   /** Display / save-as name (…xlsx / …pdf). */
   fileName: string;
-  /** Legacy public CDN URL when the stream endpoint is missing. */
+  /** Legacy public CDN URL when the stream endpoint is missing or denied. */
   fallbackUrl?: string;
   apiFetch: (path: string, options?: RequestInit) => Promise<Response>;
 };
@@ -22,11 +22,11 @@ function resolveDownloadFileName(
   documentName: string,
   fallback?: string,
 ): string {
-  const named = (documentName || fallback || 'claim-form').trim();
+  const named = (documentName || fallback || 'commission-request-form').trim();
   if (/\.[a-z0-9]{2,5}$/i.test(named)) return named;
   const fromFallback = (fallback || '').trim();
   if (/\.[a-z0-9]{2,5}$/i.test(fromFallback)) return fromFallback;
-  return `${named || 'claim-form'}.xlsx`;
+  return `${named || 'commission-request-form'}.xlsx`;
 }
 
 function triggerBlobDownload(blob: Blob, fileName: string): void {
@@ -49,8 +49,30 @@ async function downloadFromUrl(url: string, fileName: string): Promise<void> {
   triggerBlobDownload(blob, fileName);
 }
 
+async function tryFallbackDownload(
+  fallbackUrl: string | undefined,
+  fileName: string,
+): Promise<'fallback'> {
+  const fallback = fallbackUrl?.trim();
+  if (!fallback) {
+    throw new Error(
+      'Original document is not available. Ask the backend team to grant your role access to GET /batches/:id/sourceDocument (SONARWA, admin, finance, and the owning vet).',
+    );
+  }
+
+  try {
+    await downloadFromUrl(fallback, fileName);
+    return 'fallback';
+  } catch {
+    window.open(fallback, '_blank', 'noopener,noreferrer');
+    throw new Error(
+      'Opened the file in a new tab. If download still fails, the Cloudinary asset needs a signed/authenticated delivery URL from the backend.',
+    );
+  }
+}
+
 /**
- * Download the original claim form for a batch.
+ * Download the original commission request form for a batch.
  * @returns `'stream' | 'signed' | 'fallback'` describing which path succeeded.
  */
 export async function downloadBatchSourceDocument(
@@ -73,7 +95,8 @@ export async function downloadBatchSourceDocument(
         payload.data && typeof payload.data === 'object'
           ? (payload.data as Record<string, unknown>)
           : payload;
-      const signedUrl = nested.url ?? nested.downloadUrl ?? nested.sourceDocumentUrl;
+      const signedUrl =
+        nested.url ?? nested.downloadUrl ?? nested.sourceDocumentUrl;
       if (typeof signedUrl === 'string' && signedUrl.trim()) {
         await downloadFromUrl(signedUrl.trim(), fileName);
         return 'signed';
@@ -86,34 +109,24 @@ export async function downloadBatchSourceDocument(
     return 'stream';
   }
 
-  if (response.status !== 404) {
-    let message = `Download failed (${response.status})`;
-    try {
-      const body = (await response.json()) as { message?: string; error?: string };
-      message = body.message || body.error || message;
-    } catch {
-      // ignore
-    }
-    throw new Error(message);
+  // Missing endpoint, or role ACL not yet granted (common for SONARWA) —
+  // fall back to the batch's stored document URL when present.
+  if (
+    response.status === 404 ||
+    response.status === 401 ||
+    response.status === 403
+  ) {
+    return tryFallbackDownload(input.fallbackUrl, fileName);
   }
 
-  // Backend not rolled out yet — try legacy public URL.
-  const fallback = input.fallbackUrl?.trim();
-  if (!fallback) {
-    throw new Error(
-      'Original document is not available yet. Ask the backend team to expose GET /batches/:id/sourceDocument.',
-    );
-  }
-
+  let message = `Download failed (${response.status})`;
   try {
-    await downloadFromUrl(fallback, fileName);
-    return 'fallback';
+    const body = (await response.json()) as { message?: string; error?: string };
+    message = body.message || body.error || message;
   } catch {
-    window.open(fallback, '_blank', 'noopener,noreferrer');
-    throw new Error(
-      'Opened the file in a new tab. If download still fails, the Cloudinary asset needs a signed/authenticated delivery URL from the backend.',
-    );
+    // ignore
   }
+  throw new Error(message);
 }
 
 export { resolveDownloadFileName };

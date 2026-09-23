@@ -282,10 +282,10 @@ export function UploadCommissionWizard({
     setTemplateBusy(language);
     try {
       await downloadCommissionClaimForm(language);
-      showToast('Claim form downloaded', 'success');
+      showToast('Request form downloaded', 'success');
     } catch (err) {
       showToast(
-        err instanceof Error ? err.message : 'Failed to download claim form',
+        err instanceof Error ? err.message : 'Failed to download request form',
         'error',
       );
     } finally {
@@ -441,8 +441,8 @@ export function UploadCommissionWizard({
 
       showToast(
         isSelfService
-          ? 'Commission claim saved as draft. Submit it for SONARWA review from My Claims.'
-          : 'Commission claim saved as draft. Open it and submit for SONARWA review.',
+          ? 'Commission request saved as draft. Submit it for SONARWA review from My Requests.'
+          : 'Commission request saved as draft. Open it and submit for SONARWA review.',
         'success',
       );
       // Brief delay so the success toast can paint before the modal unmounts.
@@ -503,16 +503,16 @@ export function UploadCommissionWizard({
         <div className="border-b border-slate-200 px-5 py-4">
           <h2 className="text-lg font-semibold text-slate-900">
             {isSelfService
-              ? 'New commission claim'
-              : 'New external vet commission batch'}
+              ? 'New commission request'
+              : 'New commission request batch'}
           </h2>
           <p className="mt-1 text-sm text-slate-500">
             Step {step} of 3 — {stepLabel}
           </p>
           <p className="mt-2 text-xs text-slate-500">
             {isSelfService
-              ? 'Your payout profile is linked automatically. Confirm bank and location details, then upload your claim form lines.'
-              : `Vet payout details are entered in this form. The uploaded claim form supplies the contract lines, and company commission is calculated from net premium × the rate you set (default ${DEFAULT_COMPANY_COMMISSION_PERCENT}%).`}
+              ? 'Your payout profile is linked automatically. Confirm bank and location details, then upload your request form lines.'
+              : `Vet payout details are entered in this form. The uploaded request form supplies the contract lines, and company commission is calculated from net premium × the rate you set (default ${DEFAULT_COMPANY_COMMISSION_PERCENT}%).`}
           </p>
         </div>
 
@@ -679,10 +679,10 @@ export function UploadCommissionWizard({
                   <FileSpreadsheet className="mt-0.5 h-5 w-5 shrink-0 text-slate-500" />
                   <div>
                     <p className="text-sm font-medium text-slate-800">
-                      Official livestock commission claim form
+                      Official livestock commission request form
                     </p>
                     <p className="mt-0.5 text-xs text-slate-500">
-                      Upload the filled claim form in Kinyarwanda or English.
+                      Upload the filled request form in Kinyarwanda or English.
                       Only the table under section 2 (&ldquo;URUTONDE
                       RW&rsquo;AMATUNGO&rdquo; / &ldquo;LIST OF
                       CONTRACTS&rdquo;) is read, up to the TOTAL / IGITERANYO

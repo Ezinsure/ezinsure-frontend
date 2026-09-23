@@ -195,7 +195,7 @@ function buildCreateBatchFormData(input: CreateCommissionBatchInput): FormData {
   formData.append(
     'sourceDocument',
     input.sourceFile,
-    input.sourceFile.name || input.sourceFileName || 'commission-claim.xlsx',
+    input.sourceFile.name || input.sourceFileName || 'commission-request.xlsx',
   );
 
   return formData;
@@ -368,7 +368,7 @@ export function useExternalVetCommissionsApi() {
         throw new Error('externalVetId is required');
       }
       if (!input.sourceFile) {
-        throw new Error('The original claim form file is required');
+        throw new Error('The original request form file is required');
       }
 
       // Do not set Content-Type — the browser sets multipart boundary.

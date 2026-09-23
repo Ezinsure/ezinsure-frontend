@@ -18,7 +18,7 @@ export const REGISTRATION_ACCOUNT_TYPES: {
     id: VETERINARY_ROLE,
     title: 'Veterinarian',
     description:
-      'Submit livestock applications and commission claims. You must wait for admin verification after registering — login stays locked until approved.',
+      'Submit livestock applications and commission requests. You must wait for admin verification after registering — login stays locked until approved.',
   },
 ];
 

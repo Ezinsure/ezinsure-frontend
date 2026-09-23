@@ -19,8 +19,8 @@ export const livestockVetNavigation: NavGroup[] = [
       { href: `${base}/applications/new`, label: 'New application', icon: FilePlus2 },
       { href: `${base}/applications`, label: 'My Applications', icon: FileText },
       {
-        href: `${base}/commission-claims`,
-        label: 'Commission Claims',
+        href: `${base}/commission-requests`,
+        label: 'Commission Requests',
         icon: ClipboardCheck,
       },
       { href: `${base}/renewals`, label: 'Renewals', icon: RefreshCw },

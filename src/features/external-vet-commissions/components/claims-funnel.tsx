@@ -27,25 +27,25 @@ type Props = {
 };
 
 /**
- * Horizontal claim-flow funnel for the Commission Claims overview.
+ * Horizontal request-flow funnel for the Commission Requests overview.
  */
 export function ClaimsFunnel({ stages, onSelectStage }: Props) {
   const total = stages.reduce((sum, s) => sum + s.count, 0) || 1;
 
   return (
     <section
-      aria-label="Commission claims funnel"
+      aria-label="Commission requests funnel"
       className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5"
     >
       <div className="mb-4 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h2 className="text-sm font-semibold text-slate-900">Claim funnel</h2>
+          <h2 className="text-sm font-semibold text-slate-900">Request funnel</h2>
           <p className="mt-1 text-sm text-slate-600">
             Pipeline from draft through SONARWA, admin, finance, and paid.
           </p>
         </div>
         <p className="text-xs text-slate-500">
-          {stages.reduce((sum, s) => sum + s.count, 0)} open claims across stages
+          {stages.reduce((sum, s) => sum + s.count, 0)} open requests across stages
         </p>
       </div>
 

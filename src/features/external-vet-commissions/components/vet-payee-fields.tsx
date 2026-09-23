@@ -44,7 +44,7 @@ export function VetPayeeFields({
           Veterinary agent identification
         </p>
         <p className="mb-3 text-xs text-slate-500">
-          Matches section 1 of the claim form. Bank details are optional when a
+          Matches section 1 of the request form. Bank details are optional when a
           phone / MoMo number is provided.
         </p>
         <div className="grid gap-3 sm:grid-cols-2">

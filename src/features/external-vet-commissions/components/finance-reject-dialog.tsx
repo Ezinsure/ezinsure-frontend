@@ -178,7 +178,7 @@ export function FinanceRejectDialog({
               disabled={busy}
               onChange={(e) => setReason(e.target.value)}
               onBlur={() => setTouched(true)}
-              placeholder="Explain why finance is rejecting this batch (e.g. incorrect line amounts, missing documentation, duplicate claim)…"
+              placeholder="Explain why finance is rejecting this batch (e.g. incorrect line amounts, missing documentation, duplicate request)…"
               className={`w-full resize-y rounded-xl border bg-white px-3.5 py-2.5 text-sm text-slate-800 shadow-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 disabled:opacity-60 ${
                 showError
                   ? 'border-rose-300 focus:border-rose-400 focus:ring-rose-200'

@@ -1,5 +1,6 @@
-import ExternalVetsHub from '@/features/external-vet-commissions/external-vets-hub';
+import { redirect } from 'next/navigation';
 
-export default function SonarwaLivestockCommissionClaimsPage() {
-  return <ExternalVetsHub viewRole="sonarwa" />;
+/** Legacy path — renamed to commission-requests. */
+export default function LegacySonarwaCommissionClaimsRedirect() {
+  redirect('/sonarwa/livestock/commission-requests');
 }

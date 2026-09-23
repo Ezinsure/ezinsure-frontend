@@ -14,8 +14,8 @@ import { DataExportActions } from '@/components/ui/data-export-actions';
 import { useToast } from '@/components/ui/toast';
 import { useExternalVetCommissionsApi } from './api';
 import {
-  COMMISSION_CLAIMS_PRODUCT_NAME,
-  COMMISSION_CLAIMS_PRODUCT_SUBTITLE,
+  COMMISSION_REQUESTS_PRODUCT_NAME,
+  COMMISSION_REQUESTS_PRODUCT_SUBTITLE,
   formatRwf,
   type ExternalVetCommissionBatch,
   type ExternalVetCommissionBatchSummary,
@@ -62,7 +62,7 @@ const TAB_DEFS: {
   },
   {
     id: 'applications',
-    label: 'Applications',
+    label: 'Requests',
     roles: ['admin', 'super_admin', 'finance', 'sonarwa', 'vet'],
   },
   {
@@ -225,10 +225,10 @@ export default function ExternalVetsHub({ viewRole }: ExternalVetsHubProps) {
     setTemplateBusy(language);
     try {
       await downloadCommissionClaimForm(language);
-      showToast('Claim form downloaded', 'success');
+      showToast('Request form downloaded', 'success');
     } catch (err) {
       showToast(
-        err instanceof Error ? err.message : 'Failed to download claim form',
+        err instanceof Error ? err.message : 'Failed to download request form',
         'error',
       );
     } finally {
@@ -441,7 +441,7 @@ export default function ExternalVetsHub({ viewRole }: ExternalVetsHubProps) {
 
   async function handleSubmitDraft(id: string) {
     if (!detail || !canSubmitDraftBatch(detail)) {
-      showToast('Only draft applications with lines can be submitted', 'error');
+      showToast('Only draft requests with lines can be submitted', 'error');
       return;
     }
     setActionBusy(true);
@@ -465,13 +465,13 @@ export default function ExternalVetsHub({ viewRole }: ExternalVetsHubProps) {
     }
     if (areAllLinesRejected(detail.lines)) {
       showToast(
-        'All lines are rejected — reject the application instead',
+        'All lines are rejected — reject the request instead',
         'error',
       );
       return;
     }
     if (!canSendBatchToAdminReview(detail)) {
-      showToast('This application cannot be sent to admin yet', 'error');
+      showToast('This request cannot be sent to admin yet', 'error');
       return;
     }
     setActionBusy(true);
@@ -494,7 +494,7 @@ export default function ExternalVetsHub({ viewRole }: ExternalVetsHubProps) {
     if (!detail) return;
     if (!isBatchFullyReviewed(detail.lines)) {
       showToast(
-        'Review every line before approving this application',
+        'Review every line before approving this request',
         'error',
       );
       return;
@@ -512,13 +512,13 @@ export default function ExternalVetsHub({ viewRole }: ExternalVetsHubProps) {
     }
     if (areAllLinesRejected(detail.lines)) {
       showToast(
-        'All lines are rejected — reject the application instead',
+        'All lines are rejected — reject the request instead',
         'error',
       );
       return;
     }
     if (!canApproveBatchForPayment(detail)) {
-      showToast('This application cannot be marked ready to pay yet', 'error');
+      showToast('This request cannot be marked ready to pay yet', 'error');
       return;
     }
     setActionBusy(true);
@@ -581,7 +581,7 @@ export default function ExternalVetsHub({ viewRole }: ExternalVetsHubProps) {
         updated.status === 'PENDING_ADMIN_REVIEW'
       ) {
         showToast(
-          'All lines are rejected — reject the application when ready',
+          'All lines are rejected — reject the request when ready',
           'error',
         );
       }
@@ -634,7 +634,7 @@ export default function ExternalVetsHub({ viewRole }: ExternalVetsHubProps) {
     detail && canUpload && detail.status === 'DRAFT' ? (
       <div className="space-y-3">
         <p className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
-          This claim is still a draft. Submit it to start SONARWA line review.
+          This request is still a draft. Submit it to start SONARWA line review.
         </p>
         <Button
           onClick={() => void handleSubmitDraft(detail.id)}
@@ -651,7 +651,7 @@ export default function ExternalVetsHub({ viewRole }: ExternalVetsHubProps) {
       <div className="space-y-3">
         {!isBatchFullyReviewed(detail.lines) ? (
           <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-            Decide every line before sending this claim to ezInsure admin.
+            Decide every line before sending this request to ezInsure admin.
             Pending:{' '}
             {
               detail.lines.filter((l) => l.lineStatus === 'PENDING_REVIEW')
@@ -660,7 +660,7 @@ export default function ExternalVetsHub({ viewRole }: ExternalVetsHubProps) {
           </p>
         ) : areAllLinesRejected(detail.lines) ? (
           <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-900">
-            All lines are rejected. Reject the application — it cannot proceed
+            All lines are rejected. Reject the request — it cannot proceed
             to admin.
           </p>
         ) : (
@@ -695,7 +695,7 @@ export default function ExternalVetsHub({ viewRole }: ExternalVetsHubProps) {
             className="w-full sm:w-auto"
           >
             <XCircle className="mr-2 h-4 w-4" />
-            Reject application
+            Reject request
           </Button>
         </div>
       </div>
@@ -704,7 +704,7 @@ export default function ExternalVetsHub({ viewRole }: ExternalVetsHubProps) {
         {!isBatchFullyReviewed(detail.lines) ? (
           <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
             Decide every line (approve or reject) before marking this
-            application ready to pay. Pending:{' '}
+            request ready to pay. Pending:{' '}
             {
               detail.lines.filter((l) => l.lineStatus === 'PENDING_REVIEW')
                 .length
@@ -718,12 +718,12 @@ export default function ExternalVetsHub({ viewRole }: ExternalVetsHubProps) {
           </p>
         ) : areAllLinesRejected(detail.lines) ? (
           <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-900">
-            All lines are rejected. Reject the application — it cannot be marked
+            All lines are rejected. Reject the request — it cannot be marked
             ready to pay.
           </p>
         ) : (
           <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900">
-            All lines have an admin decision. Approving will mark the application
+            All lines have an admin decision. Approving will mark the request
             ready to pay using approved-line totals only.
           </p>
         )}
@@ -759,7 +759,7 @@ export default function ExternalVetsHub({ viewRole }: ExternalVetsHubProps) {
             className="w-full sm:w-auto"
           >
             <XCircle className="mr-2 h-4 w-4" />
-            Reject application
+            Reject request
           </Button>
         </div>
       </div>
@@ -790,10 +790,10 @@ export default function ExternalVetsHub({ viewRole }: ExternalVetsHubProps) {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-slate-900">
-            {COMMISSION_CLAIMS_PRODUCT_NAME}
+            {COMMISSION_REQUESTS_PRODUCT_NAME}
           </h1>
           <p className="mt-1 text-sm text-slate-500">
-            {COMMISSION_CLAIMS_PRODUCT_SUBTITLE}
+            {COMMISSION_REQUESTS_PRODUCT_SUBTITLE}
           </p>
         </div>
         {canUpload && tab === 'applications' ? (
@@ -808,7 +808,7 @@ export default function ExternalVetsHub({ viewRole }: ExternalVetsHubProps) {
               ) : (
                 <Download className="mr-2 h-4 w-4" />
               )}
-              Claim form (Kinyarwanda)
+              Request form (Kinyarwanda)
             </Button>
             <Button
               variant="outline"
@@ -820,7 +820,7 @@ export default function ExternalVetsHub({ viewRole }: ExternalVetsHubProps) {
               ) : (
                 <Download className="mr-2 h-4 w-4" />
               )}
-              Claim form (English)
+              Request form (English)
             </Button>
             <Button onClick={() => setUploadOpen(true)}>
               <Upload className="mr-2 h-4 w-4" />
@@ -833,7 +833,7 @@ export default function ExternalVetsHub({ viewRole }: ExternalVetsHubProps) {
       <div
         className="flex flex-wrap gap-1 border-b border-slate-200"
         role="tablist"
-        aria-label="Commission claims sections"
+        aria-label="Commission requests sections"
       >
         {visibleTabs.map((t) => (
           <button
@@ -854,7 +854,7 @@ export default function ExternalVetsHub({ viewRole }: ExternalVetsHubProps) {
                 : 'border-transparent text-slate-500 hover:text-slate-800'
             }`}
           >
-            {isVet && t.id === 'applications' ? 'My Claims' : t.label}
+            {isVet && t.id === 'applications' ? 'My Requests' : t.label}
           </button>
         ))}
       </div>
@@ -932,16 +932,16 @@ export default function ExternalVetsHub({ viewRole }: ExternalVetsHubProps) {
             isLoading={isLoading}
             emptyMessage={
               tab === 'sonarwa-review'
-                ? 'No claims pending SONARWA review.'
+                ? 'No requests pending SONARWA review.'
                 : tab === 'admin-review'
-                  ? 'No claims pending admin review.'
+                  ? 'No requests pending admin review.'
                   : tab === 'payments'
-                    ? 'No claims ready to be paid.'
+                    ? 'No requests ready to be paid.'
                     : tab === 'initiated'
                       ? 'No initiated payments.'
                       : tab === 'history'
-                        ? 'No paid or reimbursed claims yet.'
-                        : 'No commission claims yet.'
+                        ? 'No paid or reimbursed requests yet.'
+                        : 'No commission requests yet.'
             }
             selectedIds={
               canPay && (tab === 'payments' || tab === 'initiated')
@@ -1228,7 +1228,7 @@ function OverviewSection({
                     colSpan={6}
                     className="px-2 py-8 text-center text-slate-500"
                   >
-                    No commission claimants yet.
+                    No registered vets yet.
                   </td>
                 </tr>
               ) : null}

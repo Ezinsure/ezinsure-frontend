@@ -80,11 +80,18 @@ export type ExternalVetsViewRole =
   | 'sonarwa'
   | 'vet';
 
-/** Product label used across portals (replaces “External Vets”). */
-export const COMMISSION_CLAIMS_PRODUCT_NAME = 'Commission Claims';
+/** Product label used across portals (replaces “External Vets” / “Commission Claims”). */
+export const COMMISSION_REQUESTS_PRODUCT_NAME = 'Commission Requests';
 
+export const COMMISSION_REQUESTS_PRODUCT_SUBTITLE =
+  'Vet commission request batches, line review, payout, and SONARWA reclaim.';
+
+/** @deprecated Use COMMISSION_REQUESTS_PRODUCT_NAME */
+export const COMMISSION_CLAIMS_PRODUCT_NAME = COMMISSION_REQUESTS_PRODUCT_NAME;
+
+/** @deprecated Use COMMISSION_REQUESTS_PRODUCT_SUBTITLE */
 export const COMMISSION_CLAIMS_PRODUCT_SUBTITLE =
-  'Vet commission claim batches, line review, payout, and SONARWA reclaim.';
+  COMMISSION_REQUESTS_PRODUCT_SUBTITLE;
 
 /** Registry payee — not a login user. */
 export type ExternalVet = {

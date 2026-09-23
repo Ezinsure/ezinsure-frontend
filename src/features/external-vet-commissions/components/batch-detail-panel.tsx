@@ -101,7 +101,7 @@ export function BatchDetailPanel({
 
   const documentUrl = batch?.sourceDocumentUrl?.trim() || '';
   const documentName =
-    batch?.sourceDocumentName || batch?.sourceFileName || 'Claim form';
+    batch?.sourceDocumentName || batch?.sourceFileName || 'Request form';
   const downloadFileName = resolveDownloadFileName(
     documentName,
     batch?.sourceFileName,
@@ -144,10 +144,10 @@ export function BatchDetailPanel({
         fallbackUrl: documentUrl || undefined,
         apiFetch,
       });
-      showToast('Claim form downloaded', 'success');
+      showToast('Request form downloaded', 'success');
     } catch (err) {
       showToast(
-        err instanceof Error ? err.message : 'Failed to download claim form',
+        err instanceof Error ? err.message : 'Failed to download request form',
         'error',
       );
     } finally {
@@ -407,7 +407,7 @@ export function BatchDetailPanel({
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <div className="min-w-0">
                     <h3 className="text-sm font-semibold text-slate-800">
-                      Original claim form
+                      Original request form
                     </h3>
                     <p className="mt-1 text-xs leading-relaxed text-slate-500">
                       Downloaded securely via the API. Use this file to verify
