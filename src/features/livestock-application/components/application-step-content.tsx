@@ -1,0 +1,472 @@
+'use client';
+
+import {
+  LivestockRadioGroup,
+  LivestockSelect,
+  LivestockTextArea,
+  LivestockTextField,
+} from '@/features/livestock-application/components/form-controls';
+import { ApplicationReviewPreview } from '@/features/livestock-application/components/application-review-preview';
+import { LivestockItemsTable } from '@/features/livestock-application/components/livestock-items-table';
+import { PoultryLotsTable } from '@/features/livestock-application/components/tables/poultry-lots-table';
+import type { FormProfile } from '@/features/livestock-application/domain/form-profiles';
+import { RwandaLocationFields } from '@/features/livestock-application/components/rwanda-location-fields';
+import { LIVESTOCK_FORM_LABELS } from '@/features/livestock-application/labels';
+import {
+  VET_AVAILABILITY_OPTIONS,
+  YES_NO_OPTIONS,
+  OWNER_GENDER_OPTIONS,
+} from '@/features/livestock-application/constants';
+import { COMPANY_COMMISSION_RATE_SELECT_OPTIONS } from '@/features/livestock-application/domain/commission-rates';
+import { formatCompanyCommissionRateLabel } from '@/features/livestock-application/domain/commission-rates';
+import type {
+  LivestockAnimalRow,
+  LivestockApplicationFormValues,
+  LivestockApplicationStepId,
+} from '@/features/livestock-application/types';
+
+interface ApplicationStepContentProps {
+  stepId: LivestockApplicationStepId;
+  values: LivestockApplicationFormValues;
+  errors: Record<string, string>;
+  disabled?: boolean;
+  setField: <K extends keyof LivestockApplicationFormValues>(
+    key: K,
+    value: LivestockApplicationFormValues[K],
+  ) => void;
+  updateLivestockItem: (id: string, patch: Partial<LivestockAnimalRow>) => void;
+  addLivestockItem: () => void;
+  removeLivestockItem: (id: string) => void;
+  mergeLivestockItems: (items: LivestockAnimalRow[]) => void;
+  formProfile?: FormProfile;
+  lockInsuranceType?: boolean;
+  /** Staff/admin: show company commission rate + amount. Hidden for vets. */
+  showCompanyCommission?: boolean;
+}
+
+export function ApplicationStepContent({
+  stepId,
+  values,
+  errors,
+  disabled,
+  setField,
+  updateLivestockItem,
+  addLivestockItem,
+  removeLivestockItem,
+  mergeLivestockItems,
+  formProfile,
+  lockInsuranceType,
+  showCompanyCommission = false,
+}: ApplicationStepContentProps) {
+  const title = LIVESTOCK_FORM_LABELS.sections[stepId];
+
+  switch (stepId) {
+    case 'insurancePeriod':
+      return (
+        <section className="space-y-4">
+          <h2 className="text-lg font-semibold text-slate-900">{title}</h2>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <LivestockTextField
+              fieldName="policyStartDate"
+              type="date"
+              value={values.policyStartDate}
+              onChange={(v) => setField('policyStartDate', v)}
+              error={errors.policyStartDate}
+              required
+              disabled={disabled}
+            />
+            <LivestockTextField
+              fieldName="policyEndDate"
+              type="date"
+              value={values.policyEndDate}
+              onChange={(v) => setField('policyEndDate', v)}
+              error={errors.policyEndDate}
+              required
+              disabled={disabled}
+            />
+            <LivestockTextField
+              fieldName="farmingExperience"
+              value={values.farmingExperience}
+              onChange={(v) => setField('farmingExperience', v)}
+              disabled={disabled}
+            />
+          </div>
+          <LivestockTextArea
+            fieldName="previousIncidents"
+            value={values.previousIncidents}
+            onChange={(v) => setField('previousIncidents', v)}
+            disabled={disabled}
+          />
+        </section>
+      );
+
+    case 'applicantInfo':
+      return (
+        <section className="space-y-4">
+          <h2 className="text-lg font-semibold text-slate-900">{title}</h2>
+          <LivestockTextField
+            fieldName="ownerName"
+            value={values.ownerName}
+            onChange={(v) => setField('ownerName', v)}
+            error={errors.ownerName}
+            required
+            disabled={disabled}
+          />
+          <div className="flex flex-wrap gap-6">
+            <label className="inline-flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={values.isFirstApplication}
+                disabled={disabled || lockInsuranceType}
+                onChange={(e) => {
+                  setField('isFirstApplication', e.target.checked);
+                  if (e.target.checked) setField('isRenewal', false);
+                }}
+                className="h-4 w-4 rounded border-slate-300"
+              />
+              {LIVESTOCK_FORM_LABELS.fields.isFirstApplication}
+            </label>
+            <label className="inline-flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={values.isRenewal}
+                disabled={disabled || lockInsuranceType}
+                onChange={(e) => {
+                  setField('isRenewal', e.target.checked);
+                  if (e.target.checked) setField('isFirstApplication', false);
+                }}
+                className="h-4 w-4 rounded border-slate-300"
+              />
+              {LIVESTOCK_FORM_LABELS.fields.isRenewal}
+            </label>
+          </div>
+          {errors.applicationType && (
+            <p className="text-xs text-red-600">{errors.applicationType}</p>
+          )}
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <LivestockTextField
+              fieldName="nationalId"
+              value={values.nationalId}
+              onChange={(v) => setField('nationalId', v)}
+              error={errors.nationalId}
+              required
+              disabled={disabled}
+            />
+            <LivestockTextField
+              fieldName="ownerPhone"
+              value={values.ownerPhone}
+              onChange={(v) => setField('ownerPhone', v)}
+              error={errors.ownerPhone}
+              required
+              disabled={disabled}
+            />
+            <LivestockRadioGroup
+              fieldName="ownerGender"
+              value={values.ownerGender}
+              onChange={(v) =>
+                setField('ownerGender', v as LivestockApplicationFormValues['ownerGender'])
+              }
+              options={OWNER_GENDER_OPTIONS}
+              error={errors.ownerGender}
+              required
+              disabled={disabled}
+            />
+          </div>
+        </section>
+      );
+
+    case 'applicantAddress':
+      return (
+        <section className="space-y-4">
+          <h2 className="text-lg font-semibold text-slate-900">{title}</h2>
+          <RwandaLocationFields
+            prefix="applicant"
+            province={values.applicantProvince}
+            district={values.applicantDistrict}
+            sector={values.applicantSector}
+            cell={values.applicantCell}
+            village={values.applicantVillage}
+            onProvinceChange={(v) => setField('applicantProvince', v)}
+            onDistrictChange={(v) => setField('applicantDistrict', v)}
+            onSectorChange={(v) => setField('applicantSector', v)}
+            onCellChange={(v) => setField('applicantCell', v)}
+            onVillageChange={(v) => setField('applicantVillage', v)}
+            errors={errors}
+            disabled={disabled}
+          />
+        </section>
+      );
+
+    case 'livestockLocation':
+      return (
+        <section className="space-y-4">
+          <h2 className="text-lg font-semibold text-slate-900">{title}</h2>
+          <RwandaLocationFields
+            prefix="livestock"
+            province={values.livestockProvince}
+            district={values.district}
+            sector={values.sector}
+            cell={values.cell}
+            village={values.village}
+            onProvinceChange={(v) => setField('livestockProvince', v)}
+            onDistrictChange={(v) => setField('district', v)}
+            onSectorChange={(v) => setField('sector', v)}
+            onCellChange={(v) => setField('cell', v)}
+            onVillageChange={(v) => setField('village', v)}
+            errors={errors}
+            disabled={disabled}
+          />
+        </section>
+      );
+
+    case 'livestockDetails':
+      return (
+        <section className="space-y-4">
+          <h2 className="text-lg font-semibold text-slate-900">{title}</h2>
+          {formProfile?.lineTableVariant === 'POULTRY_LOT' ? (
+            <PoultryLotsTable
+              items={values.livestockItems}
+              errors={errors}
+              disabled={disabled}
+              showOwnerColumns={formProfile.showOwnerColumns}
+              onUpdate={updateLivestockItem}
+              onAdd={addLivestockItem}
+              onRemove={removeLivestockItem}
+            />
+          ) : (
+            <LivestockItemsTable
+              items={values.livestockItems}
+              errors={errors}
+              disabled={disabled}
+              onUpdate={updateLivestockItem}
+              onAdd={addLivestockItem}
+              onRemove={removeLivestockItem}
+              onMergeImported={mergeLivestockItems}
+              showOwnerColumns={formProfile?.showOwnerColumns}
+              fixedAnimalType={formProfile?.lockedAnimalType}
+            />
+          )}
+        </section>
+      );
+
+    case 'veterinarySupport':
+      return (
+        <section className="space-y-4">
+          <h2 className="text-lg font-semibold text-slate-900">{title}</h2>
+          <LivestockRadioGroup
+            fieldName="hasVeterinarian"
+            value={values.hasVeterinarian}
+            onChange={(v) => setField('hasVeterinarian', v)}
+            options={YES_NO_OPTIONS}
+            error={errors.hasVeterinarian}
+            required
+            disabled={disabled}
+          />
+          <LivestockRadioGroup
+            fieldName="veterinarianAvailability"
+            value={values.veterinarianAvailability}
+            onChange={(v) => setField('veterinarianAvailability', v)}
+            options={VET_AVAILABILITY_OPTIONS}
+            error={errors.veterinarianAvailability}
+            required
+            disabled={disabled}
+          />
+        </section>
+      );
+
+    case 'diseaseInfo':
+      return (
+        <section className="space-y-4">
+          <h2 className="text-lg font-semibold text-slate-900">{title}</h2>
+          <LivestockTextArea
+            fieldName="knownDiseases"
+            value={values.knownDiseases}
+            onChange={(v) => setField('knownDiseases', v)}
+            disabled={disabled}
+            rows={5}
+          />
+        </section>
+      );
+
+    case 'bankLoan':
+      return (
+        <section className="space-y-4">
+          <h2 className="text-lg font-semibold text-slate-900">{title}</h2>
+          <LivestockRadioGroup
+            fieldName="hasLoan"
+            value={values.hasLoan}
+            onChange={(v) => setField('hasLoan', v)}
+            options={YES_NO_OPTIONS}
+            error={errors.hasLoan}
+            required
+            disabled={disabled}
+          />
+          {values.hasLoan === 'Yego' && (
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <LivestockTextField
+                fieldName="financialInstitutionName"
+                value={values.financialInstitutionName}
+                onChange={(v) => setField('financialInstitutionName', v)}
+                error={errors.financialInstitutionName}
+                required
+                disabled={disabled}
+              />
+              <LivestockTextField
+                fieldName="institutionLocation"
+                value={values.institutionLocation}
+                onChange={(v) => setField('institutionLocation', v)}
+                disabled={disabled}
+              />
+              <LivestockTextField
+                fieldName="loanAccountNumber"
+                value={values.loanAccountNumber}
+                onChange={(v) => setField('loanAccountNumber', v)}
+                disabled={disabled}
+              />
+              <LivestockTextField
+                fieldName="loanAmount"
+                type="number"
+                value={values.loanAmount}
+                onChange={(v) => setField('loanAmount', v)}
+                error={errors.loanAmount}
+                required
+                disabled={disabled}
+              />
+            </div>
+          )}
+        </section>
+      );
+
+    case 'premiumInfo':
+      return (
+        <section className="space-y-4">
+          <h2 className="text-lg font-semibold text-slate-900">{title}</h2>
+          <p className="rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-xs text-blue-800">
+            {LIVESTOCK_FORM_LABELS.premiumAutoHint}
+          </p>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <LivestockTextField
+              fieldName="premiumPercentage"
+              type="number"
+              step="0.1"
+              inputMode="decimal"
+              value={values.premiumPercentage}
+              onChange={(v) => setField('premiumPercentage', v)}
+              error={errors.premiumPercentage}
+              disabled
+            />
+            <LivestockTextField
+              fieldName="premiumRateAmount"
+              type="number"
+              value={values.premiumRateAmount}
+              onChange={(v) => setField('premiumRateAmount', v)}
+              disabled={disabled}
+            />
+            <LivestockTextField
+              fieldName="farmerContributionAmount"
+              type="number"
+              value={values.farmerContributionAmount}
+              onChange={(v) => setField('farmerContributionAmount', v)}
+              error={errors.farmerContributionAmount}
+              disabled
+            />
+            <LivestockTextField
+              fieldName="governmentContribution"
+              type="number"
+              value={values.governmentContribution}
+              onChange={(v) => setField('governmentContribution', v)}
+              error={errors.governmentContribution}
+              disabled
+            />
+            <LivestockTextField
+              fieldName="veterinaryCommission"
+              type="number"
+              value={values.veterinaryCommission}
+              onChange={(v) => setField('veterinaryCommission', v)}
+              disabled
+            />
+            {showCompanyCommission && (
+              <>
+                <LivestockSelect
+                  fieldName="companyCommissionRate"
+                  value={values.companyCommissionRate}
+                  onChange={(v) => setField('companyCommissionRate', v)}
+                  options={COMPANY_COMMISSION_RATE_SELECT_OPTIONS.map((opt) => ({
+                    value: String(opt.value),
+                    label: opt.label,
+                  }))}
+                  disabled={disabled}
+                  required
+                  placeholder="Hitamo igipimo…"
+                />
+                <LivestockTextField
+                  fieldName="companyCommission"
+                  type="number"
+                  value={values.companyCommission}
+                  onChange={(v) => setField('companyCommission', v)}
+                  disabled
+                  placeholder={formatCompanyCommissionRateLabel(
+                    Number(values.companyCommissionRate || 8),
+                  )}
+                />
+              </>
+            )}
+          </div>
+          {showCompanyCommission && (
+            <p className="text-xs text-slate-500">
+              Company commission is calculated as{' '}
+              <span className="font-semibold text-slate-700">
+                {values.companyCommissionRate || '8'}%
+              </span>{' '}
+              of total premium. Choose 5%, 8%, or 10%.
+            </p>
+          )}
+        </section>
+      );
+
+    case 'veterinaryVerification':
+      return (
+        <section className="space-y-4">
+          <h2 className="text-lg font-semibold text-slate-900">{title}</h2>
+          <LivestockTextField
+            fieldName="insuranceAgentCode"
+            value={values.insuranceAgentCode}
+            onChange={(v) => setField('insuranceAgentCode', v)}
+            disabled={disabled}
+          />
+          <LivestockTextField
+            fieldName="veterinarianLicenseNumber"
+            value={values.veterinarianLicenseNumber}
+            onChange={(v) => setField('veterinarianLicenseNumber', v)}
+            error={errors.veterinarianLicenseNumber}
+            required
+            disabled={disabled}
+          />
+          <LivestockTextField
+            fieldName="veterinarianSignatureName"
+            value={values.veterinarianSignatureName}
+            onChange={(v) => setField('veterinarianSignatureName', v)}
+            error={errors.veterinarianSignatureName}
+            required
+            disabled={disabled}
+          />
+        </section>
+      );
+
+    case 'review':
+      return (
+        <section className="space-y-4">
+          <div>
+            <h2 className="text-lg font-semibold text-slate-900">{title}</h2>
+            <p className="mt-1 text-sm text-slate-600">
+              Reba icyegeranyo cy’ifishi mbere yo kohereza.
+            </p>
+          </div>
+          <ApplicationReviewPreview values={values} formProfile={formProfile} />
+        </section>
+      );
+
+    default:
+      return null;
+  }
+}

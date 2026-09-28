@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { MainLayout } from '@/components/ui/main-layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,45 +8,101 @@ import { FileInput } from '@/components/ui/file-input';
 import { useToast } from '@/components/ui/toast';
 import { rwandaProvinces } from '@/utils/rwanda-administrative';
 import { DocumentViewer } from '@/components/ui/document-viewer';
+import { carTypes, motoTypes, carUses, motoUses } from '@/utils/vehicle-types';
+import { validateInsuranceDuration, normalizeInsuranceDurationPayload } from '@/utils/insurance-duration';
+import { InsuranceDurationField } from '@/components/ui/insurance-duration-field';
+import { NumericInputField } from '@/components/ui/numeric-input-field';
+import {
+  getVehicleManufactureYearBounds,
+  getVehicleManufactureYearValidationError,
+} from '@/utils/vehicle-year';
+import { formatChasisNumberDisplay } from '@/utils/chasis-number';
+import { computeRenewalPricing } from '@/features/renewals/renewal-pricing';
 
-
-interface Application {
+export interface Application {
   _id: string;
   applicationNumber: string;
-  fullName: string;
-  email: string;
-  phoneNumber: string;
-  dateOfBirth: string;
-  address: string;
-  province?: string;
-  district?: string;
-  sector?: string;
   insuranceCategory: string;
   insuranceType: string;
   insuranceDuration: string;
-  vehicleType?: string;
-  vehicleAge?: string;
   status: string;
-  nationalID: string;
-  yellowCard: string;
-  pastInsuranceCertificate: string | null;
-  agentId: string | null;
-  submittedAt: string;
-  rejectionReason?: string;
-  reasonForPaymentRejection: string;
+  invoice?: string;
+  insuranceCertificate?: string;
   proofOfPayment?: string;
-  otp?: string;
-  otpExpires?: string;
-  amount?: number;
   paymentInstructions?: string;
+  transactionId?: string;
+  amount?: number;
+  netPremium?: number;
   companyCommission?: number;
   agentCommission?: number;
-  insuranceCertificate?: string;
-  invoiceId?: string;
-  invoice?: string;
-  invoiceAmount?: string;
+  administrationFees?: string;
   insuranceProvider: string;
-  transactionId?: string;
+  ebm?: string;
+  contract?: string;
+  receipt?: string;
+  submittedAt: string;
+  agent?: {
+    _id: string;
+    fullName: string;
+  } | null;
+  admin?: {
+    _id: string;
+    fullName: string;
+  } | null;
+  client: {
+    _id: string;
+    fullName: string;
+    email: string;
+    phoneNumber: string;
+    dateOfBirth: string;
+    address: string;
+    nationalID: string;
+    identificationDocumentType: string;
+    identificationNumber: string;
+    province: string;
+    district: string;
+    sector: string;
+    createdAt: string;
+  };
+  vehicle?: {
+    _id: string;
+    clientId: string;
+    vehicleType: string;
+    vehicleAge: string;
+    plateNumber?: string;
+    chasisNumber?: string;
+    vehicleUse: string;
+    otherVehicleUse?: string;
+    createdAt: string;
+  };
+  // Legacy fields for backward compatibility
+  fullName?: string;
+  email?: string;
+  phoneNumber?: string;
+  dateOfBirth?: string;
+  address?: string;
+  province?: string;
+  district?: string;
+  sector?: string;
+  vehicleType?: string;
+  vehicleAge?: string;
+  isCOMESA?: boolean;
+  vehicleUse?: string;
+  otherVehicleUse?: string;
+  chasisNumber?: string;
+  nationalID?: string;
+  yellowCard?: string;
+  pastInsuranceCertificate?: string | null;
+  agentId?: string | null;
+  agentFullName?: string;
+  rejectionReason?: string;
+  reasonForPaymentRejection?: string;
+  otp?: string;
+  otpExpires?: string;
+  invoiceId?: string;
+  invoiceAmount?: string;
+  createdAt?: string;
+  insuranceEndAt?: string;
 }
 
 interface OTPModalProps {
@@ -183,16 +239,8 @@ interface EditApplicationModalProps {
   isLoading: boolean;
 }
 
-
-interface EditApplicationModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  application: Application;
-  onSave?: (updatedData: Partial<Application>, files: Record<string, File | null>) => Promise<void>;
-  isLoading: boolean;
-}
-
 const EditApplicationModal = ({ isOpen, onClose, onSave, application, isLoading }: EditApplicationModalProps) => {
+  const vehicleYearBounds = useMemo(() => getVehicleManufactureYearBounds(), []);
   const isInvoiceSent = application.status === 'INVOICE_SENT' || (application.status === 'WAITING_FOR_USER_ACTION' && application.reasonForPaymentRejection);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { showToast } = useToast();
@@ -202,26 +250,44 @@ const EditApplicationModal = ({ isOpen, onClose, onSave, application, isLoading 
   const [availableSectors, setAvailableSectors] = useState<string[]>([]);
   const [transactionId, setTransactionId] = useState('');
 
+  // Parse vehicle use to handle "Other - [description]" format
+  const parseVehicleUse = (vehicleUse: string | undefined) => {
+    if (!vehicleUse) return { vehicleUse: '', otherVehicleUse: '' };
+    
+    if (vehicleUse.startsWith('Other - ')) {
+      return {
+        vehicleUse: 'Other',
+        otherVehicleUse: vehicleUse.substring(8) // Remove "Other - " prefix
+      };
+    }
+    
+    return { vehicleUse, otherVehicleUse: '' };
+  };
+
+  const { vehicleUse: parsedVehicleUse, otherVehicleUse: parsedOtherVehicleUse } = parseVehicleUse(application.vehicleUse);
 
   const [formState, setFormState] = useState<Partial<Application>>(() => {
     if (isInvoiceSent) {
       return {};
     }
     return {
-      fullName: application.fullName,
-      email: application.email,
-      phoneNumber: application.phoneNumber,
-      address: application.address,
-      dateOfBirth: application.dateOfBirth,
+      fullName: application.client?.fullName || application.fullName,
+      email: application.client?.email || application.email,
+      phoneNumber: application.client?.phoneNumber || application.phoneNumber,
+      address: application.client?.address || application.address,
+      dateOfBirth: application.client?.dateOfBirth || application.dateOfBirth,
       insuranceCategory: application.insuranceCategory,
       insuranceType: application.insuranceType,
       insuranceDuration: application.insuranceDuration,
-      vehicleType: application.vehicleType,  
-      vehicleAge: application.vehicleAge, 
-      province: application.province,
-      district: application.district,
-      sector: application.sector,
+      vehicleType: application.vehicle?.vehicleType || application.vehicleType,  
+      vehicleAge: application.vehicle?.vehicleAge || application.vehicleAge, 
+      province: application.client?.province || application.province,
+      district: application.client?.district || application.district,
+      sector: application.client?.sector || application.sector,
       insuranceProvider: application.insuranceProvider,
+      vehicleUse: parsedVehicleUse,
+      otherVehicleUse: parsedOtherVehicleUse,
+      isCOMESA: application.isCOMESA,
     };
   });
 
@@ -244,39 +310,85 @@ const EditApplicationModal = ({ isOpen, onClose, onSave, application, isLoading 
 
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
-  // Update districts when province changes
+  // Initialize districts and sectors when component mounts or application changes
   useEffect(() => {
-    if (formState.province) {
+    if (!isInvoiceSent && application.province) {
+      const selectedProvince = rwandaProvinces.find(p => p.name === application.province);
+      const districts = selectedProvince?.districts || [];
+      // Transform districts to match expected format
+      const transformedDistricts = districts.map(district => ({
+        name: district.name,
+        sectors: district.sectors?.map(sector => sector.name) || []
+      }));
+      setAvailableDistricts(transformedDistricts);
+      
+      if (application.district) {
+        const selectedDistrict = transformedDistricts.find(d => d.name === application.district);
+        const sectors = selectedDistrict?.sectors || [];
+        setAvailableSectors(sectors);
+      }
+    }
+  }, [application.province, application.district, isInvoiceSent]);
+
+  // Update form state when application changes
+  useEffect(() => {
+    if (!isInvoiceSent) {
+      const { vehicleUse: parsedVehicleUse, otherVehicleUse: parsedOtherVehicleUse } = parseVehicleUse(application.vehicleUse);
+      
+      setFormState({
+        fullName: application.client?.fullName || application.fullName,
+        email: application.client?.email || application.email,
+        phoneNumber: application.client?.phoneNumber || application.phoneNumber,
+        address: application.client?.address || application.address,
+        dateOfBirth: application.client?.dateOfBirth || application.dateOfBirth,
+        insuranceCategory: application.insuranceCategory,
+        insuranceType: application.insuranceType,
+        insuranceDuration: application.insuranceDuration,
+        vehicleType: application.vehicle?.vehicleType || application.vehicleType,  
+        vehicleAge: application.vehicle?.vehicleAge || application.vehicleAge, 
+        province: application.client?.province || application.province,
+        district: application.client?.district || application.district,
+        sector: application.client?.sector || application.sector,
+        insuranceProvider: application.insuranceProvider,
+        vehicleUse: parsedVehicleUse,
+        otherVehicleUse: parsedOtherVehicleUse,
+        isCOMESA: application.isCOMESA,
+      });
+    }
+  }, [application, isInvoiceSent]);
+
+  // Update districts when province changes (only for regular edit mode)
+  useEffect(() => {
+    if (formState.province && formState.province !== application.province) {
       const selectedProvince = rwandaProvinces.find(p => p.name === formState.province);
       const districts = selectedProvince?.districts || [];
-      setAvailableDistricts(districts);
+      // Transform districts to match expected format with sector names as strings
+      const transformedDistricts = districts.map(district => ({
+        name: district.name,
+        sectors: district.sectors?.map(sector => sector.name) || []
+      }));
+      setAvailableDistricts(transformedDistricts);
       
-      // Reset district and sector if they're not in the new province
-      if (!districts.some(d => d.name === formState.district)) {
+      // Only clear district and sector if the current district is not in the new province
+      if (!transformedDistricts.some(d => d.name === formState.district)) {
         setFormState(prev => ({ ...prev, district: '', sector: '' }));
       }
-    } else {
-      setAvailableDistricts([]);
-      setFormState(prev => ({ ...prev, district: '', sector: '' }));
     }
-  }, [formState.province]);
+  }, [formState.province, application.province]);
 
-  // Update sectors when district changes
+  // Update sectors when district changes (only for regular edit mode)
   useEffect(() => {
-    if (formState.district) {
+    if (!isInvoiceSent && formState.district && formState.district !== application.district) {
       const selectedDistrict = availableDistricts.find(d => d.name === formState.district);
       const sectors = selectedDistrict?.sectors || [];
       setAvailableSectors(sectors);
       
-      // Reset sector if it's not in the new district
-      if (!sectors.includes(formState.sector || '')) {
+      // Only clear sector if the current sector is not in the new district
+      if (formState.sector && !sectors.includes(formState.sector)) {
         setFormState(prev => ({ ...prev, sector: '' }));
       }
-    } else {
-      setAvailableSectors([]);
-      setFormState(prev => ({ ...prev, sector: '' }));
     }
-  }, [formState.district, availableDistricts]);
+  }, [formState.district, availableDistricts, isInvoiceSent, application.district]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -305,16 +417,51 @@ const EditApplicationModal = ({ isOpen, onClose, onSave, application, isLoading 
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!isInvoiceSent) {
+      const durErr = validateInsuranceDuration(formState.insuranceDuration || '');
+      if (durErr) {
+        setErrors((prev) => ({ ...prev, insuranceDuration: durErr }));
+        return;
+      }
+      const isVehicle =
+        formState.insuranceCategory === 'Car Insurance' ||
+        formState.insuranceCategory === 'MotorBike Insurance';
+      if (isVehicle) {
+        const va = (formState.vehicleAge || '').trim();
+        if (!va) {
+          setErrors((prev) => ({ ...prev, vehicleAge: 'This field is required' }));
+          return;
+        }
+        const yearErr = getVehicleManufactureYearValidationError(va);
+        if (yearErr) {
+          setErrors((prev) => ({ ...prev, vehicleAge: yearErr }));
+          return;
+        }
+      }
+    }
+
     setIsSubmitting(true);
     
     try {
       if (isInvoiceSent) {
-        if (!files.proofOfPayment || !transactionId) {
-          throw new Error('Please select a proof of payment file');
+        // Set validation errors
+        const newErrors: { [key: string]: string } = {};
+        if (!transactionId.trim()) {
+          newErrors.transactionId = 'Transaction ID is required';
+        }
+        if (!files.proofOfPayment) {
+          newErrors.proofOfPayment = 'Proof of payment file is required';
+        }
+        
+        if (Object.keys(newErrors).length > 0) {
+          setErrors(newErrors);
+          setIsSubmitting(false);
+          return;
         }
 
         const paymentFormData = new FormData();
-        paymentFormData.append('proofOfPayment', files.proofOfPayment);
+        paymentFormData.append('proofOfPayment', files.proofOfPayment!); // Non-null assertion safe because of validation above
         paymentFormData.append('transactionId', transactionId);
 
         const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/sendProofofPayment/${application._id}`, {
@@ -332,7 +479,8 @@ const EditApplicationModal = ({ isOpen, onClose, onSave, application, isLoading 
         }
   showToast('Application updated successfully!', 'success');
         if (onSave) {
-          await onSave({ proofOfPayment: files.proofOfPayment.name, transactionId }, { proofOfPayment: files.proofOfPayment });
+          const proofOfPaymentFile = files.proofOfPayment!; // Non-null assertion safe because of validation above
+          await onSave({ proofOfPayment: proofOfPaymentFile.name, transactionId }, { proofOfPayment: proofOfPaymentFile });
         }
       
       onClose();
@@ -340,22 +488,50 @@ const EditApplicationModal = ({ isOpen, onClose, onSave, application, isLoading 
       }
 
       const formData = new FormData();
-      const updatedData: { [key: string]: string | number } = {};
+      const updatedData: Record<string, string | number | boolean | Date> = {};
       const updatedFiles: Record<string, File | null> = {};
       
       Object.entries(formState).forEach(([key, value]) => {
+        // Skip vehicleUse, otherVehicleUse, and isCOMESA as they are handled separately
+        if (key === 'vehicleUse' || key === 'otherVehicleUse' || key === 'isCOMESA') {
+          return;
+        }
+        
         const originalValue = application[key as keyof Application];
         if (value !== undefined && value !== originalValue) {
-          const formattedValue = key === 'dateOfBirth' && value 
-            ? new Date(value as string).toISOString().split('T')[0]
-            : value;
+          let formattedValue: string | boolean | undefined = value as string | boolean | undefined;
+          if (key === 'dateOfBirth' && value) {
+            formattedValue = new Date(value as string).toISOString().split('T')[0];
+          } else if (key === 'insuranceDuration' && typeof value === 'string') {
+            formattedValue = normalizeInsuranceDurationPayload(value);
+          }
           
           formData.append(key, formattedValue as string);
           if (formattedValue !== undefined && formattedValue !== null) {
-            updatedData[key as keyof Application] = formattedValue;
+            // Only assign if it's a primitive value
+            if (typeof formattedValue === 'string' || typeof formattedValue === 'number' || typeof formattedValue === 'boolean') {
+              updatedData[key] = formattedValue;
+            }
           }
         }
       });
+
+      // Handle COMESA status
+      if (formState.isCOMESA !== undefined && formState.isCOMESA !== application.isCOMESA) {
+        formData.append('isCOMESA', formState.isCOMESA.toString());
+        updatedData.isCOMESA = formState.isCOMESA;
+      }
+
+      // Handle vehicle use with "Other" option
+      const currentVehicleUse = application.vehicleUse || '';
+      const newVehicleUse = formState.vehicleUse === 'Other'
+        ? `Other - ${formState.otherVehicleUse || ''}`
+        : formState.vehicleUse;
+      
+      if (formState.vehicleUse !== undefined && newVehicleUse !== currentVehicleUse && newVehicleUse !== undefined) {
+        formData.append('vehicleUse', newVehicleUse);
+        updatedData.vehicleUse = newVehicleUse;
+      }
 
       Object.entries(files).forEach(([key, file]) => {
         if (file) {
@@ -382,7 +558,7 @@ const EditApplicationModal = ({ isOpen, onClose, onSave, application, isLoading 
       showToast('Application updated successfully!', 'success');
       
       if (onSave) {
-        await onSave(updatedData, updatedFiles);
+        await onSave(updatedData as Partial<Application>, updatedFiles);
       }
       
       onClose();
@@ -455,9 +631,19 @@ const EditApplicationModal = ({ isOpen, onClose, onSave, application, isLoading 
       label="Transaction ID"
       name="transactionId"
       value={transactionId}
-      onChange={(e) => setTransactionId(e.target.value)}
+      onChange={(e) => {
+        setTransactionId(e.target.value);
+        if (errors.transactionId) {
+          setErrors(prev => {
+            const newErrors = { ...prev };
+            delete newErrors.transactionId;
+            return newErrors;
+          });
+        }
+      }}
       error={errors.transactionId}
       placeholder="Enter your payment transaction ID"
+      required
     />
                 <FileInput
                   label="Proof of Payment"
@@ -466,6 +652,7 @@ const EditApplicationModal = ({ isOpen, onClose, onSave, application, isLoading 
                   error={errors.proofOfPayment}
                   accept="image/*,.pdf"
                   currentFile={application.proofOfPayment?.split('/').pop()}
+                  required
                 />
               </div>
             ) : (
@@ -606,11 +793,12 @@ const EditApplicationModal = ({ isOpen, onClose, onSave, application, isLoading 
                       className="w-full py-2 px-3 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none"
                     >
                       <option value="Car Insurance">Car Insurance</option>
-                      <option value="Motorbike Insurance">Motorbike Insurance</option>
+                      <option value="MotorBike Insurance">MotorBike Insurance</option>
                       <option value="Building Insurance">Building Insurance</option>
                       <option value="Travel Insurance">Travel Insurance</option>
                       <option value="Health Insurance">Health Insurance</option>
                       <option value="Fire Insurance Coverage">Fire Insurance Coverage</option>
+                      <option value="Tourist Insurance">Tourist Insurance</option>
                     </select>
                     {errors.insuranceCategory && (
                       <p className="mt-1 text-sm text-red-600">{errors.insuranceCategory}</p>
@@ -636,24 +824,25 @@ const EditApplicationModal = ({ isOpen, onClose, onSave, application, isLoading 
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium mb-1">
-                      Insurance Duration <span className="text-red-500">*</span>
-                    </label>
-                    <select
-                      name="insuranceDuration"
+                    <InsuranceDurationField
+                      id="insuranceDuration"
+                      topLabel="Insurance duration"
                       value={formState.insuranceDuration || ''}
-                      onChange={handleInputChange}
-                      className="w-full py-2 px-3 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none"
-                    >
-                      <option value="1 Month">1 Month</option>
-                      <option value="6 Months">6 Months</option>
-                      <option value="12 Months">12 Months</option>
-                    </select>
-                    {errors.insuranceDuration && (
-                      <p className="mt-1 text-sm text-red-600">{errors.insuranceDuration}</p>
-                    )}
+                      onChange={(next) => {
+                        setFormState((prev) => ({ ...prev, insuranceDuration: next }));
+                        if (errors.insuranceDuration) {
+                          setErrors((prev) => {
+                            const nextErr = { ...prev };
+                            delete nextErr.insuranceDuration;
+                            return nextErr;
+                          });
+                        }
+                      }}
+                      error={errors.insuranceDuration}
+                      required
+                    />
                   </div>
-{(formState.insuranceCategory === 'Car Insurance' || formState.insuranceCategory === 'Motorbike Insurance') && (
+{(formState.insuranceCategory === 'Car Insurance' || formState.insuranceCategory === 'MotorBike Insurance') && (
   <>
     <div>
       <label className="block text-sm font-medium mb-1">
@@ -667,19 +856,13 @@ const EditApplicationModal = ({ isOpen, onClose, onSave, application, isLoading 
       >
         <option value="">Select Vehicle Type</option>
         {formState.insuranceCategory === 'Car Insurance' ? (
-          <>
-            <option value="pickup">Pick Up</option>
-            <option value="taxi">Taxi</option>
-            <option value="truck">Truck</option>
-            <option value="sedan">Sedan</option>
-            <option value="suv">SUV</option>
-          </>
+          carTypes.map(type => (
+            <option key={type} value={type}>{type}</option>
+          ))
         ) : (
-          <>
-            <option value="moped">Moped</option>
-            <option value="scooter">Scooter</option>
-            <option value="motorcycle">Motorcycle</option>
-          </>
+          motoTypes.map(type => (
+            <option key={type} value={type}>{type}</option>
+          ))
         )}
       </select>
       {errors.vehicleType && (
@@ -687,21 +870,80 @@ const EditApplicationModal = ({ isOpen, onClose, onSave, application, isLoading 
       )}
     </div>
     <div>
-      <label className="block text-sm font-medium mb-1">
-        Vehicle Year <span className="text-red-500">*</span>
-      </label>
-      <input
-        type="number"
+      <NumericInputField
+        label="Vehicle Year"
         name="vehicleAge"
-        min="1900"
-        max={new Date().getFullYear()}
+        size="form"
+        placeholder="e.g. 2015"
         value={formState.vehicleAge || ''}
+        onChange={(v) => {
+          setFormState((prev) => ({ ...prev, vehicleAge: v }));
+          if (errors.vehicleAge) {
+            setErrors((prev) => {
+              const next = { ...prev };
+              delete next.vehicleAge;
+              return next;
+            });
+          }
+        }}
+        min={vehicleYearBounds.minYear}
+        max={vehicleYearBounds.maxYear}
+        maxDigits={4}
+        error={errors.vehicleAge}
+        required
+        className="mb-0"
+      />
+    </div>
+    <div>
+      <label className="block text-sm font-medium mb-1">
+        Vehicle Use <span className="text-red-500">*</span>
+      </label>
+      <select
+        name="vehicleUse"
+        value={formState.vehicleUse || ''}
         onChange={handleInputChange}
         className="w-full py-2 px-3 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none"
-      />
-      {errors.vehicleAge && (
-        <p className="mt-1 text-sm text-red-600">{errors.vehicleAge}</p>
+      >
+        <option value="">Select Vehicle Use</option>
+        {formState.insuranceCategory === 'Car Insurance' ? (
+          carUses.map(use => (
+            <option key={use} value={use}>{use}</option>
+          ))
+        ) : (
+          motoUses.map(use => (
+            <option key={use} value={use}>{use}</option>
+          ))
+        )}
+      </select>
+      {errors.vehicleUse && (
+        <p className="mt-1 text-sm text-red-600">{errors.vehicleUse}</p>
       )}
+    </div>
+
+    {formState.vehicleUse === 'Other' && (
+      <div className="md:col-span-2">
+        <Input
+          label="Specify Vehicle Use"
+          name="otherVehicleUse"
+          value={formState.otherVehicleUse || ''}
+          onChange={handleInputChange}
+          error={errors.otherVehicleUse}
+          required
+        />
+      </div>
+    )}
+
+    <div className="flex items-center">
+      <input
+        type="checkbox"
+        name="isCOMESA"
+        checked={formState.isCOMESA || false}
+        onChange={(e) => setFormState(prev => ({ ...prev, isCOMESA: e.target.checked }))}
+        className="h-4 w-4 rounded border-gray-300 text-[var(--main-blue)] focus:ring-[var(--main-blue)]"
+      />
+      <label className="ml-2 block text-sm text-gray-700">
+        COMESA Coverage
+      </label>
     </div>
   </>
 )}
@@ -716,7 +958,7 @@ const EditApplicationModal = ({ isOpen, onClose, onSave, application, isLoading 
                       onChange={handleFileChange('nationalID')}
                       error={errors.nationalID}
                       accept="image/*,.pdf"
-                      currentFile={application.nationalID?.split('/').pop()}
+                      currentFile={(application.client?.nationalID || application.nationalID)?.split('/').pop()}
                     />
 
                     <FileInput
@@ -937,6 +1179,8 @@ const handleEditSuccess = async (): Promise<void> => {
         return <span className="px-2 py-1 rounded-full bg-green-100 text-green-700 text-xs font-medium">Payment Verified</span>;
       case 'INSURANCE_ISSUED':
         return <span className="px-2 py-1 rounded-full bg-emerald-100 text-emerald-700 text-xs font-medium">Insurance Issued</span>;
+      case 'CANCELLED':
+        return <span className="px-2 py-1 rounded-full bg-slate-100 text-slate-700 text-xs font-medium">Cancelled</span>;
       default:
         return <span className="px-2 py-1 rounded-full bg-gray-100 text-gray-700 text-xs font-medium">{status}</span>;
     }
@@ -1044,40 +1288,40 @@ const handleEditSuccess = async (): Promise<void> => {
           <div className="space-y-2">
             <div>
               <p className="text-sm text-gray-500">Full Name</p>
-              <p className="font-medium">{application.fullName || 'Unknown'}</p>
+              <p className="font-medium">{application.client?.fullName || application.fullName || 'Unknown'}</p>
             </div>
             <div>
               <p className="text-sm text-gray-500">Email</p>
-              <p className="font-medium">{application.email || 'Unknown'}</p>
+              <p className="font-medium">{application.client?.email || application.email ? application.client?.email || application.email : 'Empty'}</p>
             </div>
             <div>
               <p className="text-sm text-gray-500">Phone</p>
-              <p className="font-medium">{application.phoneNumber || 'Unknown'}</p>
+              <p className="font-medium">{application.client?.phoneNumber || application.phoneNumber || 'Unknown'}</p>
             </div>
             <div>
               <p className="text-sm text-gray-500">Date of Birth</p>
-              <p className="font-medium">{formatDate(application.dateOfBirth)}</p>
+              <p className="font-medium">{formatDate(application.client?.dateOfBirth || application.dateOfBirth || '')}</p>
             </div>
             <div>
               <p className="text-sm text-gray-500">Address</p>
-              <p className="font-medium">{application.address || 'Unknown' }</p>
+              <p className="font-medium">{application.client?.address || application.address || 'Unknown' }</p>
             </div>
-            {application.province && (
+            {(application.client?.province || application.province) && (
               <div>
                 <p className="text-sm text-gray-500">Province</p>
-                <p className="font-medium">{application.province}</p>
+                <p className="font-medium">{application.client?.province || application.province}</p>
               </div>
             )}
-            {application.district && (
+            {(application.client?.district || application.district) && (
               <div>
                 <p className="text-sm text-gray-500">District</p>
-                <p className="font-medium">{application.district}</p>
+                <p className="font-medium">{application.client?.district || application.district}</p>
               </div>
             )}
-            {application.sector && (
+            {(application.client?.sector || application.sector) && (
               <div>
                 <p className="text-sm text-gray-500">Sector</p>
-                <p className="font-medium">{application.sector}</p>
+                <p className="font-medium">{application.client?.sector || application.sector}</p>
               </div>
             )}
           </div>
@@ -1097,26 +1341,98 @@ const handleEditSuccess = async (): Promise<void> => {
               <p className="text-sm text-gray-500">Insurance Category</p>
               <p className="font-medium">{application.insuranceCategory}</p>
             </div>
-            <div>
+
+            {application.insuranceEndAt && (
+              <div>
               <p className="text-sm text-gray-500">Insurance Type</p>
               <p className="font-medium">{application.insuranceType}</p>
-            </div>
+              </div>
+            )}
+            {application.insuranceEndAt && (
+              <div className="sm:col-span-2">
+                <p className="text-sm text-gray-500">Insurance end date</p>
+                <p className="font-medium">
+                  {new Date(application.insuranceEndAt).toLocaleDateString()}
+                </p>
+                {(() => {
+                  const net = Number(application.netPremium ?? application.amount ?? 0);
+                  const offer = net
+                    ? computeRenewalPricing({
+                        netPremium: net,
+                        agentCommission: Number(application.agentCommission ?? 0),
+                      })
+                    : null;
+                  return (
+                    <div className="mt-3 rounded-lg border border-blue-100 bg-blue-50 p-3">
+                      <p className="text-sm font-semibold text-blue-950">
+                        Renew now and receive a 1% renewal discount
+                      </p>
+                      {offer && (
+                        <p className="mt-1 text-xs text-blue-900">
+                          Estimated discount: {offer.discountAmount.toLocaleString()} RWF. Expected
+                          payment: {offer.expectedPaymentAmount.toLocaleString()} RWF. Contact your
+                          agent or vet to complete the renewal.
+                        </p>
+                      )}
+                      <a
+                        href={`/track?renew=${encodeURIComponent(application.applicationNumber)}`}
+                        className="mt-3 inline-flex items-center rounded-lg bg-[var(--main-blue,#1d4ed8)] px-4 py-2 text-sm font-semibold text-white hover:opacity-95"
+                      >
+                        Renew this insurance
+                      </a>
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
+            {application.agent && (
+              <div>
+                <p className="text-sm text-gray-500">Agent</p>
+                <p className="font-medium">{application.agent.fullName}</p>
+              </div>
+            )}
+            {application.admin && (
+              <div>
+                <p className="text-sm text-gray-500">Admin</p>
+                <p className="font-medium">{application.admin.fullName}</p>
+              </div>
+            )}
             <div>
               <p className="text-sm text-gray-500">Duration</p>
               <p className="font-medium">{application.insuranceDuration}</p>
             </div>
-            {(application.insuranceCategory === 'Car Insurance' || application.insuranceCategory === 'Motorbike Insurance') && (
+            {(application.insuranceCategory === 'Car Insurance' || application.insuranceCategory === 'MotorBike Insurance') && (
               <>
-                {application.vehicleType && (
+                {(application.vehicle?.vehicleType || application.vehicleType) && (
                   <div>
                     <p className="text-sm text-gray-500">Vehicle Type</p>
-                    <p className="font-medium">{application.vehicleType}</p>
+                    <p className="font-medium">{application.vehicle?.vehicleType || application.vehicleType}</p>
                   </div>
                 )}
-                {application.vehicleAge && (
+                {(application.vehicle?.vehicleAge || application.vehicleAge) && (
                   <div>
                     <p className="text-sm text-gray-500">Vehicle Year</p>
-                    <p className="font-medium">{application.vehicleAge}</p>
+                    <p className="font-medium">{application.vehicle?.vehicleAge || application.vehicleAge}</p>
+                  </div>
+                )}
+                {(application.vehicle?.vehicleUse || application.vehicleUse) && (
+                  <div>
+                    <p className="text-sm text-gray-500">Vehicle Use</p>
+                    <p className="font-medium">
+                      {(application.vehicle?.vehicleUse || application.vehicleUse) === 'Other' 
+                        ? (application.vehicle?.otherVehicleUse || application.otherVehicleUse)
+                        : (application.vehicle?.vehicleUse || application.vehicleUse)}
+                    </p>
+                  </div>
+                )}
+                <div>
+                  <p className="text-sm text-gray-500">Chassis number</p>
+                  <p className="font-medium">{formatChasisNumberDisplay(application)}</p>
+                </div>
+                {application.isCOMESA !== undefined && (
+                  <div>
+                    <p className="text-sm text-gray-500">COMESA Coverage</p>
+                    <p className="font-medium">{application.isCOMESA ? 'Yes' : 'No'}</p>
                   </div>
                 )}
               </>
@@ -1155,7 +1471,7 @@ const handleEditSuccess = async (): Promise<void> => {
             <Button 
               variant="text" 
               size="sm"
-              onClick={() => handleViewDocument('National ID / Passport', application.nationalID)}
+              onClick={() => handleViewDocument('National ID / Passport', application.client?.nationalID || application.nationalID || '')}
             >
               View
             </Button>
@@ -1168,7 +1484,7 @@ const handleEditSuccess = async (): Promise<void> => {
             <Button 
               variant="text" 
               size="sm"
-              onClick={() => handleViewDocument('Yellow Card', application.yellowCard)}
+              onClick={() => handleViewDocument('Yellow Card', application.yellowCard || '')}
             >
               View
             </Button>
@@ -1228,6 +1544,51 @@ const handleEditSuccess = async (): Promise<void> => {
                 variant="text" 
                 size="sm"
                 onClick={() => handleViewDocument('Insurance Certificate', application.insuranceCertificate!)}
+              >
+                View
+              </Button>
+            </div>
+          )}
+          {application.contract && (
+            <div className="flex items-center justify-between bg-white p-3 rounded border">
+              <div>
+                <p className="text-sm font-medium">Contract</p>
+                <p className="text-xs text-gray-500">Insurance contract document</p>
+              </div>
+              <Button 
+                variant="text" 
+                size="sm"
+                onClick={() => handleViewDocument('Contract', application.contract!)}
+              >
+                View
+              </Button>
+            </div>
+          )}
+          {application.receipt && (
+            <div className="flex items-center justify-between bg-white p-3 rounded border">
+              <div>
+                <p className="text-sm font-medium">Receipt</p>
+                <p className="text-xs text-gray-500">Payment receipt document</p>
+              </div>
+              <Button 
+                variant="text" 
+                size="sm"
+                onClick={() => handleViewDocument('Receipt', application.receipt!)}
+              >
+                View
+              </Button>
+            </div>
+          )}
+          {application.ebm && (
+            <div className="flex items-center justify-between bg-white p-3 rounded border">
+              <div>
+                <p className="text-sm font-medium">EBM</p>
+                <p className="text-xs text-gray-500">EBM document</p>
+              </div>
+              <Button 
+                variant="text" 
+                size="sm"
+                onClick={() => handleViewDocument('EBM', application.ebm!)}
               >
                 View
               </Button>
@@ -1313,6 +1674,14 @@ const handleEditSuccess = async (): Promise<void> => {
           <h4 className="font-medium text-emerald-700 mb-2">Insurance Issued</h4>
           <p className="text-sm text-gray-600">
             Your insurance has been issued. You can download your certificate above.
+          </p>
+        </div>
+      )}
+      {application.status === 'CANCELLED' && (
+        <div className="mt-6 bg-slate-50 p-4 rounded-lg">
+          <h4 className="font-medium text-slate-700 mb-2">Application Cancelled</h4>
+          <p className="text-sm text-gray-600">
+            This application was cancelled. You can start a new application anytime.
           </p>
         </div>
       )}

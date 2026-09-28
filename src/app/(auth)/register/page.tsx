@@ -10,9 +10,202 @@ import { validateForm, ValidationRules, validationPatterns } from '@/components/
 import { MainLayout } from '@/components/ui/main-layout';
 import { DocumentViewer } from '@/components/ui/document-viewer';
 import { rwandaProvinces } from '@/utils/rwanda-administrative';
+import { rwandaBanks } from '@/utils/rwanda-banks';
 import { FileInput } from '@/components/ui/file-input'; 
 import { Application, EditUserOnTrackingPage } from '@/components/ui/admin/EditUserOnTrackingPage';
+import { formatDateText, formatDateTime } from '@/utils/date-formatter';
 import Link from 'next/link';
+import { AccountTypePicker } from '@/features/account-registration/account-type-picker';
+import {
+  submitRegistrationApplication,
+  trackRegistrationApplication,
+} from '@/features/account-registration/apply-api';
+import {
+  registrationRoleLabel,
+  type RegistrationAccountType,
+} from '@/features/account-registration/types';
+import { VETERINARY_ROLE } from '@/shared/utils/role';
+
+// Device tracking utility types and functions
+interface DeviceInfo {
+  userAgent: string;
+  platform: string;
+  timezone: string;
+  deviceMemory?: number;
+  devicePixelRatio: number;
+  viewportSize: string;
+  browserName: string;
+  browserVersion: string;
+  operatingSystem: string;
+}
+
+interface LocationInfo {
+  latitude?: number;
+  longitude?: number;
+  accuracy?: number;
+  timestamp?: number;
+  error?: string;
+  ipLocation?: {
+    country?: string;
+    region?: string;
+    city?: string;
+    timezone?: string;
+  };
+}
+
+interface TrackingData {
+  deviceInfo: DeviceInfo;
+  locationInfo: LocationInfo;
+  sessionId: string;
+  timestamp: number;
+}
+
+// Device info utility
+const getDeviceInfo = (): DeviceInfo => {
+  const ua = navigator.userAgent;
+  
+  const getBrowserInfo = () => {
+    const browsers = [
+      { name: 'Chrome', regex: /Chrome\/([0-9.]+)/ },
+      { name: 'Firefox', regex: /Firefox\/([0-9.]+)/ },
+      { name: 'Safari', regex: /Safari\/([0-9.]+)/ },
+      { name: 'Edge', regex: /Edge\/([0-9.]+)/ },
+      { name: 'Opera', regex: /Opera\/([0-9.]+)/ },
+    ];
+    
+    for (const browser of browsers) {
+      const match = ua.match(browser.regex);
+      if (match) {
+        return { name: browser.name, version: match[1] };
+      }
+    }
+    return { name: 'Unknown', version: 'Unknown' };
+  };
+
+  const getOperatingSystem = () => {
+    // Prioritize navigator.platform as it's more reliable than userAgent
+    const platform = navigator.platform.toLowerCase();
+    
+    // Check platform first (most reliable)
+    if (platform.includes('win')) return 'Windows';
+    if (platform.includes('mac')) return 'macOS';
+    if (platform.includes('linux')) return 'Linux';
+    if (platform.includes('iphone') || platform.includes('ipad') || platform.includes('ipod')) return 'iOS';
+    if (platform.includes('android')) return 'Android';
+    
+    // Fallback to userAgent parsing if platform doesn't help
+    if (ua.includes('Windows')) return 'Windows';
+    if (ua.includes('Android')) return 'Android';
+    if (ua.includes('iPhone') || ua.includes('iPad')) return 'iOS';
+    if (ua.includes('Mac OS X') && !ua.includes('iPhone') && !ua.includes('iPad')) return 'macOS';
+    if (ua.includes('Linux')) return 'Linux';
+    
+    return 'Unknown';
+  };
+
+  const browser = getBrowserInfo();
+  
+  return {
+    userAgent: ua,
+    platform: navigator.platform,
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    deviceMemory: (navigator as unknown as { deviceMemory?: number }).deviceMemory,
+    devicePixelRatio: window.devicePixelRatio,
+    viewportSize: `${window.innerWidth}x${window.innerHeight}`,
+    browserName: browser.name,
+    browserVersion: browser.version,
+    operatingSystem: getOperatingSystem(),
+  };
+};
+
+// Location info utility
+const getLocationInfo = async (): Promise<LocationInfo> => {
+  const locationInfo: LocationInfo = {};
+
+  // Try GPS location (silent)
+  try {
+    const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+      if (!navigator.geolocation) {
+        reject(new Error('Geolocation not supported'));
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        resolve,
+        reject,
+        {
+          enableHighAccuracy: false,
+          timeout: 5000,
+          maximumAge: 300000,
+        }
+      );
+    });
+
+    locationInfo.latitude = position.coords.latitude;
+    locationInfo.longitude = position.coords.longitude;
+    locationInfo.accuracy = position.coords.accuracy;
+    locationInfo.timestamp = position.timestamp;
+  } catch (error) {
+    locationInfo.error = error instanceof Error ? error.message : 'Location access denied';
+  }
+
+  // Try IP-based location
+  try {
+    const response = await fetch('https://ipapi.co/json/');
+    if (response.ok) {
+      const ipData = await response.json();
+      locationInfo.ipLocation = {
+        country: ipData.country_name,
+        region: ipData.region,
+        city: ipData.city,
+        timezone: ipData.timezone,
+      };
+    }
+  } catch (error) {
+    console.debug('IP location lookup failed:', error);
+  }
+
+  return locationInfo;
+};
+
+// Session ID utility
+const getSessionId = (): string => {
+  const storageKey = 'ezinsure_session_id';
+  let sessionId;
+  
+  try {
+    sessionId = sessionStorage.getItem(storageKey);
+  } catch (error) {
+    console.log('Session storage access failed:', error);
+    sessionId = null;
+  }
+  
+  if (!sessionId) {
+    sessionId = `session_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
+    try {
+      sessionStorage.setItem(storageKey, sessionId);
+    } catch (error) {
+      console.log('Failed to set session ID in storage:', error);
+    }
+  }
+  
+  return sessionId;
+};
+
+// Get complete tracking data
+const getTrackingData = async (): Promise<TrackingData> => {
+  const [deviceInfo, locationInfo] = await Promise.all([
+    Promise.resolve(getDeviceInfo()),
+    getLocationInfo(),
+  ]);
+
+  return {
+    deviceInfo,
+    locationInfo,
+    sessionId: getSessionId(),
+    timestamp: Date.now(),
+  };
+};
 
 
 interface FormState {
@@ -25,9 +218,11 @@ interface FormState {
   province: string;
   district: string;
   sector: string;
-  role: 'AGENT';
+  role: RegistrationAccountType;
+  veterinaryType: string;
   nationalIdDocument: File | null;
   criminalRecordCertificate: File | null;
+  rcvdLicenceDocument: File | null;
   passportPhoto: File | null;
   emergencyContact1Name: string;
   emergencyContact1PhoneNumber: string;
@@ -35,7 +230,7 @@ interface FormState {
   emergencyContact2Name: string;
   emergencyContact2PhoneNumber: string;
   emergencyContact2Relationship: string;
-    bankName: string;
+  bankName: string;
   bankAccountNumber: string;
 }
 
@@ -55,9 +250,15 @@ const OTPModal = ({ isOpen, onClose, onVerify, email, isLoading }: OTPModalProps
   useEffect(() => {
     if (isOpen) {
       setOtp(['', '', '', '', '', '']);
+    }
+  }, [isOpen]);
+
+  // Show toast when modal opens
+  useEffect(() => {
+    if (isOpen) {
       showToast(`OTP sent to your email: ${email}`, 'success');
     }
-  }, [isOpen, email, showToast]);
+  }, [isOpen, email]);
 
   const handleOtpChange = (index: number, value: string) => {
     if (value.length > 1) return;
@@ -170,6 +371,10 @@ export default function AgentRegistrationPage() {
   // const router = useRouter();
   const { showToast, ToastContainer } = useToast();
   const [showEditModal, setShowEditModal] = useState(false);
+  const [trackingData, setTrackingData] = useState<TrackingData | null>(null);
+  const [accountType, setAccountType] = useState<RegistrationAccountType | null>(
+    null,
+  );
   const [formState, setFormState] = useState<FormState>({
     fullName: '',
     email: '',
@@ -180,8 +385,10 @@ export default function AgentRegistrationPage() {
     district: '',
     sector: '',
     role: 'AGENT',
+    veterinaryType: '',
     nationalIdDocument: null,
     criminalRecordCertificate: null,
+    rcvdLicenceDocument: null,
     passportPhoto: null,
     emergencyContact1Name: '',
     emergencyContact1PhoneNumber: '',
@@ -202,7 +409,10 @@ export default function AgentRegistrationPage() {
   const [tempEmail, setTempEmail] = useState('');
   const [trackingEmail, setTrackingEmail] = useState('');
   const [viewingDocument, setViewingDocument] = useState<{ name: string; path: string } | null>(null);
-  const [mode, setMode] = useState<'new' | 'track'>('new');
+  const [mode, setMode] = useState<'choose' | 'new' | 'track'>('choose');
+
+  const isVeterinary = accountType === VETERINARY_ROLE;
+  const roleNoun = registrationRoleLabel(accountType || 'AGENT');
 
   const validationRules: ValidationRules = {
     fullName: { required: true, minLength: 2 },
@@ -213,13 +423,85 @@ export default function AgentRegistrationPage() {
     district: { required: true },
     sector: { required: true },
     bankName: { required: true },
-  bankAccountNumber: { required: true, minLength: 5, pattern: /^[0-9]+$/ },
-    emergencyContact1Name: { required: true, minLength: 2 },
-    emergencyContact1PhoneNumber: { required: true, pattern: validationPatterns.phone },
-    emergencyContact1Relationship: { required: true },
-    emergencyContact2Name: { required: true, minLength: 2 },
-    emergencyContact2PhoneNumber: { required: true, pattern: validationPatterns.phone },
-    emergencyContact2Relationship: { required: true },
+    bankAccountNumber: { 
+      required: true, 
+      minLength: 10,
+      maxLength: 16,
+      pattern: /^[0-9]+$/,
+      validate: (value: string) => {
+        if (!value) return 'Bank account number is required';
+        if (!/^\d+$/.test(value)) return 'Bank account number must contain only digits (0-9)';
+        if (value.length < 10) return 'Bank account number must be at least 10 digits';
+        if (value.length > 16) return 'Bank account number must be at most 16 digits';
+        return true;
+      }
+    },
+    ...(isVeterinary
+      ? {
+          veterinaryType: { required: true },
+          // One optional emergency contact — if any field is filled, validate the set
+          emergencyContact1Name: {
+            required: false,
+            minLength: 2,
+            validate: (value: string) => {
+              const started =
+                Boolean(value?.trim()) ||
+                Boolean(formState.emergencyContact1PhoneNumber.trim()) ||
+                Boolean(formState.emergencyContact1Relationship.trim());
+              if (!started) return true;
+              if (!value?.trim() || value.trim().length < 2) {
+                return 'Enter the contact name (or clear all emergency fields)';
+              }
+              return true;
+            },
+          },
+          emergencyContact1PhoneNumber: {
+            required: false,
+            pattern: validationPatterns.phone,
+            validate: (value: string) => {
+              const started =
+                Boolean(formState.emergencyContact1Name.trim()) ||
+                Boolean(value?.trim()) ||
+                Boolean(formState.emergencyContact1Relationship.trim());
+              if (!started) return true;
+              if (!value?.trim()) {
+                return 'Enter the contact phone (or clear all emergency fields)';
+              }
+              if (!validationPatterns.phone.test(value.trim())) {
+                return 'Enter a valid phone number (250XXXXXXXXX)';
+              }
+              return true;
+            },
+          },
+          emergencyContact1Relationship: {
+            required: false,
+            validate: (value: string) => {
+              const started =
+                Boolean(formState.emergencyContact1Name.trim()) ||
+                Boolean(formState.emergencyContact1PhoneNumber.trim()) ||
+                Boolean(value?.trim());
+              if (!started) return true;
+              if (!value?.trim()) {
+                return 'Select a relationship (or clear all emergency fields)';
+              }
+              return true;
+            },
+          },
+        }
+      : {
+          emergencyContact1Name: { required: true, minLength: 2 },
+          emergencyContact1PhoneNumber: {
+            required: true,
+            pattern: validationPatterns.phone,
+          },
+          emergencyContact1Relationship: { required: true },
+          emergencyContact2Name: { required: true, minLength: 2 },
+          emergencyContact2PhoneNumber: {
+            required: true,
+            pattern: validationPatterns.phone,
+          },
+          emergencyContact2Relationship: { required: true },
+        }),
      dateOfBirth: { 
     required: true,
     validate: (value) => {
@@ -241,9 +523,14 @@ export default function AgentRegistrationPage() {
     if (formState.province) {
       const selectedProvince = rwandaProvinces.find(p => p.name === formState.province);
       const districts = selectedProvince?.districts || [];
-      setAvailableDistricts(districts);
+      // Transform districts to match expected format with sector names as strings
+      const transformedDistricts = districts.map(district => ({
+        name: district.name,
+        sectors: district.sectors?.map(sector => sector.name) || []
+      }));
+      setAvailableDistricts(transformedDistricts);
       
-      if (!districts.some(d => d.name === formState.district)) {
+      if (!transformedDistricts.some(d => d.name === formState.district)) {
         setFormState(prev => ({ ...prev, district: '', sector: '' }));
       }
     } else {
@@ -267,6 +554,20 @@ export default function AgentRegistrationPage() {
       setFormState(prev => ({ ...prev, sector: '' }));
     }
   }, [formState.district, availableDistricts]);
+
+  // Initialize tracking data on component mount
+  useEffect(() => {
+    const initializeTracking = async () => {
+      try {
+        const data = await getTrackingData();
+        setTrackingData(data);
+      } catch (error) {
+        console.error('[Register] Tracking initialization failed:', error);
+      }
+    };
+
+    initializeTracking();
+  }, []);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -299,8 +600,13 @@ const handleFileChange = (file: File | null, fieldName: keyof FormState) => {
     if (!formState.nationalIdDocument) {
       fileErrors.nationalIdDocument = 'National ID document is required';
     }
-    if (!formState.criminalRecordCertificate) {
-      fileErrors.criminalRecordCertificate = 'Criminal record document is required';
+    if (isVeterinary) {
+      if (!formState.rcvdLicenceDocument) {
+        fileErrors.rcvdLicenceDocument = 'RCVD licence document is required';
+      }
+    } else if (!formState.criminalRecordCertificate) {
+      fileErrors.criminalRecordCertificate =
+        'Criminal record document is required';
     }
     if (!formState.passportPhoto) {
       fileErrors.passportPhoto = 'Passport photo is required';
@@ -326,6 +632,15 @@ const handleFileChange = (file: File | null, fieldName: keyof FormState) => {
       }
     }
 
+    if (formState.rcvdLicenceDocument) {
+      if (!allowedDocTypes.includes(formState.rcvdLicenceDocument.type)) {
+        fileErrors.rcvdLicenceDocument = 'RCVD licence must be PDF, JPEG, or PNG';
+      } else if (formState.rcvdLicenceDocument.size > maxFileSize) {
+        fileErrors.rcvdLicenceDocument =
+          'RCVD licence file size must be less than 5MB';
+      }
+    }
+
     if (formState.passportPhoto) {
       if (!allowedImageTypes.includes(formState.passportPhoto.type)) {
         fileErrors.passportPhoto = 'Passport photo must be JPEG or PNG';
@@ -339,6 +654,12 @@ const handleFileChange = (file: File | null, fieldName: keyof FormState) => {
 
 const handleSubmit = async (e: React.FormEvent) => {
   e.preventDefault();
+
+  if (!accountType) {
+    showToast('Choose an account type first', 'error');
+    setMode('choose');
+    return;
+  }
 
   const formErrors = validateForm(formState, validationRules);
   const fileErrors = validateFiles();
@@ -361,47 +682,88 @@ const handleSubmit = async (e: React.FormEvent) => {
       formData.append('province', formState.province);
       formData.append('district', formState.district);
       formData.append('sector', formState.sector);
-      formData.append('role', formState.role);
+      formData.append('role', accountType);
       formData.append('bankName', formState.bankName);
       formData.append('bankAccountNumber', formState.bankAccountNumber);
+
+      if (isVeterinary && formState.veterinaryType) {
+        formData.append('veterinaryType', formState.veterinaryType);
+      }
       
       // Files
       if (formState.nationalIdDocument) {
         formData.append('nationalIdDocument', formState.nationalIdDocument);
       }
-      if (formState.criminalRecordCertificate) {
+      if (!isVeterinary && formState.criminalRecordCertificate) {
         formData.append('criminalRecordCertificate', formState.criminalRecordCertificate);
+      }
+      if (isVeterinary && formState.rcvdLicenceDocument) {
+        formData.append('rcvdLicenceDocument', formState.rcvdLicenceDocument);
       }
       if (formState.passportPhoto) {
         formData.append('passportPhoto', formState.passportPhoto);
       }
       
-      // Emergency Contacts (individual fields as per Swagger)
-      formData.append('emergencyContacts1Name', formState.emergencyContact1Name);
-      formData.append('emergencyContacts1Phone', formState.emergencyContact1PhoneNumber);
-      formData.append('emergencyContacts1Relationship', formState.emergencyContact1Relationship);
-      
-      formData.append('emergencyContacts2Name', formState.emergencyContact2Name);
-      formData.append('emergencyContacts2Phone', formState.emergencyContact2PhoneNumber);
-      formData.append('emergencyContacts2Relationship', formState.emergencyContact2Relationship);
-
-      console.log("Submitting form data:", formData)
-
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/agents/apply`, {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Registration failed');
+      // Emergency contacts (Swagger individual fields). Vets: at most one, optional.
+      if (
+        formState.emergencyContact1Name.trim() ||
+        formState.emergencyContact1PhoneNumber.trim() ||
+        formState.emergencyContact1Relationship.trim()
+      ) {
+        formData.append('emergencyContacts1Name', formState.emergencyContact1Name);
+        formData.append('emergencyContacts1Phone', formState.emergencyContact1PhoneNumber);
+        formData.append('emergencyContacts1Relationship', formState.emergencyContact1Relationship);
       }
 
-      const data = await response.json();
-      showToast('Registration successful! Your application is under review.', 'success');
-      setApplication(data.data);
+      if (
+        !isVeterinary &&
+        (formState.emergencyContact2Name.trim() ||
+          formState.emergencyContact2PhoneNumber.trim() ||
+          formState.emergencyContact2Relationship.trim())
+      ) {
+        formData.append('emergencyContacts2Name', formState.emergencyContact2Name);
+        formData.append('emergencyContacts2Phone', formState.emergencyContact2PhoneNumber);
+        formData.append('emergencyContacts2Relationship', formState.emergencyContact2Relationship);
+      }
+
+      if (trackingData) {
+        formData.append('trackingData', JSON.stringify(trackingData));
+      }
+
+      const data = (await submitRegistrationApplication(
+        formData,
+        accountType,
+      )) as { data?: Application };
+      showToast(
+        isVeterinary
+          ? 'Registration submitted. Please wait for admin verification before you can sign in.'
+          : 'Registration successful! Your application is under review.',
+        'success',
+      );
+      // Apply responses may be sparse (id/email/status only). Normalize so the
+      // status view never crashes on missing arrays/fields.
+      const created = data.data;
+      setApplication(
+        created
+          ? {
+              ...created,
+              emergencyContacts: created.emergencyContacts ?? [],
+              phoneNumber: created.phoneNumber ?? formState.phoneNumber,
+              dateOfBirth: created.dateOfBirth ?? formState.dateOfBirth,
+              address: created.address ?? formState.address,
+              province: created.province ?? formState.province,
+              district: created.district ?? formState.district,
+              sector: created.sector ?? formState.sector,
+              bankName: created.bankName ?? formState.bankName,
+              bankAccountNumber:
+                created.bankAccountNumber ?? formState.bankAccountNumber,
+              role: created.role ?? accountType,
+            }
+          : null,
+      );
       setMode('track');
     } catch (error: unknown) {
+      console.error('Registration error:', error);
       const errorMessage = error instanceof Error ? error.message : 'Registration failed. Please try again.';
       showToast(errorMessage, 'error');
     } finally {
@@ -415,17 +777,7 @@ const handleSubmit = async (e: React.FormEvent) => {
   const trackApplication = async (email: string) => {
     setIsSubmitting(true);
     try {
-      const formData = new URLSearchParams();
-      formData.append('email', email);
-
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/trackAgentApplication`, {
-         method: 'POST',
-      credentials: 'include',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: formData,
-      });
+      const response = await trackRegistrationApplication(email);
 
       const data = await response.json();
       
@@ -525,7 +877,11 @@ const handleSubmit = async (e: React.FormEvent) => {
     setTrackingEmail('');
   };
 
-  const handleViewDocument = (name: string, path: string) => {
+  const handleViewDocument = (name: string, path?: string) => {
+    if (!path?.trim()) {
+      showToast('Document is not available yet. Track your application later to view files.', 'error');
+      return;
+    }
     setViewingDocument({ name, path });
   };
 
@@ -544,16 +900,6 @@ const handleSubmit = async (e: React.FormEvent) => {
     }
   };
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
 
  const FileUploadField = ({ 
   label, 
@@ -671,9 +1017,11 @@ const resetApplicationState = () => {
     province: '',
     district: '',
     sector: '',
-    role: 'AGENT',
+    role: accountType || 'AGENT',
+    veterinaryType: '',
     nationalIdDocument: null,
     criminalRecordCertificate: null,
+    rcvdLicenceDocument: null,
     passportPhoto: null,
     emergencyContact1Name: '',
     emergencyContact1PhoneNumber: '',
@@ -690,17 +1038,11 @@ const resetApplicationState = () => {
   setErrors({});
 };
 
-  const rwandaBanks = [
-  "Bank of Kigali",
-  "Equity Bank Rwanda",
-  "I&M Bank Rwanda",
-  "BPR Bank",
-  "GT Bank Rwanda",
-  "Zigama",
-  "Unguka bank",
-  "VisionFund Rwanda",
-];
-
+  function selectAccountType(type: RegistrationAccountType) {
+    setAccountType(type);
+    setFormState((prev) => ({ ...prev, role: type }));
+    setMode('new');
+  }
 
   return (
     <MainLayout>
@@ -708,22 +1050,80 @@ const resetApplicationState = () => {
       <div className="absolute top-0 left-0 w-full h-[10vh] overflow-hidden z-0 bg-gradient-to-br from-[#0A2540] to-[#126BB3]"></div>
       <div className="max-w-4xl mx-auto">
         <div className="text-center mb-12">
-        <h1 className="text-3xl font-bold mb-2">Agent Registration</h1>
+        <h1 className="text-3xl font-bold mb-2">
+          {mode === 'choose'
+            ? 'Create an account'
+            : isVeterinary
+              ? 'Veterinarian Registration'
+              : 'Agent Registration'}
+        </h1>
         <p className="text-gray-600">
-          {mode === 'new' 
-          ? 'Fill out the form to apply as an insurance agent' 
-          : 'Track the status of your application'}
+          {mode === 'choose'
+            ? 'Register as an insurance agent or veterinarian'
+            : mode === 'new'
+              ? `Fill out the form to apply as a${isVeterinary ? '' : 'n'} ${roleNoun}`
+              : 'Track the status of your application'}
         </p>
         </div>
 
-        {mode === 'new' ? (
+        {mode === 'choose' ? (
+        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-lg sm:p-8">
+          <AccountTypePicker onSelect={selectAccountType} />
+          <div className="mt-8 flex flex-col items-center gap-3 border-t border-slate-100 pt-6">
+            <Button type="button" variant="outline" onClick={() => setMode('track')}>
+              Track an existing application
+            </Button>
+            <p className="text-center text-sm text-slate-500">
+              Already registered?{' '}
+              <Link href="/login" className="font-medium text-[#126BB3] hover:underline">
+                Sign in
+              </Link>{' '}
+              after admin approval.
+            </p>
+          </div>
+        </div>
+        ) : mode === 'new' ? (
         <div className="bg-white rounded-xl shadow-lg overflow-hidden">
           <div className="p-6 bg-gradient-to-r from-[var(--main-blue)] to-[var(--secondary-blue)] text-white">
-          <h2 className="text-xl font-bold">New Application</h2>
-          <p className="text-sm opacity-90 mt-1">
-            Complete all fields to submit your agent application
-          </p>
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+              <div>
+                <h2 className="text-xl font-bold">New Application</h2>
+                <p className="text-sm opacity-90 mt-1">
+                  {isVeterinary
+                    ? 'Complete all fields. After submit you must wait for admin verification before signing in.'
+                    : 'Complete all fields to submit your agent application'}
+                </p>
+              </div>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setAccountType(null);
+                    setMode('choose');
+                  }}
+                  className="bg-white/10 text-white hover:bg-white/20 border-white/40 w-full lg:w-auto"
+                >
+                  Change type
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setMode('track')}
+                  className="bg-white text-[var(--main-blue)] hover:bg-gray-100 border-white hover:border-gray-200 w-full lg:w-auto"
+                >
+                  Track Existing Application
+                </Button>
+              </div>
+            </div>
           </div>
+
+          {isVeterinary ? (
+            <div className="border-b border-amber-200 bg-amber-50 px-6 py-3 text-sm text-amber-950">
+              Veterinarian accounts stay <strong>pending</strong> until an ezInsure
+              admin verifies your documents. You cannot use the portal until then.
+            </div>
+          ) : null}
 
           <div className="p-6">
           <form onSubmit={handleSubmit} className="space-y-6">
@@ -756,7 +1156,7 @@ const resetApplicationState = () => {
               label="Phone Number"
               type="tel"
               name="phoneNumber"
-              placeholder="071234568"
+              placeholder="25071234568"
               value={formState.phoneNumber}
               onChange={handleInputChange}
               error={errors.phoneNumber}
@@ -817,15 +1217,38 @@ const resetApplicationState = () => {
 
     <Input
       label="Bank Account Number"
-      type="number"
+      type="text"
       name="bankAccountNumber"
-      placeholder="Enter your account number"
+      placeholder="Enter your account number (10-16 digits)"
       value={formState.bankAccountNumber}
       onChange={handleInputChange}
       error={errors.bankAccountNumber}
       required
+      maxLength={16}
     />
     </div>
+
+            {isVeterinary ? (
+              <div className="mt-6">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Veterinarian type <span className="text-red-500">*</span>
+                </label>
+                <select
+                  name="veterinaryType"
+                  value={formState.veterinaryType}
+                  onChange={handleInputChange}
+                  className="w-full max-w-md px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--main-blue)] focus:border-transparent"
+                  required
+                >
+                  <option value="">Select veterinarian type</option>
+                  <option value="PRIVATE">Private</option>
+                  <option value="SARO">SARO (Government vet)</option>
+                </select>
+                {errors.veterinaryType ? (
+                  <p className="mt-2 text-sm text-red-600">{errors.veterinaryType}</p>
+                ) : null}
+              </div>
+            ) : null}
 
             {/* Location Fields */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
@@ -906,14 +1329,25 @@ const resetApplicationState = () => {
               description="PDF, JPEG, or PNG up to 5MB"
               />
 
-              <FileUploadField
-              label="Criminal Record Certificate"
-              name="criminalRecordCertificate"
-              accept=".pdf,.jpg,.jpeg,.png"
-              error={errors.criminalRecordCertificate}
-              file={formState.criminalRecordCertificate}
-              description="PDF, JPEG, or PNG up to 5MB"
-              />
+              {isVeterinary ? (
+                <FileUploadField
+                  label="RCVD Licence"
+                  name="rcvdLicenceDocument"
+                  accept=".pdf,.jpg,.jpeg,.png"
+                  error={errors.rcvdLicenceDocument}
+                  file={formState.rcvdLicenceDocument}
+                  description="PDF, JPEG, or PNG up to 5MB"
+                />
+              ) : (
+                <FileUploadField
+                  label="Criminal Record Certificate"
+                  name="criminalRecordCertificate"
+                  accept=".pdf,.jpg,.jpeg,.png"
+                  error={errors.criminalRecordCertificate}
+                  file={formState.criminalRecordCertificate}
+                  description="PDF, JPEG, or PNG up to 5MB"
+                />
+              )}
             </div>
 
             <div className="mt-6">
@@ -928,13 +1362,21 @@ const resetApplicationState = () => {
             </div>
             </div>
 
-            {/* Emergency Contacts */}
+            {/* Emergency Contacts — agents: two required; vets: one optional */}
             <div className="bg-gray-50 p-6 rounded-lg">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Emergency Contacts</h3>
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              {isVeterinary ? 'Emergency Contact' : 'Emergency Contacts'}
+              {isVeterinary ? (
+                <span className="ml-2 text-sm font-normal text-gray-500">
+                  (optional)
+                </span>
+              ) : null}
+            </h3>
             
-            {/* Emergency Contact 1 */}
-            <div className="mb-6">
-              <h4 className="text-md font-medium text-gray-700 mb-3">Emergency Contact 1</h4>
+            <div className={isVeterinary ? undefined : 'mb-6'}>
+              {!isVeterinary ? (
+                <h4 className="text-md font-medium text-gray-700 mb-3">Emergency Contact 1</h4>
+              ) : null}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <Input
                 label="Full Name"
@@ -943,23 +1385,24 @@ const resetApplicationState = () => {
                 value={formState.emergencyContact1Name}
                 onChange={handleInputChange}
                 error={errors.emergencyContact1Name}
-                required
+                required={!isVeterinary}
               />
 
               <Input
                 label="Phone Number"
                 type="tel"
                 name="emergencyContact1PhoneNumber"
-                placeholder="0712345678"
+                placeholder="250712345678"
                 value={formState.emergencyContact1PhoneNumber}
                 onChange={handleInputChange}
                 error={errors.emergencyContact1PhoneNumber}
-                required
+                required={!isVeterinary}
               />
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                Relationship <span className="text-red-500">*</span>
+                Relationship
+                {!isVeterinary ? <span className="text-red-500"> *</span> : null}
                 </label>
                 <select
                 name="emergencyContact1Relationship"
@@ -980,7 +1423,7 @@ const resetApplicationState = () => {
               </div>
             </div>
 
-            {/* Emergency Contact 2 */}
+            {!isVeterinary ? (
             <div>
               <h4 className="text-md font-medium text-gray-700 mb-3">Emergency Contact 2</h4>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -998,7 +1441,7 @@ const resetApplicationState = () => {
                 label="Phone Number"
                 type="tel"
                 name="emergencyContact2PhoneNumber"
-                placeholder="0712345678"
+                placeholder="250712345678"
                 value={formState.emergencyContact2PhoneNumber}
                 onChange={handleInputChange}
                 error={errors.emergencyContact2PhoneNumber}
@@ -1027,6 +1470,7 @@ const resetApplicationState = () => {
               </div>
               </div>
             </div>
+            ) : null}
             </div>
 
             {/* Terms and Conditions */}
@@ -1063,14 +1507,7 @@ const resetApplicationState = () => {
   </div>
 </div>
 
-            <div className="flex justify-between items-center pt-4">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setMode('track')}
-            >
-              Track Existing Application
-            </Button>
+            <div className="flex justify-end pt-4">
             <Button
               type="submit"
               variant="primary"
@@ -1088,7 +1525,8 @@ const resetApplicationState = () => {
           <div className="p-6 bg-gradient-to-r from-[var(--main-blue)] to-[var(--secondary-blue)] text-white">
           <h2 className="text-xl font-bold">Track Your Application</h2>
           <p className="text-sm opacity-90 mt-1">
-            View the status and details of your agent application
+            View the status of your agent or veterinarian application. Pending
+            accounts wait for admin verification before login.
           </p>
           </div>
 
@@ -1121,7 +1559,8 @@ const resetApplicationState = () => {
   variant="outline"
   onClick={() => {
     resetApplicationState();
-    setMode('new');
+    setAccountType(null);
+    setMode('choose');
   }}
 >
   Make New Application
@@ -1133,7 +1572,7 @@ const resetApplicationState = () => {
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
             <div>
               <h2 className="text-xl font-bold text-gray-900">Application Status</h2>
-              <p className="text-gray-600">Submitted on {formatDate(application.submittedAt)}</p>
+              <p className="text-gray-600">Submitted on {application.createdAt || application.submittedAt ? formatDateTime(application.createdAt || application.submittedAt || '') : 'N/A'}</p>
             </div>
             {application.status === "SENT_FOR_ACTION" ? (
               <div className="mt-4 md:mt-0 flex items-center gap-3">
@@ -1154,16 +1593,16 @@ const resetApplicationState = () => {
             </div>
 
             {application.status === "SENT_FOR_ACTION" && application.rejectionReason && (
-            <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-6 rounded-lg">
+            <div className="bg-orange-50 border-l-4 border-orange-500 p-4 mb-6 rounded-lg">
               <div className="flex">
               <div className="flex-shrink-0">
-                <svg className="h-5 w-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="h-5 w-5 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </div>
               <div className="ml-3">
-                <h3 className="text-sm font-medium text-red-800">Action Required</h3>
-                <div className="mt-2 text-sm text-red-700">
+                <h3 className="text-sm font-medium text-orange-800">Action Required</h3>
+                <div className="mt-2 text-sm text-orange-700">
                 <p>{application.rejectionReason}</p>
                 </div>
               </div>
@@ -1186,46 +1625,59 @@ const resetApplicationState = () => {
               </div>
               <div>
                 <p className="text-sm text-gray-500">Phone</p>
-                <p className="font-medium">{application.phoneNumber}</p>
+                <p className="font-medium">{application.phoneNumber || '—'}</p>
               </div>
               <div>
                 <p className="text-sm text-gray-500">Date of Birth</p>
-                <p className="font-medium">{formatDate(application.dateOfBirth)}</p>
+                <p className="font-medium">
+                  {application.dateOfBirth
+                    ? formatDateText(application.dateOfBirth, 'long')
+                    : '—'}
+                </p>
               </div>
               <div>
                 <p className="text-sm text-gray-500">Address</p>
-                <p className="font-medium">{application.address}</p>
+                <p className="font-medium">{application.address || '—'}</p>
               </div>
               <div>
                 <p className="text-sm text-gray-500">Province</p>
-                <p className="font-medium">{application.province}</p>
+                <p className="font-medium">{application.province || '—'}</p>
               </div>
               <div>
                 <p className="text-sm text-gray-500">District</p>
-                <p className="font-medium">{application.district}</p>
+                <p className="font-medium">{application.district || '—'}</p>
               </div>
               <div>
                 <p className="text-sm text-gray-500">Sector</p>
-                <p className="font-medium">{application.sector}</p>
+                <p className="font-medium">{application.sector || '—'}</p>
               </div>
                <div>
       <p className="text-sm text-gray-500">Bank Name</p>
-      <p className="font-medium">{application.bankName}</p>
+      <p className="font-medium">{application.bankName || '—'}</p>
     </div>
     <div>
       <p className="text-sm text-gray-500">Bank Account Number</p>
-      <p className="font-medium">{application.bankAccountNumber}</p>
+      <p className="font-medium">{application.bankAccountNumber || '—'}</p>
     </div>
               </div>
             </div>
 
             {/* Emergency Contacts */}
             <div className="bg-gray-50 p-4 rounded-lg">
-              <h3 className="font-medium text-gray-900 mb-3">Emergency Contacts</h3>
+              <h3 className="font-medium text-gray-900 mb-3">
+                {isVeterinary || application.role === VETERINARY_ROLE
+                  ? 'Emergency Contact'
+                  : 'Emergency Contacts'}
+              </h3>
               <div className="space-y-4">
-              {application.emergencyContacts.map((contact, index) => (
+              {(application.emergencyContacts?.length ?? 0) > 0 ? (
+                application.emergencyContacts!.map((contact, index) => (
                 <div key={index} className="bg-white p-3 rounded border">
-                <h4 className="text-sm font-medium mb-2">Emergency Contact {index + 1}</h4>
+                <h4 className="text-sm font-medium mb-2">
+                  {isVeterinary || application.role === VETERINARY_ROLE
+                    ? 'Emergency contact'
+                    : `Emergency Contact ${index + 1}`}
+                </h4>
                 <div className="grid grid-cols-2 gap-2">
                   <div>
                   <p className="text-xs text-gray-500">Name</p>
@@ -1241,7 +1693,10 @@ const resetApplicationState = () => {
                   </div>
                 </div>
                 </div>
-              ))}
+                ))
+              ) : (
+                <p className="text-sm text-gray-500">No emergency contact provided.</p>
+              )}
               </div>
             </div>
             </div>
@@ -1263,6 +1718,28 @@ const resetApplicationState = () => {
                 View
               </Button>
               </div>
+              {application.rcvdLicenceDocument ||
+              application.role === VETERINARY_ROLE ||
+              accountType === VETERINARY_ROLE ? (
+              <div className="flex items-center justify-between bg-white p-3 rounded border">
+              <div>
+                <p className="text-sm font-medium">RCVD Licence</p>
+                <p className="text-xs text-gray-500">Veterinary licence</p>
+              </div>
+              <Button 
+                variant="text" 
+                size="sm"
+                onClick={() =>
+                  handleViewDocument(
+                    'RCVD Licence',
+                    application.rcvdLicenceDocument || '',
+                  )
+                }
+              >
+                View
+              </Button>
+              </div>
+              ) : (
               <div className="flex items-center justify-between bg-white p-3 rounded border">
               <div>
                 <p className="text-sm font-medium">Criminal Record</p>
@@ -1276,6 +1753,7 @@ const resetApplicationState = () => {
                 View
               </Button>
               </div>
+              )}
               <div className="flex items-center justify-between bg-white p-3 rounded border">
               <div>
                 <p className="text-sm font-medium">Passport Photo</p>
@@ -1294,26 +1772,35 @@ const resetApplicationState = () => {
 
             {/* Status-specific messages */}
             {application.status === 'PENDING' && (
-            <div className="mt-6 bg-blue-50 p-4 rounded-lg">
-              <h4 className="font-medium text-blue-700 mb-2">Application Under Review</h4>
+            <div className="mt-6 bg-blue-50 p-4 rounded-lg border border-blue-100">
+              <h4 className="font-medium text-blue-700 mb-2">
+                Waiting for admin verification
+              </h4>
               <p className="text-sm text-gray-600">
-              Your application is currently being reviewed by our team. You&apos;ll be notified via email once a decision has been made.
+              Your {registrationRoleLabel(application.role || accountType || 'AGENT')}{' '}
+              application is pending ezInsure admin review. You will not be able to
+              sign in until an admin verifies and approves your account. We&apos;ll
+              email you when a decision is made.
               </p>
             </div>
             )}
-            {application.status === 'APPROVED' && (
+            {(application.status === 'APPROVED' || application.status === 'ACTIVE') && (
             <div className="mt-6 bg-green-50 p-4 rounded-lg">
               <h4 className="font-medium text-green-700 mb-2">Application Approved</h4>
               <p className="text-sm text-gray-600">
-              Congratulations! Your application has been approved. You&apos;ll receive further instructions via email.
+              Congratulations! Your application has been approved. You can now{' '}
+              <Link href="/login" className="font-medium text-[#126BB3] hover:underline">
+                sign in
+              </Link>
+              .
               </p>
             </div>
             )}
             {application.status === 'REJECTED' && (
-            <div className="mt-6 bg-red-50 p-4 rounded-lg">
-              <h4 className="font-medium text-red-700 mb-2">Application Rejected</h4>
-              <p className="text-sm text-gray-600">
-              We&apos;re sorry to inform you that your application has been rejected. Please contact support if you have any questions.
+            <div className="mt-6 bg-orange-50 p-4 rounded-lg border-l-4 border-orange-500">
+              <h4 className="font-medium text-orange-700 mb-2">Action Required</h4>
+              <p className="text-sm text-orange-600">
+              Your application needs additional information. Please review the requirements and resubmit with the necessary updates. Contact support if you have any questions.
               </p>
             </div>
             )}
@@ -1324,7 +1811,8 @@ const resetApplicationState = () => {
               
                  onClick={() => {
           resetApplicationState();
-          setMode('new');
+          setAccountType(null);
+          setMode('choose');
         }}
             >
               Make New Application

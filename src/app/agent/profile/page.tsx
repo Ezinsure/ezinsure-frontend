@@ -8,8 +8,11 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/toast';
 import { validateForm, ValidationRules, validationPatterns } from '@/components/ui/form-validation';
 import { useAuth } from '@/context/AuthContext';
-import { Trash2, FileText, Eye } from 'lucide-react';
+import { useApiClient } from '@/utils/apiClient';
+import { Trash2, FileText, Eye, EyeClosed } from 'lucide-react';
 import { rwandaProvinces } from '@/utils/rwanda-administrative';
+import { rwandaBanks } from '@/utils/rwanda-banks';
+import { EmailChangeForm } from '@/components/admin/email-change-form';
 
 interface User {
   _id: string;
@@ -23,6 +26,8 @@ interface User {
   province?: string;
   district?: string;
   sector?: string;
+  bankName?: string;
+  bankAccountNumber?: string;
   passportPhoto?: string;
   nationalIdDocument?: string;
   criminalRecordCertificate?: string;
@@ -63,13 +68,16 @@ interface PasswordValidation {
 export default function ProfilePage() {
   const router = useRouter();
   const { showToast, ToastContainer } = useToast();
-  const { token, user: authUser } = useAuth();
+  const { user: authUser } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [originalProfile, setOriginalProfile] = useState<User | null>(null);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmNewPassword, setShowConfirmNewPassword] = useState(false);
   const [passwordData, setPasswordData] = useState<PasswordChangeData>({
     currentPassword: '',
     newPassword: '',
@@ -79,6 +87,8 @@ export default function ProfilePage() {
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [showDocumentViewer, setShowDocumentViewer] = useState(false);
   const [selectedDocument, setSelectedDocument] = useState<string | null>(null);
+  const [showEmailModal, setShowEmailModal] = useState(false);
+  const { apiFetch } = useApiClient();
   
   const [profile, setProfile] = useState<User>({
     _id: '',
@@ -92,6 +102,8 @@ export default function ProfilePage() {
     province: '',
     district: '',
     sector: '',
+    bankName: '',
+    bankAccountNumber: '',
     agentCode: '',
     commissionRate: '',
     emergencyContacts: []
@@ -122,14 +134,21 @@ export default function ProfilePage() {
   const availableDistricts = useMemo(() => {
     if (!profile.province) return [];
     const province = rwandaProvinces.find(p => p.name === profile.province);
-    return province?.districts || [];
+    const districts = province?.districts || [];
+    // Transform districts to match expected format
+    return districts.map(district => ({
+      name: district.name,
+      sectors: district.sectors?.map(sector => sector.name) || []
+    }));
   }, [profile.province]);
 
   // Get available sectors based on selected district
   const availableSectors = useMemo(() => {
     if (!profile.district) return [];
     const district = availableDistricts.find(d => d.name === profile.district);
-    return district?.sectors || [];
+    const sectors = district?.sectors || [];
+    // Return sector names as strings
+    return sectors;
   }, [profile.district, availableDistricts]);
 
   // Get user initials
@@ -263,6 +282,12 @@ export default function ProfilePage() {
     if (JSON.stringify(originalProfile.emergencyContacts) !== JSON.stringify(profile.emergencyContacts)) {
       changes.emergencyContacts = profile.emergencyContacts;
     }
+    if (originalProfile.bankName !== profile.bankName) {
+      changes.bankName = profile.bankName;
+    }
+    if (originalProfile.bankAccountNumber !== profile.bankAccountNumber) {
+      changes.bankAccountNumber = profile.bankAccountNumber;
+    }
     
     return changes;
   };
@@ -285,13 +310,9 @@ export default function ProfilePage() {
           return;
         }
 
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/updateUser/${profile._id}`, {
+        const response = await apiFetch(`/updateUser/${profile._id}`, {
           method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify(changedFields)
+          body: JSON.stringify(changedFields),
         });
 
         if (!response.ok) {
@@ -354,17 +375,13 @@ export default function ProfilePage() {
       setIsChangingPassword(true);
       
       try {
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/resetPassword`, {
+        const response = await apiFetch('/resetPassword', {
           method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
           body: JSON.stringify({
             currentPassword: passwordData.currentPassword,
             newPassword: passwordData.newPassword,
-            confirmPassword: passwordData.confirmPassword
-          })
+            confirmPassword: passwordData.confirmPassword,
+          }),
         });
 
         if (!response.ok) {
@@ -375,6 +392,9 @@ export default function ProfilePage() {
         setShowPasswordModal(false);
         setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
         setPasswordErrors({});
+        setShowCurrentPassword(false);
+        setShowNewPassword(false);
+        setShowConfirmNewPassword(false);
       } catch (error) {
         console.log("error changing pass: ", error);
         showToast(error instanceof Error ? error.message : String(error), 'error');
@@ -419,7 +439,7 @@ export default function ProfilePage() {
   return (
     <MainLayout containerClass="p-0" fullWidth>
       <div className="min-h-screen bg-gray-50 pt-20 pb-10 px-4">
-        <div className="absolute top-0 left-0 w-full h-[10vh] overflow-hidden z-0 bg-gradient-to-br from-[#0A2540] to-[#126BB3]"></div>
+
         <div className="max-w-6xl mx-auto mt-12">
           <div className="bg-white rounded-xl shadow-md overflow-hidden">
             <div className="p-6 bg-gradient-to-r from-[var(--main-blue)] to-[var(--secondary-blue)] text-white">
@@ -525,7 +545,7 @@ export default function ProfilePage() {
                       value={profile.phoneNumber || ''}
                       onChange={handleInputChange}
                       error={errors.phoneNumber}
-                      placeholder="0788123456"
+                      placeholder="250788123456"
                       disabled={!isEditMode}
                     />
                     
@@ -611,6 +631,38 @@ export default function ProfilePage() {
                           ))}
                         </select>
                       </div>
+                    </div>
+                  </div>
+
+                  {/* Bank Information Section */}
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    <h3 className="font-medium text-gray-900 mb-4">Bank Information</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label className="block text-sm font-medium text-gray-700">Bank Name</label>
+                        <select
+                          name="bankName"
+                          value={profile.bankName || ''}
+                          onChange={handleInputChange}
+                          disabled={!isEditMode}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[var(--main-blue)] focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
+                        >
+                          <option value="">Select Bank</option>
+                          {rwandaBanks.map(bank => (
+                            <option key={bank} value={bank}>{bank}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <Input
+                        label="Bank Account Number"
+                        name="bankAccountNumber"
+                        type="text"
+                        value={profile.bankAccountNumber || ''}
+                        onChange={handleInputChange}
+                        error={errors.bankAccountNumber}
+                        disabled={!isEditMode}
+                        placeholder="Enter your account number"
+                      />
                     </div>
                   </div>
                   
@@ -734,49 +786,66 @@ export default function ProfilePage() {
           
           {/* Security Section */}
           <div className="mt-8 bg-white rounded-xl shadow-md overflow-hidden">
-            <div className="p-6 bg-gradient-to-r from-[var(--accent-orange)] to-[#f97316] text-white">
-              <h2 className="text-xl font-bold">Security Settings</h2>
-              <p className="text-sm opacity-80 mt-1">
+            <div className="p-5 bg-gradient-to-r from-[var(--accent-orange)] to-[#f97316] text-white">
+              <h2 className="text-lg font-bold">Security Settings</h2>
+              <p className="text-xs opacity-80 mt-0.5">
                 Manage your password and account security
               </p>
             </div>
             
-            <div className="p-8">
-              <div className="space-y-6">
-                <div className="flex justify-between items-center p-4 border border-gray-200 rounded-lg">
+            <div className="p-6">
+              <div className="space-y-4">
+                <div className="flex justify-between items-center p-3 border border-gray-200 rounded-lg">
                   <div>
-                    <h3 className="font-medium">Password</h3>
-                    <p className="text-sm text-gray-500">Update your password regularly to keep your account secure</p>
+                    <h3 className="text-sm font-medium">Password</h3>
+                    <p className="text-xs text-gray-500">Update your password regularly to keep your account secure</p>
                   </div>
                   <Button
                     variant="secondary"
                     onClick={() => setShowPasswordModal(true)}
+                    className="text-sm py-2 px-4"
                   >
                     Change Password
                   </Button>
                 </div>
                 
-                <div className="flex justify-between items-center p-4 border border-gray-200 rounded-lg">
+                <div className="flex justify-between items-center p-3 border border-gray-200 rounded-lg">
                   <div>
-                    <h3 className="font-medium">Two-Factor Authentication</h3>
-                    <p className="text-sm text-gray-500">Add an extra layer of security to your account</p>
+                    <h3 className="text-sm font-medium">Email Address</h3>
+                    <p className="text-xs text-gray-500">Change your email address with verification</p>
+                  </div>
+                  <Button
+                    variant="secondary"
+                    onClick={() => setShowEmailModal(true)}
+                    className="text-sm py-2 px-4"
+                  >
+                    Change Email
+                  </Button>
+                </div>
+                
+                <div className="flex justify-between items-center p-3 border border-gray-200 rounded-lg">
+                  <div>
+                    <h3 className="text-sm font-medium">Two-Factor Authentication</h3>
+                    <p className="text-xs text-gray-500">Add an extra layer of security to your account</p>
                   </div>
                   <Button
                     variant="secondary"
                     onClick={() => showToast('2FA setup is under development', 'info')}
+                    className="text-sm py-2 px-4"
                   >
                     Set Up 2FA
                   </Button>
                 </div>
                 
-                <div className="flex justify-between items-center p-4 border border-gray-200 rounded-lg">
+                <div className="flex justify-between items-center p-3 border border-gray-200 rounded-lg">
                   <div>
-                    <h3 className="font-medium">Active Sessions</h3>
-                    <p className="text-sm text-gray-500">View and manage devices where you&apos;re currently logged in</p>
+                    <h3 className="text-sm font-medium">Active Sessions</h3>
+                    <p className="text-xs text-gray-500">View and manage devices where you&apos;re currently logged in</p>
                   </div>
                   <Button
                     variant="secondary"
                     onClick={() => showToast('Session management is under development', 'info')}
+                    className="text-sm py-2 px-4"
                   >
                     Manage Sessions
                   </Button>
@@ -793,26 +862,52 @@ export default function ProfilePage() {
               <h3 className="text-lg font-semibold mb-4">Change Password</h3>
               
               <form onSubmit={handlePasswordChange} className="space-y-4">
-                <Input
-                  label="Current Password"
-                  name="currentPassword"
-                  type="password"
-                  value={passwordData.currentPassword}
-                  onChange={handlePasswordInputChange}
-                  error={passwordErrors.currentPassword}
-                  required
-                />
-                
-                <div className="space-y-2">
+                <div className='relative w-full'>
                   <Input
-                    label="New Password"
-                    name="newPassword"
-                    type="password"
-                    value={passwordData.newPassword}
+                    label="Current Password"
+                    name="currentPassword"
+                    type={showCurrentPassword ? "text" : "password"}
+                    value={passwordData.currentPassword}
                     onChange={handlePasswordInputChange}
-                    error={passwordErrors.newPassword}
+                    error={passwordErrors.currentPassword}
                     required
                   />
+                  {showCurrentPassword ? (
+                    <EyeClosed
+                      className="absolute top-9 right-3 cursor-pointer text-gray-500"
+                      onClick={() => setShowCurrentPassword(false)}
+                    />
+                  ) : (
+                    <Eye
+                      className="absolute top-9 right-3 cursor-pointer text-gray-500"
+                      onClick={() => setShowCurrentPassword(true)}
+                    />
+                  )}
+                </div>
+                
+                <div className="space-y-2">
+                  <div className='relative w-full'>
+                    <Input
+                      label="New Password"
+                      name="newPassword"
+                      type={showNewPassword ? "text" : "password"}
+                      value={passwordData.newPassword}
+                      onChange={handlePasswordInputChange}
+                      error={passwordErrors.newPassword}
+                      required
+                    />
+                    {showNewPassword ? (
+                      <EyeClosed
+                        className="absolute top-9 right-3 cursor-pointer text-gray-500"
+                        onClick={() => setShowNewPassword(false)}
+                      />
+                    ) : (
+                      <Eye
+                        className="absolute top-9 right-3 cursor-pointer text-gray-500"
+                        onClick={() => setShowNewPassword(true)}
+                      />
+                    )}
+                  </div>
                   
                   {/* Password Requirements */}
                   {passwordData.newPassword && (
@@ -844,15 +939,28 @@ export default function ProfilePage() {
                   )}
                 </div>
                 
-                <Input
-                  label="Confirm New Password"
-                  name="confirmPassword"
-                  type="password"
-                  value={passwordData.confirmPassword}
-                  onChange={handlePasswordInputChange}
-                  error={passwordErrors.confirmPassword}
-                  required
-                />
+                <div className='relative w-full'>
+                  <Input
+                    label="Confirm New Password"
+                    name="confirmPassword"
+                    type={showConfirmNewPassword ? "text" : "password"}
+                    value={passwordData.confirmPassword}
+                    onChange={handlePasswordInputChange}
+                    error={passwordErrors.confirmPassword}
+                    required
+                  />
+                  {showConfirmNewPassword ? (
+                    <EyeClosed
+                      className="absolute top-9 right-3 cursor-pointer text-gray-500"
+                      onClick={() => setShowConfirmNewPassword(false)}
+                    />
+                  ) : (
+                    <Eye
+                      className="absolute top-9 right-3 cursor-pointer text-gray-500"
+                      onClick={() => setShowConfirmNewPassword(true)}
+                    />
+                  )}
+                </div>
                 
                 <div className="flex justify-end space-x-3 pt-4">
                   <Button
@@ -862,6 +970,9 @@ export default function ProfilePage() {
                       setShowPasswordModal(false);
                       setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
                       setPasswordErrors({});
+                      setShowCurrentPassword(false);
+                      setShowNewPassword(false);
+                      setShowConfirmNewPassword(false);
                     }}
                     disabled={isChangingPassword}
                   >
@@ -881,11 +992,36 @@ export default function ProfilePage() {
           </div>
         )}
 
+        {/* Email Change Modal */}
+        {showEmailModal && (
+          <div className="fixed inset-0 bg-gray-600/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg w-full max-w-sm mx-4 max-h-[90vh] flex flex-col overflow-hidden shadow-xl">
+              <div className="flex justify-between items-center px-5 py-4 border-b border-gray-200 flex-shrink-0">
+                <h3 className="text-sm font-semibold text-gray-900">Change Email Address</h3>
+                <button
+                  onClick={() => setShowEmailModal(false)}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              
+              <div className="overflow-y-auto flex-1 px-5 py-4">
+                <EmailChangeForm onSuccess={() => {
+                  setTimeout(() => setShowEmailModal(false), 5000);
+                }} />
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Document Viewer Modal */}
         {showDocumentViewer && selectedDocument && (
           <div className="fixed inset-0 bg-gray-600/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg w-full max-w-4xl h-[90vh] flex flex-col">
-              <div className="flex justify-between items-center p-4 border-b">
+            <div className="bg-white rounded-lg w-full max-w-6xl h-[90vh] flex flex-col overflow-hidden">
+              <div className="flex justify-between items-center p-4 border-b flex-shrink-0">
                 <h3 className="text-lg font-semibold">Document Viewer</h3>
                 <Button
                   variant="outline"
@@ -898,20 +1034,24 @@ export default function ProfilePage() {
                 </Button>
               </div>
               
-              <div className="flex-1 p-4">
-                <div className="w-full h-full flex items-center justify-center bg-gray-50 rounded-lg overflow-hidden">
+              <div className="flex-1 p-4 overflow-hidden">
+                <div className="w-full h-full bg-gray-50 rounded-lg overflow-auto">
                   {selectedDocument.toLowerCase().includes('.pdf') ? (
                     <iframe
                       src={selectedDocument}
-                      className="w-full h-full"
+                      className="w-full h-full min-h-[500px]"
                       title="Document Viewer"
+                      frameBorder="0"
                     />
                   ) : (
-                    <img
-                      src={selectedDocument}
-                      alt="Document"
-                      className="max-w-full max-h-full object-contain"
-                    />
+                    <div className="w-full h-full flex items-center justify-center p-4">
+                      <img
+                        src={selectedDocument}
+                        alt="Document"
+                        className="max-w-full max-h-full object-contain"
+                        style={{ maxHeight: 'calc(90vh - 120px)' }}
+                      />
+                    </div>
                   )}
                 </div>
               </div>

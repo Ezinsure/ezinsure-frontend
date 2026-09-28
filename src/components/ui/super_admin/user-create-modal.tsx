@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ValidationRules, validateForm } from "@/components/ui/form-validation";
 import { AdministrativeDivision, rwandaProvinces } from '@/utils/rwanda-administrative';
+import { rwandaBanks } from '@/utils/rwanda-banks';
 import { useEffect, useState } from "react";
 // import { useState } from "react";
 
@@ -14,7 +15,7 @@ interface FormData {
   province: string;
   district: string;
   sector: string;
-  role: 'ADMIN' | 'AGENT';
+  role: 'ADMIN' | 'FINANCE' | 'AGENT';
   emergencyContact1Name: string;
   emergencyContact1PhoneNumber: string;
   emergencyContact1Relationship: string;
@@ -28,17 +29,6 @@ interface FormData {
   bankAccountNumber: string;
   [key: string]: string | File | null;
 }
-
-const rwandaBanks = [
-  "Bank of Kigali",
-  "Equity Bank Rwanda",
-  "I&M Bank Rwanda",
-  "BPR Bank",
-  "GT Bank Rwanda",
-  "Zigama",
-  "Unguka bank",
-  "VisionFund Rwanda",
-];
 
 interface Errors {
   [key: string]: string;
@@ -181,20 +171,29 @@ const [sectors, setSectors] = useState<string[]>([]);
   const validationRules: ValidationRules = {
     fullName: { required: true, minLength: 3 },
     email: { required: true, pattern: /^[^\s@]+@[^\s@]+\.[^\s@]+$/ },
-    phoneNumber: { required: true, pattern: /^\+?\d{10,15}$/ },
+    phoneNumber: { required: true, pattern: /^250\d{9}$/ },
     dateOfBirth: { required: true },
     address: { required: true, minLength: 4 },
     emergencyContact1Name: { required: true, minLength: 2 },
-    emergencyContact1PhoneNumber: { required: true, pattern: /^\+?\d{10,15}$/ },
+    emergencyContact1PhoneNumber: { required: true, pattern: /^250\d{9}$/ },
     emergencyContact1Relationship: { required: true },
     emergencyContact2Name: { required: true, minLength: 2 },
-    emergencyContact2PhoneNumber: { required: true, pattern: /^\+?\d{10,15}$/ },
+    emergencyContact2PhoneNumber: { required: true, pattern: /^250\d{9}$/ },
     emergencyContact2Relationship: { required: true },
     nationalIdDocument: { required: true },
   criminalRecordCertificate: { required: true },
   passportPhoto: { required: true },
     bankName: { required: true },
-    bankAccountNumber: { required: true, pattern: /^\d{10,15}$/ },
+    bankAccountNumber: { 
+      required: true, 
+      validate: (value: string) => {
+        if (!value) return 'Bank account number is required';
+        if (!/^\d+$/.test(value)) return 'Bank account number must contain only digits (0-9)';
+        if (value.length < 10) return 'Bank account number must be at least 10 digits';
+        if (value.length > 16) return 'Bank account number must be at most 16 digits';
+        return true;
+      }
+    },
     province: { required: true },
     district: { required: true }, 
     sector: { required: true },
@@ -229,6 +228,8 @@ const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, fieldName: str
   const validateFiles = () => {
     const fileErrors: Errors = {};
 
+    // Agent onboarding requires full document set. Admin / Finance / SONARWA Representative
+    // use the same create-user fields; documents remain optional unless provided.
     if (formData.role === 'AGENT') {
       if (!formData.nationalIdDocument) {
         fileErrors.nationalIdDocument = 'National ID document is required';
@@ -267,6 +268,33 @@ const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, fieldName: str
           fileErrors.passportPhoto = 'Passport photo file size must be less than 5MB';
         }
       }
+    } else {
+      // Optional docs for ADMIN / FINANCE — validate type/size if uploaded
+      const allowedImageTypes = ['image/jpeg', 'image/jpg', 'image/png'];
+      const allowedDocTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png'];
+      const maxFileSize = 5 * 1024 * 1024;
+
+      if (formData.nationalIdDocument) {
+        if (!allowedDocTypes.includes(formData.nationalIdDocument.type)) {
+          fileErrors.nationalIdDocument = 'National ID must be PDF, JPEG, or PNG';
+        } else if (formData.nationalIdDocument.size > maxFileSize) {
+          fileErrors.nationalIdDocument = 'National ID file size must be less than 5MB';
+        }
+      }
+      if (formData.criminalRecordCertificate) {
+        if (!allowedDocTypes.includes(formData.criminalRecordCertificate.type)) {
+          fileErrors.criminalRecordCertificate = 'Criminal record must be PDF, JPEG, or PNG';
+        } else if (formData.criminalRecordCertificate.size > maxFileSize) {
+          fileErrors.criminalRecordCertificate = 'Criminal record file size must be less than 5MB';
+        }
+      }
+      if (formData.passportPhoto) {
+        if (!allowedImageTypes.includes(formData.passportPhoto.type)) {
+          fileErrors.passportPhoto = 'Passport photo must be JPEG or PNG';
+        } else if (formData.passportPhoto.size > maxFileSize) {
+          fileErrors.passportPhoto = 'Passport photo file size must be less than 5MB';
+        }
+      }
     }
 
     return fileErrors;
@@ -297,7 +325,10 @@ const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, fieldName: str
 useEffect(() => {
   if (formData.district) {
     const selectedDistrict = districts.find(d => d.name === formData.district);
-    setSectors(selectedDistrict?.sectors || []);
+    const sectors = selectedDistrict?.sectors || [];
+    // Extract sector names as strings
+    const sectorNames = sectors.map(sector => sector.name);
+    setSectors(sectorNames);
     setFormData(prev => ({ ...prev, sector: '' }));
   } else {
     setSectors([]);
@@ -489,6 +520,7 @@ useEffect(() => {
             >
               <option value="AGENT">Agent</option>
               <option value="ADMIN">Admin</option>
+              <option value="FINANCE">Finance</option>
             </select>
           </div>
 
@@ -543,7 +575,7 @@ useEffect(() => {
                     label="Phone Number"
                     type="tel"
                     name="emergencyContact1PhoneNumber"
-                    placeholder="07XXXXXXXX"
+                    placeholder="2507XXXXXXXX"
                     value={formData.emergencyContact1PhoneNumber}
                     onChange={handleInputChange}
                     error={errors.emergencyContact1PhoneNumber}
@@ -584,7 +616,7 @@ useEffect(() => {
                     label="Phone Number"
                     type="tel"
                     name="emergencyContact2PhoneNumber"
-                    placeholder="07XXXXXXXX"
+                    placeholder="2507XXXXXXXX"
                     value={formData.emergencyContact2PhoneNumber}
                     onChange={handleInputChange}
                     error={errors.emergencyContact2PhoneNumber}

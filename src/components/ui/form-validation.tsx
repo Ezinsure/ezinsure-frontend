@@ -26,9 +26,26 @@ export const validateForm = (
     const stringValue = value === null || value instanceof File ? '' : String(value);
 
     // Required validation
-    if (rule.required && (!value || (typeof value === 'string' && value.trim() === ''))) {
-      errors[fieldName] = 'This field is required';
-      continue; // Skip other validations if field is required but empty
+    // For file fields, check if value is a File, or if it's a string (prefilled document), or if corresponding documentUrl exists
+    let isValid = false;
+    if (rule.required) {
+      if (value instanceof File) {
+        isValid = true;
+      } else if (typeof value === 'string' && value.trim() !== '') {
+        isValid = true;
+      } else if (value === null || (typeof value === 'string' && value.trim() === '')) {
+        // Check for corresponding documentUrl for file fields
+        const documentUrlField = fieldName === 'nationalID' ? 'identificationDocumentUrl' :
+                                 fieldName === 'yellowCard' ? 'yellowCardUrl' :
+                                 fieldName === 'pastInsuranceCertificate' ? 'pastInsuranceCertificateUrl' : null;
+        if (documentUrlField && values[documentUrlField] && typeof values[documentUrlField] === 'string' && (values[documentUrlField] as string).trim() !== '') {
+          isValid = true;
+        }
+      }
+      if (!isValid) {
+        errors[fieldName] = 'This field is required';
+        continue; // Skip other validations if field is required but empty
+      }
     }
 
     // Skip other validations if field is empty and not required
@@ -80,7 +97,7 @@ export const validateForm = (
 // Predefined validation patterns
 export const validationPatterns = {
   email: /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/,
-  phone: /^(\+\d{1,3})?\s?\d{9,12}$/,
+ phone: /^250\d{9}$/,
   numbers: /^\d+$/,
   noSpecialChars: /^[a-zA-Z0-9\s]+$/,
   zipCode: /^\d{5}(-\d{4})?$/,

@@ -1,18 +1,22 @@
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
+import { formatVeterinaryType } from "@/shared/utils/veterinary-user";
+import { isVeterinaryRole } from "@/shared/utils/role";
 
 interface User {
   _id: string;
   fullName: string;
   email: string;
   phoneNumber: string;
-  role: 'ADMIN' | 'AGENT' | 'SUPER_ADMIN';
+  role: 'ADMIN' | 'AGENT' | 'SUPER_ADMIN' | 'VETERINARY' | 'SONARWA_REPRESENTATIVE' | string;
   status: string;
   dateOfBirth?: string;
   address?: string;
   passportPhoto?: string;
   nationalIdDocument?: string;
   criminalRecordCertificate?: string;
+  rcvdLicenceDocument?: string;
+  veterinaryType?: string;
   emergencyContacts?: Array<{
     fullName: string;
     phoneNumber: string;
@@ -96,6 +100,9 @@ export const UserViewModal = ({
   const [isRejecting, setIsRejecting] = useState(false);
 
   if (!user) return null;
+
+  const veterinaryTypeLabel = formatVeterinaryType(user.veterinaryType);
+  const showVeterinaryDetails = isVeterinaryRole(user.role);
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -244,6 +251,13 @@ export const UserViewModal = ({
           <div className="mt-4">
             <p className="text-sm text-gray-500">Commission Rate</p>
             <p className="font-semibold">{user.commissionRate}</p>
+          </div>
+        )}
+
+        {showVeterinaryDetails && veterinaryTypeLabel && (
+          <div className="mt-4">
+            <p className="text-sm text-gray-500">Veterinarian Type</p>
+            <p className="font-semibold">{veterinaryTypeLabel}</p>
           </div>
         )}
 

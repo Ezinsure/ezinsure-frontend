@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useState, useEffect } from "react";
 import { AdministrativeDivision, rwandaProvinces } from '@/utils/rwanda-administrative';
+import { rwandaBanks } from '@/utils/rwanda-banks';
 import { ValidationRules, validateForm } from "@/components/ui/form-validation";
 
 interface User {
@@ -31,18 +32,9 @@ interface User {
   rejectionReason?: string;
   bankName?: string;
   bankAccountNumber?: string;
+  /** Livestock vet default company commission % (5, 8, or 10). */
+  companyCommissionRate?: number | string;
 }
-
-const rwandaBanks = [
-  "Bank of Kigali",
-  "Equity Bank Rwanda",
-  "I&M Bank Rwanda",
-  "BPR Bank",
-  "GT Bank Rwanda",
-  "Zigama",
-  "Unguka bank",
-  "VisionFund Rwanda",
-];
 
 interface Errors {
   [key: string]: string;
@@ -71,14 +63,23 @@ export const UserEditModal = ({ user, onClose, onSave, isLoading }: UserEditModa
   const validationRules: ValidationRules = {
     fullName: { required: true, minLength: 3 },
     email: { required: true, pattern: /^[^\s@]+@[^\s@]+\.[^\s@]+$/ },
-    phoneNumber: { required: true, pattern: /^\+?\d{10,15}$/ },
+    phoneNumber: { required: true, pattern: /^250\d{9}$/ },
     dateOfBirth: { required: true },
     address: { required: true, minLength: 4 },
     province: { required: true },
     district: { required: true },
     sector: { required: true },
     bankName: { required: true },
-    bankAccountNumber: { required: true, pattern: /^\d{10,15}$/ },
+    bankAccountNumber: { 
+      required: true, 
+      validate: (value: string) => {
+        if (!value) return 'Bank account number is required';
+        if (!/^\d+$/.test(value)) return 'Bank account number must contain only digits (0-9)';
+        if (value.length < 10) return 'Bank account number must be at least 10 digits';
+        if (value.length > 15) return 'Bank account number must be at most 15 digits';
+        return true;
+      }
+    },
   };
 
   useEffect(() => {
@@ -91,7 +92,10 @@ export const UserEditModal = ({ user, onClose, onSave, isLoading }: UserEditModa
   useEffect(() => {
     if (formData.district) {
       const selectedDistrict = districts.find(d => d.name === formData.district);
-      setSectors(selectedDistrict?.sectors || []);
+      const sectors = selectedDistrict?.sectors || [];
+      // Extract sector names as strings
+      const sectorNames = sectors.map(sector => sector.name);
+      setSectors(sectorNames);
     }
   }, [formData.district, districts]);
 
@@ -131,6 +135,9 @@ export const UserEditModal = ({ user, onClose, onSave, isLoading }: UserEditModa
     // if (user.email !== formData.email) changes.email = formData.email;
     if (user.bankName !== formData.bankName) changes.bankName = formData.bankName;
     if (user.bankAccountNumber !== formData.bankAccountNumber) changes.bankAccountNumber = formData.bankAccountNumber;
+    if (String(user.companyCommissionRate ?? '') !== String(formData.companyCommissionRate ?? '')) {
+      changes.companyCommissionRate = formData.companyCommissionRate;
+    }
     
     // Emergency contacts
     if (JSON.stringify(user.emergencyContacts) !== JSON.stringify(formData.emergencyContacts)) {
@@ -356,6 +363,25 @@ export const UserEditModal = ({ user, onClose, onSave, isLoading }: UserEditModa
               required
             />
           </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Company commission rate
+            </label>
+            <select
+              className="w-full border border-gray-300 rounded-md p-2"
+              name="companyCommissionRate"
+              value={String(formData.companyCommissionRate ?? '8')}
+              onChange={handleInputChange}
+            >
+              <option value="5">5%</option>
+              <option value="8">8% (default)</option>
+              <option value="10">10%</option>
+            </select>
+            <p className="mt-1 text-xs text-gray-500">
+              For veterinarians: default Solektra rate on livestock applications they create.
+            </p>
+          </div>
           
           <div>
             <label className="block text-sm font-medium mb-1">
@@ -388,7 +414,7 @@ export const UserEditModal = ({ user, onClose, onSave, isLoading }: UserEditModa
                 label="Phone Number"
                 type="tel"
                 name="emergencyContact1PhoneNumber"
-                placeholder="07XXXXXXXX"
+                placeholder="2507XXXXXXXX"
                 value={formData.emergencyContacts?.[0]?.phoneNumber || ''}
                 onChange={(e) => handleEmergencyContactChange(0, 'phoneNumber', e.target.value)}
                 required
@@ -423,7 +449,7 @@ export const UserEditModal = ({ user, onClose, onSave, isLoading }: UserEditModa
                 label="Phone Number"
                 type="tel"
                 name="emergencyContact2PhoneNumber"
-                placeholder="07XXXXXXXX"
+                placeholder="2507XXXXXXXX"
                 value={formData.emergencyContacts?.[1]?.phoneNumber || ''}
                 onChange={(e) => handleEmergencyContactChange(1, 'phoneNumber', e.target.value)}
                 required

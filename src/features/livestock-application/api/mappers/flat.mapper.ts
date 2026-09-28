@@ -1,0 +1,141 @@
+import type {
+  LivestockApplicationListItem,
+  LivestockApplicationPackage,
+  LivestockApplicationStatus,
+  LivestockOwnerMode,
+  LivestockSpeciesGroup,
+} from '@/features/livestock-application/domain/application-types';
+import {
+  extractLivestockLocation,
+  formatLocationSummary,
+} from '@/features/livestock-application/utils/application-location';
+import {
+  countInsuredLines,
+  mapInsuredLinesFromRecord,
+  mapPaymentProofFromRecord,
+  resolveOwnerSummaryFromRecord,
+  resolvePackageOwnersList,
+  resolvePackagePrimaryOwner,
+} from '@/features/livestock-application/api/mappers/owners.mapper';
+import { mapApplicationExtensionFields } from '@/features/livestock-application/api/mappers/application-meta.mapper';
+import {
+  mapLegacyStatus,
+  normalizeInsuranceProvider,
+  normalizeLivestockApplicationStatus,
+  subsidyRequiredFromStatus,
+} from '@/features/livestock-application/api/mappers/status.mapper';
+import { buildSubsidyCaseFromRecord } from '@/features/livestock-application/api/mappers/subsidy-case.mapper';
+import { mapSonarwaReviewFromRecord, mapSubsidyDocumentsFromRecord } from '@/features/livestock-application/api/mappers/sonarwa-review.mapper';
+import { readPackageTotals } from '@/features/livestock-application/api/mappers/totals.mapper';
+
+/** GET /getVeterinaryApplications & /getAllApplications row (animals[], no nested lines[]). */
+export function isFlatListApplicationRecord(record: Record<string, unknown>): boolean {
+  return (
+    typeof record._id === 'string' &&
+    typeof record.applicationNumber === 'string' &&
+    typeof record.speciesGroup === 'string' &&
+    !Array.isArray(record.lines)
+  );
+}
+
+export function mapFlatApplicationToListItem(
+  record: Record<string, unknown>,
+): LivestockApplicationListItem {
+  const location = extractLivestockLocation(record);
+  const totals = readPackageTotals(record);
+  const statusRaw = String(record.status ?? '');
+  const subsidyStatus = String(record.subsidyStatus ?? '');
+  const paidStatus = String(record.paidStatus ?? '');
+  const paymentProof = mapPaymentProofFromRecord(record, totals.farmerContributionAmount);
+
+  return {
+    _id: String(record._id),
+    applicationNumber: String(record.applicationNumber),
+    insuranceProvider: normalizeInsuranceProvider(String(record.insuranceProvider ?? '')),
+    speciesGroup: record.speciesGroup as LivestockSpeciesGroup,
+    ownerMode: (record.ownerMode as LivestockOwnerMode) ?? 'SINGLE_OWNER',
+    poultryProductType: record.poultryProductType
+      ? (String(record.poultryProductType) as LivestockApplicationListItem['poultryProductType'])
+      : undefined,
+    insuranceType: record.insuranceType ? String(record.insuranceType) : undefined,
+    policyStartDate: String(record.policyStartDate ?? ''),
+    policyEndDate: String(record.policyEndDate ?? ''),
+    livestockLocation: location,
+    totalSumAssured: totals.totalSumAssured,
+    governmentContribution: totals.governmentContribution,
+    veterinaryCommission: totals.veterinaryCommission,
+    companyCommission: totals.companyCommission,
+    companyCommissionRate: totals.companyCommissionRate,
+    status: normalizeLivestockApplicationStatus(statusRaw)
+      ?? mapLegacyStatus(statusRaw, subsidyStatus, paidStatus),
+    ownerSummary: resolveOwnerSummaryFromRecord(record, formatLocationSummary(location)),
+    lineCount: countInsuredLines(record),
+    totals: {
+      farmerContributionAmount: totals.farmerContributionAmount,
+      premiumRateAmount: totals.premiumRateAmount,
+    },
+    submittedAt: String(record.submittedAt ?? new Date().toISOString()),
+    paymentProofStatus: paymentProof.status,
+    paymentProofDocumentUrl: paymentProof.documentUrl,
+    subsidyRequired: subsidyRequiredFromStatus(subsidyStatus),
+    paidStatus,
+    subsidyStatus,
+    vetName:
+      String(record.vetName ?? '').trim() ||
+      String((record.agent as { fullName?: string } | undefined)?.fullName ?? '').trim() ||
+      undefined,
+    vetId:
+      String(record.vetId ?? '').trim() ||
+      String((record.agent as { _id?: string } | undefined)?._id ?? '').trim() ||
+      undefined,
+  };
+}
+
+export function mapFlatApplicationToPackage(
+  record: Record<string, unknown>,
+): LivestockApplicationPackage {
+  const listItem = mapFlatApplicationToListItem(record);
+  const totals = readPackageTotals(record);
+  const location = extractLivestockLocation(record);
+  const submittedAt = listItem.submittedAt;
+
+  const lines = mapInsuredLinesFromRecord(record);
+  const ownersList = resolvePackageOwnersList(record);
+  const primaryOwner = resolvePackagePrimaryOwner(record);
+
+  return {
+    _id: listItem._id,
+    applicationNumber: listItem.applicationNumber,
+    speciesGroup: listItem.speciesGroup,
+    ownerMode: listItem.ownerMode,
+    poultryProductType: listItem.poultryProductType,
+    insuranceType: listItem.insuranceType,
+    insuranceProvider: listItem.insuranceProvider,
+    livestockLocation: location,
+    status: listItem.status as LivestockApplicationStatus,
+    submittedAt,
+    updatedAt: String(record.updatedAt ?? submittedAt),
+    vetId: String((record.agent as { _id?: string } | undefined)?._id ?? ''),
+    vetName: String((record.agent as { fullName?: string } | undefined)?.fullName ?? '—'),
+    ownerSummary: listItem.ownerSummary,
+    primaryOwner,
+    ownersList: ownersList.length > 0 ? ownersList : undefined,
+    lineCount: lines.length,
+    policyStartDate: String(record.policyStartDate ?? '').slice(0, 10),
+    policyEndDate: String(record.policyEndDate ?? '').slice(0, 10),
+    totals,
+    paymentProof: mapPaymentProofFromRecord(record, totals.farmerContributionAmount),
+    subsidyCase: buildSubsidyCaseFromRecord(record),
+    sonarwaReview: mapSonarwaReviewFromRecord(record),
+    subsidyDocuments: mapSubsidyDocumentsFromRecord(record),
+    lines,
+    issuedDocuments: record.issuedDocuments as LivestockApplicationPackage['issuedDocuments'],
+    insuranceIssuedAt: record.insuranceIssuedAt ? String(record.insuranceIssuedAt) : undefined,
+    insuranceIssuedByName:
+      record.insuranceIssuedBy && typeof record.insuranceIssuedBy === 'object'
+        ? String((record.insuranceIssuedBy as { fullName?: unknown }).fullName ?? '').trim() ||
+          undefined
+        : undefined,
+    ...mapApplicationExtensionFields(record),
+  };
+}

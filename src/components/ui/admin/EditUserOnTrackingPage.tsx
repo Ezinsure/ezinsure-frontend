@@ -11,25 +11,32 @@ export interface Application {
   _id: string;
   fullName: string;
   email: string;
-  phoneNumber: string;
-  dateOfBirth: string;
-  address: string;
-  province: string;
-  district: string;
-  sector: string;
+  phoneNumber?: string;
+  dateOfBirth?: string;
+  address?: string;
+  province?: string;
+  district?: string;
+  sector?: string;
   status: string;
-  nationalIdDocument: string;
-  criminalRecordCertificate: string;
-  passportPhoto: string;
-  emergencyContacts: Array<{
+  /** AGENT or VETERINARY when returned by the API. */
+  role?: string;
+  nationalIdDocument?: string;
+  criminalRecordCertificate?: string;
+  passportPhoto?: string;
+  /** Veterinarian RCVD licence when role is VETERINARY. */
+  rcvdLicenceDocument?: string;
+  veterinaryType?: string;
+  /** Optional; apply/create responses may omit this array. */
+  emergencyContacts?: Array<{
     fullName: string;
     phoneNumber: string;
     relationship: string;
   }>;
-  submittedAt: string;
+  createdAt: string;
+  submittedAt?: string; // Keep for backward compatibility
   rejectionReason?: string;
-  bankName: string;
-  bankAccountNumber: string;
+  bankName?: string;
+  bankAccountNumber?: string;
 }
 
 interface EditUserModalProps {
@@ -56,7 +63,7 @@ export const EditUserOnTrackingPage = ({
     province: application.province,
     district: application.district,
     sector: application.sector,
-    emergencyContacts: [...application.emergencyContacts]
+    emergencyContacts: [...(application.emergencyContacts ?? [])],
   });
 
   const [files, setFiles] = useState<Record<string, File | null>>({
@@ -89,19 +96,30 @@ export const EditUserOnTrackingPage = ({
         province: application.province,
         district: application.district,
         sector: application.sector,
-        emergencyContacts: [...application.emergencyContacts]
+        emergencyContacts: [...(application.emergencyContacts ?? [])],
       });
 
       // Set up districts based on current province
       if (application.province) {
         const selectedProvince = rwandaProvinces.find(p => p.name === application.province);
-        setAvailableDistricts(selectedProvince?.districts || []);
+        const districts = selectedProvince?.districts || [];
+        // Transform districts to match expected format
+        const transformedDistricts = districts.map(district => ({
+          name: district.name,
+          sectors: district.sectors?.map(sector => sector.name) || []
+        }));
+        setAvailableDistricts(transformedDistricts);
       }
 
       // Set up sectors based on current district
       if (application.district && application.province) {
         const selectedProvince = rwandaProvinces.find(p => p.name === application.province);
-        const selectedDistrict = selectedProvince?.districts?.find(d => d.name === application.district);
+        const districts = selectedProvince?.districts || [];
+        const transformedDistricts = districts.map(district => ({
+          name: district.name,
+          sectors: district.sectors?.map(sector => sector.name) || []
+        }));
+        const selectedDistrict = transformedDistricts.find(d => d.name === application.district);
         setAvailableSectors(selectedDistrict?.sectors || []);
       }
     }
@@ -112,9 +130,14 @@ export const EditUserOnTrackingPage = ({
     if (formState.province) {
       const selectedProvince = rwandaProvinces.find(p => p.name === formState.province);
       const districts = selectedProvince?.districts || [];
-      setAvailableDistricts(districts);
+      // Transform districts to match expected format
+      const transformedDistricts = districts.map(district => ({
+        name: district.name,
+        sectors: district.sectors?.map(sector => sector.name) || []
+      }));
+      setAvailableDistricts(transformedDistricts);
       
-      if (!districts.some(d => d.name === formState.district)) {
+      if (!transformedDistricts.some(d => d.name === formState.district)) {
         setFormState(prev => ({ ...prev, district: '', sector: '' }));
       }
     } else {

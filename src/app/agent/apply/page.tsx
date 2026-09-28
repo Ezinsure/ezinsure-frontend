@@ -1,11 +1,15 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { MainLayout } from '@/components/ui/main-layout';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { FileInput } from '@/components/ui/file-input';
+import { SearchInput } from '@/components/ui/search-input';
+import { RwandaPhoneInput } from '@/components/ui/rwanda-phone-input';
+import { DocumentViewer } from '@/components/ui/document-viewer';
 import { useToast } from '@/components/ui/toast';
+import { useApiClient } from '@/utils/apiClient';
 import {
   validateForm,
   ValidationRules,
@@ -13,27 +17,30 @@ import {
   hasErrors,
 } from '@/components/ui/form-validation';
 import { rwandaProvinces } from '@/utils/rwanda-administrative';
+import { formatErrorMessage, getApiErrorMessage, normalizeMotorApplyErrorMessage } from '@/utils/error-formatter';
+import { carUses, motoUses, carTypes, motoTypes } from '@/utils/vehicle-types';
+import { ComboboxField } from '@/components/ui/combobox-field';
+import { calculateAdministrationFeesRwf } from '@/utils/administration-fees';
+import {
+  getVehicleManufactureYearBounds,
+  getVehicleManufactureYearValidationError,
+} from '@/utils/vehicle-year';
+import { NumericInputField } from '@/components/ui/numeric-input-field';
+import { validateInsuranceDuration, normalizeInsuranceDurationPayload } from '@/utils/insurance-duration';
+import { InsuranceDurationField } from '@/components/ui/insurance-duration-field';
+import { ComesaCheckboxField } from '@/components/ui/comesa-checkbox-field';
 
 // Device tracking utility types and functions
 interface DeviceInfo {
   userAgent: string;
   platform: string;
-  // language: string;
-  // screenResolution: string;
   timezone: string;
-  // cookieEnabled: boolean;
-  // onlineStatus: boolean;
   deviceMemory?: number;
-  // hardwareConcurrency: number;
-  // connectionType?: string;
   devicePixelRatio: number;
   viewportSize: string;
   browserName: string;
   browserVersion: string;
   operatingSystem: string;
-  // isMobile: boolean;
-  // isTablet: boolean;
-  // touchSupport: boolean;
 }
 
 interface LocationInfo {
@@ -80,37 +87,38 @@ const getDeviceInfo = (): DeviceInfo => {
   };
 
   const getOperatingSystem = () => {
+    // Prioritize navigator.platform as it's more reliable than userAgent
+    const platform = navigator.platform.toLowerCase();
+    
+    // Check platform first (most reliable)
+    if (platform.includes('win')) return 'Windows';
+    if (platform.includes('mac')) return 'macOS';
+    if (platform.includes('linux')) return 'Linux';
+    if (platform.includes('iphone') || platform.includes('ipad') || platform.includes('ipod')) return 'iOS';
+    if (platform.includes('android')) return 'Android';
+    
+    // Fallback to userAgent parsing if platform doesn't help
     if (ua.includes('Windows')) return 'Windows';
-    if (ua.includes('Mac OS X')) return 'macOS';
-    if (ua.includes('Linux')) return 'Linux';
     if (ua.includes('Android')) return 'Android';
-    if (ua.includes('iOS') || ua.includes('iPhone') || ua.includes('iPad')) return 'iOS';
+    if (ua.includes('iPhone') || ua.includes('iPad')) return 'iOS';
+    if (ua.includes('Mac OS X') && !ua.includes('iPhone') && !ua.includes('iPad')) return 'macOS';
+    if (ua.includes('Linux')) return 'Linux';
+    
     return 'Unknown';
   };
 
-  // const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua);
-  // const isTablet = /iPad|Android(?=.*\bMobile\b)(?=.*\bSafari\b)|Android(?=.*(?:\b|_)Tablet(?:\b|_))/i.test(ua);
   const browser = getBrowserInfo();
   
   return {
     userAgent: ua,
     platform: navigator.platform,
-    // language: navigator.language,
-    // screenResolution: `${screen.width}x${screen.height}`,
     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-    // cookieEnabled: navigator.cookieEnabled,
-    // onlineStatus: navigator.onLine,
     deviceMemory: (navigator as unknown as { deviceMemory?: number }).deviceMemory,
-    // hardwareConcurrency: navigator.hardwareConcurrency,
-    // connectionType: (navigator as any).connection?.effectiveType,
     devicePixelRatio: window.devicePixelRatio,
     viewportSize: `${window.innerWidth}x${window.innerHeight}`,
     browserName: browser.name,
     browserVersion: browser.version,
     operatingSystem: getOperatingSystem(),
-    // isMobile,
-    // isTablet,
-    // touchSupport: 'ontouchstart' in window || navigator.maxTouchPoints > 0,
   };
 };
 
@@ -173,7 +181,6 @@ const getSessionId = (): string => {
     sessionId = sessionStorage.getItem(storageKey);
   } catch (error) {
     console.log('Session storage access failed:', error);
-    // Handle cases where sessionStorage is not available
     sessionId = null;
   }
   
@@ -183,7 +190,6 @@ const getSessionId = (): string => {
       sessionStorage.setItem(storageKey, sessionId);
     } catch (error) {
       console.log('Failed to set session ID in storage:', error);
-      // Silently handle storage errors
     }
   }
   
@@ -206,8 +212,12 @@ const getTrackingData = async (): Promise<TrackingData> => {
 };
 
 export default function AgentApplyPage() {
+  const vehicleYearBounds = useMemo(() => getVehicleManufactureYearBounds(), []);
   const { showToast, ToastContainer } = useToast();
+  const { apiFetch } = useApiClient();
   const [formKey, setFormKey] = useState(Date.now());
+  const [trackingData, setTrackingData] = useState<TrackingData | null>(null);
+  const [viewingDocument, setViewingDocument] = useState<{ url: string; name: string } | null>(null);
 
   // State for administrative divisions
   const [availableDistricts, setAvailableDistricts] = useState<{name: string, sectors?: string[]}[]>([]);
@@ -223,19 +233,51 @@ export default function AgentApplyPage() {
     district: '',
     sector: '',
     insuranceCategory: 'car',
-    insuranceType: 'comprehensive',
-    insuranceDuration: '12',
+    insuranceType: 'thirdParty',
+    insuranceDuration: '12 Months',
     vehicleType: '',
     vehicleAge: '',
+    vehicleUse: '',
+    otherVehicleUse: '',
+    isCOMESA: false,
     nationalID: null as File | null, 
     yellowCard: null as File | null,
     pastInsuranceCertificate: null as File | null,
     insuranceProvider: 'SONARWA',
+    // New fields
+    plateNumber: '',
+    chasisNumber: '',
+    identificationDocumentType: 'nationalID',
+    identificationNumber: '',
+    // API response fields
+    vehicleId: '',
+    clientId: '',
+    // Document URLs from API (for viewing existing documents)
+    identificationDocumentUrl: '',
+    yellowCardUrl: '',
+    pastInsuranceCertificateUrl: '',
   });
 
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [trackingData, setTrackingData] = useState<TrackingData | null>(null);
+  
+  // Reset triggers for SearchInput components
+  const [plateNumberResetTrigger, setPlateNumberResetTrigger] = useState(0);
+  const [identificationNumberResetTrigger, setIdentificationNumberResetTrigger] = useState(0);
+  const [phoneNumberResetTrigger, setPhoneNumberResetTrigger] = useState(0);
+  const [fileResetTrigger, setFileResetTrigger] = useState(0);
+  
+  // Track search results for isNewClient and isNewVehicle fields
+  const [searchResults, setSearchResults] = useState({
+    isNewClient: true,    // Default to true (new client)
+    isNewVehicle: false,   // Default to false - only set to true if search confirms vehicle doesn't exist
+  });
+  // Track if plate search just completed to prevent onChange from resetting isNewVehicle
+  const plateSearchJustCompletedRef = useRef(false);
+
+  // Track whether identification and plate searches have been performed
+  const [hasFetchedIdentification, setHasFetchedIdentification] = useState(false);
+  const [hasFetchedPlate, setHasFetchedPlate] = useState(false);
 
   // Initialize tracking data on component mount
   useEffect(() => {
@@ -244,8 +286,7 @@ export default function AgentApplyPage() {
         const data = await getTrackingData();
         setTrackingData(data);
       } catch (error) {
-        console.debug('Tracking initialization failed:', error);
-        // Continue without tracking data if it fails
+        console.error('[Agent Apply] Tracking initialization failed:', error);
       }
     };
 
@@ -254,7 +295,7 @@ export default function AgentApplyPage() {
 
   const validationRules: ValidationRules = {
     fullName: { required: true, minLength: 3, maxLength: 50 },
-    email: { required: true, pattern: validationPatterns.email },
+    email: { required: false, pattern: validationPatterns.email },
     phoneNumber: { required: true, pattern: validationPatterns.phone },
     address: { required: true, minLength: 5, maxLength: 100 },
     dateOfBirth: { required: true },
@@ -265,19 +306,23 @@ export default function AgentApplyPage() {
     insuranceType: { required: true },
     insuranceDuration: { required: true },
     vehicleType: { required: formState.insuranceCategory === 'car' || formState.insuranceCategory === 'motorbike' },
-    vehicleAge: { required: formState.insuranceCategory === 'car' || formState.insuranceCategory === 'motorbike' },
+    vehicleAge: {
+      required: formState.insuranceCategory === 'car' || formState.insuranceCategory === 'motorbike',
+      validate: (v) => {
+        const err = getVehicleManufactureYearValidationError(v);
+        return err === null ? true : err;
+      },
+    },
+    vehicleUse: { required: formState.insuranceCategory === 'car' || formState.insuranceCategory === 'motorbike' },
+    otherVehicleUse: { required: formState.vehicleUse === 'Other' },
+    isCOMESA: { required: true },
     nationalID: { required: true },
     yellowCard: { required: true },
-    insuranceProvider: { required: true }, 
-  };
-
-  const getTokenFromStorage = () => {
-    try {
-      return sessionStorage.getItem('ezinsure_token');
-    } catch (error) {
-      console.error('Error accessing sessionStorage:', error);
-      return null;
-    }
+    insuranceProvider: { required: true },
+    // New validation rules
+    plateNumber: { required: formState.insuranceCategory === 'car' || formState.insuranceCategory === 'motorbike' },
+    identificationDocumentType: { required: true },
+    identificationNumber: { required: true },
   };
 
   const getDateLimits = () => {
@@ -303,7 +348,13 @@ export default function AgentApplyPage() {
 
     if (value) {
       const selectedProvince = rwandaProvinces.find(p => p.name === value);
-      setAvailableDistricts(selectedProvince?.districts || []);
+      const districts = selectedProvince?.districts || [];
+      // Transform districts to match expected format
+      const transformedDistricts = districts.map(district => ({
+        name: district.name,
+        sectors: district.sectors?.map(sector => sector.name) || []
+      }));
+      setAvailableDistricts(transformedDistricts);
     } else {
       setAvailableDistricts([]);
     }
@@ -330,7 +381,8 @@ export default function AgentApplyPage() {
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
-    const { name, value } = e.target;
+    const { name, value, type } = e.target;
+    const checked = type === 'checkbox' ? (e.target as HTMLInputElement).checked : undefined;
     
     // Special handling for province and district changes
     if (name === 'province') {
@@ -341,11 +393,74 @@ export default function AgentApplyPage() {
       return;
     }
     
-    setFormState((prev) => ({ ...prev, [name]: value }));
+    // Clear personal information when document type changes
+    if (name === 'identificationDocumentType') {
+      setFormState(prev => ({
+        ...prev,
+        [name]: value,
+        // Clear all personal information fields except document type
+        fullName: '',
+        email: '',
+        phoneNumber: '',
+        address: '',
+        dateOfBirth: '',
+        province: '',
+        district: '',
+        sector: '',
+        identificationNumber: '',
+        // Always clear vehicle fields when client changes
+        vehicleType: '',
+        vehicleAge: '',
+        vehicleUse: '',
+        otherVehicleUse: '',
+        plateNumber: '',
+        chasisNumber: '',
+        vehicleId: '',
+        // Clear document URLs
+        identificationDocumentUrl: '',
+        yellowCardUrl: '',
+        pastInsuranceCertificateUrl: '',
+      }));
+      setAvailableDistricts([]);
+      setAvailableSectors([]);
+      // Reset identification number search status
+      setIdentificationNumberResetTrigger(prev => prev + 1);
+      // Reset plate number search status
+      setPlateNumberResetTrigger(prev => prev + 1);
+      // Reset isNewVehicle when document type changes
+      setSearchResults(prev => ({
+        ...prev,
+        isNewVehicle: false // Reset to false, will be updated by search result
+      }));
+      // Reset search fetch flags
+      setHasFetchedIdentification(false);
+      setHasFetchedPlate(false);
+    } 
+    // Clear vehicle fields when insurance category changes
+    else if (name === 'insuranceCategory') {
+      setFormState(prev => ({
+        ...prev,
+        [name]: value,
+        // Clear only vehicle-related fields (not client info)
+    plateNumber: '',
+    chasisNumber: '',
+    vehicleType: '',
+        vehicleAge: '',
+        vehicleUse: '',
+        otherVehicleUse: '',
+      }));
+      // Reset plate number search status
+      setPlateNumberResetTrigger(prev => prev + 1);
+    } else {
+      setFormState(prev => ({
+        ...prev,
+        [name]: type === 'checkbox' ? checked : value
+      }));
+    }
 
     // Clear error when typing
     if (errors[name]) {
-      setErrors((prev) => {
+      setErrors(prev => {
         const newErrors = { ...prev };
         delete newErrors[name];
         return newErrors;
@@ -353,12 +468,40 @@ export default function AgentApplyPage() {
     }
   };
 
+  const allowedFileTypes = useMemo(
+    () => [
+      'image/jpeg',
+      'image/png',
+      'image/jpg',
+      'image/webp',
+      'image/gif',
+      'application/pdf'
+    ],
+    []
+  );
+
   const handleFileChange = (name: string) => (file: File | null) => {
-    setFormState((prev) => ({ ...prev, [name]: file }));
+    if (file) {
+      const mimeType = file.type?.toLowerCase();
+      const fileName = file.name?.toLowerCase();
+      const isAllowed =
+        (mimeType && allowedFileTypes.includes(mimeType)) ||
+        (!mimeType && /\.(png|jpe?g|gif|webp|pdf)$/i.test(fileName || ''));
+
+      if (!isAllowed) {
+        const message = 'Unsupported file type. Please upload an image or PDF document.';
+        setErrors(prev => ({ ...prev, [name]: message }));
+        showToast(message, 'error');
+        setFileResetTrigger(prev => prev + 1);
+        return;
+      }
+    }
+
+    setFormState(prev => ({ ...prev, [name]: file }));
 
     // Clear error when selecting file
     if (errors[name]) {
-      setErrors((prev) => {
+      setErrors(prev => {
         const newErrors = { ...prev };
         delete newErrors[name];
         return newErrors;
@@ -366,13 +509,139 @@ export default function AgentApplyPage() {
     }
   };
 
-  const formatInsuranceDuration = (duration: string) => {
-    switch (duration) {
-      case '1': return '1 Month';
-      case '3': return '3 Months';
-      case '6': return '6 Months';
-      case '12': return '12 Months';
-      default: return '12 Months';
+  // Handle search success for identification number
+  const handleIdentificationSearchSuccess = (data: Record<string, unknown>) => {
+    setFormState(prev => ({
+      ...prev,
+      fullName: (data.fullName as string) || prev.fullName,
+      email: (data.email as string) || prev.email,
+      phoneNumber: (data.phoneNumber as string) || prev.phoneNumber,
+      address: (data.address as string) || prev.address,
+      dateOfBirth: (data.dateOfBirth as string) || prev.dateOfBirth,
+      province: (data.province as string) || prev.province,
+      district: (data.district as string) || prev.district,
+      sector: (data.sector as string) || prev.sector,
+      clientId: (data.clientId as string) || prev.clientId,
+      // Vehicle fields (if document type is plateNumber)
+      vehicleId: (data.vehicleId as string) || prev.vehicleId,
+      vehicleType: (data.vehicleType as string) || prev.vehicleType,
+      vehicleAge: (data.vehicleAge as string) || prev.vehicleAge,
+      vehicleUse: (data.vehicleUse as string) || prev.vehicleUse,
+      otherVehicleUse: (data.otherVehicleUse as string) || prev.otherVehicleUse,
+      plateNumber: (data.plateNumber as string) || prev.plateNumber,
+      chasisNumber: (data.chasisNumber as string) || prev.chasisNumber,
+      // Document URLs (for viewing existing documents)
+      identificationDocumentUrl: (data.identificationDocumentUrl as string) || '',
+      yellowCardUrl: (data.yellowCardUrl as string) || '',
+      pastInsuranceCertificateUrl: (data.pastInsuranceCertificateUrl as string) || '',
+    }));
+
+    // Update districts and sectors if province is set
+    if (data.province) {
+      const selectedProvince = rwandaProvinces.find(p => p.name === (data.province as string));
+      const districts = selectedProvince?.districts || [];
+      const transformedDistricts = districts.map(district => ({
+        name: district.name,
+        sectors: district.sectors?.map(sector => sector.name) || []
+      }));
+      setAvailableDistricts(transformedDistricts);
+
+      if (data.district) {
+        const selectedDistrict = transformedDistricts.find(d => d.name === (data.district as string));
+        setAvailableSectors(selectedDistrict?.sectors || []);
+      }
+    }
+  };
+
+  // Handle search success for plate number
+  const handlePlateSearchSuccess = (data: Record<string, unknown>) => {
+    plateSearchJustCompletedRef.current = true;
+    const usePlateAsClientId = formState.identificationDocumentType === 'plateNumber';
+
+    setFormState(prev => ({
+      ...prev,
+      // Client info and clientId from plate search only when identification type is Plate Number
+      ...(usePlateAsClientId
+        ? {
+            fullName: (data.fullName as string) || prev.fullName,
+            email: (data.email as string) || prev.email,
+            phoneNumber: (data.phoneNumber as string) || prev.phoneNumber,
+            address: (data.address as string) || prev.address,
+            dateOfBirth: (data.dateOfBirth as string) || prev.dateOfBirth,
+            province: (data.province as string) || prev.province,
+            district: (data.district as string) || prev.district,
+            sector: (data.sector as string) || prev.sector,
+            identificationNumber: (data.identificationNumber as string && data.identificationNumber !== '')
+              ? (data.identificationNumber as string)
+              : prev.identificationNumber,
+            identificationDocumentType: (data.identificationDocumentType as string && data.identificationDocumentType !== '' && data.identificationDocumentType !== 'plateNumber')
+              ? (data.identificationDocumentType as string)
+              : prev.identificationDocumentType,
+            clientId: (data.clientId as string) || prev.clientId,
+            identificationDocumentUrl: (data.identificationDocumentUrl as string) || '',
+          }
+        : {}),
+      // Vehicle fields: always from plate search
+      vehicleType: (data.vehicleType as string) || prev.vehicleType,
+      vehicleAge: (data.vehicleAge as string) || prev.vehicleAge,
+      vehicleUse: (data.vehicleUse as string) || prev.vehicleUse,
+      otherVehicleUse: (data.otherVehicleUse as string) || prev.otherVehicleUse,
+      plateNumber: (data.plateNumber as string) || prev.plateNumber,
+      chasisNumber: (data.chasisNumber as string) || prev.chasisNumber,
+      vehicleId: (data.vehicleId as string) || prev.vehicleId,
+      yellowCardUrl: (data.yellowCardUrl as string) || '',
+      pastInsuranceCertificateUrl: (data.pastInsuranceCertificateUrl as string) || '',
+    }));
+
+    setSearchResults(prev => ({
+      ...prev,
+      isNewClient: usePlateAsClientId && data.clientId ? false : prev.isNewClient,
+      isNewVehicle: false,
+    }));
+    
+    // Reset the flag after a short delay to allow state updates to complete
+    setTimeout(() => {
+      plateSearchJustCompletedRef.current = false;
+    }, 100);
+
+    if (usePlateAsClientId && data.province) {
+      const selectedProvince = rwandaProvinces.find(p => p.name === (data.province as string));
+      const districts = selectedProvince?.districts || [];
+      const transformedDistricts = districts.map(district => ({
+        name: district.name,
+        sectors: district.sectors?.map(sector => sector.name) || []
+      }));
+      setAvailableDistricts(transformedDistricts);
+      if (data.district) {
+        const selectedDistrict = transformedDistricts.find(d => d.name === (data.district as string));
+        setAvailableSectors(selectedDistrict?.sectors || []);
+      }
+    }
+
+    showToast('Vehicle information loaded successfully.', 'success');
+  };
+
+  // Handle search results to track isNewClient and isNewVehicle
+  const handleSearchResult = (exists: boolean, searchType: 'plateNumber' | 'identificationNumber') => {
+    const isNew = !exists;
+    const key = searchType === 'identificationNumber' ? 'isNewClient' : 'isNewVehicle';
+
+    setSearchResults(prev => ({
+      ...prev,
+      [key]: isNew,
+      ...(searchType === 'identificationNumber' && formState.identificationDocumentType === 'plateNumber'
+        ? { isNewVehicle: isNew }
+        : {}),
+    }));
+
+    if (searchType === 'identificationNumber') {
+      setHasFetchedIdentification(true);
+      if (formState.identificationDocumentType === 'plateNumber') {
+        // For plateNumber as ID: only count as plate fetched when an existing record is found.
+        setHasFetchedPlate(exists);
+      }
+    } else if (searchType === 'plateNumber') {
+      setHasFetchedPlate(true);
     }
   };
 
@@ -392,16 +661,68 @@ export default function AgentApplyPage() {
       case 'travel': return 'Travel Insurance';
       case 'health': return 'Health Insurance';
       case 'fire': return 'Fire Insurance Coverage';
+      case 'tourist': return 'Tourist Insurance';
       default: return 'Car Insurance';
+    }
+  };
+
+  const getIdentificationDocumentLabel = (type: string) => {
+    switch (type) {
+      case 'nationalID': return 'National ID Number';
+      case 'passport': return 'Passport Number';
+      case 'drivingLicense': return 'Driving License Number';
+      case 'plateNumber': return 'Plate Number';
+      case 'tinNumber': return 'TIN Number';
+      default: return 'National ID Number';
+    }
+  };
+
+  const getIdentificationDocumentPlaceholder = (type: string) => {
+    switch (type) {
+      case 'nationalID': return 'e.g. 1234567890123456';
+      case 'passport': return 'e.g. RN1234567';
+      case 'drivingLicense': return 'e.g. DL123456789';
+      case 'plateNumber': return 'e.g. RAA 123A';
+      case 'tinNumber': return 'e.g. 123456789';
+      default: return 'e.g. 1234567890123456';
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
 
     // Validate form
-    const formErrors = validateForm(formState, validationRules);
+    // Validate form - include document URLs for file validation
+    const formDataForValidation = {
+      ...formState,
+      isCOMESA: formState.isCOMESA ? 'true' : 'false',
+      // Include document URLs so validation can check them for file fields
+      identificationDocumentUrl: formState.identificationDocumentUrl,
+      yellowCardUrl: formState.yellowCardUrl,
+      pastInsuranceCertificateUrl: formState.pastInsuranceCertificateUrl,
+    };
+    const formErrors = validateForm(formDataForValidation, validationRules);
+    const durationErr = validateInsuranceDuration(formState.insuranceDuration);
+    if (durationErr) {
+      formErrors.insuranceDuration = durationErr;
+    }
     setErrors(formErrors);
+
+    // Business rule: require successful searches before submission
+    const needsPlateSearch =
+      (formState.insuranceCategory === 'car' || formState.insuranceCategory === 'motorbike') &&
+      !(formState.identificationDocumentType === 'plateNumber' && hasFetchedIdentification);
+
+    if (!hasFetchedIdentification) {
+      showToast('Please search the identification document before submitting the application.', 'error');
+      return;
+    }
+
+    if (needsPlateSearch && !hasFetchedPlate) {
+      showToast('Please search the plate number before submitting the application.', 'error');
+      return;
+    }
 
     if (!hasErrors(formErrors)) {
       setIsSubmitting(true);
@@ -411,7 +732,9 @@ export default function AgentApplyPage() {
         
         // Append basic information
         formData.append('fullName', formState.fullName);
-        formData.append('email', formState.email);
+        if (formState.email) {
+          formData.append('email', formState.email);
+        }
         formData.append('phoneNumber', formState.phoneNumber);
         formData.append('address', formState.address);
         formData.append('dateOfBirth', formState.dateOfBirth);
@@ -420,61 +743,109 @@ export default function AgentApplyPage() {
         formData.append('sector', formState.sector);
         formData.append('insuranceCategory', formatInsuranceCategory(formState.insuranceCategory));
         formData.append('insuranceType', formatInsuranceType(formState.insuranceType));
-        formData.append('insuranceDuration', formatInsuranceDuration(formState.insuranceDuration));
+        formData.append(
+          'insuranceDuration',
+          normalizeInsuranceDurationPayload(formState.insuranceDuration),
+        );
         formData.append('insuranceProvider', formState.insuranceProvider);
+        
+        // Append new fields for /newApply endpoint - match admin form order
+        formData.append('isNewClient', searchResults.isNewClient ? 'true' : 'false');
+        formData.append('isNewVehicle', searchResults.isNewVehicle ? 'true' : 'false');
+        
+        // Always send identification fields - match admin form behavior exactly
+        // Send whatever is in formState (even if it's plateNumber type/number)
+        // Backend needs these fields even when clientId exists
+        formData.append('identificationDocumentType', formState.identificationDocumentType || '');
+        formData.append('identificationNumber', formState.identificationNumber || '');
+        
+        // Append plate number
+        if (formState.plateNumber) {
+          formData.append('plateNumber', formState.plateNumber);
+        }
         
         // Append vehicle details if applicable
         if (formState.insuranceCategory === 'car' || formState.insuranceCategory === 'motorbike') {
           formData.append('vehicleType', formState.vehicleType);
           formData.append('vehicleAge', formState.vehicleAge);
+          if (formState.chasisNumber?.trim()) {
+            formData.append('chasisNumber', formState.chasisNumber.trim());
+          }
+          
+          // Handle vehicle use with "Other" option
+          const vehicleUse = formState.vehicleUse === 'Other' 
+            ? `Other - ${formState.otherVehicleUse}`
+            : formState.vehicleUse;
+          formData.append('vehicleUse', vehicleUse);
         }
         
-        // Append files
+        // Append COMESA status
+        formData.append('isCOMESA', formState.isCOMESA.toString());
+        formData.append(
+          'administrationFees',
+          String(calculateAdministrationFeesRwf(formState.insuranceCategory, formState.isCOMESA)),
+        );
+
+        // Append files that were directly uploaded
         if (formState.nationalID) {
           formData.append('nationalID', formState.nationalID);
+        } else if (formState.identificationDocumentUrl) {
+          // Send URL if no file was uploaded but URL exists
+          formData.append('nationalID', formState.identificationDocumentUrl);
         }
+        
         if (formState.yellowCard) {
           formData.append('yellowCard', formState.yellowCard);
+        } else if (formState.yellowCardUrl) {
+          // Send URL if no file was uploaded but URL exists
+          formData.append('yellowCard', formState.yellowCardUrl);
         }
+        
         if (formState.pastInsuranceCertificate) {
           formData.append('pastInsuranceCertificate', formState.pastInsuranceCertificate);
+        } else if (formState.pastInsuranceCertificateUrl) {
+          // Send URL if no file was uploaded but URL exists
+          formData.append('pastInsuranceCertificate', formState.pastInsuranceCertificateUrl);
+        }
+        
+        // Append IDs if they exist (backend needs these to reference existing records)
+        // Send clientId when it exists - backend will use it to find existing client
+        if (formState.clientId) {
+          formData.append('clientId', formState.clientId);
+        }
+        // Send vehicleId when it exists - backend will use it to find existing vehicle
+        if (formState.vehicleId) {
+          formData.append('vehicleId', formState.vehicleId);
         }
 
         // Append tracking data
         if (trackingData) {
           formData.append('trackingData', JSON.stringify(trackingData));
+        } else {
+          console.warn('[Agent Apply] No tracking data available - it was not captured!');
         }
 
-        const token = getTokenFromStorage();
-
-        if (!token) {
-          showToast('Authentication required. Please login again.', 'error');
-          return;
-        }
-
-        // Display FormData contents before sending
-        // for (const [key, value] of formData.entries()) {
-        //   console.log(`${key}:`, value);
-        // }
-
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/apply`, {
+        const response = await apiFetch('/newApply', {
           method: 'POST',
           body: formData,
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
         });
 
-        if (!response.ok) {
-          const errorData = await response.json();
-          console.error('Submission error:', errorData);
-          throw new Error(errorData.error || 'Application submission failed');
+        const data = await response.json();
+
+        if (!response.ok || (typeof data === 'object' && data !== null && 'error' in data && data.error)) {
+          const errorMessage = normalizeMotorApplyErrorMessage(
+            getApiErrorMessage(data, 'Application submission failed'),
+          );
+          throw new Error(errorMessage);
         }
 
-        const data = await response.json();
-        
+        const applicationNumber = data?.data?.applicationNumber;
+        if (!applicationNumber) {
+          throw new Error(getApiErrorMessage(data, 'Application submission failed'));
+        }
+
         showToast(
-          `Application submitted successfully! Your application number is ${data.data.applicationNumber}.`,
+          `Application submitted successfully! Your application number is ${applicationNumber}.`,
           'success'
         );
 
@@ -489,25 +860,52 @@ export default function AgentApplyPage() {
           district: '',
           sector: '',
           insuranceCategory: 'car',
-          insuranceType: 'comprehensive',
-          insuranceDuration: '12',
+          insuranceType: 'thirdParty',
+          insuranceDuration: '12 Months',
           vehicleType: '',
           vehicleAge: '',
+          vehicleUse: '',
+          otherVehicleUse: '',
+          isCOMESA: false,
           nationalID: null,
           yellowCard: null,
           pastInsuranceCertificate: null,
           insuranceProvider: 'SONARWA',
+          // Reset new fields
+          plateNumber: '',
+        chasisNumber: '',
+          identificationDocumentType: 'nationalID',
+          identificationNumber: '',
+          // Reset document URLs
+          identificationDocumentUrl: '',
+          yellowCardUrl: '',
+          pastInsuranceCertificateUrl: '',
+          // Reset API response fields
+          vehicleId: '',
+          clientId: '',
         });
         setAvailableDistricts([]);
         setAvailableSectors([]);
         setFormKey(Date.now());
 
+        // Reset search results
+        setSearchResults({
+          isNewClient: true,
+          isNewVehicle: false, // Default to false - only true if search confirms vehicle doesn't exist
+        });
+
+      // Reset search fetch flags
+      setHasFetchedIdentification(false);
+      setHasFetchedPlate(false);
+
+        // Reset search input components to clear their messages
+        setIdentificationNumberResetTrigger(prev => prev + 1);
+        setPlateNumberResetTrigger(prev => prev + 1);
+        setPhoneNumberResetTrigger(prev => prev + 1);
+
       } catch (error: unknown) {
         console.error('Application error:', error);
-        const errorMessage =
-          error instanceof Error
-            ? error.message
-            : 'Failed to submit application. Please try again.';
+        const errorMessage = normalizeMotorApplyErrorMessage(formatErrorMessage(error));
         showToast(errorMessage, 'error');
       } finally {
         setIsSubmitting(false);
@@ -520,8 +918,8 @@ export default function AgentApplyPage() {
   return (
     <MainLayout containerClass="p-0" fullWidth>
       <div className=" container mx-auto px-4 py-12 ">
-        <div className="absolute top-0 left-0 w-full h-[10vh] overflow-hidden z-0  bg-gradient-to-br from-[#0A2540] to-[#126BB3]"></div>
-        <div className="max-w-3xl mx-auto mt-16">
+
+        <div className="max-w-6xl mx-auto mt-16">
           <div className="mb-8 text-center">
             <h1 className="text-3xl md:text-4xl font-bold mb-4">
               Apply for Insurance (Agent)
@@ -541,213 +939,382 @@ export default function AgentApplyPage() {
             </div>
 
             <form onSubmit={handleSubmit} className="p-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <Input
-                  label="Full Name"
-                  name="fullName"
-                  placeholder="Jean Claude Niyonzima"
-                  value={formState.fullName}
-                  onChange={handleInputChange}
-                  error={errors.fullName}
-                  required
-                />
-
-                <Input
-                  label="Email Address"
-                  type="email"
-                  name="email"
-                  placeholder="johndoe@example.com"
-                  value={formState.email}
-                  onChange={handleInputChange}
-                  error={errors.email}
-                  required
-                  icon={
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="20"
-                      height="20"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
+              {/* Personal Information Section */}
+              <fieldset className="mb-8 border-2 border-[var(--main-blue)] rounded-lg p-6 bg-gray-50">
+                <legend className="text-lg font-semibold text-[var(--main-blue)] px-3 bg-white border border-[var(--main-blue)] rounded-md">
+                  Personal Information
+                </legend>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Identification Document Type */}
+                  <div>
+                    <label className="block text-sm font-medium mb-1">
+                      Identification Document Type <span className="text-[var(--error-red)]">*</span>
+                    </label>
+                    <select
+                      name="identificationDocumentType"
+                      value={formState.identificationDocumentType}
+                      onChange={handleInputChange}
+                      className="w-full py-2 px-3 rounded-lg focus:outline-none border border-gray-300 focus:border-[var(--main-blue)]"
+                      required
                     >
-                      <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
-                      <polyline points="22,6 12,13 2,6"></polyline>
-                    </svg>
-                  }
-                />
+                      <option value="nationalID">National ID</option>
+                      <option value="passport">Passport</option>
+                      <option value="drivingLicense">Driving License</option>
+                      <option value="plateNumber">Plate Number</option>
+                      <option value="tinNumber">TIN Number</option>
+                    </select>
+                    {errors.identificationDocumentType && (
+                      <p className="mt-1 text-sm text-[var(--error-red)]">{errors.identificationDocumentType}</p>
+                    )}
+                  </div>
 
-                <Input
-                  label="Phone Number"
-                  name="phoneNumber"
-                  placeholder="0781234567"
-                  value={formState.phoneNumber}
-                  onChange={handleInputChange}
-                  error={errors.phoneNumber}
-                  required
-                  icon={
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="20"
-                      height="20"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
+                  {/* Identification Number Search */}
+                  <div className="mb-6">
+                    <SearchInput
+                      label={getIdentificationDocumentLabel(formState.identificationDocumentType)}
+                      name="identificationNumber"
+                      placeholder={getIdentificationDocumentPlaceholder(formState.identificationDocumentType)}
+                      value={formState.identificationNumber}
+                      onChange={(value) => {
+                        setFormState(prev => ({
+                          ...prev,
+                          identificationNumber: value,
+                          // Clear personal information fields on any edit to avoid stale data
+                          fullName: '',
+                          email: '',
+                          phoneNumber: '',
+                          address: '',
+                          dateOfBirth: '',
+                          province: '',
+                          district: '',
+                          sector: '',
+                          // Always clear vehicle fields when identification number changes (client changes)
+                          vehicleType: '',
+                          vehicleAge: '',
+                          vehicleUse: '',
+                          otherVehicleUse: '',
+                          plateNumber: '',
+        chasisNumber: '',
+                          vehicleId: '',
+                          // Clear document URLs
+                          identificationDocumentUrl: '',
+                          yellowCardUrl: '',
+                          pastInsuranceCertificateUrl: '',
+                        }));
+                        // Reset dependent selects
+                        setAvailableDistricts([]);
+                        setAvailableSectors([]);
+                        // Reset phone number input whenever identification number changes
+                        setPhoneNumberResetTrigger(prev => prev + 1);
+                        // Reset plate number input whenever identification number changes
+                        setPlateNumberResetTrigger(prev => prev + 1);
+                        // Reset isNewClient and isNewVehicle to true when identification number changes
+                        // (will be updated when user performs search)
+                        setSearchResults(prev => ({
+                          ...prev,
+                          isNewClient: true,
+                          isNewVehicle: false // Reset to false, will be updated by search result
+                        }));
+                        // Identification search must be performed again
+                        setHasFetchedIdentification(false);
+                        if (formState.identificationDocumentType === 'plateNumber') {
+                          setHasFetchedPlate(false);
+                        }
+                        if (errors.identificationNumber) {
+                          setErrors(prev => {
+                            const newErrors = { ...prev };
+                            delete newErrors.identificationNumber;
+                            return newErrors;
+                          });
+                        }
+                      }}
+                      onSearchSuccess={handleIdentificationSearchSuccess}
+                      onSearchResult={handleSearchResult}
+                      searchType="identificationNumber"
+                      identificationDocumentType={formState.identificationDocumentType}
+                      error={errors.identificationNumber}
+                      required
+                      resetTrigger={identificationNumberResetTrigger}
+                    />
+                  </div>
+
+                  <Input
+                    label="Full Name"
+                    name="fullName"
+                    placeholder="John Doe"
+                    value={formState.fullName}
+                    onChange={handleInputChange}
+                    error={errors.fullName}
+                    required
+                  />
+
+                  <Input
+                    label="Email Address"
+                    type="email"
+                    name="email"
+                    placeholder="johndoe@example.com"
+                    value={formState.email}
+                    onChange={handleInputChange}
+                    error={errors.email}
+                    icon={
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="20"
+                        height="20"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+                        <polyline points="22,6 12,13 2,6"></polyline>
+                      </svg>
+                    }
+                  />
+
+                  <RwandaPhoneInput
+                    label="Phone Number"
+                    name="phoneNumber"
+                    value={formState.phoneNumber}
+                    onChange={(value) => {
+                      setFormState(prev => ({ ...prev, phoneNumber: value }));
+                      if (errors.phoneNumber) {
+                        setErrors(prev => {
+                          const newErrors = { ...prev };
+                          delete newErrors.phoneNumber;
+                          return newErrors;
+                        });
+                      }
+                    }}
+                    error={errors.phoneNumber}
+                    required
+                    resetTrigger={phoneNumberResetTrigger}
+                  />
+
+                  <Input
+                    label="Date of Birth"
+                    type="date"
+                    name="dateOfBirth"
+                    value={formState.dateOfBirth}
+                    onChange={handleInputChange}
+                    error={errors.dateOfBirth}
+                    min={getDateLimits().min}
+                    max={getDateLimits().max}
+                    required
+                  />
+
+                  <Input
+                    label="Address"
+                    name="address"
+                    placeholder="eg: KN 5 RD, Kigali - Rwanda"
+                    value={formState.address}
+                    onChange={handleInputChange}
+                    error={errors.address}
+                    required
+                  />
+
+                  {/* Province Select */}
+                  <div>
+                    <label className="block text-sm font-medium mb-1">
+                      Province <span className="text-[var(--error-red)]">*</span>
+                    </label>
+                    <select
+                      name="province"
+                      value={formState.province}
+                      onChange={handleInputChange}
+                      className="w-full py-2 px-3 rounded-lg focus:outline-none border border-gray-300 focus:border-[var(--main-blue)]"
+                      required
                     >
-                      <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
-                    </svg>
-                  }
-                />
+                      <option value="">Select Province</option>
+                      {rwandaProvinces.map(province => (
+                        <option key={province.name} value={province.name}>{province.name}</option>
+                      ))}
+                    </select>
+                    {errors.province && (
+                      <p className="mt-1 text-sm text-[var(--error-red)]">{errors.province}</p>
+                    )}
+                  </div>
 
-                <Input
-                  label="Date of Birth"
-                  type="date"
-                  name="dateOfBirth"
-                  value={formState.dateOfBirth}
-                  onChange={handleInputChange}
-                  error={errors.dateOfBirth}
-                  min={getDateLimits().min}
-                max={getDateLimits().max}
-                  required
-                />
+                  {/* District Select */}
+                  <div>
+                    <label className="block text-sm font-medium mb-1">
+                      District <span className="text-[var(--error-red)]">*</span>
+                    </label>
+                    <select
+                      name="district"
+                      value={formState.district}
+                      onChange={handleInputChange}
+                      disabled={!formState.province}
+                      className="w-full py-2 px-3 rounded-lg focus:outline-none border border-gray-300 focus:border-[var(--main-blue)] disabled:bg-gray-100 disabled:cursor-not-allowed"
+                      required
+                    >
+                      <option value="">Select District</option>
+                      {availableDistricts.map(district => (
+                        <option key={district.name} value={district.name}>{district.name}</option>
+                      ))}
+                    </select>
+                    {errors.district && (
+                      <p className="mt-1 text-sm text-[var(--error-red)]">{errors.district}</p>
+                    )}
+                  </div>
 
-                <Input
-                  label="Address"
-                  name="address"
-                  placeholder="KN 5 RD, Kigali - Rwanda"
-                  value={formState.address}
-                  onChange={handleInputChange}
-                  error={errors.address}
-                  required
-                />
-
-                {/* Province Select */}
-                <div>
-                  <label className="block text-sm font-medium mb-1">
-                    Province <span className="text-[var(--error-red)]">*</span>
-                  </label>
-                  <select
-                    name="province"
-                    value={formState.province}
-                    onChange={handleInputChange}
-                    className="w-full py-2 px-3 rounded-lg focus:outline-none border border-gray-300 focus:border-[var(--main-blue)]"
-                    required
-                  >
-                    <option value="">Select Province</option>
-                    {rwandaProvinces.map(province => (
-                      <option key={province.name} value={province.name}>{province.name}</option>
-                    ))}
-                  </select>
-                  {errors.province && (
-                    <p className="mt-1 text-sm text-[var(--error-red)]">{errors.province}</p>
-                  )}
+                  {/* Sector Select */}
+                  <div>
+                    <label className="block text-sm font-medium mb-1">
+                      Sector <span className="text-[var(--error-red)]">*</span>
+                    </label>
+                    <select
+                      name="sector"
+                      value={formState.sector}
+                      onChange={handleInputChange}
+                      disabled={!formState.district}
+                      className="w-full py-2 px-3 rounded-lg focus:outline-none border border-gray-300 focus:border-[var(--main-blue)] disabled:bg-gray-100 disabled:cursor-not-allowed"
+                      required
+                    >
+                      <option value="">Select Sector</option>
+                      {availableSectors.map(sector => (
+                        <option key={sector} value={sector}>{sector}</option>
+                      ))}
+                    </select>
+                    {errors.sector && (
+                      <p className="mt-1 text-sm text-[var(--error-red)]">{errors.sector}</p>
+                    )}
+                  </div>
                 </div>
+              </fieldset>
 
-                {/* District Select */}
-                <div>
-                  <label className="block text-sm font-medium mb-1">
-                    District <span className="text-[var(--error-red)]">*</span>
-                  </label>
-                  <select
-                    name="district"
-                    value={formState.district}
-                    onChange={handleInputChange}
-                    disabled={!formState.province}
-                    className="w-full py-2 px-3 rounded-lg focus:outline-none border border-gray-300 focus:border-[var(--main-blue)] disabled:bg-gray-100 disabled:cursor-not-allowed"
-                    required
-                  >
-                    <option value="">Select District</option>
-                    {availableDistricts.map(district => (
-                      <option key={district.name} value={district.name}>{district.name}</option>
-                    ))}
-                  </select>
-                  {errors.district && (
-                    <p className="mt-1 text-sm text-[var(--error-red)]">{errors.district}</p>
+              {/* Insurance Details Section */}
+              <fieldset className="mb-8 border-2 border-[var(--main-blue)] rounded-lg p-6 bg-gray-50">
+                <legend className="text-lg font-semibold text-[var(--main-blue)] px-3 bg-white border border-[var(--main-blue)] rounded-md">
+                  Insurance Details
+                </legend>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Insurance Category */}
+                  <div>
+                    <label
+                      className="block text-sm font-medium mb-1"
+                      htmlFor="insuranceCategory"
+                    >
+                      Insurance Category{' '}
+                      <span className="text-[var(--error-red)] ml-1">*</span>
+                    </label>
+                    <select
+                      id="insuranceCategory"
+                      name="insuranceCategory"
+                      value={formState.insuranceCategory}
+                      onChange={handleInputChange}
+                      className="w-full py-2 px-3 rounded-lg focus:outline-none border border-gray-300 focus:border-[var(--main-blue)]"
+                      required
+                    >
+                      <option value="car">Car Insurance</option>
+                      <option value="motorbike">MotorBike Insurance</option>
+                      <option value="building">Building Insurance</option>
+                      <option value="travel">Travel Insurance</option>
+                      <option value="health">Health Insurance</option>
+                      <option value="fire">Fire Insurance Coverage</option>
+                      <option value="tourist">Tourist Insurance</option>
+                    </select>
+                    {errors.insuranceCategory && (
+                      <p className="mt-1 text-sm text-[var(--error-red)]">
+                        {errors.insuranceCategory}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Plate Number Field - Only for Car/Motorbike */}
+                  {(formState.insuranceCategory === 'car' || formState.insuranceCategory === 'motorbike') && (
+                    <div>
+                      <SearchInput
+                        label="Plate Number"
+                        name="plateNumber"
+                        placeholder={formState.insuranceCategory === 'car' ? 'e.g. RAA 123A' : 'e.g. RA 123A'}
+                        value={formState.plateNumber}
+                        onChange={(value) => {
+                          // Don't reset isNewVehicle if a plate search just completed
+                          if (plateSearchJustCompletedRef.current) {
+                            // This is from a search result, just update the plate number without clearing fields
+                            setFormState(prev => ({ ...prev, plateNumber: value }));
+                            return;
+                          }
+                          
+                          setFormState(prev => ({ 
+                            ...prev, 
+                            plateNumber: value,
+                            // Clear insurance details on any edit to avoid stale data
+                            insuranceType: 'thirdParty',
+                            insuranceDuration: '1 Month',
+                            insuranceProvider: 'SONARWA',
+                            isCOMESA: false,
+                            vehicleType: '',
+                            vehicleAge: '',
+                            vehicleUse: '',
+                            otherVehicleUse: '',
+                            vehicleId: '',
+                            // Clear document URLs when plate number is cleared or changed
+                            identificationDocumentUrl: '',
+                            yellowCardUrl: '',
+                            pastInsuranceCertificateUrl: '',
+                          }));
+                          // Reset isNewVehicle to false when plate number changes manually
+                          // (will be updated when user performs search - true if not found, false if found)
+                          setSearchResults(prev => ({
+                            ...prev,
+                            isNewVehicle: false // Reset to false, will be updated by search result
+                          }));
+                          // Require a fresh plate search before submit
+                          setHasFetchedPlate(false);
+                          if (errors.plateNumber) {
+                            setErrors(prev => {
+                              const newErrors = { ...prev };
+                              delete newErrors.plateNumber;
+                              return newErrors;
+                            });
+                          }
+                        }}
+                        onSearchSuccess={handlePlateSearchSuccess}
+                        onSearchResult={handleSearchResult}
+                        searchType="plateNumber"
+                        error={errors.plateNumber}
+                        required
+                        resetTrigger={plateNumberResetTrigger}
+                        disabled={
+                          formState.identificationDocumentType === 'plateNumber' &&
+                          hasFetchedPlate &&
+                          !searchResults.isNewClient
+                        }
+                      />
+                    </div>
                   )}
-                </div>
 
-                {/* Sector Select */}
-                <div>
-                  <label className="block text-sm font-medium mb-1">
-                    Sector <span className="text-[var(--error-red)]">*</span>
-                  </label>
-                  <select
-                    name="sector"
-                    value={formState.sector}
-                    onChange={handleInputChange}
-                    disabled={!formState.district}
-                    className="w-full py-2 px-3 rounded-lg focus:outline-none border border-gray-300 focus:border-[var(--main-blue)] disabled:bg-gray-100 disabled:cursor-not-allowed"
-                    required
-                  >
-                    <option value="">Select Sector</option>
-                    {availableSectors.map(sector => (
-                      <option key={sector} value={sector}>{sector}</option>
-                    ))}
-                  </select>
-                  {errors.sector && (
-                    <p className="mt-1 text-sm text-[var(--error-red)]">{errors.sector}</p>
-                  )}
-                </div>
-
-                            <div className="md:col-span-2">
-  <label
-    className="block text-sm font-medium mb-1"
-    htmlFor="insuranceProvider"
-  >
-    Insurance Provider{' '}
-    <span className="text-[var(--error-red)] ml-1">*</span>
-  </label>
-  <select
-    id="insuranceProvider"
-    name="insuranceProvider"
-    value={formState.insuranceProvider}
-    onChange={handleInputChange}
-    className="w-full py-2 px-3 rounded-lg focus:outline-none border border-gray-300 focus:border-[var(--main-blue)]"
-    required
-  >
-    <option value="SONARWA">SONARWA</option>
-  </select>
-  {errors.insuranceProvider && (
-    <p className="mt-1 text-sm text-[var(--error-red)]">
-      {errors.insuranceProvider}
-    </p>
-  )}
-</div>
-
-                <div className="md:col-span-2">
-                  <label
-                    className="block text-sm font-medium mb-1"
-                    htmlFor="insuranceCategory"
-                  >
-                    Insurance Category{' '}
-                    <span className="text-[var(--error-red)] ml-1">*</span>
-                  </label>
-                  <select
-                    id="insuranceCategory"
-                    name="insuranceCategory"
-                    value={formState.insuranceCategory}
-                    onChange={handleInputChange}
-                    className="w-full py-2 px-3 rounded-lg focus:outline-none border border-gray-300 focus:border-[var(--main-blue)]"
-                    required
-                  >
-                    <option value="car">Car Insurance</option>
-                    <option value="motorbike">MotorBike Insurance</option>
-                    <option value="building">Building Insurance</option>
-                    <option value="travel">Travel Insurance</option>
-                    <option value="health">Health Insurance</option>
-                    <option value="fire">Fire Insurance Coverage</option>
-                  </select>
-                  {errors.insuranceCategory && (
-                    <p className="mt-1 text-sm text-[var(--error-red)]">
-                      {errors.insuranceCategory}
-                    </p>
-                  )}
-                </div>
+                  {/* Insurance Provider */}
+                  <div className="md:col-span-2">
+                    <label
+                      className="block text-sm font-medium mb-1"
+                      htmlFor="insuranceProvider"
+                    >
+                      Insurance Provider{' '}
+                      <span className="text-[var(--error-red)] ml-1">*</span>
+                    </label>
+                    <select
+                      id="insuranceProvider"
+                      name="insuranceProvider"
+                      value={formState.insuranceProvider}
+                      onChange={handleInputChange}
+                      className="w-full py-2 px-3 rounded-lg focus:outline-none border border-gray-300 focus:border-[var(--main-blue)]"
+                      required
+                    >
+                      <option value="SONARWA">SONARWA</option>
+                    </select>
+                    {errors.insuranceProvider && (
+                      <p className="mt-1 text-sm text-[var(--error-red)]">
+                        {errors.insuranceProvider}
+                      </p>
+                    )}
+                  </div>
 
                 {/* Vehicle Type (only shown for car/motorbike insurance) */}
                 {(formState.insuranceCategory === 'car' || formState.insuranceCategory === 'motorbike') && (
@@ -755,53 +1322,118 @@ export default function AgentApplyPage() {
                     <label className="block text-sm font-medium mb-1">
                       Vehicle Type <span className="text-[var(--error-red)]">*</span>
                     </label>
-                    <select
-                      name="vehicleType"
+                    <ComboboxField
                       value={formState.vehicleType}
-                      onChange={handleInputChange}
-                      className="w-full py-2 px-3 rounded-lg focus:outline-none border border-gray-300 focus:border-[var(--main-blue)]"
+                      onChange={(val) => setFormState(prev => ({ ...prev, vehicleType: val }))}
+                      options={/moto/i.test(formState.insuranceCategory) ? motoTypes : carTypes}
+                      placeholder={/moto/i.test(formState.insuranceCategory) ? 'Search moto type…' : 'Search vehicle type…'}
                       required
-                    >
-                      <option value="">Select Vehicle Type</option>
-                      {formState.insuranceCategory === 'car' ? (
-                        <>
-                          <option value="pickup">Pick Up</option>
-                          <option value="taxi">Taxi</option>
-                          <option value="truck">Truck</option>
-                          <option value="sedan">Sedan</option>
-                          <option value="suv">SUV</option>
-                        </>
-                      ) : (
-                        <>
-                          <option value="moped">Moped</option>
-                          <option value="scooter">Scooter</option>
-                          <option value="motorcycle">Motorcycle</option>
-                        </>
-                      )}
-                    </select>
-                    {errors.vehicleType && (
-                      <p className="mt-1 text-sm text-[var(--error-red)]">{errors.vehicleType}</p>
-                    )}
+                      error={errors.vehicleType}
+                    />
                   </div>
                 )}
 
                 {/* Vehicle Age (only shown for car/motorbike insurance) */}
                 {(formState.insuranceCategory === 'car' || formState.insuranceCategory === 'motorbike') && (
                   <div>
-                    <Input
+                    <NumericInputField
                       label="Vehicle Age (Year of Manufacture)"
-                      type="number"
                       name="vehicleAge"
+                      size="form"
                       placeholder="e.g. 2015"
-                      min="1900"
-                      max={new Date().getFullYear().toString()}
                       value={formState.vehicleAge}
-                      onChange={handleInputChange}
+                      onChange={(v) => {
+                        setFormState((prev) => ({ ...prev, vehicleAge: v }));
+                        if (errors.vehicleAge) {
+                          setErrors((prev) => {
+                            const next = { ...prev };
+                            delete next.vehicleAge;
+                            return next;
+                          });
+                        }
+                      }}
+                      min={vehicleYearBounds.minYear}
+                      max={vehicleYearBounds.maxYear}
+                      maxDigits={4}
                       error={errors.vehicleAge}
                       required
                     />
                   </div>
                 )}
+
+                {(formState.insuranceCategory === 'car' || formState.insuranceCategory === 'motorbike') && (
+                  <div>
+                    <Input
+                      label="Chassis number"
+                      name="chasisNumber"
+                      placeholder="Enter vehicle chassis"
+                      value={formState.chasisNumber}
+                      onChange={handleInputChange}
+                    />
+                  </div>
+                )}
+
+                {/* Vehicle Use (only shown for car/motorbike insurance) */}
+                {(formState.insuranceCategory === 'car' || formState.insuranceCategory === 'motorbike') && (
+                  <>
+                    <div>
+                      <label className="block text-sm font-medium mb-1">
+                        Vehicle Use <span className="text-[var(--error-red)]">*</span>
+                      </label>
+                      <select
+                        name="vehicleUse"
+                        value={formState.vehicleUse}
+                        onChange={handleInputChange}
+                        className="w-full py-2 px-3 rounded-lg focus:outline-none border border-gray-300 focus:border-[var(--main-blue)]"
+                        required
+                      >
+                        <option value="">Select Vehicle Use</option>
+                        {formState.insuranceCategory === 'car' ? (
+                          carUses.map(use => (
+                            <option key={use} value={use}>{use}</option>
+                          ))
+                        ) : (
+                          motoUses.map(use => (
+                            <option key={use} value={use}>{use}</option>
+                          ))
+                        )}
+                      </select>
+                      {errors.vehicleUse && (
+                        <p className="mt-1 text-sm text-[var(--error-red)]">{errors.vehicleUse}</p>
+                      )}
+                    </div>
+
+                    {/* Other Vehicle Use Input (only shown when 'Other' is selected) */}
+                    {formState.vehicleUse === 'Other' && (
+                      <div className="md:col-span-2">
+                        <Input
+                          label="Specify Vehicle Use"
+                          name="otherVehicleUse"
+                          placeholder="Please specify how you use your vehicle..."
+                          value={formState.otherVehicleUse}
+                          onChange={handleInputChange}
+                          error={errors.otherVehicleUse}
+                          required
+                        />
+                      </div>
+                    )}
+                  </>
+                )}
+
+                {/* COMESA Checkbox */}
+                {(formState.insuranceCategory === 'car' || formState.insuranceCategory === 'motorbike') && (
+                <div className="md:col-span-2">
+                  <ComesaCheckboxField
+                    checked={formState.isCOMESA}
+                    onChange={(checked) =>
+                      setFormState((prev) => ({ ...prev, isCOMESA: checked }))
+                    }
+                    insuranceCategory={formState.insuranceCategory}
+                    error={errors.isCOMESA}
+                  />
+                </div>
+
+                 )}
 
                 <div className="md:col-span-2">
                   <label
@@ -819,44 +1451,112 @@ export default function AgentApplyPage() {
                     className="w-full py-2 px-3 rounded-lg focus:outline-none border border-gray-300 focus:border-[var(--main-blue)]"
                     required
                   >
-                    <option value="comprehensive">Comprehensive Insurance (covers everything)</option>
                     <option value="thirdParty">Third Party Insurance (covers partial)</option>
+                    <option value="comprehensive">Comprehensive Insurance (covers everything)</option>
                   </select>
                   {errors.insuranceType && (
                     <p className="mt-1 text-sm text-[var(--error-red)]">
                       {errors.insuranceType}
                     </p>
                   )}
-                </div>
-
-                <div className="md:col-span-2">
-                  <label
-                    className="block text-sm font-medium mb-1"
-                    htmlFor="insuranceDuration"
-                  >
-                    Insurance Duration{' '}
-                    <span className="text-[var(--error-red)] ml-1">*</span>
-                  </label>
-                  <select
-                    id="insuranceDuration"
-                    name="insuranceDuration"
-                    value={formState.insuranceDuration}
-                    onChange={handleInputChange}
-                    className="w-full py-2 px-3 rounded-lg focus:outline-none border border-gray-300 focus:border-[var(--main-blue)]"
-                    required
-                  >
-                    <option value="1">1 Month</option>
-                    <option value="3">3 Months</option>
-                    <option value="6">6 Months</option>
-                    <option value="12">12 Months</option>
-                  </select>
-                  {errors.insuranceDuration && (
-                    <p className="mt-1 text-sm text-[var(--error-red)]">
-                      {errors.insuranceDuration}
-                    </p>
+                  
+                  {/* Insurance Type Information */}
+                  {formState.insuranceType && (
+                    <div className="mt-3 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                      <h4 className="font-semibold text-yellow-800 mb-2">
+                        Insurance Type Information
+                      </h4>
+                      {formState.insuranceType === 'comprehensive' ? (
+                        <div className="text-sm text-yellow-700">
+                          <div className="flex items-center mb-2">
+                            {/* <span className="text-green-600 mr-2">✅</span> */}
+                            <span className="font-semibold">Comprehensive Insurance</span>
+                          </div>
+                          <div className="ml-6 space-y-2">
+                            <div>
+                              <span className="font-semibold">Covers:</span>
+                              <ul className="ml-4 mt-1 space-y-1">
+                                <li>• Theft of the vehicle or accessories (with police report)</li>
+                                <li>• Third-party accidents</li>
+                                <li>• Constructive total loss (with salvage assessment)</li>
+                                <li>• Total loss, if full annual premium is paid</li>
+                                <li>• Car radio covered up to 80,000 Rwf</li>
+                              </ul>
+                            </div>
+                            <div>
+                              <span className="font-semibold">Does not cover:</span>
+                              <ul className="ml-4 mt-1 space-y-1">
+                                <li>• Accidents due to poor maintenance or brake failure</li>
+                                <li>• Accidents involving employee injury or property under your care</li>
+                                <li>• Driving under influence (alcohol/drugs)</li>
+                                <li>• Driving without valid license or category</li>
+                                <li>• Uninsured accessories (unless specifically included)</li>
+                                <li>• Policy becomes void upon vehicle sale unless endorsed</li>
+                                <li>• Claims without official police report or accident abstract</li>
+                                <li>• Vehicles with unpaid premium or duty-free status without RRA proof</li>
+                                <li>• Damage from driving the car before making necessary repairs</li>
+                              </ul>
+                            </div>
+                            <div className="mt-2 p-2 bg-yellow-100 rounded text-xs">
+                              <strong>Note:</strong> The insured must maintain and safeguard the vehicle. Failure to comply may reduce or void your claim.
+                            </div>
+                          </div>
+                        </div>
+                      ) : formState.insuranceType === 'thirdParty' ? (
+                        <div className="text-sm text-yellow-700">
+                          <div className="flex items-center mb-2">
+                            {/* <span className="text-blue-600 mr-2">🚗</span> */}
+                            <span className="font-semibold">Partial Insurance</span>
+                          </div>
+                          <div className="ml-6 space-y-2">
+                            <div>
+                              <span className="font-semibold">Covers:</span>
+                              <ul className="ml-4 mt-1 space-y-1">
+                                <li>• Theft of the vehicle or accessories (with police report)</li>
+                                <li>• Third-party accidents</li>
+                                <li>• Constructive total loss (with salvage assessment)</li>
+                                <li>• Total loss, if full annual premium is paid</li>
+                              </ul>
+                            </div>
+                            <div>
+                              <span className="font-semibold">Does not cover:</span>
+                              <ul className="ml-4 mt-1 space-y-1">
+                                <li>• Accidents due to poor maintenance or brake failure</li>
+                                <li>• Accidents involving employee injury or property under your care</li>
+                                <li>• Driving under influence (alcohol/drugs)</li>
+                                <li>• Driving without valid license or category</li>
+                              </ul>
+                            </div>
+                          </div>
+                        </div>
+                      ) : null}
+                    </div>
                   )}
                 </div>
+              
+             
+
+                <div className="md:col-span-2">
+                  <InsuranceDurationField
+                    id="insuranceDuration"
+                    topLabel="Insurance duration"
+                    value={formState.insuranceDuration}
+                    onChange={(next) => {
+                      setFormState((prev) => ({ ...prev, insuranceDuration: next }));
+                      if (errors.insuranceDuration) {
+                        setErrors((prev) => {
+                          const nextErr = { ...prev };
+                          delete nextErr.insuranceDuration;
+                          return nextErr;
+                        });
+                      }
+                    }}
+                    error={errors.insuranceDuration}
+                    required
+                  />
+                </div>
               </div>
+              </fieldset>
 
               <div className="mt-8">
                 <h3 className="text-lg font-semibold mb-4">
@@ -865,31 +1565,52 @@ export default function AgentApplyPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <FileInput
                     key={`nationalID-${formKey}`}
-                    label="National ID Card / Passport"
+                    label="National ID Card / Passport / Driving License"
                     name="nationalID"
-                    onChange={handleFileChange('nationalID')}
+                    onChange={(file) => {
+                      handleFileChange('nationalID')(file);
+                      // Clear document URL when user selects a new file or clears it
+                      setFormState(prev => ({ ...prev, identificationDocumentUrl: '' }));
+                    }}
                     error={errors.nationalID}
                     required
                     accept="image/*,.pdf"
+                    documentUrl={formState.identificationDocumentUrl}
+                    onViewDocument={(url, name) => setViewingDocument({ url, name })}
+                    resetTrigger={fileResetTrigger}
                   />
 
                   <FileInput
                     key={`yellowCard-${formKey}`}
                     label="Yellow Card"
                     name="yellowCard"
-                    onChange={handleFileChange('yellowCard')}
+                    onChange={(file) => {
+                      handleFileChange('yellowCard')(file);
+                      // Clear document URL when user selects a new file or clears it
+                      setFormState(prev => ({ ...prev, yellowCardUrl: '' }));
+                    }}
                     error={errors.yellowCard}
                     required
                     accept="image/*,.pdf"
+                    documentUrl={formState.yellowCardUrl}
+                    onViewDocument={(url, name) => setViewingDocument({ url, name })}
+                    resetTrigger={fileResetTrigger}
                   />
 
                   <FileInput
                     key={`pastInsuranceCertificate-${formKey}`}
                     label="Past Insurance Certificate (Optional)"
                     name="pastInsuranceCertificate"
-                    onChange={handleFileChange('pastInsuranceCertificate')}
+                    onChange={(file) => {
+                      handleFileChange('pastInsuranceCertificate')(file);
+                      // Clear document URL when user selects a new file or clears it
+                      setFormState(prev => ({ ...prev, pastInsuranceCertificateUrl: '' }));
+                    }}
                     accept="image/*,.pdf"
                     className="md:col-span-2"
+                    documentUrl={formState.pastInsuranceCertificateUrl}
+                    onViewDocument={(url, name) => setViewingDocument({ url, name })}
+                    resetTrigger={fileResetTrigger}
                   />
                 </div>
               </div>
@@ -931,6 +1652,13 @@ export default function AgentApplyPage() {
         </div>
       </div>
       <ToastContainer />
+      {viewingDocument && (
+        <DocumentViewer
+          documentName={viewingDocument.name}
+          documentPath={viewingDocument.url}
+          onClose={() => setViewingDocument(null)}
+        />
+      )}
     </MainLayout>
   );
 }

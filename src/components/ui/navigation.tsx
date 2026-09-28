@@ -16,12 +16,14 @@ export const Navigation = () => {
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
   const { user, logout } = useAuth();
   const pathname = usePathname();
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const isAdmin = user?.role === 'ADMIN';
 
   // Default navigation links for non-logged in users
   const [navLinks, setNavLinks] = useState<NavLink[]>([
     { href: '/', label: 'Home' },
     { href: '/track', label: 'Track Application' },
-    { href: '/apply', label: 'Apply Now' },
+    { href: '/FAQ', label: 'FAQ' },
     { href: '/login', label: 'Login' },
     { href: '/register', label: 'Become an Agent' },
   ]);
@@ -37,17 +39,41 @@ export const Navigation = () => {
     // Update navigation links based on user role
     if (user) {
       const rolePrefix = `/${user.role.toLowerCase()}`;
-      const newLinks = [
-        { href: `${rolePrefix}/dashboard`, label: 'Dashboard' },
-        { href: `${rolePrefix}/applications`, label: user.role === 'ADMIN' || user.role === 'SUPER_ADMIN' ? 'Applications' : 'My Applications' },
-      ];
+      const newLinks: NavLink[] = [{ href: `${rolePrefix}/dashboard`, label: 'Dashboard' }];
 
-      if (user.role === 'ADMIN' || user.role === 'SUPER_ADMIN') {
-        newLinks.push({ href: `${rolePrefix}/users`, label: 'Manage Users' });
-      } else {
-        newLinks.push({ href: `${rolePrefix}/apply`, label: 'New Application' });
+      if (user.role === 'ADMIN') {
+        newLinks.push(
+          { href: `${rolePrefix}/applications`, label: 'Applications' },
+          { href: `${rolePrefix}/my-applications`, label: 'My Applications' },
+          { href: `${rolePrefix}/new-application`, label: 'Apply' },
+          { href: `${rolePrefix}/commission-review`, label: 'Commission Review' },
+          { href: `${rolePrefix}/users`, label: 'Manage Users' },
+          { href: `${rolePrefix}/expiring-insurance`, label: 'Expiring Insurance' },
+          { href: `${rolePrefix}/sms-tracking`, label: 'SMS Tracking' }
+        );
+      } else if (user.role === 'SUPER_ADMIN') {
+        newLinks.push(
+          { href: `${rolePrefix}/applications`, label: 'Applications' },
+          { href: `${rolePrefix}/users`, label: 'Manage Users' },
+          { href: `${rolePrefix}/expiring-insurance`, label: 'Expiring Insurance' },
+          { href: `${rolePrefix}/sms-tracking`, label: 'SMS Tracking' }
+        );
+      } else if (user.role === 'AGENT') {
+        newLinks.push(
+          { href: `${rolePrefix}/applications`, label: 'My Applications' },
+          { href: `${rolePrefix}/apply`, label: 'Apply' }
+        );
+      } else if (user.role === 'FINANCE') {
+        newLinks.push(
+          { href: `${rolePrefix}/payments`, label: 'Payments' },
+          { href: `${rolePrefix}/payment-initiated`, label: 'Initiated Payments' },
+          { href: `${rolePrefix}/history`, label: 'Payment History' },
+          { href: `${rolePrefix}/commission-review`, label: 'Commission Review' }
+        );
       }
 
+      // Add FAQ link for all logged-in users
+      newLinks.push({ href: `${rolePrefix}/FAQ`, label: 'FAQ' });
       newLinks.push({ href: `${rolePrefix}/profile`, label: 'Profile' });
 
       setNavLinks(newLinks);
@@ -68,10 +94,10 @@ export const Navigation = () => {
     setIsProfileDropdownOpen(!isProfileDropdownOpen);
   };
 
-  const handleLogout = () => {
-    logout();
-    // Redirect to home page
-    window.location.href = '/';
+  const handleLogout = async () => {
+    setIsLoggingOut(true);
+    await logout();
+    setIsLoggingOut(false);
   };
 
   // Function to get user initials
@@ -96,12 +122,18 @@ export const Navigation = () => {
           </Link>
 
           {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center space-x-6">
+          <div
+            className={`hidden md:flex items-center ${
+              isAdmin ? 'space-x-3 lg:space-x-4 ml-6 lg:ml-10' : 'space-x-4 lg:space-x-6 ml-8 lg:ml-12'
+            }`}
+          >
             {navLinks.map((link) => (
               <Link
                 key={link.href}
                 href={link.href}
-                className={`font-semibold cursor-pointer text-md transition-colors  ${isScrolled ? 'text-[var(--foreground)] hover:text-[var(--accent-orange)]' : 'text-[var(--light-gray)] hover:text-[var(--accent-orange)]'} ${
+                className={`cursor-pointer transition-colors ${
+                  isAdmin ? 'font-medium text-[11px] lg:text-xs' : 'font-semibold text-xs lg:text-sm'
+                } ${isScrolled ? 'text-[var(--foreground)] hover:text-[var(--accent-orange)]' : 'text-[var(--light-gray)] hover:text-[var(--accent-orange)]'} ${
                   pathname === link.href
                     ? 'underline underline-offset-4 underline-[var(--accent-orange)]'
                     : 'hover:text-[var(--accent-orange)]'
@@ -115,15 +147,15 @@ export const Navigation = () => {
             {!user ? (
               <Link
                 href="/apply"
-                className="bg-[var(--main-blue)] hover:bg-[var(--secondary-blue)] text-white py-2 px-4 rounded-lg font-medium text-sm transition-colors"
+                className="bg-[var(--main-blue)] hover:bg-[var(--secondary-blue)] text-white py-2 px-3 lg:px-4 rounded-lg font-medium text-xs lg:text-sm transition-colors"
               >
-                Get Insured
+                Apply Now
               </Link>
             ) : (
               <div className="relative">
                 <button 
                   onClick={toggleProfileDropdown}
-                  className="w-10 h-10 rounded-full bg-[var(--main-blue)] text-white flex items-center justify-center font-medium hover:bg-[var(--secondary-blue)] transition-colors cursor-pointer"
+                  className="w-8 h-8 lg:w-10 lg:h-10 rounded-full bg-[var(--main-blue)] text-white flex items-center justify-center font-medium hover:bg-[var(--secondary-blue)] transition-colors cursor-pointer text-xs lg:text-sm"
                 >
                   {getUserInitials()}
                 </button>
@@ -143,7 +175,7 @@ export const Navigation = () => {
                       Profile Settings
                     </Link>
                     <button 
-                      className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100"
+                      className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100 cursor-pointer"
                       onClick={handleLogout}
                     >
                       Logout
@@ -161,7 +193,7 @@ export const Navigation = () => {
               className={`${isScrolled ? 'text-[var(--foreground)] ' : 'text-[var(--light-gray)] '} focus:outline-none`}
             >
               <svg
-                className="h-6 w-6"
+                className="h-5 w-5 sm:h-6 sm:w-6"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -193,13 +225,13 @@ export const Navigation = () => {
           isMobileMenuOpen ? 'max-h-screen bg-white' : 'max-h-0'
         }`}
       >
-        <div className="px-4 py-2 space-y-3">
+        <div className="px-4 py-2 space-y-2 sm:space-y-3">
           {navLinks.map((link) => (
             <Link
               key={link.href}
               href={link.href}
               onClick={() => setIsMobileMenuOpen(false)}
-              className={`block py-2 font-medium text-sm ${
+              className={`block py-2 font-medium text-xs sm:text-sm ${
                 pathname === link.href
                   ? 'text-[var(--main-blue)]'
                   : 'text-gray-600'
@@ -214,22 +246,22 @@ export const Navigation = () => {
             <Link
               href="/apply"
               onClick={() => setIsMobileMenuOpen(false)}
-              className="block w-full text-center bg-[var(--main-blue)] hover:bg-[var(--secondary-blue)] text-white py-2 px-4 rounded-lg font-medium text-sm mt-2"
+              className="block w-full text-center bg-[var(--main-blue)] hover:bg-[var(--secondary-blue)] text-white py-2 px-4 rounded-lg font-medium text-xs sm:text-sm mt-2"
             >
-              Get Insured
+              Apply Now
             </Link>
           ) : (
             <>
               <Link
                 href={`/${user.role.toLowerCase()}/profile`}
                 onClick={() => setIsMobileMenuOpen(false)}
-                className="block py-2 font-medium text-sm text-gray-600"
+                className="block py-2 font-medium text-xs sm:text-sm text-gray-600"
               >
                 Profile Settings
               </Link>
               <button
                 onClick={handleLogout}
-                className="block w-full text-left py-2 font-medium text-sm text-red-600"
+                className="block w-full text-left py-2 font-medium text-xs sm:text-sm text-red-600"
               >
                 Logout
               </button>
@@ -237,6 +269,12 @@ export const Navigation = () => {
           )}
         </div>
       </div>
+
+      {isLoggingOut && (
+        <div className="fixed inset-0 bg-gray-800/25 flex items-center justify-center z-50">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        </div>
+      )}
     </nav>
   );
 };

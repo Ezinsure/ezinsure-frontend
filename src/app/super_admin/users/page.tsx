@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { MainLayout } from '@/components/ui/main-layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,7 +9,9 @@ import { DocumentViewer } from '@/components/ui/document-viewer';
 import { UserCreateModal } from '@/components/ui/super_admin/user-create-modal';
 import { UserViewModal } from '@/components/ui/super_admin/user-view-modal';
 import { UserEditModal } from '@/components/ui/super_admin/user-edit-modal';
+import { UserTableActions } from '@/components/ui/admin/user-table-actions';
 import { useAuth } from '@/context/AuthContext';
+import { ArrowUpDown, ArrowUp, ArrowDown, Calendar, Download, FileText } from 'lucide-react';
 
 interface User {
   _id: string;
@@ -49,6 +51,9 @@ interface PaginationProps {
   totalPages: number;
   onPageChange: (page: number) => void;
 }
+
+type UserSortField = 'fullName' | 'email' | 'role' | 'status' | 'createdAt';
+type SortDirection = 'asc' | 'desc';
 
 interface DeactivationModalProps {
   isOpen: boolean;
@@ -123,14 +128,39 @@ export default function SuperAdminUsersPage() {
     name: string;
     path: string;
   } | null>(null);
-  const [roleFilter, setRoleFilter] = useState<'all' | 'ADMIN' | 'AGENT' | 'SUPER_ADMIN'>('all');
+  const [roleFilter, setRoleFilter] = useState<'all' | 'ADMIN'| 'FINANCE' | 'AGENT' | 'SUPER_ADMIN'>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | User['status']>('all');
   const { token } = useAuth();
   const [isDeactivating, setIsDeactivating] = useState(false);
   const [userToDeactivate, setUserToDeactivate] = useState<string | null>(null);
   const itemsPerPage = 10;
+  const [startDate, setStartDate] = useState<string>('');
+  const [endDate, setEndDate] = useState<string>('');
+  const [sortField, setSortField] = useState<UserSortField>('createdAt');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    fullName: string;
+    email: string;
+    phoneNumber: string;
+    dateOfBirth: string;
+    address: string;
+    province: string;
+    district: string;
+    sector: string;
+    role: 'ADMIN' | 'AGENT' | 'FINANCE';
+    emergencyContact1Name: string;
+    emergencyContact1PhoneNumber: string;
+    emergencyContact1Relationship: string;
+    emergencyContact2Name: string;
+    emergencyContact2PhoneNumber: string;
+    emergencyContact2Relationship: string;
+    nationalIdDocument: File | null;
+    criminalRecordCertificate: File | null;
+    passportPhoto: File | null;
+    bankName: string;
+    bankAccountNumber: string;
+  }>({
     fullName: '',
     email: '',
     phoneNumber: '',
@@ -139,7 +169,7 @@ export default function SuperAdminUsersPage() {
     province: '',
     district: '',
     sector: '',
-    role: 'AGENT' as 'ADMIN' | 'AGENT',
+    role: 'AGENT',
     emergencyContact1Name: '',
     emergencyContact1PhoneNumber: '',
     emergencyContact1Relationship: '',
@@ -155,53 +185,120 @@ export default function SuperAdminUsersPage() {
 
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
-  useEffect(() => {
-    const fetchUsers = async () => {
-      try {
-        setIsLoading(true);
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/getAllusers`, {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          }
-        });
-        if (!response.ok) {
-          throw new Error('Failed to fetch users');
+  // Fetch users from API
+  const fetchUsers = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/getAllusers`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
         }
-
-        const data = await response.json();
-        // console.log(data);
-        const sortedUsers = data.data.sort((a: User, b: User) => {
-          return new Date(b.createdAt || '').getTime() - new Date(a.createdAt || '').getTime();
-        });
-        setUsers(sortedUsers);
-      } catch (error) {
-        console.error('Error fetching users:', error);
-        showToast('Failed to load users', 'error');
-      } finally {
-        setIsLoading(false);
+      });
+      if (!response.ok) {
+        throw new Error('Failed to fetch users');
       }
-    };
 
+      const data = await response.json();
+      const sortedUsers = data.data.sort((a: User, b: User) => {
+        return new Date(b.createdAt || '').getTime() - new Date(a.createdAt || '').getTime();
+      });
+      setUsers(sortedUsers);
+    } catch (error) {
+      console.error('Error fetching users:', error);
+      showToast('Failed to load users', 'error');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [token, showToast]);
+
+  useEffect(() => {
     fetchUsers();
-  }, []);
+  }, [fetchUsers]);
 
-  const filteredUsers = users.filter(user => {
-    const matchesSearch = 
-      user.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      user.phoneNumber.includes(searchQuery);
-    
-    const matchesRole = roleFilter === 'all' || user.role === roleFilter;
-    const matchesStatus = statusFilter === 'all' || user.status === statusFilter;
-    
-    return matchesSearch && matchesRole && matchesStatus;
-  });
+  const filteredUsers = useMemo(() => {
+    const filtered = users.filter(user => {
+      const matchesSearch = 
+        user.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        user.phoneNumber.includes(searchQuery);
+      
+      const matchesRole = roleFilter === 'all' || user.role === roleFilter;
+      const matchesStatus = statusFilter === 'all' || user.status === statusFilter;
 
-  const paginatedUsers = filteredUsers.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
+      const matchesDateRange = (() => {
+        if (!startDate && !endDate) return true;
+        if (!user.createdAt) return false;
+
+        const createdDate = new Date(user.createdAt);
+        const createdDateOnly = new Date(
+          createdDate.getFullYear(),
+          createdDate.getMonth(),
+          createdDate.getDate()
+        );
+
+        const start = startDate ? new Date(startDate + 'T00:00:00') : null;
+        const end = endDate ? new Date(endDate + 'T23:59:59') : null;
+
+        if (start && end) {
+          return createdDateOnly >= start && createdDateOnly <= end;
+        } else if (start) {
+          return createdDateOnly >= start;
+        } else if (end) {
+          return createdDateOnly <= end;
+        }
+        return true;
+      })();
+      
+      return matchesSearch && matchesRole && matchesStatus && matchesDateRange;
+    });
+
+    filtered.sort((a, b) => {
+      let aValue: string | number = '';
+      let bValue: string | number = '';
+
+      const normalize = (val: string | undefined) => (val || '').toLowerCase();
+
+      switch (sortField) {
+        case 'fullName':
+          aValue = normalize(a.fullName);
+          bValue = normalize(b.fullName);
+          break;
+        case 'email':
+          aValue = normalize(a.email);
+          bValue = normalize(b.email);
+          break;
+        case 'role':
+          aValue = normalize(a.role);
+          bValue = normalize(b.role);
+          break;
+        case 'status':
+          aValue = normalize(a.status);
+          bValue = normalize(b.status);
+          break;
+        case 'createdAt':
+        default:
+          aValue = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          bValue = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          break;
+      }
+
+      if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
+      if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
+
+    return filtered;
+  }, [users, searchQuery, roleFilter, statusFilter, startDate, endDate, sortField, sortDirection]);
+
+  const paginatedUsers = useMemo(
+    () =>
+      filteredUsers.slice(
+        (currentPage - 1) * itemsPerPage,
+        currentPage * itemsPerPage
+      ),
+    [filteredUsers, currentPage, itemsPerPage]
   );
 
   const handleCreateUser = async () => {
@@ -365,7 +462,7 @@ export default function SuperAdminUsersPage() {
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_BASE_URL}/deactivateAgentApplication/${userToDeactivate}`,
         {
-          method: 'PATCH',
+          method: 'PUT',
           headers: {
             'Authorization': `Bearer ${token}`,
           },
@@ -492,7 +589,6 @@ export default function SuperAdminUsersPage() {
         <div className="flex-1 flex justify-between sm:hidden">
           <Button
             variant="outline"
-            size="sm"
             onClick={() => onPageChange(Math.max(1, currentPage - 1))}
             disabled={currentPage === 1}
           >
@@ -500,7 +596,6 @@ export default function SuperAdminUsersPage() {
           </Button>
           <Button
             variant="outline"
-            size="sm"
             onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
             disabled={currentPage === totalPages}
           >
@@ -519,7 +614,6 @@ export default function SuperAdminUsersPage() {
             <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px " aria-label="Pagination">
               <Button
                 variant="text"
-                size="sm"
                 onClick={() => onPageChange(1)}
                 disabled={currentPage === 1}
                 className="rounded-l-md"
@@ -529,7 +623,6 @@ export default function SuperAdminUsersPage() {
               </Button>
               <Button
                 variant="text"
-                size="sm"
                 onClick={() => onPageChange(Math.max(1, currentPage - 1))}
                 disabled={currentPage === 1}
               >
@@ -547,7 +640,6 @@ export default function SuperAdminUsersPage() {
                 <Button
                   key={page}
                   variant={currentPage === page ? 'primary' : 'text'}
-                  size="sm"
                   onClick={() => onPageChange(page)}
                   className={currentPage === page ? 'z-10 bg-[var(--main-blue)] border-[var(--main-blue)] text-white' : ''}
                 >
@@ -563,7 +655,6 @@ export default function SuperAdminUsersPage() {
               
               <Button
                 variant="text"
-                size="sm"
                 onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
                 disabled={currentPage === totalPages}
               >
@@ -572,7 +663,6 @@ export default function SuperAdminUsersPage() {
               </Button>
               <Button
                 variant="text"
-                size="sm"
                 onClick={() => onPageChange(totalPages)}
                 disabled={currentPage === totalPages}
                 className="rounded-r-md"
@@ -590,30 +680,172 @@ export default function SuperAdminUsersPage() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'ACTIVE':
-        return <span className="px-2 py-1 rounded-full bg-green-100 text-green-800 text-xs font-medium">Active</span>;
+        return <span className="px-3 py-1.5 rounded-full bg-green-100 text-green-800 text-xs font-medium">Active</span>;
       case 'DEACTIVATED':
-        return <span className="px-2 py-1 rounded-full bg-red-100 text-red-800 text-xs font-medium">Deactivated</span>;
+        return <span className="px-3 py-1.5 rounded-full bg-red-100 text-red-800 text-xs font-medium">Deactivated</span>;
       case 'SENT_FOR_ACTION':
-        return <span className="px-2 py-1 rounded-full bg-orange-100 text-orange-800 text-xs font-medium">Sent for Action</span>;
+        return <span className="px-3 py-1.5 rounded-full bg-orange-100 text-orange-800 text-xs font-medium">Sent for Action</span>;
       case 'PENDING':
-        return <span className="px-2 py-1 rounded-full bg-yellow-100 text-yellow-800 text-xs font-medium">Pending</span>;
+        return <span className="px-3 py-1.5 rounded-full bg-yellow-100 text-yellow-800 text-xs font-medium">Pending</span>;
       default:
-        return <span className="px-2 py-1 rounded-full bg-gray-100 text-gray-800 text-xs font-medium">Unknown</span>;
+        return <span className="px-3 py-1.5 rounded-full bg-gray-100 text-gray-800 text-xs font-medium">Unknown</span>;
     }
+  };
+
+  const handleSort = (field: UserSortField) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+    setCurrentPage(1);
+  };
+
+  const SortIcon = ({ field }: { field: UserSortField }) => {
+    if (sortField !== field) {
+      return <ArrowUpDown className="h-4 w-4 text-gray-400" />;
+    }
+    return sortDirection === 'asc' ? (
+      <ArrowUp className="h-4 w-4 text-blue-600" />
+    ) : (
+      <ArrowDown className="h-4 w-4 text-blue-600" />
+    );
+  };
+
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return 'N/A';
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+      });
+    } catch {
+      return 'N/A';
+    }
+  };
+
+  const handleExportCSV = () => {
+    if (!filteredUsers.length) return;
+
+    const headers = ['Full Name', 'Email', 'Phone', 'Role', 'Status', 'District', 'Sector', 'Submitted At'];
+    const rows = filteredUsers.map(user => [
+      user.fullName,
+      user.email,
+      user.phoneNumber,
+      user.role,
+      user.status,
+      user.district || '',
+      user.sector || '',
+      formatDate(user.createdAt),
+    ]);
+
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')),
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', 'super-admin-users-export.csv');
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleDownloadPDF = async () => {
+    if (!filteredUsers.length) return;
+    try {
+      const { jsPDF } = await import('jspdf');
+      const autoTable = await import('jspdf-autotable');
+
+      const doc = new jsPDF('landscape', 'mm', 'a4');
+      const currentDate = new Date().toLocaleDateString();
+      const currentTime = new Date().toLocaleTimeString();
+
+      doc.setFontSize(18);
+      doc.setTextColor(10, 37, 64);
+      doc.text('Ezinsure Users Report', 14, 18);
+
+      doc.setFontSize(11);
+      doc.setTextColor(80, 80, 80);
+      doc.text(`Generated on: ${currentDate} at ${currentTime}`, 14, 26);
+
+      let infoY = 34;
+      if (searchQuery) {
+        doc.text(`Search: ${searchQuery}`, 14, infoY);
+        infoY += 6;
+      }
+      if (roleFilter !== 'all') {
+        doc.text(`Role: ${roleFilter}`, 14, infoY);
+        infoY += 6;
+      }
+      if (statusFilter !== 'all') {
+        doc.text(`Status: ${statusFilter}`, 14, infoY);
+        infoY += 6;
+      }
+      if (startDate || endDate) {
+        doc.text(`Date range: ${startDate || 'start'} to ${endDate || 'now'}`, 14, infoY);
+        infoY += 6;
+      }
+
+      doc.text(`Total users: ${filteredUsers.length}`, 14, infoY + 2);
+
+      const body = filteredUsers.map((user, index) => [
+        (index + 1).toString(),
+        user.fullName,
+        user.email,
+        user.phoneNumber,
+        user.role,
+        user.status,
+        user.district || '',
+        user.sector || '',
+        formatDate(user.createdAt),
+      ]);
+
+      autoTable.default(doc, {
+        startY: infoY + 8,
+        head: [['#', 'Full Name', 'Email', 'Phone', 'Role', 'Status', 'District', 'Sector', 'Submitted At']],
+        body,
+        styles: { fontSize: 8 },
+        headStyles: { fillColor: [10, 37, 64] },
+      });
+
+      doc.save('super-admin-users-report.pdf');
+    } catch (error) {
+      console.error('Error generating users PDF:', error);
+      showToast('Failed to generate PDF report', 'error');
+    }
+  };
+
+  const handleClearFilters = () => {
+    setSearchQuery('');
+    setRoleFilter('all');
+    setStatusFilter('all');
+    setStartDate('');
+    setEndDate('');
+    setSortField('createdAt');
+    setSortDirection('desc');
+    setCurrentPage(1);
   };
 
   return (
     <MainLayout containerClass="p-0" fullWidth>
       <div className="container mx-auto px-4 py-8">
-        <div className="absolute top-0 left-0 w-full h-[10vh] overflow-hidden z-0 bg-gradient-to-br from-[#0A2540] to-[#126BB3]"></div>
+
         <div className="mb-8 mt-16">
           <h1 className="text-3xl font-bold mb-2">User Management</h1>
           <p className="text-gray-600">Manage all system users and agents</p>
         </div>
 
         <div className="mb-6 bg-white p-4 rounded-lg shadow-sm">
-          <div className="flex flex-col md:flex-row justify-between gap-4">
-            <div className="w-full md:w-1/3">
+          <div className="flex flex-col md:flex-row justify-between gap-4 md:items-center">
+            <div className="w-full md:flex-1 max-w-lg">
               <Input
                 label=""
                 name="search"
@@ -638,16 +870,17 @@ export default function SuperAdminUsersPage() {
                 }
               />
             </div>
-            <div className="flex flex-col md:flex-row gap-2">
-              <div className="flex gap-2">
+            <div className="flex flex-col md:flex-row gap-3 md:items-center justify-end">
+              <div className="flex flex-wrap gap-2 md:justify-end">
                 <select
                   value={roleFilter}
-                  onChange={(e) => setRoleFilter(e.target.value as 'all' | 'ADMIN' | 'AGENT' | 'SUPER_ADMIN')}
+                  onChange={(e) => setRoleFilter(e.target.value as 'all' | 'ADMIN' | 'FINANCE' | 'AGENT' | 'SUPER_ADMIN')}
                   className="px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[var(--main-blue)] focus:border-[var(--main-blue)]"
                 >
                   <option value="all">All Roles</option>
                   <option value="ADMIN">Admin</option>
                   <option value="AGENT">Agent</option>
+                  <option value="FINANCE">Finance</option>
                   <option value="SUPER_ADMIN">Super Admin</option>
                 </select>
                 <select
@@ -662,6 +895,74 @@ export default function SuperAdminUsersPage() {
                   <option value="DEACTIVATED">Deactivated</option>
                 </select>
               </div>
+              <div className="flex flex-wrap gap-2 md:justify-end">
+                <div className="flex items-center gap-2">
+                  <label className="text-xs font-medium text-gray-600">From</label>
+                  <div className="relative">
+                    <span className="pointer-events-none absolute inset-y-0 left-2 flex items-center text-gray-400">
+                      <Calendar className="h-4 w-4" />
+                    </span>
+                    <input
+                      type="date"
+                      value={startDate}
+                      onChange={(e) => {
+                        setStartDate(e.target.value);
+                        setCurrentPage(1);
+                      }}
+                      className="pl-8 pr-2 py-2 border border-gray-300 rounded-md text-xs focus:outline-none focus:ring-[var(--main-blue)] focus:border-[var(--main-blue)]"
+                    />
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <label className="text-xs font-medium text-gray-600">To</label>
+                  <div className="relative">
+                    <span className="pointer-events-none absolute inset-y-0 left-2 flex items-center text-gray-400">
+                      <Calendar className="h-4 w-4" />
+                    </span>
+                    <input
+                      type="date"
+                      value={endDate}
+                      onChange={(e) => {
+                        setEndDate(e.target.value);
+                        setCurrentPage(1);
+                      }}
+                      className="pl-8 pr-2 py-2 border border-gray-300 rounded-md text-xs focus:outline-none focus:ring-[var(--main-blue)] focus:border-[var(--main-blue)]"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="mt-4 flex flex-col md:flex-row gap-3 md:items-center justify-between">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleClearFilters}
+              className="w-full md:w-auto"
+            >
+              Clear all filters
+            </Button>
+            <div className="flex flex-wrap gap-2 md:justify-end">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleDownloadPDF}
+                disabled={filteredUsers.length === 0}
+                className="flex items-center gap-1 border-emerald-500 text-emerald-600 hover:bg-emerald-50"
+              >
+                <FileText className="h-3.5 w-3.5" />
+                <span>Download PDF</span>
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleExportCSV}
+                disabled={filteredUsers.length === 0}
+                className="flex items-center gap-1 border-[var(--main-blue)] text-[var(--main-blue)] hover:bg-[var(--main-blue)]/5"
+              >
+                <Download className="h-3.5 w-3.5" />
+                <span>Download Excel</span>
+              </Button>
               <Button
                 variant="primary"
                 onClick={() => {
@@ -702,31 +1003,69 @@ export default function SuperAdminUsersPage() {
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-gray-50">
+                <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       ID
                     </th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Name
+                      <button
+                        type="button"
+                        className="flex items-center gap-1 group"
+                        onClick={() => handleSort('fullName')}
+                      >
+                        <span>Name</span>
+                        <SortIcon field="fullName" />
+                      </button>
                     </th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Email
+                      <button
+                        type="button"
+                        className="flex items-center gap-1 group"
+                        onClick={() => handleSort('email')}
+                      >
+                        <span>Email</span>
+                        <SortIcon field="email" />
+                      </button>
                     </th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Role
+                      <button
+                        type="button"
+                        className="flex items-center gap-1 group"
+                        onClick={() => handleSort('role')}
+                      >
+                        <span>Role</span>
+                        <SortIcon field="role" />
+                      </button>
                     </th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Status
+                      <button
+                        type="button"
+                        className="flex items-center gap-1 group"
+                        onClick={() => handleSort('status')}
+                      >
+                        <span>Status</span>
+                        <SortIcon field="status" />
+                      </button>
                     </th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <button
+                        type="button"
+                        className="flex items-center gap-1 group"
+                        onClick={() => handleSort('createdAt')}
+                      >
+                        <span>Submitted At</span>
+                        <SortIcon field="createdAt" />
+                      </button>
+                    </th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Actions
                     </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
                   {paginatedUsers.map((user) => (
-                    <tr key={user._id} className="hover:bg-gray-50">
+                    <tr key={user._id} className="transition-colors hover:bg-slate-50">
                       <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-[var(--main-blue)]">
                         #{(currentPage - 1) * itemsPerPage + paginatedUsers.indexOf(user) + 1}
                       </td>
@@ -745,59 +1084,21 @@ export default function SuperAdminUsersPage() {
                       <td className="px-4 py-4 whitespace-nowrap">
                         {getStatusBadge(user.status)}
                       </td>
-                      <td className="px-4 py-4 whitespace-nowrap text-sm font-medium">
-                        <div className="flex space-x-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => {
-                              setSelectedUser(user);
-                            }}
-                          >
-                            View
-                          </Button>
-                          {user.status === 'ACTIVE' && (
-                            <>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => {
-                                  setSelectedUser(user);
-                                  setIsEditingUser(true);
-                                }}
-                              >
-                                Edit
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="danger"
-                                onClick={() => handleDeleteUser(user._id)}
-                              >
-                                Deactivate
-                              </Button>
-                            </>
-                          )}
-                          {(user.status === 'PENDING' || user.status === 'SENT_FOR_ACTION') && (
-                            <Button
-                              size="sm"
-                              variant="primary"
-                              onClick={() => {
-                                setSelectedUser(user);
-                              }}
-                            >
-                              Review
-                            </Button>
-                          )}
-                          {user.status === 'DEACTIVATED' && (
-                            <Button
-                              size="sm"
-                              variant="primary"
-                              onClick={() => handleStatusChange(user._id, 'ACTIVE')}
-                            >
-                              Activate
-                            </Button>
-                          )}
-                        </div>
+                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {formatDate(user.createdAt)}
+                      </td>
+                      <td className="whitespace-nowrap px-4 py-3 text-right">
+                        <UserTableActions
+                          status={user.status}
+                          onView={() => setSelectedUser(user)}
+                          onEdit={() => {
+                            setSelectedUser(user);
+                            setIsEditingUser(true);
+                          }}
+                          onDeactivate={() => handleDeleteUser(user._id)}
+                          onReview={() => setSelectedUser(user)}
+                          onActivate={() => handleStatusChange(user._id, 'ACTIVE')}
+                        />
                       </td>
                     </tr>
                   ))}

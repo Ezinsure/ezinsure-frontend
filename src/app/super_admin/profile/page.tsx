@@ -8,8 +8,16 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/toast';
 import { validateForm, ValidationRules, validationPatterns } from '@/components/ui/form-validation';
 import { useAuth } from '@/context/AuthContext';
-import { Trash2, FileText, Eye, Settings, Users } from 'lucide-react';
+import { useApiClient } from '@/utils/apiClient';
+import { Trash2, FileText, Eye, EyeClosed, Settings, Users } from 'lucide-react';
 import { rwandaProvinces } from '@/utils/rwanda-administrative';
+import { rwandaBanks } from '@/utils/rwanda-banks';
+import { MassClientCreation } from '@/components/admin/mass-client-creation';
+import { SendDueNotifications } from '@/components/admin/send-due-notifications';
+import {
+  SmsBroadcastPanel,
+  type SmsRecipientScope,
+} from '@/components/super-admin/sms-broadcast-panel';
 
 interface User {
   _id: string;
@@ -23,6 +31,8 @@ interface User {
   province?: string;
   district?: string;
   sector?: string;
+  bankName?: string;
+  bankAccountNumber?: string;
   passportPhoto?: string;
   nationalIdDocument?: string;
   criminalRecordCertificate?: string;
@@ -63,20 +73,35 @@ interface PasswordValidation {
 interface SystemSettings {
   maintenanceMode: boolean;
   allowNewRegistrations: boolean;
-  defaultCommissionRate: number;
   passwordResetExpiry: number; // in hours
 }
+
+interface ClientMessage {
+  message: string;
+  recipientScope: SmsRecipientScope;
+  recipientCount?: number;
+}
+
+const SMS_SCOPE_LABELS: Record<SmsRecipientScope, string> = {
+  CLIENTS: 'clients',
+  AGENTS: 'agents',
+  ADMINS: 'admins',
+  ALL: 'everyone (clients, agents & admins)',
+};
 
 export default function SuperAdminProfilePage() {
   const router = useRouter();
   const { showToast, ToastContainer } = useToast();
-  const { token, user: authUser } = useAuth();
+  const { user: authUser } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [originalProfile, setOriginalProfile] = useState<User | null>(null);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmNewPassword, setShowConfirmNewPassword] = useState(false);
   const [passwordData, setPasswordData] = useState<PasswordChangeData>({
     currentPassword: '',
     newPassword: '',
@@ -90,10 +115,16 @@ export default function SuperAdminProfilePage() {
   const [systemSettings, setSystemSettings] = useState<SystemSettings>({
     maintenanceMode: false,
     allowNewRegistrations: true,
-    defaultCommissionRate: 15,
     passwordResetExpiry: 24
   });
   const [isSavingSettings, setIsSavingSettings] = useState(false);
+  const [clientMessage, setClientMessage] = useState<ClientMessage>({
+    message: '',
+    recipientScope: 'CLIENTS',
+  });
+  const [isSendingMessage, setIsSendingMessage] = useState(false);
+  const [messageErrors, setMessageErrors] = useState<{ [key: string]: string }>({});
+  const { apiFetch } = useApiClient();
   
   const [profile, setProfile] = useState<User>({
     _id: '',
@@ -107,6 +138,8 @@ export default function SuperAdminProfilePage() {
     province: '',
     district: '',
     sector: '',
+    bankName: '',
+    bankAccountNumber: '',
     emergencyContacts: []
   });
 
@@ -142,7 +175,9 @@ export default function SuperAdminProfilePage() {
   const availableSectors = useMemo(() => {
     if (!profile.district) return [];
     const district = availableDistricts.find(d => d.name === profile.district);
-    return district?.sectors || [];
+    const sectors = district?.sectors || [];
+    // Extract sector names as strings
+    return sectors.map(sector => sector.name);
   }, [profile.district, availableDistricts]);
 
   // Get user initials
@@ -277,6 +312,12 @@ export default function SuperAdminProfilePage() {
     if (JSON.stringify(originalProfile.emergencyContacts) !== JSON.stringify(profile.emergencyContacts)) {
       changes.emergencyContacts = profile.emergencyContacts;
     }
+    if (originalProfile.bankName !== profile.bankName) {
+      changes.bankName = profile.bankName;
+    }
+    if (originalProfile.bankAccountNumber !== profile.bankAccountNumber) {
+      changes.bankAccountNumber = profile.bankAccountNumber;
+    }
     
     return changes;
   };
@@ -299,13 +340,9 @@ export default function SuperAdminProfilePage() {
           return;
         }
 
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/updateUser/${profile._id}`, {
+        const response = await apiFetch(`/updateUser/${profile._id}`, {
           method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify(changedFields)
+          body: JSON.stringify(changedFields),
         });
 
         if (!response.ok) {
@@ -368,17 +405,13 @@ export default function SuperAdminProfilePage() {
       setIsChangingPassword(true);
       
       try {
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/resetPassword`, {
+        const response = await apiFetch('/resetPassword', {
           method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
           body: JSON.stringify({
             currentPassword: passwordData.currentPassword,
             newPassword: passwordData.newPassword,
-            confirmPassword: passwordData.confirmPassword
-          })
+            confirmPassword: passwordData.confirmPassword,
+          }),
         });
 
         if (!response.ok) {
@@ -389,6 +422,9 @@ export default function SuperAdminProfilePage() {
         setShowPasswordModal(false);
         setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
         setPasswordErrors({});
+        setShowCurrentPassword(false);
+        setShowNewPassword(false);
+        setShowConfirmNewPassword(false);
       } catch (error) {
         console.log("error changing pass: ", error);
         showToast(error instanceof Error ? error.message : String(error), 'error');
@@ -409,13 +445,9 @@ export default function SuperAdminProfilePage() {
     setIsSavingSettings(true);
     
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/system-settings`, {
+      const response = await apiFetch('/system-settings', {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(systemSettings)
+        body: JSON.stringify(systemSettings),
       });
 
       if (!response.ok) {
@@ -428,6 +460,59 @@ export default function SuperAdminProfilePage() {
       showToast('Error updating system settings', 'error');
     } finally {
       setIsSavingSettings(false);
+    }
+  };
+
+  const sendClientMessage = async () => {
+    // Validate message
+    const errors: { [key: string]: string } = {};
+    if (!clientMessage.message.trim()) {
+      errors.message = 'Message is required';
+    }
+    
+    setMessageErrors(errors);
+    
+    if (Object.keys(errors).length > 0) {
+      showToast('Please fill in all required fields', 'error');
+      return;
+    }
+    
+    setIsSendingMessage(true);
+    
+    try {
+      const response = await apiFetch('/sendSMSToAllclients', {
+        method: 'POST',
+        body: JSON.stringify({
+          recipient: clientMessage.recipientScope,
+          message: clientMessage.message.trim(),
+        }),
+      });
+
+      if (!response.ok) {
+        // Try to get error message from response
+        let errorMessage = 'Failed to send SMS message';
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.message || errorMessage;
+        } catch {
+        }
+        throw new Error(errorMessage);
+      }
+
+      const result = await response.json();
+      const scopeLabel = SMS_SCOPE_LABELS[clientMessage.recipientScope];
+      const count =
+        typeof result.recipientCount === 'number'
+          ? `${result.recipientCount} recipient${result.recipientCount === 1 ? '' : 's'}`
+          : 'recipients';
+      showToast(`SMS sent to ${count} (${scopeLabel}).`, 'success');
+      setClientMessage({ message: '', recipientScope: clientMessage.recipientScope });
+      setMessageErrors({});
+    } catch (error) {
+      console.error('Full error details:', error);
+      showToast(error instanceof Error ? error.message : 'Error sending SMS to clients', 'error');
+    } finally {
+      setIsSendingMessage(false);
     }
   };
 
@@ -466,7 +551,7 @@ export default function SuperAdminProfilePage() {
   return (
     <MainLayout containerClass="p-0" fullWidth>
       <div className="min-h-screen bg-gray-50 pt-20 pb-10 px-4">
-        <div className="absolute top-0 left-0 w-full h-[10vh] overflow-hidden z-0 bg-gradient-to-br from-[#0A2540] to-[#126BB3]"></div>
+
         <div className="max-w-6xl mx-auto mt-12">
           {/* Tab Navigation */}
           <div className="flex border-b border-gray-200 mb-6">
@@ -569,7 +654,7 @@ export default function SuperAdminProfilePage() {
                         value={profile.phoneNumber || ''}
                         onChange={handleInputChange}
                         error={errors.phoneNumber}
-                        placeholder="0788123456"
+                        placeholder="250788123456"
                         disabled={!isEditMode}
                       />
                       
@@ -633,6 +718,12 @@ export default function SuperAdminProfilePage() {
                                 {district.name}
                               </option>
                             ))}
+                            {/* Show user's district if it exists but not in available districts (e.g., when province is not selected) */}
+                            {profile.district && !availableDistricts.find(d => d.name === profile.district) && (
+                              <option value={profile.district}>
+                                {profile.district}
+                              </option>
+                            )}
                           </select>
                         </div>
 
@@ -653,8 +744,46 @@ export default function SuperAdminProfilePage() {
                                 {sector}
                               </option>
                             ))}
+                            {/* Show user's sector if it exists but not in available sectors (e.g., when district is not selected) */}
+                            {profile.sector && !availableSectors.includes(profile.sector) && (
+                              <option value={profile.sector}>
+                                {profile.sector}
+                              </option>
+                            )}
                           </select>
                         </div>
+                      </div>
+                    </div>
+
+                    {/* Bank Information Section */}
+                    <div className="bg-gray-50 p-4 rounded-lg">
+                      <h3 className="font-medium text-gray-900 mb-4">Bank Information</h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <label className="block text-sm font-medium text-gray-700">Bank Name</label>
+                          <select
+                            name="bankName"
+                            value={profile.bankName || ''}
+                            onChange={handleInputChange}
+                            disabled={!isEditMode}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[var(--main-blue)] focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
+                          >
+                            <option value="">Select Bank</option>
+                            {rwandaBanks.map(bank => (
+                              <option key={bank} value={bank}>{bank}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <Input
+                          label="Bank Account Number"
+                          name="bankAccountNumber"
+                          type="text"
+                          value={profile.bankAccountNumber || ''}
+                          onChange={handleInputChange}
+                          error={errors.bankAccountNumber}
+                          disabled={!isEditMode}
+                          placeholder="Enter your account number"
+                        />
                       </div>
                     </div>
                     
@@ -845,24 +974,37 @@ export default function SuperAdminProfilePage() {
                     </div>
                   </div>
                   
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <h3 className="font-medium text-gray-900 mb-4">Agent Settings</h3>
-                    
-                    <div className="space-y-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Default Commission Rate (%)</label>
-                        <input
-                          type="number"
-                          min="0"
-                          max="100"
-                          step="0.1"
-                          value={systemSettings.defaultCommissionRate}
-                          onChange={(e) => handleSystemSettingChange('defaultCommissionRate', parseFloat(e.target.value))}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[var(--main-blue)] focus:border-transparent"
-                        />
-                        <p className="text-xs text-gray-500 mt-1">Default commission rate for new agents</p>
-                      </div>
-                    </div>
+                  <div className="md:col-span-2">
+                    <SmsBroadcastPanel
+                      message={clientMessage.message}
+                      onMessageChange={(plain) => {
+                        setClientMessage((prev) => ({ ...prev, message: plain }));
+                        if (messageErrors.message) {
+                          setMessageErrors((prev) => {
+                            const next = { ...prev };
+                            delete next.message;
+                            return next;
+                          });
+                        }
+                      }}
+                      recipientScope={clientMessage.recipientScope}
+                      onRecipientScopeChange={(scope) =>
+                        setClientMessage((prev) => ({ ...prev, recipientScope: scope }))
+                      }
+                      onSend={sendClientMessage}
+                      isSending={isSendingMessage}
+                      messageError={messageErrors.message}
+                    />
+                  </div>
+                  
+                  {/* Mass Client Creation */}
+                  <div className="md:col-span-2">
+                    <MassClientCreation />
+                  </div>
+                  
+                  {/* Send Due Notifications */}
+                  <div className="md:col-span-2">
+                    <SendDueNotifications />
                   </div>
                 </div>
                 
@@ -942,26 +1084,52 @@ export default function SuperAdminProfilePage() {
               <h3 className="text-lg font-semibold mb-4">Change Password</h3>
               
               <form onSubmit={handlePasswordChange} className="space-y-4">
-                <Input
-                  label="Current Password"
-                  name="currentPassword"
-                  type="password"
-                  value={passwordData.currentPassword}
-                  onChange={handlePasswordInputChange}
-                  error={passwordErrors.currentPassword}
-                  required
-                />
-                
-                <div className="space-y-2">
+                <div className='relative w-full'>
                   <Input
-                    label="New Password"
-                    name="newPassword"
-                    type="password"
-                    value={passwordData.newPassword}
+                    label="Current Password"
+                    name="currentPassword"
+                    type={showCurrentPassword ? "text" : "password"}
+                    value={passwordData.currentPassword}
                     onChange={handlePasswordInputChange}
-                    error={passwordErrors.newPassword}
+                    error={passwordErrors.currentPassword}
                     required
                   />
+                  {showCurrentPassword ? (
+                    <EyeClosed
+                      className="absolute top-9 right-3 cursor-pointer text-gray-500"
+                      onClick={() => setShowCurrentPassword(false)}
+                    />
+                  ) : (
+                    <Eye
+                      className="absolute top-9 right-3 cursor-pointer text-gray-500"
+                      onClick={() => setShowCurrentPassword(true)}
+                    />
+                  )}
+                </div>
+                
+                <div className="space-y-2">
+                  <div className='relative w-full'>
+                    <Input
+                      label="New Password"
+                      name="newPassword"
+                      type={showNewPassword ? "text" : "password"}
+                      value={passwordData.newPassword}
+                      onChange={handlePasswordInputChange}
+                      error={passwordErrors.newPassword}
+                      required
+                    />
+                    {showNewPassword ? (
+                      <EyeClosed
+                        className="absolute top-9 right-3 cursor-pointer text-gray-500"
+                        onClick={() => setShowNewPassword(false)}
+                      />
+                    ) : (
+                      <Eye
+                        className="absolute top-9 right-3 cursor-pointer text-gray-500"
+                        onClick={() => setShowNewPassword(true)}
+                      />
+                    )}
+                  </div>
                   
                   {/* Password Requirements */}
                   {passwordData.newPassword && (
@@ -993,15 +1161,28 @@ export default function SuperAdminProfilePage() {
                   )}
                 </div>
                 
-                <Input
-                  label="Confirm New Password"
-                  name="confirmPassword"
-                  type="password"
-                  value={passwordData.confirmPassword}
-                  onChange={handlePasswordInputChange}
-                  error={passwordErrors.confirmPassword}
-                  required
-                />
+                <div className='relative w-full'>
+                  <Input
+                    label="Confirm New Password"
+                    name="confirmPassword"
+                    type={showConfirmNewPassword ? "text" : "password"}
+                    value={passwordData.confirmPassword}
+                    onChange={handlePasswordInputChange}
+                    error={passwordErrors.confirmPassword}
+                    required
+                  />
+                  {showConfirmNewPassword ? (
+                    <EyeClosed
+                      className="absolute top-9 right-3 cursor-pointer text-gray-500"
+                      onClick={() => setShowConfirmNewPassword(false)}
+                    />
+                  ) : (
+                    <Eye
+                      className="absolute top-9 right-3 cursor-pointer text-gray-500"
+                      onClick={() => setShowConfirmNewPassword(true)}
+                    />
+                  )}
+                </div>
                 
                 <div className="flex justify-end space-x-3 pt-4">
                   <Button
@@ -1011,6 +1192,9 @@ export default function SuperAdminProfilePage() {
                       setShowPasswordModal(false);
                       setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
                       setPasswordErrors({});
+                      setShowCurrentPassword(false);
+                      setShowNewPassword(false);
+                      setShowConfirmNewPassword(false);
                     }}
                     disabled={isChangingPassword}
                   >
@@ -1033,8 +1217,8 @@ export default function SuperAdminProfilePage() {
         {/* Document Viewer Modal */}
         {showDocumentViewer && selectedDocument && (
           <div className="fixed inset-0 bg-gray-600/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg w-full max-w-4xl h-[90vh] flex flex-col">
-              <div className="flex justify-between items-center p-4 border-b">
+            <div className="bg-white rounded-lg w-full max-w-6xl h-[90vh] flex flex-col overflow-hidden">
+              <div className="flex justify-between items-center p-4 border-b flex-shrink-0">
                 <h3 className="text-lg font-semibold">Document Viewer</h3>
                 <Button
                   variant="outline"
@@ -1047,20 +1231,24 @@ export default function SuperAdminProfilePage() {
                 </Button>
               </div>
               
-              <div className="flex-1 p-4">
-                <div className="w-full h-full flex items-center justify-center bg-gray-50 rounded-lg overflow-hidden">
+              <div className="flex-1 p-4 overflow-hidden">
+                <div className="w-full h-full bg-gray-50 rounded-lg overflow-auto">
                   {selectedDocument.toLowerCase().includes('.pdf') ? (
                     <iframe
                       src={selectedDocument}
-                      className="w-full h-full"
+                      className="w-full h-full min-h-[500px]"
                       title="Document Viewer"
+                      frameBorder="0"
                     />
                   ) : (
-                    <img
-                      src={selectedDocument}
-                      alt="Document"
-                      className="max-w-full max-h-full object-contain"
-                    />
+                    <div className="w-full h-full flex items-center justify-center p-4">
+                      <img
+                        src={selectedDocument}
+                        alt="Document"
+                        className="max-w-full max-h-full object-contain"
+                        style={{ maxHeight: 'calc(90vh - 120px)' }}
+                      />
+                    </div>
                   )}
                 </div>
               </div>
