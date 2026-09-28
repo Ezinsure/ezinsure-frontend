@@ -1159,7 +1159,9 @@ const handleEditUser = async (updatedUser: User) => {
               setIsEditingUser(false);
               setSelectedUser(null);
             }}
-            onSave={handleEditUser}
+            onSave={(updatedUser) => {
+              void handleEditUser(updatedUser as User);
+            }}
             isLoading={isLoading}
           />
         )}

@@ -16,7 +16,12 @@ interface User {
   fullName: string;
   email: string;
   phoneNumber: string;
-  role: 'ADMIN' | 'AGENT' | 'SUPER_ADMIN' | 'VETERINARY' | 'SONARWA_REPRESENTATIVE' | string;
+  role:
+    | 'ADMIN'
+    | 'AGENT'
+    | 'SUPER_ADMIN'
+    | 'VETERINARY'
+    | 'SONARWA_REPRESENTATIVE';
   commissionRate?: string;
   status: 'ACTIVE' | 'DEACTIVATED' | 'SENT_FOR_ACTION' | 'PENDING';
   createdAt?: string;
@@ -51,7 +56,7 @@ interface Errors {
 interface UserEditModalProps {
   user: User | null;
   onClose: () => void;
-  onSave: (updatedUser: User) => void;
+  onSave: (updatedUser: User) => void | Promise<void>;
   isLoading: boolean;
   setViewingDocument?: (doc: { name: string; path: string } | null) => void;
 }
