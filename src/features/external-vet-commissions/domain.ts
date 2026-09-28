@@ -348,6 +348,11 @@ export type ExternalVetCommissionBatch = {
   /** When SONARWA reimbursed Solektra. */
   reimbursedBySonarwaAt?: string;
   reimbursementReference?: string;
+  /** Set when an in-review batch is withdrawn back to DRAFT. */
+  withdrawnAt?: string;
+  withdrawnById?: string;
+  withdrawnByName?: string;
+  withdrawReason?: string;
 };
 
 /**
@@ -456,6 +461,61 @@ export type CreateCommissionBatchInput = {
     'id' | 'lineStatus' | 'reviewEvents'
   >[];
 };
+
+/** Partial update while DRAFT | REJECTED. Sheet/lines optional (payee-only). */
+export type UpdateCommissionBatchInput = {
+  batchId: string;
+  payee: ExternalVetPayeeSnapshot;
+  periodLabel?: string;
+  companyCommissionPercent?: number;
+  /** When set with lines, replaces the sheet and resets line reviews. */
+  sourceFileName?: string;
+  sourceFile?: File;
+  lines?: Omit<
+    ExternalVetCommissionLine,
+    'id' | 'lineStatus' | 'reviewEvents'
+  >[];
+};
+
+export type WithdrawCommissionBatchInput = {
+  batchId: string;
+  reason: string;
+};
+
+/**
+ * Vet (owner) or admin/super_admin may edit DRAFT and REJECTED batches.
+ * SONARWA / finance cannot edit content.
+ */
+export function canEditCommissionBatch(args: {
+  status: ExternalVetCommissionStatus;
+  viewRole: ExternalVetsViewRole;
+  /** For vet portal: true when the batch belongs to the signed-in vet. */
+  isOwner?: boolean;
+}): boolean {
+  if (args.status !== 'DRAFT' && args.status !== 'REJECTED') return false;
+  if (args.viewRole === 'admin' || args.viewRole === 'super_admin') return true;
+  if (args.viewRole === 'vet') return args.isOwner !== false;
+  return false;
+}
+
+/**
+ * Vet (owner) or admin/super_admin may withdraw in-review batches back to DRAFT.
+ */
+export function canWithdrawCommissionBatch(args: {
+  status: ExternalVetCommissionStatus;
+  viewRole: ExternalVetsViewRole;
+  isOwner?: boolean;
+}): boolean {
+  if (
+    args.status !== 'PENDING_SONARWA_REVIEW' &&
+    args.status !== 'PENDING_ADMIN_REVIEW'
+  ) {
+    return false;
+  }
+  if (args.viewRole === 'admin' || args.viewRole === 'super_admin') return true;
+  if (args.viewRole === 'vet') return args.isOwner !== false;
+  return false;
+}
 
 export type PlatformVetSearchHit = {
   userId: string;

@@ -16,6 +16,8 @@ import { useExternalVetCommissionsApi } from './api';
 import {
   COMMISSION_REQUESTS_PRODUCT_NAME,
   COMMISSION_REQUESTS_PRODUCT_SUBTITLE,
+  canEditCommissionBatch,
+  canWithdrawCommissionBatch,
   formatRwf,
   type ExternalVetCommissionBatch,
   type ExternalVetCommissionBatchSummary,
@@ -40,6 +42,10 @@ import { BatchListTable } from './components/batch-list-table';
 import { ClaimsFunnel, type ClaimsFunnelStage } from './components/claims-funnel';
 import { CommissionLinesPanel } from './components/commission-lines-panel';
 import { UploadCommissionWizard } from './components/upload-commission-wizard';
+import {
+  WithdrawBatchDialog,
+  type WithdrawBatchTarget,
+} from './components/withdraw-batch-dialog';
 import { WorkbenchDateFilters } from './components/workbench-date-filters';
 import type { ClaimFormLanguage } from './commission-sheet-schema';
 import { getMonthToDateRange } from './date-range';
@@ -205,6 +211,10 @@ export default function ExternalVetsHub({ viewRole }: ExternalVetsHubProps) {
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailOpen, setDetailOpen] = useState(false);
   const [uploadOpen, setUploadOpen] = useState(false);
+  const [editBatch, setEditBatch] =
+    useState<ExternalVetCommissionBatch | null>(null);
+  const [withdrawTarget, setWithdrawTarget] =
+    useState<WithdrawBatchTarget | null>(null);
   const [reviewNote, setReviewNote] = useState('');
   const [actionBusy, setActionBusy] = useState(false);
   const [templateBusy, setTemplateBusy] = useState<ClaimFormLanguage | null>(
@@ -220,6 +230,8 @@ export default function ExternalVetsHub({ viewRole }: ExternalVetsHubProps) {
   const isSonarwa = viewRole === 'sonarwa';
   const isVet = viewRole === 'vet';
   const canLineReview = canReview || canPay || isSonarwa;
+  /** Vet hub lists only `mine` batches; admin/super_admin always allowed. */
+  const isBatchOwner = isVet || canReview;
 
   async function handleDownloadTemplate(language: ClaimFormLanguage) {
     setTemplateBusy(language);
@@ -441,17 +453,86 @@ export default function ExternalVetsHub({ viewRole }: ExternalVetsHubProps) {
 
   async function handleSubmitDraft(id: string) {
     if (!detail || !canSubmitDraftBatch(detail)) {
-      showToast('Only draft requests with lines can be submitted', 'error');
+      showToast(
+        'Only draft or rejected requests with lines can be submitted',
+        'error',
+      );
       return;
     }
     setActionBusy(true);
     try {
       const updated = await api.submitBatch(id, detail);
       setDetail(updated);
-      showToast('Submitted for SONARWA review', 'success');
+      showToast(
+        detail.status === 'REJECTED'
+          ? 'Resubmitted for SONARWA review'
+          : 'Submitted for SONARWA review',
+        'success',
+      );
       await reload();
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Submit failed', 'error');
+    } finally {
+      setActionBusy(false);
+    }
+  }
+
+  function openEditWizard(batch: ExternalVetCommissionBatch) {
+    if (
+      !canEditCommissionBatch({
+        status: batch.status,
+        viewRole,
+        isOwner: isBatchOwner,
+      })
+    ) {
+      showToast('This request cannot be edited', 'error');
+      return;
+    }
+    setEditBatch(batch);
+    setUploadOpen(true);
+  }
+
+  function openWithdrawDialog(batch: ExternalVetCommissionBatch) {
+    if (
+      !canWithdrawCommissionBatch({
+        status: batch.status,
+        viewRole,
+        isOwner: isBatchOwner,
+      })
+    ) {
+      showToast('This request cannot be withdrawn', 'error');
+      return;
+    }
+    setWithdrawTarget({
+      batchId: batch.id,
+      batchNumber: batch.batchNumber,
+      status: batch.status,
+      payeeName: batch.payee.name,
+      periodLabel: batch.periodLabel,
+      lineCount: batch.lineCount || batch.lines.length,
+      totalVetCommission: batch.totalVetCommission,
+      totalCompanyCommission: batch.totalCompanyCommission,
+    });
+  }
+
+  async function handleWithdraw(reason: string) {
+    if (!withdrawTarget) return;
+    setActionBusy(true);
+    try {
+      const updated = await api.withdrawBatch(
+        { batchId: withdrawTarget.batchId, reason },
+        detail?.id === withdrawTarget.batchId ? detail : null,
+      );
+      setWithdrawTarget(null);
+      setDetail(updated);
+      setDetailOpen(true);
+      showToast('Withdrawn to draft — you can edit and resubmit', 'success');
+      await reload();
+    } catch (err) {
+      showToast(
+        err instanceof Error ? err.message : 'Withdraw failed',
+        'error',
+      );
     } finally {
       setActionBusy(false);
     }
@@ -630,24 +711,85 @@ export default function ExternalVetsHub({ viewRole }: ExternalVetsHubProps) {
     }
   }
 
-  const detailFooter =
-    detail && canUpload && detail.status === 'DRAFT' ? (
+  const canEditDetail = Boolean(
+    detail &&
+      canEditCommissionBatch({
+        status: detail.status,
+        viewRole,
+        isOwner: isBatchOwner,
+      }),
+  );
+  const canWithdrawDetail = Boolean(
+    detail &&
+      canWithdrawCommissionBatch({
+        status: detail.status,
+        viewRole,
+        isOwner: isBatchOwner,
+      }),
+  );
+
+  const editFooter =
+    detail && canEditDetail ? (
       <div className="space-y-3">
-        <p className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
-          This request is still a draft. Submit it to start SONARWA line review.
+        {detail.status === 'REJECTED' ? (
+          <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-900">
+            This request was rejected
+            {detail.reviewNote ? `: ${detail.reviewNote}` : '.'} Fix the details
+            or sheet, then resubmit for a fresh SONARWA review.
+          </p>
+        ) : (
+          <p className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+            This request is still a draft. Edit if needed, then submit to start
+            SONARWA line review.
+          </p>
+        )}
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="outline"
+            onClick={() => openEditWizard(detail)}
+            disabled={actionBusy}
+            className="w-full sm:w-auto"
+          >
+            Edit request
+          </Button>
+          <Button
+            onClick={() => void handleSubmitDraft(detail.id)}
+            disabled={actionBusy || !canSubmitDraftBatch(detail)}
+            className="w-full sm:w-auto"
+          >
+            {actionBusy ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : null}
+            {detail.status === 'REJECTED'
+              ? 'Fix & resubmit'
+              : 'Submit for SONARWA review'}
+          </Button>
+        </div>
+      </div>
+    ) : null;
+
+  const withdrawFooter =
+    detail && canWithdrawDetail ? (
+      <div className="space-y-3">
+        <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950">
+          Need to change something? Withdraw to draft, edit, then submit again.
+          This clears in-progress line decisions.
         </p>
         <Button
-          onClick={() => void handleSubmitDraft(detail.id)}
-          disabled={actionBusy || !canSubmitDraftBatch(detail)}
+          variant="outline"
+          onClick={() => openWithdrawDialog(detail)}
+          disabled={actionBusy}
           className="w-full sm:w-auto"
         >
-          {actionBusy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-          Submit for SONARWA review
+          Withdraw to draft
         </Button>
       </div>
-    ) : detail &&
-      isSonarwa &&
-      detail.status === 'PENDING_SONARWA_REVIEW' ? (
+    ) : null;
+
+  const reviewFooter =
+    detail &&
+    isSonarwa &&
+    detail.status === 'PENDING_SONARWA_REVIEW' ? (
       <div className="space-y-3">
         {!isBatchFullyReviewed(detail.lines) ? (
           <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
@@ -783,6 +925,15 @@ export default function ExternalVetsHub({ viewRole }: ExternalVetsHubProps) {
       </Button>
     ) : null;
 
+  const detailFooter = editFooter ? (
+    editFooter
+  ) : withdrawFooter || reviewFooter ? (
+    <div className="space-y-4">
+      {withdrawFooter}
+      {reviewFooter}
+    </div>
+  ) : null;
+
   return (
     <div className="space-y-6 p-4 md:p-6">
       <ToastContainer />
@@ -822,7 +973,12 @@ export default function ExternalVetsHub({ viewRole }: ExternalVetsHubProps) {
               )}
               Request form (English)
             </Button>
-            <Button onClick={() => setUploadOpen(true)}>
+            <Button
+              onClick={() => {
+                setEditBatch(null);
+                setUploadOpen(true);
+              }}
+            >
               <Upload className="mr-2 h-4 w-4" />
               New batch
             </Button>
@@ -985,14 +1141,37 @@ export default function ExternalVetsHub({ viewRole }: ExternalVetsHubProps) {
                   </Button>
                 );
               }
-              if (canUpload && batch.status === 'DRAFT') {
+              if (
+                canEditCommissionBatch({
+                  status: batch.status,
+                  viewRole,
+                  isOwner: isBatchOwner,
+                })
+              ) {
                 return (
                   <Button
                     size="sm"
                     variant="outline"
                     onClick={() => void openDetail(batch.id)}
                   >
-                    Submit
+                    {batch.status === 'REJECTED' ? 'Fix & resubmit' : 'Edit / submit'}
+                  </Button>
+                );
+              }
+              if (
+                canWithdrawCommissionBatch({
+                  status: batch.status,
+                  viewRole,
+                  isOwner: isBatchOwner,
+                })
+              ) {
+                return (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => void openDetail(batch.id)}
+                  >
+                    Withdraw
                   </Button>
                 );
               }
@@ -1042,11 +1221,20 @@ export default function ExternalVetsHub({ viewRole }: ExternalVetsHubProps) {
       {canUpload ? (
         <UploadCommissionWizard
           open={uploadOpen}
-          onClose={() => setUploadOpen(false)}
+          onClose={() => {
+            setUploadOpen(false);
+            setEditBatch(null);
+          }}
           onCreated={() => {
+            setEditBatch(null);
             setTab('applications');
             void reload();
+            if (detailOpen && detail) {
+              void openDetail(detail.id);
+            }
           }}
+          mode={editBatch ? 'edit' : 'create'}
+          editBatch={editBatch}
           selfServiceProfile={
             isVet && user
               ? {
@@ -1058,6 +1246,16 @@ export default function ExternalVetsHub({ viewRole }: ExternalVetsHubProps) {
           }
         />
       ) : null}
+
+      <WithdrawBatchDialog
+        open={Boolean(withdrawTarget)}
+        target={withdrawTarget}
+        busy={actionBusy}
+        onCancel={() => {
+          if (!actionBusy) setWithdrawTarget(null);
+        }}
+        onConfirm={(reason) => void handleWithdraw(reason)}
+      />
     </div>
   );
 }

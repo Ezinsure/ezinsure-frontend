@@ -214,7 +214,10 @@ export function hasPayableApprovedLines(
 export function canSubmitDraftBatch(
   batch: Pick<ExternalVetCommissionBatch, 'status' | 'lines'>,
 ): boolean {
-  return batch.status === 'DRAFT' && batch.lines.length > 0;
+  return (
+    (batch.status === 'DRAFT' || batch.status === 'REJECTED') &&
+    batch.lines.length > 0
+  );
 }
 
 /**
