@@ -15,7 +15,6 @@ import { useExternalVetCommissionsApi } from '../api';
 import {
   COMMISSION_LINE_COLUMN_KEYS,
   COMMISSION_LINE_COLUMN_LABELS,
-  DEFAULT_COMPANY_COMMISSION_PERCENT,
   calcCompanyCommission,
   formatCommissionLineCell,
   formatRwf,
@@ -24,6 +23,10 @@ import {
   type ExternalVetPayeeSnapshot,
   type PlatformVetSearchHit,
 } from '../domain';
+import {
+  FALLBACK_LIVESTOCK_COMPANY_COMMISSION_PERCENT,
+  useCompanyCommissionDefaultsApi,
+} from '@/features/org-commission-settings';
 import type { ClaimFormLanguage } from '../commission-sheet-schema';
 import { downloadCommissionClaimForm } from '../export/commission-sheet-template';
 import {
@@ -121,6 +124,7 @@ export function UploadCommissionWizard({
   selfServiceProfile,
 }: Props) {
   const api = useExternalVetCommissionsApi();
+  const defaultsApi = useCompanyCommissionDefaultsApi();
   const { showToast, ToastContainer } = useToast();
   const isSelfService = Boolean(selfServiceProfile);
 
@@ -129,7 +133,10 @@ export function UploadCommissionWizard({
   const [file, setFile] = useState<File | null>(null);
   const [periodLabel, setPeriodLabel] = useState('');
   const [companyCommissionPercent, setCompanyCommissionPercent] = useState(
-    DEFAULT_COMPANY_COMMISSION_PERCENT,
+    FALLBACK_LIVESTOCK_COMPANY_COMMISSION_PERCENT,
+  );
+  const [orgLivestockRate, setOrgLivestockRate] = useState(
+    FALLBACK_LIVESTOCK_COMPANY_COMMISSION_PERCENT,
   );
   const [sheetLines, setSheetLines] = useState<
     Omit<ExternalVetCommissionLine, 'id' | 'lineStatus' | 'reviewEvents'>[]
@@ -160,11 +167,32 @@ export function UploadCommissionWizard({
 
   useEffect(() => {
     if (!open) return;
+    let cancelled = false;
+    void defaultsApi
+      .getDefaults()
+      .then((defaults) => {
+        if (cancelled) return;
+        const rate = defaults.livestockCompanyCommissionPercent;
+        setOrgLivestockRate(rate);
+        setCompanyCommissionPercent(rate);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setOrgLivestockRate(FALLBACK_LIVESTOCK_COMPANY_COMMISSION_PERCENT);
+        setCompanyCommissionPercent(FALLBACK_LIVESTOCK_COMPANY_COMMISSION_PERCENT);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [defaultsApi, open]);
+
+  useEffect(() => {
+    if (!open) return;
     if (isSelfService && selfServiceProfile) {
       setStep(1);
       setAssignMode('new');
       setLinkedUserId(selfServiceProfile.userId);
-      setCompanyCommissionPercent(DEFAULT_COMPANY_COMMISSION_PERCENT);
+      setCompanyCommissionPercent(orgLivestockRate);
       setPayee((prev) => ({
         ...prev,
         name: selfServiceProfile.fullName,
@@ -224,7 +252,7 @@ export function UploadCommissionWizard({
     return () => {
       cancelled = true;
     };
-  }, [api, open, showToast, isSelfService, selfServiceProfile]);
+  }, [api, open, showToast, isSelfService, selfServiceProfile, orgLivestockRate]);
 
   useEffect(() => {
     if (!open || assignMode !== 'search') return;
@@ -434,7 +462,7 @@ export function UploadCommissionWizard({
         sourceFileName: file.name,
         sourceFile: file,
         companyCommissionPercent: isSelfService
-          ? DEFAULT_COMPANY_COMMISSION_PERCENT
+          ? orgLivestockRate
           : companyCommissionPercent,
         lines,
       });
@@ -461,7 +489,7 @@ export function UploadCommissionWizard({
     setStep(1);
     setFile(null);
     setPeriodLabel('');
-    setCompanyCommissionPercent(DEFAULT_COMPANY_COMMISSION_PERCENT);
+    setCompanyCommissionPercent(orgLivestockRate);
     setSheetLines([]);
     setParseErrors([]);
     setParseWarnings([]);
@@ -511,8 +539,8 @@ export function UploadCommissionWizard({
           </p>
           <p className="mt-2 text-xs text-slate-500">
             {isSelfService
-              ? 'Your payout profile is linked automatically. Confirm bank and location details, then upload your request form lines.'
-              : `Vet payout details are entered in this form. The uploaded request form supplies the contract lines, and company commission is calculated from net premium × the rate you set (default ${DEFAULT_COMPANY_COMMISSION_PERCENT}%).`}
+              ? 'Your payout profile is linked automatically. Confirm bank and location details, then upload your request form lines. Company commission uses the organisation default set by ezInsure.'
+              : `Vet payout details are entered in this form. The uploaded request form supplies the contract lines, and company commission is calculated from net premium × the rate you set (org default ${orgLivestockRate}%).`}
           </p>
         </div>
 
@@ -721,52 +749,41 @@ export function UploadCommissionWizard({
                 </div>
               </div>
 
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div>
-                  <label className="text-xs font-medium text-slate-600">
-                    Company commission %{' '}
-                    <span className="font-normal text-slate-400">
-                      (of net premium)
-                    </span>
-                  </label>
-                  {isSelfService ? (
-                    <div className="mt-1 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
-                      <span className="font-semibold">
-                        {DEFAULT_COMPANY_COMMISSION_PERCENT}%
+              {!isSelfService ? (
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div>
+                    <label className="text-xs font-medium text-slate-600">
+                      Company commission %{' '}
+                      <span className="font-normal text-slate-400">
+                        (of net premium)
                       </span>
-                      <p className="mt-1 text-xs text-slate-500">
-                        Company rate is set by ezInsure. Vets cannot change it.
-                      </p>
+                    </label>
+                    <div className="relative mt-1">
+                      <input
+                        type="number"
+                        min={0}
+                        max={100}
+                        step={0.1}
+                        className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 pr-8 text-sm"
+                        value={companyCommissionPercent}
+                        onChange={(e) => {
+                          const next = Number(e.target.value);
+                          setCompanyCommissionPercent(
+                            Number.isFinite(next) ? next : 0,
+                          );
+                        }}
+                      />
+                      <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">
+                        %
+                      </span>
                     </div>
-                  ) : (
-                    <>
-                      <div className="relative mt-1">
-                        <input
-                          type="number"
-                          min={0}
-                          max={100}
-                          step={0.1}
-                          className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 pr-8 text-sm"
-                          value={companyCommissionPercent}
-                          onChange={(e) => {
-                            const next = Number(e.target.value);
-                            setCompanyCommissionPercent(
-                              Number.isFinite(next) ? next : 0,
-                            );
-                          }}
-                        />
-                        <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">
-                          %
-                        </span>
-                      </div>
-                      <p className="mt-1 text-xs text-slate-500">
-                        Default {DEFAULT_COMPANY_COMMISSION_PERCENT}%. Each
-                        line’s CompanyCommission = NetPremium × this rate.
-                      </p>
-                    </>
-                  )}
+                    <p className="mt-1 text-xs text-slate-500">
+                      Prefills from org default ({orgLivestockRate}%). Each
+                      line&apos;s company commission = net premium × this rate.
+                    </p>
+                  </div>
                 </div>
-              </div>
+              ) : null}
 
               <label className="flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-slate-300 bg-white px-6 py-10 hover:border-slate-400">
                 <Upload className="mb-2 h-8 w-8 text-slate-400" />
@@ -840,30 +857,32 @@ export function UploadCommissionWizard({
                   commission{' '}
                   <strong>{formatRwf(totalCompanyCommission)}</strong>
                 </p>
-                <div className="mt-3 max-w-xs">
-                  <label className="text-xs font-medium text-slate-600">
-                    Adjust company commission %
-                  </label>
-                  <div className="relative mt-1">
-                    <input
-                      type="number"
-                      min={0}
-                      max={100}
-                      step={0.1}
-                      className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 pr-8 text-sm"
-                      value={companyCommissionPercent}
-                      onChange={(e) => {
-                        const next = Number(e.target.value);
-                        setCompanyCommissionPercent(
-                          Number.isFinite(next) ? next : 0,
-                        );
-                      }}
-                    />
-                    <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">
-                      %
-                    </span>
+                {!isSelfService ? (
+                  <div className="mt-3 max-w-xs">
+                    <label className="text-xs font-medium text-slate-600">
+                      Adjust company commission %
+                    </label>
+                    <div className="relative mt-1">
+                      <input
+                        type="number"
+                        min={0}
+                        max={100}
+                        step={0.1}
+                        className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 pr-8 text-sm"
+                        value={companyCommissionPercent}
+                        onChange={(e) => {
+                          const next = Number(e.target.value);
+                          setCompanyCommissionPercent(
+                            Number.isFinite(next) ? next : 0,
+                          );
+                        }}
+                      />
+                      <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">
+                        %
+                      </span>
+                    </div>
                   </div>
-                </div>
+                ) : null}
               </div>
               {columnMatches.length ? (
                 <div className="rounded-lg border border-slate-200 p-4">

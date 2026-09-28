@@ -293,6 +293,7 @@ export type ExternalVetCommissionLine = {
 };
 
 /** Default company commission rate (% of net premium). */
+/** Local fallback when org settings API is unavailable (see org-commission-settings). */
 export const DEFAULT_COMPANY_COMMISSION_PERCENT = 3.5;
 
 export function calcCompanyCommission(
