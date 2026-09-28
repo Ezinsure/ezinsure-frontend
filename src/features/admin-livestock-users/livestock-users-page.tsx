@@ -19,6 +19,7 @@ import {
   type LivestockCreatableRole,
   type LivestockUsersViewerRole,
 } from '@/features/admin-livestock-users/config';
+import { VetApplicationReviewModal } from '@/features/admin-livestock-users/components/vet-application-review-modal';
 import { SONARWA_REPRESENTATIVE_ROLE, VETERINARY_ROLE } from '@/shared/utils/role';
 
 interface LivestockUser {
@@ -501,6 +502,11 @@ export function LivestockUsersPage({ viewerRole }: LivestockUsersPageProps) {
         changedFields.companyCommissionRate = Number(updatedUser.companyCommissionRate ?? 8);
       }
       if (
+        String(originalUser.veterinaryType ?? '') !== String(updatedUser.veterinaryType ?? '')
+      ) {
+        changedFields.veterinaryType = updatedUser.veterinaryType;
+      }
+      if (
         JSON.stringify(originalUser.emergencyContacts) !==
         JSON.stringify(updatedUser.emergencyContacts)
       ) {
@@ -929,7 +935,19 @@ export function LivestockUsersPage({ viewerRole }: LivestockUsersPageProps) {
         submitLabel={`Create ${livestockCreateRoleLabel(createRoleTarget)}`}
       />
 
-      {selectedUser && !isEditingUser && (
+      {selectedUser && !isEditingUser && selectedUser.role === VETERINARY_ROLE && (
+        <VetApplicationReviewModal
+          user={selectedUser}
+          onClose={() => setSelectedUser(null)}
+          onStatusChange={(status, reason) =>
+            handleStatusChange(selectedUser._id, status as LivestockUser['status'], reason)
+          }
+          isLoading={isLoading}
+          setViewingDocument={setViewingDocument}
+        />
+      )}
+
+      {selectedUser && !isEditingUser && selectedUser.role !== VETERINARY_ROLE && (
         <UserViewModal
           user={selectedUser as Parameters<typeof UserViewModal>[0]['user']}
           onClose={() => setSelectedUser(null)}
@@ -950,6 +968,7 @@ export function LivestockUsersPage({ viewerRole }: LivestockUsersPageProps) {
           }}
           onSave={(user) => handleEditUser(user as LivestockUser)}
           isLoading={isLoading}
+          setViewingDocument={setViewingDocument}
         />
       )}
 

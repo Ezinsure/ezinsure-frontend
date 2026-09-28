@@ -261,7 +261,7 @@ export const UserViewModal = ({
           </div>
         )}
 
-       {user.role === 'AGENT' && (
+       {(user.role === 'AGENT' || showVeterinaryDetails) && (
         <>
           <div className="mt-6 bg-gray-50 p-4 rounded-lg">
             <h4 className="font-medium mb-3">Emergency Contacts</h4>
@@ -293,15 +293,17 @@ export const UserViewModal = ({
                   {user.nationalIdDocument ? 'Uploaded' : 'Not provided'}
                 </p>
               </button>
-              <button 
-                className="bg-white p-3 rounded border text-left hover:bg-gray-50 cursor-pointer"
-                onClick={() => handleDocumentClick('Criminal Record', user.criminalRecordCertificate)}
-              >
-                <p className="text-sm font-medium">Criminal Record</p>
-                <p className="text-xs text-gray-500">
-                  {user.criminalRecordCertificate ? 'Uploaded' : 'Not provided'}
-                </p>
-              </button>
+              {user.role === 'AGENT' ? (
+                <button 
+                  className="bg-white p-3 rounded border text-left hover:bg-gray-50 cursor-pointer"
+                  onClick={() => handleDocumentClick('Criminal Record', user.criminalRecordCertificate)}
+                >
+                  <p className="text-sm font-medium">Criminal Record</p>
+                  <p className="text-xs text-gray-500">
+                    {user.criminalRecordCertificate ? 'Uploaded' : 'Not provided'}
+                  </p>
+                </button>
+              ) : null}
               <button 
                 className="bg-white p-3 rounded border text-left hover:bg-gray-50 cursor-pointer"
                 onClick={() => handleDocumentClick('Passport Photo', user.passportPhoto)}
@@ -311,6 +313,17 @@ export const UserViewModal = ({
                   {user.passportPhoto ? 'Uploaded' : 'Not provided'}
                 </p>
               </button>
+              {showVeterinaryDetails ? (
+                <button 
+                  className="bg-white p-3 rounded border text-left hover:bg-gray-50 cursor-pointer"
+                  onClick={() => handleDocumentClick('RCVD Licence', user.rcvdLicenceDocument)}
+                >
+                  <p className="text-sm font-medium">RCVD Licence</p>
+                  <p className="text-xs text-gray-500">
+                    {user.rcvdLicenceDocument ? 'Uploaded' : 'Not provided'}
+                  </p>
+                </button>
+              ) : null}
             </div>
           </div>
         </>
