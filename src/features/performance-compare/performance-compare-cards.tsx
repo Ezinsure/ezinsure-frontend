@@ -18,7 +18,7 @@ import {
   YAxis,
 } from 'recharts';
 import { formatRwfDisplay } from '@/features/livestock-application/utils/format-rwf';
-import { formatCompareDayLabel } from './dates';
+import { formatCompareRangeLabel } from './dates';
 import {
   computeDelta,
   type PerformanceCompareMetric,
@@ -172,7 +172,7 @@ function GroupedCompareChart({
           {isCurrency ? 'Money side by side' : 'Volume side by side'}
         </h3>
         <p className="text-[11px] text-slate-500">
-          {isCurrency ? 'RWF' : 'Counts'} · today vs last month
+          {isCurrency ? 'RWF' : 'Counts'} · MTD vs prior MTD
         </p>
       </div>
       <div className="h-[220px] w-full">
@@ -244,7 +244,7 @@ function GroupedCompareChart({
 }
 
 /**
- * Shared “today vs same day last month” pulse — hero + paired bars + grouped charts.
+ * Shared month-to-date vs prior-month MTD pulse — hero + paired bars + charts.
  */
 export function PerformanceCompareCards({
   data,
@@ -266,10 +266,12 @@ export function PerformanceCompareCards({
     return data.metrics.filter((m) => m.id !== hero.id);
   }, [data?.metrics, hero]);
 
-  const todayShort = data ? formatCompareDayLabel(data.asOf).split(',')[0] : 'Today';
+  const todayShort = data
+    ? formatCompareRangeLabel(data.currentStart, data.asOf)
+    : 'This MTD';
   const prevShort = data
-    ? formatCompareDayLabel(data.previousAsOf).split(',')[0]
-    : 'Last month';
+    ? formatCompareRangeLabel(data.previousStart, data.previousAsOf)
+    : 'Prior MTD';
 
   if (isLoading && !data) {
     return (
@@ -287,7 +289,7 @@ export function PerformanceCompareCards({
       <div
         className={`rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950 ${className}`}
       >
-        Could not load day compare: {error}
+        Could not load MTD compare: {error}
       </div>
     );
   }
@@ -333,19 +335,15 @@ export function PerformanceCompareCards({
               ) : null}
             </div>
             <p className="mt-1 text-sm text-slate-600">
-              Today vs same day last month ·{' '}
-              <span className="font-medium text-slate-800">
-                {formatCompareDayLabel(data.asOf)}
-              </span>
+              Month to date vs same period last month ·{' '}
+              <span className="font-medium text-slate-800">{todayShort}</span>
               {' · '}
-              <span className="text-slate-500">
-                {formatCompareDayLabel(data.previousAsOf)}
-              </span>
+              <span className="text-slate-500">{prevShort}</span>
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {!data.fromApi ? (
-              <p className="text-xs text-slate-400">Computed from daily stats</p>
+              <p className="text-xs text-slate-400">Computed from period stats</p>
             ) : null}
             <div className="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-0.5 text-xs">
               <button
@@ -402,10 +400,10 @@ export function PerformanceCompareCards({
                   : formatMetricValue(Math.abs(heroDelta.absolute), hero.kind)
                 : `${heroDelta.percent > 0 ? '+' : ''}${heroDelta.percent.toFixed(0)}%`}
             </span>
-            <span className="text-xs text-slate-500">vs last month this day</span>
+            <span className="text-xs text-slate-500">vs prior month MTD</span>
           </div>
           <p className="mt-4 text-sm text-slate-600">
-            Last month this day:{' '}
+            Prior period ({prevShort}):{' '}
             <span className="font-semibold text-slate-800">
               {formatMetricValue(hero.previous, hero.kind)}
             </span>
@@ -435,8 +433,7 @@ export function PerformanceCompareCards({
                     {formatMetricValue(metric.current, metric.kind)}
                   </p>
                   <p className="mt-1 text-xs text-slate-500">
-                    Last month:{' '}
-                    {formatMetricValue(metric.previous, metric.kind)}
+                    Prior MTD: {formatMetricValue(metric.previous, metric.kind)}
                   </p>
                 </div>
               ),
@@ -448,14 +445,14 @@ export function PerformanceCompareCards({
         <div className="grid gap-4 border-t border-slate-100 px-5 py-5 sm:px-6 sm:grid-cols-1 xl:grid-cols-2">
           <GroupedCompareChart
             metrics={data.metrics}
-            todayLabel="Today"
-            previousLabel="Last month"
+            todayLabel={todayShort}
+            previousLabel={prevShort}
             kind="count"
           />
           <GroupedCompareChart
             metrics={data.metrics}
-            todayLabel="Today"
-            previousLabel="Last month"
+            todayLabel={todayShort}
+            previousLabel={prevShort}
             kind="currency"
           />
         </div>

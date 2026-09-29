@@ -6,7 +6,8 @@ import {
 } from '@/features/livestock-application/api/dashboard-stats-api';
 import type { LivestockListScope } from '@/features/livestock-application/api/livestock-applications.repository';
 import {
-  getSameDayLastMonthIso,
+  getMonthStartIso,
+  getMonthToDateCompareRanges,
   getTodayIso,
 } from './dates';
 import type {
@@ -20,8 +21,9 @@ export type { PerformanceCompareAudience };
 
 export const PERFORMANCE_COMPARE_ENDPOINTS = {
   /**
-   * Preferred dedicated endpoint.
-   * Query: asOf (YYYY-MM-DD), optional audience / vetId / agentId.
+   * Preferred dedicated endpoint (MTD semantics).
+   * Query: asOf (YYYY-MM-DD end of current window), optional audience / actorId.
+   * Backend should return month-to-date totals for asOf vs same day last month.
    */
   compare: (params: {
     asOf: string;
@@ -31,6 +33,7 @@ export const PERFORMANCE_COMPARE_ENDPOINTS = {
     const search = new URLSearchParams({
       asOf: params.asOf,
       audience: params.audience,
+      mode: 'mtd',
     });
     if (params.actorId) search.set('actorId', params.actorId);
     return `/getPerformanceCompare?${search.toString()}`;
@@ -118,10 +121,21 @@ function parseApiCompare(
 
   if (!metrics.length) return null;
 
+  const asOf = String(row.asOf ?? row.today ?? fallback.asOf);
+  const previousAsOf = String(
+    row.previousAsOf ?? row.lastMonthToday ?? fallback.previousAsOf,
+  );
+
   return {
-    asOf: String(row.asOf ?? row.today ?? fallback.asOf),
-    previousAsOf: String(
-      row.previousAsOf ?? row.lastMonthToday ?? fallback.previousAsOf,
+    asOf,
+    currentStart: String(
+      row.currentStart ?? row.currentPeriodStart ?? getMonthStartIso(asOf),
+    ),
+    previousAsOf,
+    previousStart: String(
+      row.previousStart ??
+        row.previousPeriodStart ??
+        getMonthStartIso(previousAsOf),
     ),
     audience: fallback.audience,
     metrics,
@@ -133,7 +147,9 @@ async function fetchLivestockFallback(
   apiFetch: ApiFetch,
   options: {
     asOf: string;
+    currentStart: string;
     previousAsOf: string;
+    previousStart: string;
     audience: PerformanceCompareAudience;
     scope: LivestockListScope;
     vetId?: string;
@@ -142,14 +158,14 @@ async function fetchLivestockFallback(
 ): Promise<PerformanceCompareResult> {
   const [current, previous] = await Promise.all([
     fetchLivestockDashboardStats(apiFetch, {
-      startDate: options.asOf,
+      startDate: options.currentStart,
       endDate: options.asOf,
       scope: options.scope,
       vetId: options.vetId,
       hideCompanyCommission: options.hideCompanyCommission,
     }),
     fetchLivestockDashboardStats(apiFetch, {
-      startDate: options.previousAsOf,
+      startDate: options.previousStart,
       endDate: options.previousAsOf,
       scope: options.scope,
       vetId: options.vetId,
@@ -159,7 +175,9 @@ async function fetchLivestockFallback(
 
   return {
     asOf: options.asOf,
+    currentStart: options.currentStart,
     previousAsOf: options.previousAsOf,
+    previousStart: options.previousStart,
     audience: options.audience,
     metrics: metricsFromLivestockStats(current, previous, {
       hideCompanyCommission: options.hideCompanyCommission,
@@ -170,8 +188,8 @@ async function fetchLivestockFallback(
 }
 
 /**
- * Load today vs same-day-last-month metrics.
- * Prefers `/getPerformanceCompare`; falls back to single-day livestock stats.
+ * Load month-to-date vs prior-month MTD metrics.
+ * Prefers `/getPerformanceCompare`; falls back to livestock stats over ranges.
  */
 export async function fetchPerformanceCompare(
   apiFetch: ApiFetch,
@@ -189,11 +207,9 @@ export async function fetchPerformanceCompare(
     domain?: 'motor' | 'livestock';
   },
 ): Promise<PerformanceCompareResult> {
-  const asOf = options.asOf || getTodayIso();
-  const previousAsOf = getSameDayLastMonthIso(asOf);
+  const ranges = getMonthToDateCompareRanges(options.asOf || getTodayIso());
   const base: PerformanceCompareResult = {
-    asOf,
-    previousAsOf,
+    ...ranges,
     audience: options.audience,
     metrics: [],
     fromApi: false,
@@ -203,7 +219,7 @@ export async function fetchPerformanceCompare(
     const payload = await requestJson<unknown>(
       apiFetch,
       PERFORMANCE_COMPARE_ENDPOINTS.compare({
-        asOf,
+        asOf: ranges.asOf,
         audience: options.audience,
         actorId: options.actorId,
       }),
@@ -223,8 +239,7 @@ export async function fetchPerformanceCompare(
 
   const scope = options.livestockScope ?? (options.audience === 'vet' ? 'vet' : 'all');
   return fetchLivestockFallback(apiFetch, {
-    asOf,
-    previousAsOf,
+    ...ranges,
     audience: options.audience,
     scope,
     vetId: options.audience === 'vet' ? options.actorId : undefined,
@@ -233,11 +248,13 @@ export async function fetchPerformanceCompare(
 }
 
 /**
- * Build agent (motor) compare metrics from two day-scoped application lists.
+ * Build agent (motor) compare metrics from two MTD-scoped application lists.
  */
 export function buildAgentMotorCompare(input: {
   asOf: string;
+  currentStart: string;
   previousAsOf: string;
+  previousStart: string;
   todayApplications: number;
   previousApplications: number;
   todayCommission: number;
@@ -247,7 +264,9 @@ export function buildAgentMotorCompare(input: {
 }): PerformanceCompareResult {
   return {
     asOf: input.asOf,
+    currentStart: input.currentStart,
     previousAsOf: input.previousAsOf,
+    previousStart: input.previousStart,
     audience: 'agent',
     fromApi: false,
     metrics: [

@@ -9,15 +9,21 @@ export type PerformanceCompareMetric = {
   id: string;
   label: string;
   kind: PerformanceCompareMetricKind;
-  /** Value for “today”. */
+  /** Value for current month-to-date (1st → asOf). */
   current: number;
-  /** Value for the same calendar day last month. */
+  /** Value for prior month MTD (1st → same day last month). */
   previous: number;
 };
 
 export type PerformanceCompareResult = {
+  /** Inclusive end of current MTD (usually today). */
   asOf: string;
+  /** Inclusive start of current MTD (1st of month). */
+  currentStart: string;
+  /** Inclusive end of prior MTD (same calendar day last month). */
   previousAsOf: string;
+  /** Inclusive start of prior MTD (1st of prior month). */
+  previousStart: string;
   audience: PerformanceCompareAudience;
   metrics: PerformanceCompareMetric[];
   /** True when values came from the dedicated compare endpoint. */
