@@ -281,6 +281,10 @@ export function mapBatchSummary(raw: unknown): ExternalVetCommissionBatchSummary
     exportReference: asOptionalString(row.exportReference),
     reimbursedBySonarwaAt: asOptionalString(row.reimbursedBySonarwaAt),
     reimbursementReference: asOptionalString(row.reimbursementReference),
+    withdrawnAt: asOptionalString(row.withdrawnAt),
+    withdrawnById: asOptionalString(row.withdrawnById),
+    withdrawnByName: asOptionalString(row.withdrawnByName),
+    withdrawReason: asOptionalString(row.withdrawReason),
   };
 }
 

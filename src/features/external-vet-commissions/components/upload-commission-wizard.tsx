@@ -15,15 +15,19 @@ import { useExternalVetCommissionsApi } from '../api';
 import {
   COMMISSION_LINE_COLUMN_KEYS,
   COMMISSION_LINE_COLUMN_LABELS,
-  DEFAULT_COMPANY_COMMISSION_PERCENT,
   calcCompanyCommission,
   formatCommissionLineCell,
   formatRwf,
   type ExternalVet,
+  type ExternalVetCommissionBatch,
   type ExternalVetCommissionLine,
   type ExternalVetPayeeSnapshot,
   type PlatformVetSearchHit,
 } from '../domain';
+import {
+  FALLBACK_LIVESTOCK_COMPANY_COMMISSION_PERCENT,
+  useCompanyCommissionDefaultsApi,
+} from '@/features/org-commission-settings';
 import type { ClaimFormLanguage } from '../commission-sheet-schema';
 import { downloadCommissionClaimForm } from '../export/commission-sheet-template';
 import {
@@ -53,6 +57,10 @@ type Props = {
     bankName?: string;
     bankAccountNumber?: string;
   };
+  /** Create a new draft, or edit an existing DRAFT / REJECTED batch. */
+  mode?: 'create' | 'edit';
+  /** Required when mode is `edit`. */
+  editBatch?: ExternalVetCommissionBatch | null;
 };
 
 type AssignMode = 'search' | 'new';
@@ -119,17 +127,24 @@ export function UploadCommissionWizard({
   onClose,
   onCreated,
   selfServiceProfile,
+  mode = 'create',
+  editBatch = null,
 }: Props) {
   const api = useExternalVetCommissionsApi();
+  const defaultsApi = useCompanyCommissionDefaultsApi();
   const { showToast, ToastContainer } = useToast();
   const isSelfService = Boolean(selfServiceProfile);
+  const isEdit = mode === 'edit' && Boolean(editBatch?.id);
 
   // Self-service: start on upload; admin: start on vet assignment
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [file, setFile] = useState<File | null>(null);
   const [periodLabel, setPeriodLabel] = useState('');
   const [companyCommissionPercent, setCompanyCommissionPercent] = useState(
-    DEFAULT_COMPANY_COMMISSION_PERCENT,
+    FALLBACK_LIVESTOCK_COMPANY_COMMISSION_PERCENT,
+  );
+  const [orgLivestockRate, setOrgLivestockRate] = useState(
+    FALLBACK_LIVESTOCK_COMPANY_COMMISSION_PERCENT,
   );
   const [sheetLines, setSheetLines] = useState<
     Omit<ExternalVetCommissionLine, 'id' | 'lineStatus' | 'reviewEvents'>[]
@@ -160,11 +175,49 @@ export function UploadCommissionWizard({
 
   useEffect(() => {
     if (!open) return;
+    let cancelled = false;
+    void defaultsApi
+      .getDefaults()
+      .then((defaults) => {
+        if (cancelled) return;
+        const rate = defaults.livestockCompanyCommissionPercent;
+        setOrgLivestockRate(rate);
+        setCompanyCommissionPercent(rate);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setOrgLivestockRate(FALLBACK_LIVESTOCK_COMPANY_COMMISSION_PERCENT);
+        setCompanyCommissionPercent(FALLBACK_LIVESTOCK_COMPANY_COMMISSION_PERCENT);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [defaultsApi, open]);
+
+  useEffect(() => {
+    if (!open) return;
+    if (isEdit && editBatch) {
+      setStep(1);
+      setSelectedExternalVetId(editBatch.externalVetId);
+      setPeriodLabel(editBatch.periodLabel ?? '');
+      setCompanyCommissionPercent(editBatch.companyCommissionPercent);
+      setPayee({ ...editBatch.payee });
+      setSheetLines(
+        editBatch.lines.map(({ id: _id, lineStatus: _s, reviewEvents: _e, ...rest }) => rest),
+      );
+      setFile(null);
+      setParseErrors([]);
+      setParseWarnings([]);
+      setColumnMatches([]);
+      setDetectedLanguage(undefined);
+      setAssignMode('search');
+      return;
+    }
     if (isSelfService && selfServiceProfile) {
       setStep(1);
       setAssignMode('new');
       setLinkedUserId(selfServiceProfile.userId);
-      setCompanyCommissionPercent(DEFAULT_COMPANY_COMMISSION_PERCENT);
+      setCompanyCommissionPercent(orgLivestockRate);
       setPayee((prev) => ({
         ...prev,
         name: selfServiceProfile.fullName,
@@ -224,7 +277,16 @@ export function UploadCommissionWizard({
     return () => {
       cancelled = true;
     };
-  }, [api, open, showToast, isSelfService, selfServiceProfile]);
+  }, [
+    api,
+    open,
+    showToast,
+    isSelfService,
+    selfServiceProfile,
+    orgLivestockRate,
+    isEdit,
+    editBatch,
+  ]);
 
   useEffect(() => {
     if (!open || assignMode !== 'search') return;
@@ -352,8 +414,13 @@ export function UploadCommissionWizard({
   }
 
   async function handleSubmit() {
-    if (!file || !lines.length) {
+    const replacingSheet = Boolean(file && lines.length);
+    if (!isEdit && (!file || !lines.length)) {
       showToast('Upload and parse a commission sheet first', 'error');
+      return;
+    }
+    if (isEdit && !lines.length) {
+      showToast('This request has no lines to keep or replace', 'error');
       return;
     }
     if (
@@ -374,6 +441,45 @@ export function UploadCommissionWizard({
 
     setIsSubmitting(true);
     try {
+      const payeePayload = {
+        name: payee.name.trim(),
+        phoneNumber: payee.phoneNumber.trim(),
+        district: payee.district.trim(),
+        sector: payee.sector.trim(),
+        commissionRequestDate: payee.commissionRequestDate.trim(),
+        bankName: payee.bankName?.trim() || undefined,
+        bankAccountNumber: payee.bankAccountNumber?.trim() || undefined,
+      };
+      const rate = isSelfService ? orgLivestockRate : companyCommissionPercent;
+
+      if (isEdit && editBatch) {
+        await api.updateBatch(
+          {
+            batchId: editBatch.id,
+            payee: payeePayload,
+            periodLabel: periodLabel.trim(),
+            companyCommissionPercent: rate,
+            ...(replacingSheet && file
+              ? {
+                  sourceFileName: file.name,
+                  sourceFile: file,
+                  lines,
+                }
+              : {}),
+          },
+          editBatch,
+        );
+        showToast(
+          replacingSheet
+            ? 'Request updated — sheet replaced and line reviews reset.'
+            : 'Request updated.',
+          'success',
+        );
+        await new Promise((resolve) => setTimeout(resolve, 400));
+        resetAndClose(true);
+        return;
+      }
+
       let externalVetId = selectedExternalVetId?.trim() || '';
       let payeeForBatch = payee;
 
@@ -418,6 +524,10 @@ export function UploadCommissionWizard({
         setSelectedExternalVetId(externalVetId);
       }
 
+      if (!file) {
+        throw new Error('The original request form file is required');
+      }
+
       await api.createBatch({
         externalVetId,
         payee: {
@@ -433,9 +543,7 @@ export function UploadCommissionWizard({
         periodLabel: periodLabel.trim(),
         sourceFileName: file.name,
         sourceFile: file,
-        companyCommissionPercent: isSelfService
-          ? DEFAULT_COMPANY_COMMISSION_PERCENT
-          : companyCommissionPercent,
+        companyCommissionPercent: rate,
         lines,
       });
 
@@ -450,7 +558,7 @@ export function UploadCommissionWizard({
       resetAndClose(true);
     } catch (err) {
       const message =
-        err instanceof Error ? err.message : 'Failed to create batch';
+        err instanceof Error ? err.message : 'Failed to save request';
       showToast(message, 'error');
     } finally {
       setIsSubmitting(false);
@@ -461,7 +569,7 @@ export function UploadCommissionWizard({
     setStep(1);
     setFile(null);
     setPeriodLabel('');
-    setCompanyCommissionPercent(DEFAULT_COMPANY_COMMISSION_PERCENT);
+    setCompanyCommissionPercent(orgLivestockRate);
     setSheetLines([]);
     setParseErrors([]);
     setParseWarnings([]);
@@ -491,10 +599,15 @@ export function UploadCommissionWizard({
     step === 1
       ? 'Vet payout details'
       : step === 2
-        ? 'Upload commission lines'
-        : 'Confirm & submit';
+        ? isEdit
+          ? 'Sheet (optional replace)'
+          : 'Upload commission lines'
+        : isEdit
+          ? 'Confirm & save'
+          : 'Confirm & submit';
 
   const previewRows = lines.slice(0, 20);
+  const canKeepExistingSheet = isEdit && lines.length > 0 && !file;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
@@ -502,24 +615,33 @@ export function UploadCommissionWizard({
       <div className="flex max-h-[90vh] w-full max-w-[min(96rem,96vw)] flex-col rounded-xl bg-white shadow-xl">
         <div className="border-b border-slate-200 px-5 py-4">
           <h2 className="text-lg font-semibold text-slate-900">
-            {isSelfService
-              ? 'New commission request'
-              : 'New commission request batch'}
+            {isEdit
+              ? `Edit request${editBatch?.batchNumber ? ` · ${editBatch.batchNumber}` : ''}`
+              : isSelfService
+                ? 'New commission request'
+                : 'New commission request batch'}
           </h2>
           <p className="mt-1 text-sm text-slate-500">
             Step {step} of 3 — {stepLabel}
           </p>
           <p className="mt-2 text-xs text-slate-500">
-            {isSelfService
-              ? 'Your payout profile is linked automatically. Confirm bank and location details, then upload your request form lines.'
-              : `Vet payout details are entered in this form. The uploaded request form supplies the contract lines, and company commission is calculated from net premium × the rate you set (default ${DEFAULT_COMPANY_COMMISSION_PERCENT}%).`}
+            {isEdit
+              ? 'Update payee details and optionally replace the uploaded sheet. Replacing the sheet resets all line reviews.'
+              : isSelfService
+                ? 'Your payout profile is linked automatically. Confirm bank and location details, then upload your request form lines. Company commission uses the organisation default set by ezInsure.'
+                : `Vet payout details are entered in this form. The uploaded request form supplies the contract lines, and company commission is calculated from net premium × the rate you set (org default ${orgLivestockRate}%).`}
           </p>
         </div>
 
         <div className="flex-1 overflow-y-auto px-5 py-4">
           {step === 1 ? (
             <div className="space-y-4">
-              {isSelfService ? (
+              {isEdit ? (
+                <p className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+                  Payee registry is locked for this request. You can still update
+                  payout details below.
+                </p>
+              ) : isSelfService ? (
                 <p className="rounded-lg border border-cyan-200 bg-cyan-50 px-3 py-2 text-sm text-cyan-950">
                   Payee is locked to your verified veterinarian account. Confirm
                   the details below before uploading lines.
@@ -674,6 +796,17 @@ export function UploadCommissionWizard({
 
           {step === 2 ? (
             <div className="space-y-4">
+              {isEdit && lines.length > 0 ? (
+                <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950">
+                  Current sheet has {lines.length} line
+                  {lines.length === 1 ? '' : 's'}
+                  {editBatch?.sourceFileName
+                    ? ` (${editBatch.sourceFileName})`
+                    : ''}
+                  . Upload a new file only if you need to replace it — that
+                  resets all line reviews.
+                </p>
+              ) : null}
               <div className="flex flex-col gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4 lg:flex-row lg:items-center lg:justify-between">
                 <div className="flex items-start gap-3">
                   <FileSpreadsheet className="mt-0.5 h-5 w-5 shrink-0 text-slate-500" />
@@ -721,52 +854,41 @@ export function UploadCommissionWizard({
                 </div>
               </div>
 
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div>
-                  <label className="text-xs font-medium text-slate-600">
-                    Company commission %{' '}
-                    <span className="font-normal text-slate-400">
-                      (of net premium)
-                    </span>
-                  </label>
-                  {isSelfService ? (
-                    <div className="mt-1 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
-                      <span className="font-semibold">
-                        {DEFAULT_COMPANY_COMMISSION_PERCENT}%
+              {!isSelfService ? (
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div>
+                    <label className="text-xs font-medium text-slate-600">
+                      Company commission %{' '}
+                      <span className="font-normal text-slate-400">
+                        (of net premium)
                       </span>
-                      <p className="mt-1 text-xs text-slate-500">
-                        Company rate is set by ezInsure. Vets cannot change it.
-                      </p>
+                    </label>
+                    <div className="relative mt-1">
+                      <input
+                        type="number"
+                        min={0}
+                        max={100}
+                        step={0.1}
+                        className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 pr-8 text-sm"
+                        value={companyCommissionPercent}
+                        onChange={(e) => {
+                          const next = Number(e.target.value);
+                          setCompanyCommissionPercent(
+                            Number.isFinite(next) ? next : 0,
+                          );
+                        }}
+                      />
+                      <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">
+                        %
+                      </span>
                     </div>
-                  ) : (
-                    <>
-                      <div className="relative mt-1">
-                        <input
-                          type="number"
-                          min={0}
-                          max={100}
-                          step={0.1}
-                          className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 pr-8 text-sm"
-                          value={companyCommissionPercent}
-                          onChange={(e) => {
-                            const next = Number(e.target.value);
-                            setCompanyCommissionPercent(
-                              Number.isFinite(next) ? next : 0,
-                            );
-                          }}
-                        />
-                        <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">
-                          %
-                        </span>
-                      </div>
-                      <p className="mt-1 text-xs text-slate-500">
-                        Default {DEFAULT_COMPANY_COMMISSION_PERCENT}%. Each
-                        line’s CompanyCommission = NetPremium × this rate.
-                      </p>
-                    </>
-                  )}
+                    <p className="mt-1 text-xs text-slate-500">
+                      Prefills from org default ({orgLivestockRate}%). Each
+                      line&apos;s company commission = net premium × this rate.
+                    </p>
+                  </div>
                 </div>
-              </div>
+              ) : null}
 
               <label className="flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-slate-300 bg-white px-6 py-10 hover:border-slate-400">
                 <Upload className="mb-2 h-8 w-8 text-slate-400" />
@@ -840,30 +962,32 @@ export function UploadCommissionWizard({
                   commission{' '}
                   <strong>{formatRwf(totalCompanyCommission)}</strong>
                 </p>
-                <div className="mt-3 max-w-xs">
-                  <label className="text-xs font-medium text-slate-600">
-                    Adjust company commission %
-                  </label>
-                  <div className="relative mt-1">
-                    <input
-                      type="number"
-                      min={0}
-                      max={100}
-                      step={0.1}
-                      className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 pr-8 text-sm"
-                      value={companyCommissionPercent}
-                      onChange={(e) => {
-                        const next = Number(e.target.value);
-                        setCompanyCommissionPercent(
-                          Number.isFinite(next) ? next : 0,
-                        );
-                      }}
-                    />
-                    <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">
-                      %
-                    </span>
+                {!isSelfService ? (
+                  <div className="mt-3 max-w-xs">
+                    <label className="text-xs font-medium text-slate-600">
+                      Adjust company commission %
+                    </label>
+                    <div className="relative mt-1">
+                      <input
+                        type="number"
+                        min={0}
+                        max={100}
+                        step={0.1}
+                        className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 pr-8 text-sm"
+                        value={companyCommissionPercent}
+                        onChange={(e) => {
+                          const next = Number(e.target.value);
+                          setCompanyCommissionPercent(
+                            Number.isFinite(next) ? next : 0,
+                          );
+                        }}
+                      />
+                      <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">
+                        %
+                      </span>
+                    </div>
                   </div>
-                </div>
+                ) : null}
               </div>
               {columnMatches.length ? (
                 <div className="rounded-lg border border-slate-200 p-4">
@@ -1004,26 +1128,37 @@ export function UploadCommissionWizard({
               onClick={() => setStep(2)}
               disabled={!payeeFormComplete(payee, periodLabel)}
             >
-              Continue to upload
+              {isEdit ? 'Continue' : 'Continue to upload'}
             </Button>
           ) : null}
           {step === 2 ? (
-            <Button
-              onClick={() => void handleParseAndContinue()}
-              disabled={isParsing || !file}
-            >
-              {isParsing ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              {canKeepExistingSheet ? (
+                <Button
+                  variant="outline"
+                  onClick={() => setStep(3)}
+                  disabled={isParsing}
+                >
+                  Keep existing sheet
+                </Button>
               ) : null}
-              Parse & review
-            </Button>
+              <Button
+                onClick={() => void handleParseAndContinue()}
+                disabled={isParsing || !file}
+              >
+                {isParsing ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : null}
+                {isEdit ? 'Parse & replace' : 'Parse & review'}
+              </Button>
+            </div>
           ) : null}
           {step === 3 ? (
             <Button onClick={() => void handleSubmit()} disabled={isSubmitting}>
               {isSubmitting ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               ) : null}
-              Submit for review
+              {isEdit ? 'Save changes' : 'Submit for review'}
             </Button>
           ) : null}
         </div>

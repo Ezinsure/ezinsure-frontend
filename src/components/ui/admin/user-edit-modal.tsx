@@ -4,13 +4,24 @@ import { useState, useEffect } from "react";
 import { AdministrativeDivision, rwandaProvinces } from '@/utils/rwanda-administrative';
 import { rwandaBanks } from '@/utils/rwanda-banks';
 import { ValidationRules, validateForm } from "@/components/ui/form-validation";
+import { isVeterinaryRole } from "@/shared/utils/role";
+import { formatVeterinaryType } from "@/shared/utils/veterinary-user";
+import {
+  ApplicationDocumentsGrid,
+  buildVetApplicationDocuments,
+} from "@/features/admin-livestock-users/components/application-documents-grid";
 
 interface User {
   _id: string;
   fullName: string;
   email: string;
   phoneNumber: string;
-  role: 'ADMIN' | 'AGENT' | 'SUPER_ADMIN';
+  role:
+    | 'ADMIN'
+    | 'AGENT'
+    | 'SUPER_ADMIN'
+    | 'VETERINARY'
+    | 'SONARWA_REPRESENTATIVE';
   commissionRate?: string;
   status: 'ACTIVE' | 'DEACTIVATED' | 'SENT_FOR_ACTION' | 'PENDING';
   createdAt?: string;
@@ -23,6 +34,8 @@ interface User {
   sector?: string;
   nationalIdDocument?: string;
   criminalRecordCertificate?: string;
+  rcvdLicenceDocument?: string;
+  veterinaryType?: string;
   emergencyContacts?: Array<{
     fullName: string;
     phoneNumber: string;
@@ -43,11 +56,18 @@ interface Errors {
 interface UserEditModalProps {
   user: User | null;
   onClose: () => void;
-  onSave: (updatedUser: User) => void;
+  onSave: (updatedUser: User) => void | Promise<void>;
   isLoading: boolean;
+  setViewingDocument?: (doc: { name: string; path: string } | null) => void;
 }
 
-export const UserEditModal = ({ user, onClose, onSave, isLoading }: UserEditModalProps) => {
+export const UserEditModal = ({
+  user,
+  onClose,
+  onSave,
+  isLoading,
+  setViewingDocument,
+}: UserEditModalProps) => {
   const [formData, setFormData] = useState<User>(() => ({
     ...user!,
     emergencyContacts: user?.emergencyContacts || [
@@ -59,6 +79,7 @@ export const UserEditModal = ({ user, onClose, onSave, isLoading }: UserEditModa
   const [errors, setErrors] = useState<Errors>({});
   const [districts, setDistricts] = useState<AdministrativeDivision[]>([]);
   const [sectors, setSectors] = useState<string[]>([]);
+  const isVeterinary = isVeterinaryRole(formData.role);
 
   const validationRules: ValidationRules = {
     fullName: { required: true, minLength: 3 },
@@ -80,6 +101,11 @@ export const UserEditModal = ({ user, onClose, onSave, isLoading }: UserEditModa
         return true;
       }
     },
+    ...(isVeterinary
+      ? {
+          veterinaryType: { required: true },
+        }
+      : {}),
   };
 
   useEffect(() => {
@@ -137,6 +163,9 @@ export const UserEditModal = ({ user, onClose, onSave, isLoading }: UserEditModa
     if (user.bankAccountNumber !== formData.bankAccountNumber) changes.bankAccountNumber = formData.bankAccountNumber;
     if (String(user.companyCommissionRate ?? '') !== String(formData.companyCommissionRate ?? '')) {
       changes.companyCommissionRate = formData.companyCommissionRate;
+    }
+    if (user.veterinaryType !== formData.veterinaryType) {
+      changes.veterinaryType = formData.veterinaryType;
     }
     
     // Emergency contacts
@@ -364,40 +393,92 @@ export const UserEditModal = ({ user, onClose, onSave, isLoading }: UserEditModa
             />
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Company commission rate
-            </label>
-            <select
-              className="w-full border border-gray-300 rounded-md p-2"
-              name="companyCommissionRate"
-              value={String(formData.companyCommissionRate ?? '8')}
-              onChange={handleInputChange}
-            >
-              <option value="5">5%</option>
-              <option value="8">8% (default)</option>
-              <option value="10">10%</option>
-            </select>
-            <p className="mt-1 text-xs text-gray-500">
-              For veterinarians: default Solektra rate on livestock applications they create.
-            </p>
-          </div>
+          {isVeterinary ? (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Veterinarian type <span className="text-red-500">*</span>
+              </label>
+              <select
+                className="w-full border border-gray-300 rounded-md p-2"
+                name="veterinaryType"
+                value={formData.veterinaryType || ''}
+                onChange={handleInputChange}
+                required
+              >
+                <option value="">Select veterinarian type</option>
+                <option value="PRIVATE">Private</option>
+                <option value="SARO">SARO (Government vet)</option>
+              </select>
+              {errors.veterinaryType && (
+                <p className="mt-2 text-sm text-red-600">{errors.veterinaryType}</p>
+              )}
+              {!formData.veterinaryType && formatVeterinaryType(user.veterinaryType) ? (
+                <p className="mt-1 text-xs text-gray-500">
+                  Current: {formatVeterinaryType(user.veterinaryType)}
+                </p>
+              ) : null}
+            </div>
+          ) : null}
+
+          {isVeterinary ? (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Company commission rate
+              </label>
+              <select
+                className="w-full border border-gray-300 rounded-md p-2"
+                name="companyCommissionRate"
+                value={String(formData.companyCommissionRate ?? '8')}
+                onChange={handleInputChange}
+              >
+                <option value="5">5%</option>
+                <option value="8">8% (default)</option>
+                <option value="10">10%</option>
+              </select>
+              <p className="mt-1 text-xs text-gray-500">
+                Default Solektra rate on livestock applications this veterinarian creates.
+              </p>
+            </div>
+          ) : null}
           
           <div>
             <label className="block text-sm font-medium mb-1">
               Role <span className="text-red-500">*</span>
             </label>
-            <select
-              name="role"
-              value={formData.role}
-              onChange={handleInputChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[var(--main-blue)] focus:border-[var(--main-blue)]"
-            >
-              <option value="AGENT">Agent</option>
-              {/* <option value="ADMIN">Admin</option>
-              <option value="SUPER_ADMIN">Super Admin</option> */}
-            </select>
+            {isVeterinary || formData.role === 'SONARWA_REPRESENTATIVE' ? (
+              <input
+                className="w-full rounded-md border border-gray-300 bg-gray-50 px-3 py-2 text-sm text-gray-700"
+                value={
+                  isVeterinary
+                    ? 'Veterinarian'
+                    : 'SONARWA Representative'
+                }
+                disabled
+                readOnly
+              />
+            ) : (
+              <select
+                name="role"
+                value={formData.role}
+                onChange={handleInputChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[var(--main-blue)] focus:border-[var(--main-blue)]"
+              >
+                <option value="AGENT">Agent</option>
+              </select>
+            )}
           </div>
+
+          {isVeterinary && setViewingDocument ? (
+            <ApplicationDocumentsGrid
+              documents={buildVetApplicationDocuments(formData)}
+              onOpenDocument={(name, path) =>
+                setViewingDocument({
+                  name,
+                  path: path?.trim() ? path : '/File_not_found.jpg',
+                })
+              }
+            />
+          ) : null}
 
           <div className="bg-gray-50 p-4 rounded-lg">
             <h4 className="font-medium mb-3">Emergency Contacts</h4>

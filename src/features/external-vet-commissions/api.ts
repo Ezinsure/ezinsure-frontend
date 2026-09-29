@@ -16,6 +16,8 @@ import type {
   MarkAwaitingSonarwaReimbursementInput,
   MarkReimbursedBySonarwaInput,
   PlatformVetSearchHit,
+  UpdateCommissionBatchInput,
+  WithdrawCommissionBatchInput,
 } from './domain';
 import {
   EXTERNAL_VET_LINES_WORKSPACE_STATUSES,
@@ -199,6 +201,101 @@ function buildCreateBatchFormData(input: CreateCommissionBatchInput): FormData {
   );
 
   return formData;
+}
+
+function buildUpdateBatchFormData(input: UpdateCommissionBatchInput): FormData {
+  const payee: Record<string, string> = {
+    name: input.payee.name.trim(),
+    phoneNumber: input.payee.phoneNumber.trim(),
+    district: input.payee.district.trim(),
+    sector: input.payee.sector.trim(),
+    commissionRequestDate: input.payee.commissionRequestDate.trim(),
+  };
+  if (input.payee.bankName?.trim()) {
+    payee.bankName = input.payee.bankName.trim();
+  }
+  if (input.payee.bankAccountNumber?.trim()) {
+    payee.bankAccountNumber = input.payee.bankAccountNumber.trim();
+  }
+
+  const formData = new FormData();
+  formData.append('payee', JSON.stringify(payee));
+  if (input.periodLabel != null) {
+    formData.append('periodLabel', input.periodLabel.trim());
+  }
+  if (
+    input.companyCommissionPercent != null &&
+    Number.isFinite(Number(input.companyCommissionPercent))
+  ) {
+    formData.append(
+      'companyCommissionPercent',
+      String(Number(input.companyCommissionPercent)),
+    );
+  }
+
+  const replaceSheet = Boolean(input.sourceFile && input.lines?.length);
+  if (replaceSheet && input.sourceFile && input.lines) {
+    const companyCommissionPercent = Number(
+      input.companyCommissionPercent ?? 0,
+    );
+    const totalVetCommission = input.lines.reduce(
+      (sum, line) => sum + (line.vetCommission || 0),
+      0,
+    );
+    const totalCompanyCommission = input.lines.reduce(
+      (sum, line) => sum + (line.companyCommission || 0),
+      0,
+    );
+    const lines = input.lines.map((line) => ({
+      microchipNumber: line.microchipNumber,
+      prodDate: line.prodDate,
+      branch: line.branch,
+      effecDate: line.effecDate,
+      expiryDate: line.expiryDate,
+      contract: line.contract,
+      typeLivestock: line.typeLivestock,
+      clientId: line.clientId,
+      clientName: line.clientName,
+      clientDistrict: line.clientDistrict,
+      clientSector: line.clientSector,
+      sumInsured: line.sumInsured,
+      netPremium: line.netPremium,
+      vetCommission: line.vetCommission,
+      companyCommission: line.companyCommission,
+    }));
+
+    formData.append(
+      'sourceFileName',
+      input.sourceFileName || input.sourceFile.name || 'commission-request.xlsx',
+    );
+    formData.append('companyCommissionPercent', String(companyCommissionPercent));
+    formData.append('totalVetCommission', String(totalVetCommission));
+    formData.append('totalCompanyCommission', String(totalCompanyCommission));
+    formData.append('lineCount', String(input.lines.length));
+    formData.append('lines', JSON.stringify(lines));
+    formData.append(
+      'sourceDocument',
+      input.sourceFile,
+      input.sourceFile.name ||
+        input.sourceFileName ||
+        'commission-request.xlsx',
+    );
+  }
+
+  return formData;
+}
+
+function resetLinesForResubmit(
+  batch: ExternalVetCommissionBatch,
+): ExternalVetCommissionBatch {
+  return {
+    ...batch,
+    lines: batch.lines.map((line) => ({
+      ...line,
+      lineStatus: 'PENDING_REVIEW' as const,
+      reviewEvents: [],
+    })),
+  };
 }
 
 export function useExternalVetCommissionsApi() {
@@ -387,6 +484,143 @@ export function useExternalVetCommissionsApi() {
     [apiFetch],
   );
 
+  const updateBatch = useCallback(
+    async (
+      input: UpdateCommissionBatchInput,
+      currentBatch?: ExternalVetCommissionBatch | null,
+    ): Promise<ExternalVetCommissionBatch> => {
+      if (!String(input.batchId).trim()) {
+        throw new Error('batchId is required');
+      }
+      const formData = buildUpdateBatchFormData(input);
+      const response = await apiFetch(
+        EXTERNAL_VET_COMMISSION_ENDPOINTS.updateBatch(input.batchId),
+        {
+          method: 'PUT',
+          body: formData,
+        },
+      );
+      if (response.ok) {
+        return mapBatch(unwrapData<unknown>(await readJson(response)));
+      }
+      if (response.status !== 404) {
+        throw new Error(await errorMessage(response, 'Failed to update batch'));
+      }
+
+      let batch = currentBatch ?? null;
+      if (!batch || batch.id !== input.batchId) {
+        batch = await getBatch(input.batchId);
+      }
+      if (!batch) throw new Error('Batch not found');
+      if (batch.status !== 'DRAFT' && batch.status !== 'REJECTED') {
+        throw new Error('Only draft or rejected requests can be edited');
+      }
+
+      const replaceSheet = Boolean(input.sourceFile && input.lines?.length);
+      const nextPercent =
+        input.companyCommissionPercent != null &&
+        Number.isFinite(Number(input.companyCommissionPercent))
+          ? Number(input.companyCommissionPercent)
+          : batch.companyCommissionPercent;
+
+      if (replaceSheet && input.lines) {
+        const totalVetCommission = input.lines.reduce(
+          (sum, line) => sum + (line.vetCommission || 0),
+          0,
+        );
+        const totalCompanyCommission = input.lines.reduce(
+          (sum, line) => sum + (line.companyCommission || 0),
+          0,
+        );
+        return {
+          ...batch,
+          payee: { ...input.payee },
+          periodLabel: input.periodLabel?.trim() || batch.periodLabel,
+          companyCommissionPercent: nextPercent,
+          sourceFileName:
+            input.sourceFileName ||
+            input.sourceFile?.name ||
+            batch.sourceFileName,
+          sourceDocumentName:
+            input.sourceFileName ||
+            input.sourceFile?.name ||
+            batch.sourceDocumentName,
+          totalVetCommission,
+          totalCompanyCommission,
+          totalCommission: totalCompanyCommission || totalVetCommission,
+          lineCount: input.lines.length,
+          lines: input.lines.map((line, index) => ({
+            ...line,
+            id: `local-line-${index + 1}`,
+            lineStatus: 'PENDING_REVIEW' as const,
+            reviewEvents: [],
+          })),
+        };
+      }
+
+      return {
+        ...batch,
+        payee: { ...input.payee },
+        periodLabel: input.periodLabel?.trim() || batch.periodLabel,
+        companyCommissionPercent: nextPercent,
+      };
+    },
+    [apiFetch, getBatch],
+  );
+
+  const withdrawBatch = useCallback(
+    async (
+      input: WithdrawCommissionBatchInput,
+      currentBatch?: ExternalVetCommissionBatch | null,
+    ): Promise<ExternalVetCommissionBatch> => {
+      const reason = input.reason.trim();
+      if (!reason) {
+        throw new Error('A withdraw reason is required');
+      }
+
+      const response = await apiFetch(
+        EXTERNAL_VET_COMMISSION_ENDPOINTS.withdrawBatch(input.batchId),
+        {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ reason }),
+        },
+      );
+      if (response.ok) {
+        return mapBatch(unwrapData<unknown>(await readJson(response)));
+      }
+      if (response.status !== 404) {
+        throw new Error(
+          await errorMessage(response, 'Failed to withdraw batch'),
+        );
+      }
+
+      let batch = currentBatch ?? null;
+      if (!batch || batch.id !== input.batchId) {
+        batch = await getBatch(input.batchId);
+      }
+      if (!batch) throw new Error('Batch not found');
+      if (
+        batch.status !== 'PENDING_SONARWA_REVIEW' &&
+        batch.status !== 'PENDING_ADMIN_REVIEW'
+      ) {
+        throw new Error(
+          'Only requests in SONARWA or admin review can be withdrawn',
+        );
+      }
+
+      const now = new Date().toISOString();
+      return {
+        ...resetLinesForResubmit(batch),
+        status: 'DRAFT',
+        reviewNote: undefined,
+        withdrawnAt: now,
+        withdrawReason: reason,
+      };
+    },
+    [apiFetch, getBatch],
+  );
+
   const approveBatch = useCallback(
     async (id: string, note?: string): Promise<ExternalVetCommissionBatch> => {
       const response = await apiFetch(
@@ -441,10 +675,12 @@ export function useExternalVetCommissionsApi() {
       let batch = currentBatch ?? null;
       if (!batch || batch.id !== id) batch = await getBatch(id);
       if (!batch) throw new Error('Batch not found');
-      if (batch.status !== 'DRAFT') {
-        throw new Error('Only draft applications can be submitted');
+      if (batch.status !== 'DRAFT' && batch.status !== 'REJECTED') {
+        throw new Error('Only draft or rejected requests can be submitted');
       }
-      return { ...batch, status: 'PENDING_SONARWA_REVIEW' };
+      const reset =
+        batch.status === 'REJECTED' ? resetLinesForResubmit(batch) : batch;
+      return { ...reset, status: 'PENDING_SONARWA_REVIEW' };
     },
     [apiFetch, getBatch],
   );
@@ -870,6 +1106,8 @@ export function useExternalVetCommissionsApi() {
       listBatches,
       getBatch,
       createBatch,
+      updateBatch,
+      withdrawBatch,
       approveBatch,
       rejectBatch,
       submitBatch,
@@ -894,6 +1132,8 @@ export function useExternalVetCommissionsApi() {
       listBatches,
       getBatch,
       createBatch,
+      updateBatch,
+      withdrawBatch,
       approveBatch,
       rejectBatch,
       submitBatch,

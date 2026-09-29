@@ -9,6 +9,7 @@ import {
   Stethoscope,
   RefreshCw,
   UserRoundSearch,
+  Settings2,
 } from 'lucide-react';
 import type { NavGroup } from '@/shared/navigation/types';
 
@@ -16,6 +17,20 @@ type LivestockAdminRolePrefix = 'admin' | 'super_admin';
 
 export function getLivestockAdminNavigation(rolePrefix: LivestockAdminRolePrefix): NavGroup[] {
   const base = `/${rolePrefix}/livestock`;
+  const isSuperAdmin = rolePrefix === 'super_admin';
+
+  const managementItems = [
+    { href: `${base}/users`, label: 'Manage Users', icon: Users },
+    ...(isSuperAdmin
+      ? [
+          {
+            href: '/super_admin/settings/commission-defaults',
+            label: 'Commission settings',
+            icon: Settings2,
+          },
+        ]
+      : []),
+  ];
 
   return [
     {
@@ -36,9 +51,7 @@ export function getLivestockAdminNavigation(rolePrefix: LivestockAdminRolePrefix
     },
     {
       label: 'Management',
-      items: [
-        { href: `${base}/users`, label: 'Manage Users', icon: Users },
-      ],
+      items: managementItems,
     },
     {
       label: 'Account',

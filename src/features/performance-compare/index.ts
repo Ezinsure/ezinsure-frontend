@@ -1,7 +1,11 @@
 export { PERFORMANCE_COMPARE_ENDPOINTS, fetchPerformanceCompare, buildAgentMotorCompare } from './api';
 export {
+  eachIsoDateInclusive,
   formatCompareDayLabel,
+  formatCompareRangeLabel,
   formatIsoDate,
+  getMonthStartIso,
+  getMonthToDateCompareRanges,
   getSameDayLastMonthIso,
   getTodayIso,
 } from './dates';
@@ -16,3 +20,4 @@ export type {
   PerformanceCompareMetric,
   PerformanceCompareResult,
 } from './types';
+export type { PerformanceCompareRanges } from './dates';

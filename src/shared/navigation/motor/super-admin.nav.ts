@@ -10,6 +10,7 @@ import {
   Building2,
   RefreshCw,
   UserPlus,
+  Settings2,
 } from 'lucide-react';
 import type { NavGroup } from '@/shared/navigation/types';
 
@@ -29,6 +30,11 @@ export const motorSuperAdminNavigation: NavGroup[] = [
     label: 'Commissions',
     items: [
       { href: `${base}/company-performance`, label: 'Company Performance', icon: Building2 },
+      {
+        href: '/super_admin/settings/commission-defaults',
+        label: 'Commission settings',
+        icon: Settings2,
+      },
     ],
   },
   {

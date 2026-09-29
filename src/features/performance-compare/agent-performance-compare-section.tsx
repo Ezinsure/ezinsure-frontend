@@ -6,29 +6,29 @@ import { useApiClient } from '@/utils/apiClient';
 import {
   buildAgentMotorCompare,
   fetchPerformanceCompare,
-  getSameDayLastMonthIso,
-  getTodayIso,
+  getMonthToDateCompareRanges,
   PerformanceCompareCards,
   type PerformanceCompareResult,
 } from '@/features/performance-compare';
 
-type DayStats = {
+type RangeStats = {
   applications: number;
   clients: number;
   commission: number;
 };
 
-async function fetchAgentDayStats(
+async function fetchAgentRangeStats(
   token: string,
   agentId: string,
-  day: string,
-): Promise<DayStats> {
+  startDate: string,
+  endDate: string,
+): Promise<RangeStats> {
   const url = new URL(
     `${process.env.NEXT_PUBLIC_API_BASE_URL}/getRecentAgentApplications`,
   );
   url.searchParams.set('agentId', agentId);
-  url.searchParams.set('startDate', day);
-  url.searchParams.set('endDate', day);
+  url.searchParams.set('startDate', startDate);
+  url.searchParams.set('endDate', endDate);
 
   const res = await fetch(url.toString(), {
     method: 'GET',
@@ -62,7 +62,7 @@ async function fetchAgentDayStats(
 }
 
 /**
- * Agent dashboard strip: today vs same calendar day last month.
+ * Agent dashboard strip: month-to-date vs same period last month.
  */
 export function AgentPerformanceCompareSection() {
   const { user, token } = useAuth();
@@ -75,13 +75,12 @@ export function AgentPerformanceCompareSection() {
     if (!user?._id || !token) return;
     setIsLoading(true);
     setError(null);
-    const asOf = getTodayIso();
-    const previousAsOf = getSameDayLastMonthIso(asOf);
+    const ranges = getMonthToDateCompareRanges();
 
     try {
       const fromApi = await fetchPerformanceCompare(apiFetch, {
         audience: 'agent',
-        asOf,
+        asOf: ranges.asOf,
         actorId: user._id,
       });
       if (fromApi.metrics.length) {
@@ -90,14 +89,23 @@ export function AgentPerformanceCompareSection() {
       }
 
       const [today, previous] = await Promise.all([
-        fetchAgentDayStats(token, user._id, asOf),
-        fetchAgentDayStats(token, user._id, previousAsOf),
+        fetchAgentRangeStats(
+          token,
+          user._id,
+          ranges.currentStart,
+          ranges.asOf,
+        ),
+        fetchAgentRangeStats(
+          token,
+          user._id,
+          ranges.previousStart,
+          ranges.previousAsOf,
+        ),
       ]);
 
       setData(
         buildAgentMotorCompare({
-          asOf,
-          previousAsOf,
+          ...ranges,
           todayApplications: today.applications,
           previousApplications: previous.applications,
           todayClients: today.clients,

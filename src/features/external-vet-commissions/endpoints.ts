@@ -49,11 +49,17 @@ export const EXTERNAL_VET_COMMISSION_ENDPOINTS = {
 
   createBatch: (): string => `${BASE}/batches`,
 
+  /** Edit payee / replace sheet while DRAFT | REJECTED. */
+  updateBatch: (id: string): string => `${BASE}/batches/${id}`,
+
+  /** PENDING_*_REVIEW → DRAFT (reason required). */
+  withdrawBatch: (id: string): string => `${BASE}/batches/${id}/withdraw`,
+
   approveBatch: (id: string): string => `${BASE}/batches/${id}/approve`,
 
   rejectBatch: (id: string): string => `${BASE}/batches/${id}/reject`,
 
-  /** DRAFT → PENDING_SONARWA_REVIEW */
+  /** DRAFT | REJECTED → PENDING_SONARWA_REVIEW */
   submitBatch: (id: string): string => `${BASE}/batches/${id}/submit`,
 
   /** PENDING_SONARWA_REVIEW → PENDING_ADMIN_REVIEW (all lines reviewed). */

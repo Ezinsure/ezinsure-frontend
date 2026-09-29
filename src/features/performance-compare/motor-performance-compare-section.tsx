@@ -9,14 +9,14 @@ import {
   getSonarwaBillingTotal,
 } from '@/utils/monthly-commission-summary';
 import {
+  eachIsoDateInclusive,
   fetchPerformanceCompare,
-  getSameDayLastMonthIso,
-  getTodayIso,
+  getMonthToDateCompareRanges,
   PerformanceCompareCards,
   type PerformanceCompareResult,
 } from '@/features/performance-compare';
 
-type DayTotals = {
+type RangeTotals = {
   applications: number;
   companyCommission: number;
   agentCommission: number;
@@ -24,13 +24,14 @@ type DayTotals = {
   clients: number;
 };
 
-async function fetchApplicationsForDay(
+async function fetchApplicationsForRange(
   token: string,
-  day: string,
+  startDate: string,
+  endDate: string,
 ): Promise<number> {
   try {
     const response = await fetch(
-      `${process.env.NEXT_PUBLIC_API_BASE_URL}/countApplicationsThisMonth?startDate=${day}&endDate=${day}`,
+      `${process.env.NEXT_PUBLIC_API_BASE_URL}/countApplicationsThisMonth?startDate=${startDate}&endDate=${endDate}`,
       {
         method: 'GET',
         headers: {
@@ -70,16 +71,31 @@ async function fetchClientsForDay(token: string, day: string): Promise<number> {
   }
 }
 
-async function fetchMotorDayTotals(
+/** Sum daily client metrics across an inclusive MTD window (API is day-scoped). */
+async function fetchClientsForRange(
   token: string,
-  day: string,
-): Promise<DayTotals> {
+  startDate: string,
+  endDate: string,
+): Promise<number> {
+  const days = eachIsoDateInclusive(startDate, endDate);
+  if (!days.length) return 0;
+  const parts = await Promise.all(
+    days.map((day) => fetchClientsForDay(token, day)),
+  );
+  return parts.reduce((sum, n) => sum + n, 0);
+}
+
+async function fetchMotorRangeTotals(
+  token: string,
+  startDate: string,
+  endDate: string,
+): Promise<RangeTotals> {
   const [applications, commission, clients] = await Promise.all([
-    fetchApplicationsForDay(token, day),
-    fetchMonthlyCommissionSummary(token, day, day).catch(
+    fetchApplicationsForRange(token, startDate, endDate),
+    fetchMonthlyCommissionSummary(token, startDate, endDate).catch(
       () => EMPTY_MONTHLY_COMMISSION_SUMMARY,
     ),
-    fetchClientsForDay(token, day),
+    fetchClientsForRange(token, startDate, endDate),
   ]);
 
   return {
@@ -93,13 +109,17 @@ async function fetchMotorDayTotals(
 
 function buildAdminMotorCompare(input: {
   asOf: string;
+  currentStart: string;
   previousAsOf: string;
-  today: DayTotals;
-  previous: DayTotals;
+  previousStart: string;
+  today: RangeTotals;
+  previous: RangeTotals;
 }): PerformanceCompareResult {
   return {
     asOf: input.asOf,
+    currentStart: input.currentStart,
     previousAsOf: input.previousAsOf,
+    previousStart: input.previousStart,
     audience: 'admin',
     fromApi: false,
     metrics: [
@@ -144,7 +164,7 @@ function buildAdminMotorCompare(input: {
 
 /**
  * Admin / super admin / finance Motor dashboard:
- * company-wide today vs same calendar day last month.
+ * company-wide month-to-date vs same period last month.
  */
 export function MotorPerformanceCompareSection() {
   const { token } = useAuth();
@@ -157,13 +177,12 @@ export function MotorPerformanceCompareSection() {
     if (!token) return;
     setIsLoading(true);
     setError(null);
-    const asOf = getTodayIso();
-    const previousAsOf = getSameDayLastMonthIso(asOf);
+    const ranges = getMonthToDateCompareRanges();
 
     try {
       const fromApi = await fetchPerformanceCompare(apiFetch, {
         audience: 'admin',
-        asOf,
+        asOf: ranges.asOf,
         domain: 'motor',
       });
       if (fromApi.metrics.length && fromApi.fromApi) {
@@ -172,14 +191,13 @@ export function MotorPerformanceCompareSection() {
       }
 
       const [today, previous] = await Promise.all([
-        fetchMotorDayTotals(token, asOf),
-        fetchMotorDayTotals(token, previousAsOf),
+        fetchMotorRangeTotals(token, ranges.currentStart, ranges.asOf),
+        fetchMotorRangeTotals(token, ranges.previousStart, ranges.previousAsOf),
       ]);
 
       setData(
         buildAdminMotorCompare({
-          asOf,
-          previousAsOf,
+          ...ranges,
           today,
           previous,
         }),
