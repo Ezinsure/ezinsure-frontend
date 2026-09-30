@@ -282,7 +282,8 @@ export function BatchDetailPanel({
           </div>
         </div>
 
-        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-4 py-4 sm:space-y-6 sm:px-5">
+        <div className="flex min-h-0 flex-1 flex-col">
+          <div className="max-h-[32vh] shrink-0 space-y-4 overflow-y-auto overscroll-contain border-b border-slate-100 px-4 py-3 sm:space-y-5 sm:px-5 sm:py-4">
           {isLoading && !batch ? (
             <div className="flex flex-col items-center justify-center gap-3 py-24 text-slate-500">
               <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
@@ -509,18 +510,24 @@ export function BatchDetailPanel({
                 </div>
               </section>
 
-              <section>
-                <div className="mb-2 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-                  <h3 className="text-sm font-semibold text-slate-800">
-                    Lines ({batch.lineCount})
-                  </h3>
-                  <p className="text-[11px] text-slate-500">
-                    {canReviewLines
-                      ? 'Click a row to review that line'
-                      : 'Click a row for full details'}
-                    <span className="sm:hidden"> · swipe for columns</span>
-                  </p>
-                </div>
+            </>
+          ) : null}
+          </div>
+
+          {batch ? (
+            <section className="flex min-h-[65vh] flex-1 flex-col px-4 py-3 sm:px-5 sm:py-4">
+              <div className="mb-2 flex shrink-0 flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                <h3 className="text-sm font-semibold text-slate-800">
+                  Lines ({batch.lineCount})
+                </h3>
+                <p className="text-[11px] text-slate-500">
+                  {canReviewLines
+                    ? 'Click a row to review that line'
+                    : 'Click a row for full details'}
+                  <span className="sm:hidden"> · swipe for columns</span>
+                </p>
+              </div>
+              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
                 {isLoading ? (
                   <div className="flex items-center gap-2 rounded-lg border border-slate-200 px-4 py-8 text-sm text-slate-500">
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -529,9 +536,9 @@ export function BatchDetailPanel({
                 ) : (
                   <div className="-mx-4 overflow-x-auto overscroll-x-contain px-4 sm:mx-0 sm:rounded-lg sm:border sm:border-slate-200 sm:px-0">
                     <table className="min-w-max w-full text-left text-xs">
-                      <thead className="bg-slate-50 text-slate-600">
+                      <thead className="sticky top-0 z-[1] bg-slate-50 text-slate-600">
                         <tr>
-                          <th className="sticky left-0 z-[1] whitespace-nowrap bg-slate-50 px-3 py-2.5 font-medium">
+                          <th className="sticky left-0 z-[2] whitespace-nowrap bg-slate-50 px-3 py-2.5 font-medium">
                             Line status
                           </th>
                           {COMMISSION_LINE_COLUMN_KEYS.map((key) => (
@@ -595,13 +602,13 @@ export function BatchDetailPanel({
                     />
                   </div>
                 )}
-              </section>
-            </>
+              </div>
+            </section>
           ) : null}
         </div>
 
         {footer && batch ? (
-          <div className="shrink-0 border-t border-slate-200 bg-white px-4 py-3 sm:px-5 sm:py-4">
+          <div className="sticky bottom-0 z-10 shrink-0 border-t border-slate-200 bg-white/95 px-4 py-2 shadow-[0_-4px_12px_rgba(15,23,42,0.06)] backdrop-blur sm:px-5">
             {footer}
           </div>
         ) : null}

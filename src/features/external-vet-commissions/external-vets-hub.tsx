@@ -1,8 +1,15 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
+  AlertTriangle,
   CheckCircle2,
   Download,
   Loader2,
@@ -21,6 +28,7 @@ import {
   formatRwf,
   type ExternalVetCommissionBatch,
   type ExternalVetCommissionBatchSummary,
+  type ExternalVetCommissionLineListItem,
   type ExternalVetCommissionStatus,
   type ExternalVetPerformanceRow,
   type ExternalVetsOverviewStats,
@@ -29,13 +37,16 @@ import {
 } from './domain';
 import {
   areAllLinesRejected,
+  buildReviewEvent,
   canApproveBatchForPayment,
   canSendBatchToAdminReview,
   canSubmitDraftBatch,
   countLinesMissingStageReview,
   isBatchFullyReviewed,
+  mergeBatchAfterLineReviews,
   reviewStageForViewRole,
 } from './line-review';
+import { linesFromBatch } from './mappers';
 import { useAuth } from '@/context/AuthContext';
 import { BatchDetailPanel } from './components/batch-detail-panel';
 import { BatchListTable } from './components/batch-list-table';
@@ -220,6 +231,10 @@ export default function ExternalVetsHub({ viewRole }: ExternalVetsHubProps) {
   const [templateBusy, setTemplateBusy] = useState<ClaimFormLanguage | null>(
     null,
   );
+  const [linesWorkspaceSync, setLinesWorkspaceSync] = useState<{
+    tick: number;
+    patches: Map<string, ExternalVetCommissionLineListItem>;
+  } | null>(null);
 
   const canUpload =
     viewRole === 'admin' ||
@@ -641,7 +656,15 @@ export default function ExternalVetsHub({ viewRole }: ExternalVetsHubProps) {
     if (!detail || !reviewStage) return;
     setActionBusy(true);
     try {
-      const updated = await api.reviewLine({
+      const event = buildReviewEvent({
+        decision: input.decision,
+        reason: input.reason,
+        stage: reviewStage,
+        actorId: user?._id,
+        actorName: user?.fullName || 'Reviewer',
+        actorRole: user?.role,
+      });
+      const fromServer = await api.reviewLine({
         batchId: detail.id,
         lineId: input.lineId,
         decision: input.decision,
@@ -652,14 +675,27 @@ export default function ExternalVetsHub({ viewRole }: ExternalVetsHubProps) {
         actorRole: user?.role,
         currentBatch: detail,
       });
-      setDetail(updated);
+      const merged = mergeBatchAfterLineReviews(
+        detail,
+        fromServer,
+        [input.lineId],
+        event,
+      );
+      setDetail(merged);
+      const listLine = linesFromBatch(merged).find((l) => l.id === input.lineId);
+      if (listLine) {
+        setLinesWorkspaceSync({
+          tick: Date.now(),
+          patches: new Map([[listLine.id, listLine]]),
+        });
+      }
       showToast(
         input.decision === 'REJECTED' ? 'Line rejected' : 'Line approved',
         'success',
       );
       if (
-        areAllLinesRejected(updated.lines) &&
-        updated.status === 'PENDING_ADMIN_REVIEW'
+        areAllLinesRejected(merged.lines) &&
+        merged.status === 'PENDING_ADMIN_REVIEW'
       ) {
         showToast(
           'All lines are rejected — reject the request when ready',
@@ -728,211 +764,220 @@ export default function ExternalVetsHub({ viewRole }: ExternalVetsHubProps) {
       }),
   );
 
+  const sonarwaReviewHint =
+    detail && isSonarwa && detail.status === 'PENDING_SONARWA_REVIEW'
+      ? !isBatchFullyReviewed(detail.lines)
+        ? {
+            tone: 'amber' as const,
+            text: `Review every line before sending to admin (${detail.lines.filter((l) => l.lineStatus === 'PENDING_REVIEW').length} pending).`,
+          }
+        : areAllLinesRejected(detail.lines)
+          ? {
+              tone: 'rose' as const,
+              text: 'All lines rejected — reject this request; it cannot go to admin.',
+            }
+          : {
+              tone: 'cyan' as const,
+              text: 'All lines reviewed — send to ezInsure admin when ready.',
+            }
+      : null;
+
+  const adminReviewHint =
+    detail && canReview && detail.status === 'PENDING_ADMIN_REVIEW'
+      ? !isBatchFullyReviewed(detail.lines)
+        ? {
+            tone: 'amber' as const,
+            text: `Decide every line before marking ready to pay (${detail.lines.filter((l) => l.lineStatus === 'PENDING_REVIEW').length} pending).`,
+          }
+        : countLinesMissingStageReview(detail.lines, 'ADMIN') > 0
+          ? {
+              tone: 'amber' as const,
+              text: `Record an admin decision on every line (${countLinesMissingStageReview(detail.lines, 'ADMIN')} remaining).`,
+            }
+          : areAllLinesRejected(detail.lines)
+            ? {
+                tone: 'rose' as const,
+                text: 'All lines rejected — reject the request; it cannot be marked ready to pay.',
+              }
+            : {
+                tone: 'emerald' as const,
+                text: 'All lines have an admin decision — approve to mark ready to pay.',
+              }
+      : null;
+
+  const reviewHint = sonarwaReviewHint ?? adminReviewHint;
+
   const editFooter =
     detail && canEditDetail ? (
-      <div className="space-y-3">
-        {detail.status === 'REJECTED' ? (
-          <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-900">
-            This request was rejected
-            {detail.reviewNote ? `: ${detail.reviewNote}` : '.'} Fix the details
-            or sheet, then resubmit for a fresh SONARWA review.
-          </p>
-        ) : (
-          <p className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
-            This request is still a draft. Edit if needed, then submit to start
-            SONARWA line review.
-          </p>
-        )}
-        <div className="flex flex-wrap gap-2">
-          <Button
-            variant="outline"
-            onClick={() => openEditWizard(detail)}
-            disabled={actionBusy}
-            className="w-full sm:w-auto"
-          >
-            Edit request
-          </Button>
-          <Button
-            onClick={() => void handleSubmitDraft(detail.id)}
-            disabled={actionBusy || !canSubmitDraftBatch(detail)}
-            className="w-full sm:w-auto"
-          >
-            {actionBusy ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : null}
-            {detail.status === 'REJECTED'
-              ? 'Fix & resubmit'
-              : 'Submit for SONARWA review'}
-          </Button>
-        </div>
-      </div>
-    ) : null;
-
-  const withdrawFooter =
-    detail && canWithdrawDetail ? (
-      <div className="space-y-3">
-        <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950">
-          Need to change something? Withdraw to draft, edit, then submit again.
-          This clears in-progress line decisions.
-        </p>
-        <Button
-          variant="outline"
-          onClick={() => openWithdrawDialog(detail)}
-          disabled={actionBusy}
-          className="w-full sm:w-auto"
-        >
-          Withdraw to draft
-        </Button>
-      </div>
+      <BatchDetailActionBar
+        hint={
+          detail.status === 'REJECTED'
+            ? {
+                tone: 'rose',
+                text: `Rejected${detail.reviewNote ? `: ${detail.reviewNote}` : ''}. Edit and resubmit for SONARWA review.`,
+              }
+            : {
+                tone: 'slate',
+                text: 'Draft — edit if needed, then submit for SONARWA line review.',
+              }
+        }
+        actions={
+          <>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => openEditWizard(detail)}
+              disabled={actionBusy}
+            >
+              Edit request
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => void handleSubmitDraft(detail.id)}
+              disabled={actionBusy || !canSubmitDraftBatch(detail)}
+            >
+              {actionBusy ? (
+                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+              ) : null}
+              {detail.status === 'REJECTED'
+                ? 'Fix & resubmit'
+                : 'Submit for review'}
+            </Button>
+          </>
+        }
+      />
     ) : null;
 
   const reviewFooter =
-    detail &&
-    isSonarwa &&
-    detail.status === 'PENDING_SONARWA_REVIEW' ? (
-      <div className="space-y-3">
-        {!isBatchFullyReviewed(detail.lines) ? (
-          <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-            Decide every line before sending this request to ezInsure admin.
-            Pending:{' '}
-            {
-              detail.lines.filter((l) => l.lineStatus === 'PENDING_REVIEW')
-                .length
-            }
-          </p>
-        ) : areAllLinesRejected(detail.lines) ? (
-          <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-900">
-            All lines are rejected. Reject the request — it cannot proceed
-            to admin.
-          </p>
-        ) : (
-          <p className="rounded-lg border border-cyan-200 bg-cyan-50 px-3 py-2 text-sm text-cyan-950">
-            All lines reviewed. Send to ezInsure admin for the next gate.
-          </p>
-        )}
-        <textarea
-          className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-400"
-          rows={2}
-          placeholder="Review note (required for reject)"
-          value={reviewNote}
-          onChange={(e) => setReviewNote(e.target.value)}
-        />
-        <div className="grid grid-cols-1 gap-2 sm:flex sm:flex-wrap">
-          <Button
-            onClick={() => void handleSendToAdmin(detail.id)}
-            disabled={actionBusy || !canSendBatchToAdminReview(detail)}
-            className="w-full sm:w-auto"
-          >
-            {actionBusy ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <CheckCircle2 className="mr-2 h-4 w-4" />
-            )}
-            Send to admin
-          </Button>
-          <Button
-            variant="outline"
-            onClick={() => void handleReject(detail.id)}
-            disabled={actionBusy}
-            className="w-full sm:w-auto"
-          >
-            <XCircle className="mr-2 h-4 w-4" />
-            Reject request
-          </Button>
-        </div>
-      </div>
-    ) : detail && canReview && detail.status === 'PENDING_ADMIN_REVIEW' ? (
-      <div className="space-y-3">
-        {!isBatchFullyReviewed(detail.lines) ? (
-          <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-            Decide every line (approve or reject) before marking this
-            request ready to pay. Pending:{' '}
-            {
-              detail.lines.filter((l) => l.lineStatus === 'PENDING_REVIEW')
-                .length
-            }
-          </p>
-        ) : countLinesMissingStageReview(detail.lines, 'ADMIN') > 0 ? (
-          <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-            SONARWA already decided some lines — you must still record an{' '}
-            <strong>admin</strong> decision on every line. Remaining:{' '}
-            {countLinesMissingStageReview(detail.lines, 'ADMIN')}
-          </p>
-        ) : areAllLinesRejected(detail.lines) ? (
-          <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-900">
-            All lines are rejected. Reject the request — it cannot be marked
-            ready to pay.
-          </p>
-        ) : (
-          <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900">
-            All lines have an admin decision. Approving will mark the request
-            ready to pay using approved-line totals only.
-          </p>
-        )}
-        <textarea
-          className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-400"
-          rows={2}
-          placeholder="Review note (required for reject)"
-          value={reviewNote}
-          onChange={(e) => setReviewNote(e.target.value)}
-        />
-        <div className="grid grid-cols-1 gap-2 sm:flex sm:flex-wrap">
-          <Button
-            onClick={() => void handleApprove(detail.id)}
-            disabled={actionBusy || !canApproveBatchForPayment(detail)}
-            className="w-full sm:w-auto"
-            title={
-              canApproveBatchForPayment(detail)
-                ? undefined
-                : 'Finish admin line reviews first'
-            }
-          >
-            {actionBusy ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <CheckCircle2 className="mr-2 h-4 w-4" />
-            )}
-            Mark ready to pay
-          </Button>
+    detail && reviewHint ? (
+      <BatchDetailActionBar
+        hint={reviewHint}
+        note={{
+          value: reviewNote,
+          onChange: setReviewNote,
+          placeholder: 'Review note (required for reject)',
+        }}
+        leading={
+          canWithdrawDetail ? (
+            <Button
+              variant="text"
+              size="sm"
+              className="shrink-0 text-slate-600"
+              onClick={() => openWithdrawDialog(detail)}
+              disabled={actionBusy}
+              title="Withdraw to draft — clears in-progress line decisions"
+            >
+              Withdraw to draft
+            </Button>
+          ) : null
+        }
+        actions={
+          isSonarwa && detail.status === 'PENDING_SONARWA_REVIEW' ? (
+            <>
+              <Button
+                size="sm"
+                onClick={() => void handleSendToAdmin(detail.id)}
+                disabled={actionBusy || !canSendBatchToAdminReview(detail)}
+              >
+                {actionBusy ? (
+                  <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
+                )}
+                Send to admin
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => void handleReject(detail.id)}
+                disabled={actionBusy}
+              >
+                <XCircle className="mr-1.5 h-3.5 w-3.5" />
+                Reject
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button
+                size="sm"
+                onClick={() => void handleApprove(detail.id)}
+                disabled={actionBusy || !canApproveBatchForPayment(detail)}
+                title={
+                  canApproveBatchForPayment(detail)
+                    ? undefined
+                    : 'Finish admin line reviews first'
+                }
+              >
+                {actionBusy ? (
+                  <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
+                )}
+                Mark ready to pay
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => void handleReject(detail.id)}
+                disabled={actionBusy}
+              >
+                <XCircle className="mr-1.5 h-3.5 w-3.5" />
+                Reject
+              </Button>
+            </>
+          )
+        }
+      />
+    ) : detail && canWithdrawDetail ? (
+      <BatchDetailActionBar
+        hint={{
+          tone: 'amber',
+          text: 'Withdraw to draft to edit and resubmit (clears line decisions).',
+        }}
+        actions={
           <Button
             variant="outline"
-            onClick={() => void handleReject(detail.id)}
+            size="sm"
+            onClick={() => openWithdrawDialog(detail)}
             disabled={actionBusy}
-            className="w-full sm:w-auto"
           >
-            <XCircle className="mr-2 h-4 w-4" />
-            Reject request
+            Withdraw to draft
           </Button>
-        </div>
-      </div>
+        }
+      />
     ) : detail && canPay && detail.status === 'READY_TO_BE_PAID' ? (
-      <Button
-        onClick={() => void handleInitiate([detail.id])}
-        disabled={actionBusy}
-        className="w-full sm:w-auto"
-      >
-        {actionBusy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-        Initiate payment
-      </Button>
+      <BatchDetailActionBar
+        actions={
+          <Button
+            size="sm"
+            onClick={() => void handleInitiate([detail.id])}
+            disabled={actionBusy}
+          >
+            {actionBusy ? (
+              <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+            ) : null}
+            Initiate payment
+          </Button>
+        }
+      />
     ) : detail && canPay && detail.status === 'PAYMENT_INITIATED' ? (
-      <Button
-        onClick={() => void handleMarkPaid([detail.id])}
-        disabled={actionBusy}
-        className="w-full sm:w-auto"
-      >
-        {actionBusy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-        Mark as paid
-      </Button>
+      <BatchDetailActionBar
+        actions={
+          <Button
+            size="sm"
+            onClick={() => void handleMarkPaid([detail.id])}
+            disabled={actionBusy}
+          >
+            {actionBusy ? (
+              <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+            ) : null}
+            Mark as paid
+          </Button>
+        }
+      />
     ) : null;
 
-  const detailFooter = editFooter ? (
-    editFooter
-  ) : withdrawFooter || reviewFooter ? (
-    <div className="space-y-4">
-      {withdrawFooter}
-      {reviewFooter}
-    </div>
-  ) : null;
+  const detailFooter = editFooter ?? reviewFooter;
 
   return (
     <div className="space-y-6 p-4 md:p-6">
@@ -1032,6 +1077,7 @@ export default function ExternalVetsHub({ viewRole }: ExternalVetsHubProps) {
           canMutate={canPay}
           viewRole={viewRole}
           canReviewLines={canLineReview}
+          linesWorkspaceSync={linesWorkspaceSync}
         />
       ) : (
         <div className="space-y-4">
@@ -1256,6 +1302,67 @@ export default function ExternalVetsHub({ viewRole }: ExternalVetsHubProps) {
         }}
         onConfirm={(reason) => void handleWithdraw(reason)}
       />
+    </div>
+  );
+}
+
+type BatchDetailHintTone = 'amber' | 'rose' | 'cyan' | 'emerald' | 'slate';
+
+const HINT_TONE_CLASS: Record<BatchDetailHintTone, string> = {
+  amber: 'border-amber-200/80 bg-amber-50/90 text-amber-950',
+  rose: 'border-rose-200/80 bg-rose-50/90 text-rose-950',
+  cyan: 'border-cyan-200/80 bg-cyan-50/90 text-cyan-950',
+  emerald: 'border-emerald-200/80 bg-emerald-50/90 text-emerald-950',
+  slate: 'border-slate-200 bg-slate-50 text-slate-700',
+};
+
+function BatchDetailActionBar({
+  hint,
+  note,
+  leading,
+  actions,
+}: {
+  hint?: { tone: BatchDetailHintTone; text: string };
+  note?: {
+    value: string;
+    onChange: (value: string) => void;
+    placeholder: string;
+  };
+  leading?: ReactNode;
+  actions?: ReactNode;
+}) {
+  return (
+    <div className="space-y-2">
+      {hint ? (
+        <p
+          className={`flex items-start gap-2 rounded-md border px-2.5 py-1.5 text-xs leading-snug ${HINT_TONE_CLASS[hint.tone]}`}
+          title={hint.text}
+        >
+          <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 opacity-80" />
+          <span className="line-clamp-2">{hint.text}</span>
+        </p>
+      ) : null}
+      <div className="flex flex-col gap-2 lg:flex-row lg:items-center">
+        {leading ? (
+          <div className="flex shrink-0 items-center lg:mr-1">{leading}</div>
+        ) : null}
+        {note ? (
+          <textarea
+            className="min-h-[2.25rem] flex-1 resize-y rounded-md border border-slate-300 px-2.5 py-1.5 text-sm leading-snug focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-400"
+            rows={1}
+            placeholder={note.placeholder}
+            value={note.value}
+            onChange={(e) => note.onChange(e.target.value)}
+          />
+        ) : (
+          <span className="hidden flex-1 lg:block" />
+        )}
+        {actions ? (
+          <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+            {actions}
+          </div>
+        ) : null}
+      </div>
     </div>
   );
 }
