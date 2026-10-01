@@ -1,6 +1,7 @@
 export type { CompanyCommissionDefaults } from './types';
 export {
   FALLBACK_LIVESTOCK_COMPANY_COMMISSION_PERCENT,
+  FALLBACK_LIVESTOCK_VETERINARY_COMMISSION_PERCENT,
   FALLBACK_MOTOR_COMPANY_COMMISSION_PERCENT,
   clampCommissionPercent,
   parseCommissionPercentInput,

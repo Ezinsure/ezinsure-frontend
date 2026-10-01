@@ -10,8 +10,8 @@ export function CommissionDefaultsPage() {
           Commission settings
         </h1>
         <p className="mt-1 text-sm text-slate-500">
-          Configure organisation-wide default company commission rates for
-          livestock and motor.
+          Configure organisation-wide default veterinary and company
+          commission rates for livestock, plus motor company commission.
         </p>
       </header>
 

@@ -23,6 +23,10 @@ import {
   DEFAULT_COMPANY_COMMISSION_RATE_PERCENT,
   normalizeCompanyCommissionRatePercent,
 } from '@/features/livestock-application/domain/commission-rates';
+import {
+  FALLBACK_LIVESTOCK_VETERINARY_COMMISSION_PERCENT,
+  useCompanyCommissionDefaultsApi,
+} from '@/features/org-commission-settings';
 import { isVeterinaryRole } from '@/shared/utils/role';
 
 interface LivestockApplicationFormProps {
@@ -86,6 +90,31 @@ export function LivestockApplicationForm({
   const { user } = useAuth();
   const vetPrefill = useMemo(() => resolveVetVerificationPrefill(user), [user]);
   const showCompanyCommission = !isVeterinaryRole(String(user?.role ?? ''));
+  const defaultsApi = useCompanyCommissionDefaultsApi();
+  const [veterinaryCommissionRatePercent, setVeterinaryCommissionRatePercent] =
+    useState(FALLBACK_LIVESTOCK_VETERINARY_COMMISSION_PERCENT);
+
+  useEffect(() => {
+    let cancelled = false;
+    void defaultsApi
+      .getDefaults()
+      .then((defaults) => {
+        if (cancelled) return;
+        setVeterinaryCommissionRatePercent(
+          defaults.livestockVeterinaryCommissionPercent,
+        );
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setVeterinaryCommissionRatePercent(
+          FALLBACK_LIVESTOCK_VETERINARY_COMMISSION_PERCENT,
+        );
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [defaultsApi]);
+
   const resolvedInitialValues = useMemo<Partial<LivestockApplicationFormValues>>(() => {
     const profileRate = normalizeCompanyCommissionRatePercent(
       user?.companyCommissionRate ?? DEFAULT_COMPANY_COMMISSION_RATE_PERCENT,
@@ -104,6 +133,7 @@ export function LivestockApplicationForm({
     formProfile,
     intake,
     vetPrefill,
+    veterinaryCommissionRatePercent,
   );
   const {
     values,

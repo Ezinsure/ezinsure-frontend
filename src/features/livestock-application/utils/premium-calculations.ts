@@ -3,6 +3,8 @@ import {
   companyCommissionRateToFraction,
   DEFAULT_COMPANY_COMMISSION_RATE_PERCENT,
   normalizeCompanyCommissionRatePercent,
+  normalizeVeterinaryCommissionRatePercent,
+  veterinaryCommissionRateToFraction,
   VETERINARY_COMMISSION_RATE_PERCENT,
 } from '@/features/livestock-application/domain/commission-rates';
 
@@ -18,7 +20,7 @@ export const COMPANY_COMMISSION_RATE = companyCommissionRateToFraction(
   DEFAULT_COMPANY_COMMISSION_RATE_PERCENT,
 );
 
-/** Veterinary commission: 5% of total premium (100%). */
+/** Veterinary commission fraction — default 10% of total premium. */
 export const VETERINARY_COMMISSION_RATE = VETERINARY_COMMISSION_RATE_PERCENT / 100;
 
 export interface PremiumAmountBreakdown {
@@ -56,6 +58,8 @@ export function calculateTotalPremiumRwf(
 export interface SplitPremiumOptions {
   /** Company commission % of total premium — 5, 8, or 10 (default 8). */
   companyCommissionRatePercent?: number;
+  /** Veterinary commission % of total premium (default 10 / org setting). */
+  veterinaryCommissionRatePercent?: number;
 }
 
 /** Split total premium into farmer, government, and commissions */
@@ -76,10 +80,15 @@ export function splitPremiumAmounts(
   const companyRate = companyCommissionRateToFraction(
     normalizeCompanyCommissionRatePercent(options?.companyCommissionRatePercent),
   );
+  const veterinaryRate = veterinaryCommissionRateToFraction(
+    normalizeVeterinaryCommissionRatePercent(
+      options?.veterinaryCommissionRatePercent,
+    ),
+  );
   const farmer = Math.round(totalPremiumRwf * PREMIUM_FARMER_SHARE);
   const government = Math.round(totalPremiumRwf * PREMIUM_GOVERNMENT_SHARE);
   const company = Math.round(totalPremiumRwf * companyRate);
-  const veterinary = Math.round(totalPremiumRwf * VETERINARY_COMMISSION_RATE);
+  const veterinary = Math.round(totalPremiumRwf * veterinaryRate);
 
   return {
     premiumRateAmount: formatRwfAmount(totalPremiumRwf),
@@ -95,7 +104,10 @@ export function computePremiumBreakdownFromForm(
     LivestockApplicationFormValues,
     'livestockItems' | 'premiumPercentage' | 'premiumRateAmount' | 'companyCommissionRate'
   >,
-  options?: { useManualTotal?: boolean },
+  options?: {
+    useManualTotal?: boolean;
+    veterinaryCommissionRatePercent?: number;
+  },
 ): PremiumAmountBreakdown {
   const manualTotal = parseAmount(values.premiumRateAmount);
   const totalPremium =
@@ -108,6 +120,7 @@ export function computePremiumBreakdownFromForm(
 
   return splitPremiumAmounts(totalPremium, {
     companyCommissionRatePercent: Number(values.companyCommissionRate),
+    veterinaryCommissionRatePercent: options?.veterinaryCommissionRatePercent,
   });
 }
 

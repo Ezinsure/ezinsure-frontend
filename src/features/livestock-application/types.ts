@@ -125,7 +125,7 @@ export interface LivestockApplicationFormValues {
   companyCommissionRate: string;
   /** API: companyCommission — rate% of premiumRateAmount */
   companyCommission: string;
-  /** API: veterinaryCommission — 5% of premiumRateAmount */
+  /** API: veterinaryCommission — org default % of premiumRateAmount (fallback 10%) */
   veterinaryCommission: string;
 
   // Section 10 — Verification (application-only)

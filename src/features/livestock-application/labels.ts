@@ -80,7 +80,7 @@ export const LIVESTOCK_FORM_LABELS = {
     governmentContribution: 'Nkunganire (40%)',
     companyCommissionRate: 'Igipimo cya komisiyo ya kampani (%)',
     companyCommission: 'Komisiyo ya kampani',
-    veterinaryCommission: 'Komisiyo ya Veterineri (5%)',
+    veterinaryCommission: 'Komisiyo ya Veterineri (10%)',
 
     insuranceAgentCode: 'Code y’umuhuza mu bwishingizi',
     veterinarianLicenseNumber: 'N° Licence ya Veterineri',
