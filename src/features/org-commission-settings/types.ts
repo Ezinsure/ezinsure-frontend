@@ -1,17 +1,20 @@
 /**
- * Org-level default company commission rates (livestock + motor).
+ * Org-level default commission rates (livestock company, livestock vet, motor).
  * Backend: GET/PUT /configurations/companyCommissionDefaults
  */
 
 export type CompanyCommissionDefaults = {
   livestockCompanyCommissionPercent: number;
+  /** Veterinary payout % of total premium on livestock applications. */
+  livestockVeterinaryCommissionPercent: number;
   motorCompanyCommissionPercent: number;
   updatedAt?: string;
   updatedById?: string;
 };
 
-/** Local fallback when the settings API is not yet available. */
+/** Local fallbacks when the settings API is not yet available. */
 export const FALLBACK_LIVESTOCK_COMPANY_COMMISSION_PERCENT = 3.5;
+export const FALLBACK_LIVESTOCK_VETERINARY_COMMISSION_PERCENT = 10;
 export const FALLBACK_MOTOR_COMPANY_COMMISSION_PERCENT = 8;
 
 export function clampCommissionPercent(value: number): number {

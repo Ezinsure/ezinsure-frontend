@@ -38,9 +38,18 @@ import {
 
 function withPremiumAmounts(
   values: LivestockApplicationFormValues,
-  useManualTotal = false,
+  options?: {
+    useManualTotal?: boolean;
+    veterinaryCommissionRatePercent?: number;
+  },
 ): LivestockApplicationFormValues {
-  return { ...values, ...computePremiumBreakdownFromForm(values, { useManualTotal }) };
+  return {
+    ...values,
+    ...computePremiumBreakdownFromForm(values, {
+      useManualTotal: options?.useManualTotal,
+      veterinaryCommissionRatePercent: options?.veterinaryCommissionRatePercent,
+    }),
+  };
 }
 
 function withLockedAnimalType(
@@ -56,9 +65,24 @@ export function useLivestockApplicationForm(
   formProfile?: FormProfile,
   intake?: ApplicationIntakeSelection,
   vetPrefill?: VetVerificationPrefill,
+  veterinaryCommissionRatePercent?: number,
 ) {
   const stepIds = formProfile?.stepIds ?? [];
   const vetPrefillAppliedRef = useRef(false);
+  const veterinaryRateRef = useRef(veterinaryCommissionRatePercent);
+  veterinaryRateRef.current = veterinaryCommissionRatePercent;
+
+  const applyPremium = useCallback(
+    (
+      next: LivestockApplicationFormValues,
+      useManualTotal = false,
+    ): LivestockApplicationFormValues =>
+      withPremiumAmounts(next, {
+        useManualTotal,
+        veterinaryCommissionRatePercent: veterinaryRateRef.current,
+      }),
+    [],
+  );
   const [values, setValues] = useState<LivestockApplicationFormValues>(() =>
     withVetVerificationPrefill(
       {
@@ -120,9 +144,9 @@ export function useLivestockApplicationForm(
     setValues((prev) => {
       if (prev.premiumPercentage === enforcedPremiumPercentage) return prev;
       lastAutoPremiumRef.current = enforcedPremiumPercentage;
-      return withPremiumAmounts({ ...prev, premiumPercentage: enforcedPremiumPercentage });
+      return applyPremium({ ...prev, premiumPercentage: enforcedPremiumPercentage });
     });
-  }, [enforcedPremiumPercentage, isReadOnly]);
+  }, [applyPremium, enforcedPremiumPercentage, isReadOnly]);
 
   const setField = useCallback(
     <K extends keyof LivestockApplicationFormValues>(
@@ -133,11 +157,11 @@ export function useLivestockApplicationForm(
         let next = { ...prev, [key]: value };
         if (key === 'premiumPercentage') {
           lastAutoPremiumRef.current = String(value);
-          next = withPremiumAmounts(next);
+          next = applyPremium(next);
         } else if (key === 'premiumRateAmount') {
-          next = withPremiumAmounts(next, true);
+          next = applyPremium(next, true);
         } else if (key === 'companyCommissionRate') {
-          next = withPremiumAmounts(next, Boolean(String(next.premiumRateAmount).trim()));
+          next = applyPremium(next, Boolean(String(next.premiumRateAmount).trim()));
         }
         return next;
       });
@@ -147,7 +171,7 @@ export function useLivestockApplicationForm(
         return next;
       });
     },
-    [],
+    [applyPremium],
   );
 
   const updateLivestockItem = useCallback(
@@ -177,12 +201,12 @@ export function useLivestockApplicationForm(
             lastAutoPremiumRef.current = suggested;
             next = { ...next, premiumPercentage: suggested };
           }
-          next = withPremiumAmounts(next);
+          next = applyPremium(next);
         }
         return next;
       });
     },
-    [lockedAnimalType],
+    [applyPremium, lockedAnimalType],
   );
 
   const addLivestockItem = useCallback(() => {
@@ -210,9 +234,9 @@ export function useLivestockApplicationForm(
           next = { ...next, premiumPercentage: suggested };
         }
       }
-      return withPremiumAmounts(next);
+      return applyPremium(next);
     });
-  }, []);
+  }, [applyPremium]);
 
   const mergeLivestockItems = useCallback((imported: LivestockAnimalRow[]) => {
     setValues((prev) => {
@@ -230,9 +254,9 @@ export function useLivestockApplicationForm(
         lastAutoPremiumRef.current = suggested;
         next = { ...next, premiumPercentage: suggested };
       }
-      return withPremiumAmounts(next);
+      return applyPremium(next);
     });
-  }, [lockedAnimalType]);
+  }, [applyPremium, lockedAnimalType]);
 
   const saveDraft = useCallback(() => {
     try {
@@ -328,12 +352,12 @@ export function useLivestockApplicationForm(
         lastAutoPremiumRef.current = suggested;
         next = { ...next, premiumPercentage: suggested };
       }
-      return withPremiumAmounts(next);
+      return applyPremium(next);
     });
-  }, []);
+  }, [applyPremium]);
 
   const prepareSubmitPayload = useMemo((): CreateLivestockApplicationPayload => {
-    const amounts = withPremiumAmounts(values);
+    const amounts = applyPremium(values);
     const toNumber = (v: string) => {
       const n = parseFloat(String(v).replace(/\s/g, '').replace(/,/g, ''));
       return Number.isFinite(n) ? n : 0;
@@ -457,7 +481,12 @@ export function useLivestockApplicationForm(
         veterinarianSignatureName: values.veterinarianSignatureName,
       },
     };
-  }, [formProfile?.lineTableVariant, intake, mode, values]);
+  }, [applyPremium, formProfile?.lineTableVariant, intake, mode, values]);
+
+  useEffect(() => {
+    if (isReadOnly || veterinaryCommissionRatePercent == null) return;
+    setValues((prev) => applyPremium(prev, Boolean(String(prev.premiumRateAmount).trim())));
+  }, [applyPremium, isReadOnly, veterinaryCommissionRatePercent]);
 
   const resetForm = useCallback(() => {
     const initial = createInitialLivestockApplicationValues();

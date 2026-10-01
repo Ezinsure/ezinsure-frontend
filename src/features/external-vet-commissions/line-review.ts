@@ -321,3 +321,64 @@ export function applyReviewToLineListItem<
     ...applyReviewEventToLine(line, event),
   };
 }
+
+function stageEventCount(
+  events: ExternalVetLineReviewEvent[] | undefined,
+  stage: ExternalVetReviewStage,
+): number {
+  return (events ?? []).filter((e) => e.stage === stage).length;
+}
+
+/** True when the server line reflects a new decision for this stage. */
+export function serverLineReflectsReview(
+  previous: Pick<ExternalVetCommissionLine, 'lineStatus' | 'reviewEvents'>,
+  fromServer: ExternalVetCommissionLine,
+  stage: ExternalVetReviewStage,
+): boolean {
+  if (fromServer.lineStatus !== previous.lineStatus) return true;
+  if (
+    stageEventCount(fromServer.reviewEvents, stage) >
+    stageEventCount(previous.reviewEvents, stage)
+  ) {
+    return true;
+  }
+  const prevLen = previous.reviewEvents?.length ?? 0;
+  const nextLen = fromServer.reviewEvents?.length ?? 0;
+  return nextLen > prevLen;
+}
+
+/** Prefer server line when fresh; otherwise apply a local review event. */
+export function mergeReviewedCommissionLine<
+  T extends ExternalVetCommissionLine,
+>(previous: T, fromServer: ExternalVetCommissionLine | undefined, event: ExternalVetLineReviewEvent): T {
+  if (fromServer && serverLineReflectsReview(previous, fromServer, event.stage)) {
+    return { ...previous, ...fromServer };
+  }
+  return applyReviewToLineListItem(previous, event);
+}
+
+/** Keep existing lines when the review API returns a batch shell without lines. */
+export function mergeBatchAfterLineReviews(
+  previous: ExternalVetCommissionBatch,
+  fromServer: ExternalVetCommissionBatch,
+  lineIds: string[],
+  event: ExternalVetLineReviewEvent,
+): ExternalVetCommissionBatch {
+  const idSet = new Set(lineIds);
+  const serverById = new Map(fromServer.lines.map((line) => [line.id, line]));
+  const lines = previous.lines.map((line) =>
+    idSet.has(line.id)
+      ? mergeReviewedCommissionLine(line, serverById.get(line.id), event)
+      : line,
+  );
+  const payable = summarizePayableLines(lines);
+  return {
+    ...previous,
+    ...fromServer,
+    lines,
+    lineCount: lines.length,
+    totalVetCommission: payable.totalVetCommission,
+    totalCompanyCommission: payable.totalCompanyCommission,
+    totalCommission: payable.totalCommission,
+  };
+}

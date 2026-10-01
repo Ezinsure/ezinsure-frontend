@@ -5,6 +5,7 @@ import { useApiClient } from '@/utils/apiClient';
 import { COMPANY_COMMISSION_DEFAULTS_ENDPOINTS } from './endpoints';
 import {
   FALLBACK_LIVESTOCK_COMPANY_COMMISSION_PERCENT,
+  FALLBACK_LIVESTOCK_VETERINARY_COMMISSION_PERCENT,
   FALLBACK_MOTOR_COMPANY_COMMISSION_PERCENT,
   clampCommissionPercent,
   type CompanyCommissionDefaults,
@@ -44,6 +45,13 @@ export function mapCompanyCommissionDefaults(
         row.livestock,
       FALLBACK_LIVESTOCK_COMPANY_COMMISSION_PERCENT,
     ),
+    livestockVeterinaryCommissionPercent: asNumber(
+      row.livestockVeterinaryCommissionPercent ??
+        row.veterinaryCommissionPercent ??
+        row.veterinaryPercent ??
+        row.vetCommissionPercent,
+      FALLBACK_LIVESTOCK_VETERINARY_COMMISSION_PERCENT,
+    ),
     motorCompanyCommissionPercent: asNumber(
       row.motorCompanyCommissionPercent ?? row.motorPercent ?? row.motor,
       FALLBACK_MOTOR_COMPANY_COMMISSION_PERCENT,
@@ -57,6 +65,8 @@ export function fallbackCompanyCommissionDefaults(): CompanyCommissionDefaults {
   return {
     livestockCompanyCommissionPercent:
       FALLBACK_LIVESTOCK_COMPANY_COMMISSION_PERCENT,
+    livestockVeterinaryCommissionPercent:
+      FALLBACK_LIVESTOCK_VETERINARY_COMMISSION_PERCENT,
     motorCompanyCommissionPercent: FALLBACK_MOTOR_COMPANY_COMMISSION_PERCENT,
   };
 }
@@ -90,7 +100,6 @@ export function useCompanyCommissionDefaultsApi() {
       return mapCompanyCommissionDefaults(unwrapData(json));
     }
 
-    // Endpoint not rolled out yet — use local fallbacks so create flows keep working.
     if (response.status === 404) {
       return fallbackCompanyCommissionDefaults();
     }
@@ -103,11 +112,15 @@ export function useCompanyCommissionDefaultsApi() {
   const updateDefaults = useCallback(
     async (input: {
       livestockCompanyCommissionPercent: number;
+      livestockVeterinaryCommissionPercent: number;
       motorCompanyCommissionPercent: number;
     }): Promise<CompanyCommissionDefaults> => {
       const body = {
         livestockCompanyCommissionPercent: clampCommissionPercent(
           input.livestockCompanyCommissionPercent,
+        ),
+        livestockVeterinaryCommissionPercent: clampCommissionPercent(
+          input.livestockVeterinaryCommissionPercent,
         ),
         motorCompanyCommissionPercent: clampCommissionPercent(
           input.motorCompanyCommissionPercent,

@@ -7,12 +7,13 @@ import { useToast } from '@/components/ui/toast';
 import { useCompanyCommissionDefaultsApi } from './api';
 import {
   FALLBACK_LIVESTOCK_COMPANY_COMMISSION_PERCENT,
+  FALLBACK_LIVESTOCK_VETERINARY_COMMISSION_PERCENT,
   FALLBACK_MOTOR_COMPANY_COMMISSION_PERCENT,
   parseCommissionPercentInput,
   type CompanyCommissionDefaults,
 } from './types';
 
-type FieldKey = 'livestock' | 'motor';
+type FieldKey = 'livestockCompany' | 'livestockVet' | 'motor';
 
 function formatUpdatedAt(value?: string): string | null {
   if (!value) return null;
@@ -25,8 +26,11 @@ export function CommissionDefaultsForm() {
   const api = useCompanyCommissionDefaultsApi();
   const { showToast, ToastContainer } = useToast();
 
-  const [livestock, setLivestock] = useState(
+  const [livestockCompany, setLivestockCompany] = useState(
     String(FALLBACK_LIVESTOCK_COMPANY_COMMISSION_PERCENT),
+  );
+  const [livestockVet, setLivestockVet] = useState(
+    String(FALLBACK_LIVESTOCK_VETERINARY_COMMISSION_PERCENT),
   );
   const [motor, setMotor] = useState(
     String(FALLBACK_MOTOR_COMPANY_COMMISSION_PERCENT),
@@ -48,7 +52,8 @@ export function CommissionDefaultsForm() {
       .then((defaults) => {
         if (cancelled) return;
         setBaseline(defaults);
-        setLivestock(String(defaults.livestockCompanyCommissionPercent));
+        setLivestockCompany(String(defaults.livestockCompanyCommissionPercent));
+        setLivestockVet(String(defaults.livestockVeterinaryCommissionPercent));
         setMotor(String(defaults.motorCompanyCommissionPercent));
       })
       .catch((err) => {
@@ -68,24 +73,36 @@ export function CommissionDefaultsForm() {
 
   function validate(): {
     livestockCompanyCommissionPercent: number;
+    livestockVeterinaryCommissionPercent: number;
     motorCompanyCommissionPercent: number;
   } | null {
     const nextErrors: Partial<Record<FieldKey, string>> = {};
-    const livestockValue = parseCommissionPercentInput(livestock);
+    const livestockCompanyValue = parseCommissionPercentInput(livestockCompany);
+    const livestockVetValue = parseCommissionPercentInput(livestockVet);
     const motorValue = parseCommissionPercentInput(motor);
 
-    if (livestockValue == null) {
-      nextErrors.livestock = 'Enter a number between 0 and 100.';
+    if (livestockCompanyValue == null) {
+      nextErrors.livestockCompany = 'Enter a number between 0 and 100.';
+    }
+    if (livestockVetValue == null) {
+      nextErrors.livestockVet = 'Enter a number between 0 and 100.';
     }
     if (motorValue == null) {
       nextErrors.motor = 'Enter a number between 0 and 100.';
     }
 
     setFieldErrors(nextErrors);
-    if (livestockValue == null || motorValue == null) return null;
+    if (
+      livestockCompanyValue == null ||
+      livestockVetValue == null ||
+      motorValue == null
+    ) {
+      return null;
+    }
 
     return {
-      livestockCompanyCommissionPercent: livestockValue,
+      livestockCompanyCommissionPercent: livestockCompanyValue,
+      livestockVeterinaryCommissionPercent: livestockVetValue,
       motorCompanyCommissionPercent: motorValue,
     };
   }
@@ -98,7 +115,8 @@ export function CommissionDefaultsForm() {
     try {
       const saved = await api.updateDefaults(payload);
       setBaseline(saved);
-      setLivestock(String(saved.livestockCompanyCommissionPercent));
+      setLivestockCompany(String(saved.livestockCompanyCommissionPercent));
+      setLivestockVet(String(saved.livestockVeterinaryCommissionPercent));
       setMotor(String(saved.motorCompanyCommissionPercent));
       showToast('Commission defaults saved', 'success');
     } catch (err) {
@@ -113,7 +131,8 @@ export function CommissionDefaultsForm() {
 
   function handleReset() {
     if (!baseline) return;
-    setLivestock(String(baseline.livestockCompanyCommissionPercent));
+    setLivestockCompany(String(baseline.livestockCompanyCommissionPercent));
+    setLivestockVet(String(baseline.livestockVeterinaryCommissionPercent));
     setMotor(String(baseline.motorCompanyCommissionPercent));
     setFieldErrors({});
   }
@@ -131,12 +150,12 @@ export function CommissionDefaultsForm() {
           </div>
           <div className="min-w-0">
             <h2 className="text-base font-semibold text-slate-900">
-              Default company commission rates
+              Default commission rates
             </h2>
             <p className="mt-1 max-w-2xl text-sm text-slate-500">
-              These percentages of net premium are applied when creating
-              commission requests (livestock) and when motor flows need an org
-              company rate. Veterinarians cannot override the livestock rate.
+              Organisation-wide defaults for livestock veterinary and company
+              shares, plus motor company commission. Veterinarians cannot
+              override the livestock company rate on commission requests.
             </p>
             {updatedLabel ? (
               <p className="mt-2 text-xs text-slate-400">
@@ -152,10 +171,45 @@ export function CommissionDefaultsForm() {
             Loading defaults…
           </div>
         ) : (
-          <div className="mt-6 grid gap-5 sm:grid-cols-2">
+          <div className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             <label className="block">
               <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Livestock
+                Livestock · Veterinary
+              </span>
+              <span className="mt-1 block text-sm text-slate-700">
+                Vet commission % of total premium
+              </span>
+              <div className="relative mt-2">
+                <input
+                  type="number"
+                  min={0}
+                  max={100}
+                  step={0.1}
+                  inputMode="decimal"
+                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 pr-10 text-sm text-slate-900 focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-400"
+                  value={livestockVet}
+                  onChange={(e) => setLivestockVet(e.target.value)}
+                  disabled={isSaving}
+                />
+                <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">
+                  %
+                </span>
+              </div>
+              {fieldErrors.livestockVet ? (
+                <p className="mt-1.5 text-xs text-rose-600">
+                  {fieldErrors.livestockVet}
+                </p>
+              ) : (
+                <p className="mt-1.5 text-xs text-slate-500">
+                  Default {FALLBACK_LIVESTOCK_VETERINARY_COMMISSION_PERCENT}%. Used
+                  when calculating veterinary commission on livestock applications.
+                </p>
+              )}
+            </label>
+
+            <label className="block">
+              <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Livestock · Company
               </span>
               <span className="mt-1 block text-sm text-slate-700">
                 Company commission % of net premium
@@ -168,17 +222,17 @@ export function CommissionDefaultsForm() {
                   step={0.1}
                   inputMode="decimal"
                   className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 pr-10 text-sm text-slate-900 focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-400"
-                  value={livestock}
-                  onChange={(e) => setLivestock(e.target.value)}
+                  value={livestockCompany}
+                  onChange={(e) => setLivestockCompany(e.target.value)}
                   disabled={isSaving}
                 />
                 <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">
                   %
                 </span>
               </div>
-              {fieldErrors.livestock ? (
+              {fieldErrors.livestockCompany ? (
                 <p className="mt-1.5 text-xs text-rose-600">
-                  {fieldErrors.livestock}
+                  {fieldErrors.livestockCompany}
                 </p>
               ) : (
                 <p className="mt-1.5 text-xs text-slate-500">
@@ -189,7 +243,7 @@ export function CommissionDefaultsForm() {
 
             <label className="block">
               <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Motor
+                Motor · Company
               </span>
               <span className="mt-1 block text-sm text-slate-700">
                 Company commission % of net premium

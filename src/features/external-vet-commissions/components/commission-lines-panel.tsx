@@ -39,7 +39,9 @@ import {
   type ExternalVetLinesWorkspaceStatus,
 } from '../domain';
 import {
+  buildReviewEvent,
   canReviewLinesAtBatchStatus,
+  mergeReviewedCommissionLine,
   reviewStageForViewRole,
 } from '../line-review';
 import { batchCreatedInDateRange } from '../export/batch-list-export';
@@ -348,12 +350,18 @@ export type CommissionLinesPanelProps = {
   viewRole?: ExternalVetsViewRole;
   /** When false, hide line approve/reject even if viewRole maps to a stage. */
   canReviewLines?: boolean;
+  /** Patches from batch detail line reviews while this panel is mounted. */
+  linesWorkspaceSync?: {
+    tick: number;
+    patches: Map<string, ExternalVetCommissionLineListItem>;
+  } | null;
 };
 
 export function CommissionLinesPanel({
   canMutate = false,
   viewRole = 'finance',
   canReviewLines = true,
+  linesWorkspaceSync = null,
 }: CommissionLinesPanelProps) {
   const api = useExternalVetCommissionsApi();
   const { user } = useAuth();
@@ -427,6 +435,17 @@ export function CommissionLinesPanel({
   useEffect(() => {
     void reload();
   }, [reload]);
+
+  useEffect(() => {
+    if (!linesWorkspaceSync?.patches.size) return;
+    const { patches } = linesWorkspaceSync;
+    setLines((prev) =>
+      prev.map((line) => patches.get(line.id) ?? line),
+    );
+    setDetailLine((current) =>
+      current ? (patches.get(current.id) ?? current) : current,
+    );
+  }, [linesWorkspaceSync]);
 
   const filteredLines = useMemo(() => {
     const q = deferredSearch.trim().toLowerCase();
@@ -646,6 +665,14 @@ export function CommissionLinesPanel({
       }
 
       const patched = new Map<string, ExternalVetCommissionLineListItem>();
+      const event = buildReviewEvent({
+        decision,
+        reason,
+        stage: reviewStage,
+        actorId: user?._id,
+        actorName: user?.fullName || 'Reviewer',
+        actorRole: user?.role,
+      });
 
       for (const [batchId, lineIds] of byBatch) {
         const updated = await api.bulkReviewLines({
@@ -658,23 +685,17 @@ export function CommissionLinesPanel({
           actorName: user?.fullName || 'Reviewer',
           actorRole: user?.role,
         });
-        for (const line of updated.lines) {
-          if (!lineIds.includes(line.id)) continue;
-          const previous = targetLines.find((t) => t.id === line.id);
+        const serverById = new Map(updated.lines.map((line) => [line.id, line]));
+        for (const lineId of lineIds) {
+          const previous = targetLines.find((t) => t.id === lineId);
           if (!previous) continue;
-          patched.set(line.id, {
-            ...previous,
-            lineStatus:
-              line.lineStatus === 'APPROVED' || line.lineStatus === 'REJECTED'
-                ? line.lineStatus
-                : decision === 'REJECTED'
-                  ? 'REJECTED'
-                  : 'APPROVED',
-            reviewEvents: line.reviewEvents?.length
-              ? line.reviewEvents
-              : previous.reviewEvents,
-            vetCommission: line.vetCommission,
-            companyCommission: line.companyCommission,
+          const merged = mergeReviewedCommissionLine(
+            previous,
+            serverById.get(lineId),
+            event,
+          );
+          patched.set(lineId, {
+            ...merged,
             batchStatus: updated.status ?? previous.batchStatus,
           });
         }

@@ -11,8 +11,11 @@ export type CompanyCommissionRatePercent =
 /** Default company commission share of total premium (100%). */
 export const DEFAULT_COMPANY_COMMISSION_RATE_PERCENT: CompanyCommissionRatePercent = 8;
 
-/** Veterinary commission remains fixed at 5% of total premium. */
-export const VETERINARY_COMMISSION_RATE_PERCENT = 5;
+/**
+ * Default veterinary commission % of total premium.
+ * Prefer org setting `livestockVeterinaryCommissionPercent` when available.
+ */
+export const VETERINARY_COMMISSION_RATE_PERCENT = 10;
 
 export const COMPANY_COMMISSION_RATE_SELECT_OPTIONS: {
   value: CompanyCommissionRatePercent;
@@ -42,6 +45,22 @@ export function companyCommissionRateToFraction(
   percent: CompanyCommissionRatePercent | number,
 ): number {
   return normalizeCompanyCommissionRatePercent(percent) / 100;
+}
+
+/** Clamp veterinary commission % (0–100); falls back to org/code default 10%. */
+export function normalizeVeterinaryCommissionRatePercent(
+  value: unknown,
+  fallback: number = VETERINARY_COMMISSION_RATE_PERCENT,
+): number {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.min(100, Math.max(0, n));
+}
+
+export function veterinaryCommissionRateToFraction(
+  percent: number = VETERINARY_COMMISSION_RATE_PERCENT,
+): number {
+  return normalizeVeterinaryCommissionRatePercent(percent) / 100;
 }
 
 export function formatCompanyCommissionRateLabel(
