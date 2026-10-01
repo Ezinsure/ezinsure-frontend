@@ -296,6 +296,20 @@ export type ExternalVetCommissionLine = {
 /** Local fallback when org settings API is unavailable (see org-commission-settings). */
 export const DEFAULT_COMPANY_COMMISSION_PERCENT = 3.5;
 
+/**
+ * Resolve a company commission % that is always finite and in [0, 100].
+ * First finite in-range candidate wins; otherwise DEFAULT_COMPANY_COMMISSION_PERCENT.
+ */
+export function resolveCompanyCommissionPercent(
+  ...candidates: Array<number | null | undefined>
+): number {
+  for (const candidate of candidates) {
+    const n = Number(candidate);
+    if (Number.isFinite(n) && n >= 0 && n <= 100) return n;
+  }
+  return DEFAULT_COMPANY_COMMISSION_PERCENT;
+}
+
 export function calcCompanyCommission(
   netPremium: number,
   percent: number,
@@ -467,7 +481,8 @@ export type UpdateCommissionBatchInput = {
   batchId: string;
   payee: ExternalVetPayeeSnapshot;
   periodLabel?: string;
-  companyCommissionPercent?: number;
+  /** Always sent on PUT; builder falls back to DEFAULT if missing/invalid. */
+  companyCommissionPercent: number;
   /** When set with lines, replaces the sheet and resets line reviews. */
   sourceFileName?: string;
   sourceFile?: File;
