@@ -312,9 +312,14 @@ export function LivestockUsersPage({ viewerRole }: LivestockUsersPageProps) {
         if (formData.veterinaryType) {
           payload.append('veterinaryType', formData.veterinaryType);
         }
-        if (formData.companyCommissionRate) {
-          payload.append('companyCommissionRate', formData.companyCommissionRate);
-        }
+        payload.append(
+          'companyCommissionRate',
+          String(
+            Number.isFinite(Number(formData.companyCommissionRate))
+              ? Number(formData.companyCommissionRate)
+              : 8,
+          ),
+        );
         if (formData.rcvdLicenceDocument) {
           payload.append('rcvdLicenceDocument', formData.rcvdLicenceDocument);
         }

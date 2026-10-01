@@ -21,6 +21,7 @@ import type {
 } from './domain';
 import {
   EXTERNAL_VET_LINES_WORKSPACE_STATUSES,
+  resolveCompanyCommissionPercent,
   summarizeCommissionLines,
 } from './domain';
 import {
@@ -155,7 +156,9 @@ function buildCreateBatchFormData(input: CreateCommissionBatchInput): FormData {
     payee.bankAccountNumber = input.payee.bankAccountNumber.trim();
   }
 
-  const companyCommissionPercent = Number(input.companyCommissionPercent);
+  const companyCommissionPercent = resolveCompanyCommissionPercent(
+    input.companyCommissionPercent,
+  );
   const totalVetCommission = input.lines.reduce(
     (sum, line) => sum + (line.vetCommission || 0),
     0,
@@ -218,26 +221,20 @@ function buildUpdateBatchFormData(input: UpdateCommissionBatchInput): FormData {
     payee.bankAccountNumber = input.payee.bankAccountNumber.trim();
   }
 
+  const companyCommissionPercent = resolveCompanyCommissionPercent(
+    input.companyCommissionPercent,
+  );
+
   const formData = new FormData();
   formData.append('payee', JSON.stringify(payee));
   if (input.periodLabel != null) {
     formData.append('periodLabel', input.periodLabel.trim());
   }
-  if (
-    input.companyCommissionPercent != null &&
-    Number.isFinite(Number(input.companyCommissionPercent))
-  ) {
-    formData.append(
-      'companyCommissionPercent',
-      String(Number(input.companyCommissionPercent)),
-    );
-  }
+  // Backend always validates this on PUT — never omit (and never send NaN).
+  formData.append('companyCommissionPercent', String(companyCommissionPercent));
 
   const replaceSheet = Boolean(input.sourceFile && input.lines?.length);
   if (replaceSheet && input.sourceFile && input.lines) {
-    const companyCommissionPercent = Number(
-      input.companyCommissionPercent ?? 0,
-    );
     const totalVetCommission = input.lines.reduce(
       (sum, line) => sum + (line.vetCommission || 0),
       0,
@@ -268,7 +265,6 @@ function buildUpdateBatchFormData(input: UpdateCommissionBatchInput): FormData {
       'sourceFileName',
       input.sourceFileName || input.sourceFile.name || 'commission-request.xlsx',
     );
-    formData.append('companyCommissionPercent', String(companyCommissionPercent));
     formData.append('totalVetCommission', String(totalVetCommission));
     formData.append('totalCompanyCommission', String(totalCompanyCommission));
     formData.append('lineCount', String(input.lines.length));
@@ -517,11 +513,10 @@ export function useExternalVetCommissionsApi() {
       }
 
       const replaceSheet = Boolean(input.sourceFile && input.lines?.length);
-      const nextPercent =
-        input.companyCommissionPercent != null &&
-        Number.isFinite(Number(input.companyCommissionPercent))
-          ? Number(input.companyCommissionPercent)
-          : batch.companyCommissionPercent;
+      const nextPercent = resolveCompanyCommissionPercent(
+        input.companyCommissionPercent,
+        batch.companyCommissionPercent,
+      );
 
       if (replaceSheet && input.lines) {
         const totalVetCommission = input.lines.reduce(

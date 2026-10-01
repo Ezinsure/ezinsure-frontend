@@ -18,6 +18,7 @@ import {
   calcCompanyCommission,
   formatCommissionLineCell,
   formatRwf,
+  resolveCompanyCommissionPercent,
   type ExternalVet,
   type ExternalVetCommissionBatch,
   type ExternalVetCommissionLine,
@@ -182,17 +183,24 @@ export function UploadCommissionWizard({
         if (cancelled) return;
         const rate = defaults.livestockCompanyCommissionPercent;
         setOrgLivestockRate(rate);
-        setCompanyCommissionPercent(rate);
+        // Never overwrite an edit batch's stored rate with the org default.
+        if (!(mode === 'edit' && editBatch?.id)) {
+          setCompanyCommissionPercent(rate);
+        }
       })
       .catch(() => {
         if (cancelled) return;
         setOrgLivestockRate(FALLBACK_LIVESTOCK_COMPANY_COMMISSION_PERCENT);
-        setCompanyCommissionPercent(FALLBACK_LIVESTOCK_COMPANY_COMMISSION_PERCENT);
+        if (!(mode === 'edit' && editBatch?.id)) {
+          setCompanyCommissionPercent(
+            FALLBACK_LIVESTOCK_COMPANY_COMMISSION_PERCENT,
+          );
+        }
       });
     return () => {
       cancelled = true;
     };
-  }, [defaultsApi, open]);
+  }, [defaultsApi, open, mode, editBatch?.id]);
 
   useEffect(() => {
     if (!open) return;
@@ -200,7 +208,13 @@ export function UploadCommissionWizard({
       setStep(1);
       setSelectedExternalVetId(editBatch.externalVetId);
       setPeriodLabel(editBatch.periodLabel ?? '');
-      setCompanyCommissionPercent(editBatch.companyCommissionPercent);
+      setCompanyCommissionPercent(
+        resolveCompanyCommissionPercent(
+          editBatch.companyCommissionPercent,
+          orgLivestockRate,
+          FALLBACK_LIVESTOCK_COMPANY_COMMISSION_PERCENT,
+        ),
+      );
       setPayee({ ...editBatch.payee });
       setSheetLines(
         editBatch.lines.map(({ id: _id, lineStatus: _s, reviewEvents: _e, ...rest }) => rest),
@@ -311,16 +325,23 @@ export function UploadCommissionWizard({
     };
   }, [api, assignMode, open, searchQuery]);
 
+  const effectiveCompanyCommissionPercent = resolveCompanyCommissionPercent(
+    isSelfService ? orgLivestockRate : companyCommissionPercent,
+    editBatch?.companyCommissionPercent,
+    orgLivestockRate,
+    FALLBACK_LIVESTOCK_COMPANY_COMMISSION_PERCENT,
+  );
+
   const lines = useMemo(
     () =>
       sheetLines.map((line) => ({
         ...line,
         companyCommission: calcCompanyCommission(
           line.netPremium,
-          companyCommissionPercent,
+          effectiveCompanyCommissionPercent,
         ),
       })),
-    [sheetLines, companyCommissionPercent],
+    [sheetLines, effectiveCompanyCommissionPercent],
   );
 
   const totalCompanyCommission = useMemo(
@@ -423,11 +444,10 @@ export function UploadCommissionWizard({
       showToast('This request has no lines to keep or replace', 'error');
       return;
     }
-    if (
-      !Number.isFinite(companyCommissionPercent) ||
-      companyCommissionPercent < 0 ||
-      companyCommissionPercent > 100
-    ) {
+
+    // Same value we validate and send — never omit / never NaN on update.
+    const rate = effectiveCompanyCommissionPercent;
+    if (rate < 0 || rate > 100) {
       showToast('Company commission % must be between 0 and 100', 'error');
       return;
     }
@@ -450,7 +470,6 @@ export function UploadCommissionWizard({
         bankName: payee.bankName?.trim() || undefined,
         bankAccountNumber: payee.bankAccountNumber?.trim() || undefined,
       };
-      const rate = isSelfService ? orgLivestockRate : companyCommissionPercent;
 
       if (isEdit && editBatch) {
         await api.updateBatch(
@@ -952,8 +971,9 @@ export function UploadCommissionWizard({
                   Sheet &amp; company commission
                 </p>
                 <p className="mt-1">
-                  {file?.name} · {lines.length} lines · rate{' '}
-                  <strong>{companyCommissionPercent}%</strong>
+                  {file?.name ?? editBatch?.sourceFileName ?? 'Existing sheet'} ·{' '}
+                  {lines.length} lines · rate{' '}
+                  <strong>{effectiveCompanyCommissionPercent}%</strong>
                   {periodLabel ? ` · ${periodLabel}` : ''}
                 </p>
                 <p className="mt-1 text-slate-600">
