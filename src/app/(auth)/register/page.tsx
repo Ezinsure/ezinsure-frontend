@@ -17,6 +17,8 @@ import { formatDateText, formatDateTime } from '@/utils/date-formatter';
 import Link from 'next/link';
 import { AccountTypePicker } from '@/features/account-registration/account-type-picker';
 import {
+  normalizeRegistrationApplication,
+  registrationApplicationIsVeterinary,
   submitRegistrationApplication,
   trackRegistrationApplication,
 } from '@/features/account-registration/apply-api';
@@ -25,6 +27,7 @@ import {
   type RegistrationAccountType,
 } from '@/features/account-registration/types';
 import { VETERINARY_ROLE } from '@/shared/utils/role';
+import { formatVeterinaryType } from '@/shared/utils/veterinary-user';
 
 // Device tracking utility types and functions
 interface DeviceInfo {
@@ -412,7 +415,16 @@ export default function AgentRegistrationPage() {
   const [mode, setMode] = useState<'choose' | 'new' | 'track'>('choose');
 
   const isVeterinary = accountType === VETERINARY_ROLE;
+  const trackedIsVeterinary = registrationApplicationIsVeterinary(
+    application,
+    accountType,
+  );
   const roleNoun = registrationRoleLabel(accountType || 'AGENT');
+
+  function applyTrackedApplication(raw: unknown) {
+    const normalized = normalizeRegistrationApplication(raw);
+    setApplication((normalized as unknown as Application | null) ?? null);
+  }
 
   const validationRules: ValidationRules = {
     fullName: { required: true, minLength: 2 },
@@ -743,24 +755,27 @@ const handleSubmit = async (e: React.FormEvent) => {
       // Apply responses may be sparse (id/email/status only). Normalize so the
       // status view never crashes on missing arrays/fields.
       const created = data.data;
-      setApplication(
-        created
-          ? {
-              ...created,
-              emergencyContacts: created.emergencyContacts ?? [],
-              phoneNumber: created.phoneNumber ?? formState.phoneNumber,
-              dateOfBirth: created.dateOfBirth ?? formState.dateOfBirth,
-              address: created.address ?? formState.address,
-              province: created.province ?? formState.province,
-              district: created.district ?? formState.district,
-              sector: created.sector ?? formState.sector,
-              bankName: created.bankName ?? formState.bankName,
-              bankAccountNumber:
-                created.bankAccountNumber ?? formState.bankAccountNumber,
-              role: created.role ?? accountType,
-            }
-          : null,
-      );
+      if (created) {
+        applyTrackedApplication({
+          ...created,
+          phoneNumber: created.phoneNumber ?? formState.phoneNumber,
+          dateOfBirth: created.dateOfBirth ?? formState.dateOfBirth,
+          address: created.address ?? formState.address,
+          province: created.province ?? formState.province,
+          district: created.district ?? formState.district,
+          sector: created.sector ?? formState.sector,
+          bankName: created.bankName ?? formState.bankName,
+          bankAccountNumber:
+            created.bankAccountNumber ?? formState.bankAccountNumber,
+          role: created.role ?? accountType,
+          veterinaryType: created.veterinaryType ?? formState.veterinaryType,
+          rcvdLicenceDocument: created.rcvdLicenceDocument,
+          nationalIdDocument: created.nationalIdDocument,
+          passportPhoto: created.passportPhoto,
+        });
+      } else {
+        setApplication(null);
+      }
       setMode('track');
     } catch (error: unknown) {
       console.error('Registration error:', error);
@@ -793,7 +808,7 @@ const handleSubmit = async (e: React.FormEvent) => {
         setShowOtpModal(true);
         showToast(`OTP sent to your email: ${data.email || email}`, 'success');
       } else if (data.data) {
-        setApplication(data.data);
+        applyTrackedApplication(data.data);
         showToast('Application loaded successfully!', 'success');
       } else {
         showToast('Unexpected response from server', 'error');
@@ -839,7 +854,7 @@ const handleSubmit = async (e: React.FormEvent) => {
       }
 
       if (data.data) {
-         setApplication(data.data);
+         applyTrackedApplication(data.data);
       setShowOtpModal(false);
       setTrackingEmail('');
       showToast('Identity verified successfully!', 'success');
@@ -969,23 +984,21 @@ const handleSaveChanges = async (updatedData: Partial<Application>, files: Recor
       }
     }
     
-    // Append files if they exist
+    // Append files if they exist (role-specific keys from the edit modal).
     Object.entries(files).forEach(([key, file]) => {
       if (file) {
         formData.append(key, file);
       }
     });
 
-    console.log("FormData contents:");
-    for (const [key, value] of formData.entries()) {
-      console.log(key, value);
-    }
-
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/updateAgentApplication`, {
-      method: 'PUT',
-      credentials: 'include',
-      body: formData,
-    });
+    const response = await fetch(
+      `${process.env.NEXT_PUBLIC_API_BASE_URL}/updateAgentApplication`,
+      {
+        method: 'PUT',
+        credentials: 'include',
+        body: formData,
+      },
+    );
 
     if (!response.ok) {
       const errorData = await response.json();
@@ -993,8 +1006,7 @@ const handleSaveChanges = async (updatedData: Partial<Application>, files: Recor
     }
 
     const data = await response.json();
-    console.log('Update response:', data);
-    setApplication(data.data);
+    applyTrackedApplication(data.data);
     showToast('Application updated successfully!', 'success');
   } catch (error) {
     console.error('Update error:', error);
@@ -1659,13 +1671,21 @@ const resetApplicationState = () => {
       <p className="text-sm text-gray-500">Bank Account Number</p>
       <p className="font-medium">{application.bankAccountNumber || '—'}</p>
     </div>
+              {trackedIsVeterinary ? (
+                <div>
+                  <p className="text-sm text-gray-500">Veterinarian type</p>
+                  <p className="font-medium">
+                    {formatVeterinaryType(application.veterinaryType) || '—'}
+                  </p>
+                </div>
+              ) : null}
               </div>
             </div>
 
             {/* Emergency Contacts */}
             <div className="bg-gray-50 p-4 rounded-lg">
               <h3 className="font-medium text-gray-900 mb-3">
-                {isVeterinary || application.role === VETERINARY_ROLE
+                {trackedIsVeterinary
                   ? 'Emergency Contact'
                   : 'Emergency Contacts'}
               </h3>
@@ -1674,7 +1694,7 @@ const resetApplicationState = () => {
                 application.emergencyContacts!.map((contact, index) => (
                 <div key={index} className="bg-white p-3 rounded border">
                 <h4 className="text-sm font-medium mb-2">
-                  {isVeterinary || application.role === VETERINARY_ROLE
+                  {trackedIsVeterinary
                     ? 'Emergency contact'
                     : `Emergency Contact ${index + 1}`}
                 </h4>
@@ -1718,13 +1738,15 @@ const resetApplicationState = () => {
                 View
               </Button>
               </div>
-              {application.rcvdLicenceDocument ||
-              application.role === VETERINARY_ROLE ||
-              accountType === VETERINARY_ROLE ? (
+              {trackedIsVeterinary ? (
               <div className="flex items-center justify-between bg-white p-3 rounded border">
               <div>
                 <p className="text-sm font-medium">RCVD Licence</p>
-                <p className="text-xs text-gray-500">Veterinary licence</p>
+                <p className="text-xs text-gray-500">
+                  {application.rcvdLicenceDocument
+                    ? 'Veterinary licence'
+                    : 'Not available'}
+                </p>
               </div>
               <Button 
                 variant="text" 
@@ -1732,7 +1754,7 @@ const resetApplicationState = () => {
                 onClick={() =>
                   handleViewDocument(
                     'RCVD Licence',
-                    application.rcvdLicenceDocument || '',
+                    application.rcvdLicenceDocument,
                   )
                 }
               >
