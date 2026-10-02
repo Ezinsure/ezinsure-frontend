@@ -202,6 +202,31 @@ export function UploadCommissionWizard({
     };
   }, [defaultsApi, open, mode, editBatch?.id]);
 
+  function resetWizardState() {
+    setStep(1);
+    setFile(null);
+    setPeriodLabel('');
+    setCompanyCommissionPercent(orgLivestockRate);
+    setSheetLines([]);
+    setParseErrors([]);
+    setParseWarnings([]);
+    setColumnMatches([]);
+    setDetectedLanguage(undefined);
+    setSelectedExternalVetId(null);
+    setLinkedUserId(undefined);
+    setPayee(emptyPayeeSnapshot());
+    setAssignMode('new');
+    setSearchQuery('');
+    setPlatformHits([]);
+    setIsSubmitting(false);
+  }
+
+  /** Clear form after the parent closes the modal — avoids an empty shell while still open. */
+  useEffect(() => {
+    if (open) return;
+    resetWizardState();
+  }, [open, orgLivestockRate]);
+
   useEffect(() => {
     if (!open) return;
     if (isEdit && editBatch) {
@@ -585,21 +610,6 @@ export function UploadCommissionWizard({
   }
 
   function resetAndClose(created: boolean) {
-    setStep(1);
-    setFile(null);
-    setPeriodLabel('');
-    setCompanyCommissionPercent(orgLivestockRate);
-    setSheetLines([]);
-    setParseErrors([]);
-    setParseWarnings([]);
-    setColumnMatches([]);
-    setDetectedLanguage(undefined);
-    setSelectedExternalVetId(null);
-    setLinkedUserId(undefined);
-    setPayee(emptyPayeeSnapshot());
-    setAssignMode('new');
-    setSearchQuery('');
-    setPlatformHits([]);
     onClose();
     if (created) onCreated();
   }
