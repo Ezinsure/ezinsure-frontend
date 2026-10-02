@@ -423,7 +423,25 @@ export default function AgentRegistrationPage() {
 
   function applyTrackedApplication(raw: unknown) {
     const normalized = normalizeRegistrationApplication(raw);
-    setApplication((normalized as unknown as Application | null) ?? null);
+    if (!normalized) {
+      setApplication(null);
+      return;
+    }
+
+    // Track/OTP often omits role — keep session account type and/or infer vet.
+    if (!normalized.role && accountType) {
+      normalized.role = accountType;
+    }
+
+    const asApp = normalized as unknown as Application;
+    if (registrationApplicationIsVeterinary(asApp, accountType)) {
+      normalized.role = VETERINARY_ROLE;
+      if (accountType !== VETERINARY_ROLE) {
+        setAccountType(VETERINARY_ROLE);
+      }
+    }
+
+    setApplication(asApp);
   }
 
   const validationRules: ValidationRules = {
@@ -1868,6 +1886,7 @@ const resetApplicationState = () => {
         isOpen={showEditModal}
         onClose={() => setShowEditModal(false)}
         application={application}
+        isVeterinaryApplication={trackedIsVeterinary}
         // Fix: cast handleSaveChanges to the expected type to resolve type mismatch
         onSave={handleSaveChanges as (updatedData: Partial<Application>, files: Record<string, File | null>) => Promise<void>}
         isLoading={isSubmitting}

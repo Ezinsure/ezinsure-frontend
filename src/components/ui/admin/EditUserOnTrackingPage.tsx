@@ -48,6 +48,12 @@ interface EditUserModalProps {
   application: Application;
   onSave: (updatedData: Partial<Application>, files: Record<string, File | null>) => Promise<void>;
   isLoading: boolean;
+  /**
+   * When track/OTP omits `application.role`, the parent still knows the account
+   * type (or can infer vet from licence / veterinaryType). Prefer this over
+   * role alone so RFA edit matches the apply form.
+   */
+  isVeterinaryApplication?: boolean;
 }
 
 function documentFileName(path?: string): string | undefined {
@@ -66,8 +72,13 @@ export const EditUserOnTrackingPage = ({
   application,
   onSave,
   isLoading,
+  isVeterinaryApplication,
 }: EditUserModalProps) => {
-  const isVeterinary = isVeterinaryRole(application.role || '');
+  const isVeterinary =
+    isVeterinaryApplication === true ||
+    isVeterinaryRole(application.role || '') ||
+    Boolean(application.veterinaryType?.trim()) ||
+    Boolean(application.rcvdLicenceDocument?.trim());
 
   const [formState, setFormState] = useState<Partial<Application>>({
     fullName: application.fullName,
@@ -651,6 +662,7 @@ export const EditUserOnTrackingPage = ({
                 onChange={handleFileChange('nationalIdDocument')}
                 accept=".pdf,.jpg,.jpeg,.png"
                 currentFile={documentFileName(application.nationalIdDocument)}
+                documentUrl={application.nationalIdDocument}
               />
 
               {isVeterinary ? (
@@ -660,6 +672,7 @@ export const EditUserOnTrackingPage = ({
                   onChange={handleFileChange('rcvdLicenceDocument')}
                   accept=".pdf,.jpg,.jpeg,.png"
                   currentFile={documentFileName(application.rcvdLicenceDocument)}
+                  documentUrl={application.rcvdLicenceDocument}
                 />
               ) : (
                 <FileInput
@@ -670,6 +683,7 @@ export const EditUserOnTrackingPage = ({
                   currentFile={documentFileName(
                     application.criminalRecordCertificate,
                   )}
+                  documentUrl={application.criminalRecordCertificate}
                 />
               )}
 
@@ -679,6 +693,7 @@ export const EditUserOnTrackingPage = ({
                 onChange={handleFileChange('passportPhoto')}
                 accept=".jpg,.jpeg,.png"
                 currentFile={documentFileName(application.passportPhoto)}
+                documentUrl={application.passportPhoto}
               />
             </div>
 

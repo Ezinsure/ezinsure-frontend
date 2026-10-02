@@ -46,9 +46,14 @@ export function normalizeRegistrationApplication(
 
   const veterinaryType = asOptionalString(row.veterinaryType);
 
+  // Track/OTP payloads sometimes omit `role` for vet apps — infer from vet fields.
+  const resolvedRole =
+    role ??
+    (veterinaryType || rcvdLicenceDocument ? VETERINARY_ROLE : undefined);
+
   return {
     ...row,
-    ...(role ? { role } : {}),
+    ...(resolvedRole ? { role: resolvedRole } : {}),
     rcvdLicenceDocument,
     nationalIdDocument,
     passportPhoto,
@@ -61,11 +66,20 @@ export function normalizeRegistrationApplication(
 }
 
 export function registrationApplicationIsVeterinary(
-  application: { role?: string } | null | undefined,
+  application:
+    | {
+        role?: string;
+        veterinaryType?: string;
+        rcvdLicenceDocument?: string;
+      }
+    | null
+    | undefined,
   accountType?: string | null,
 ): boolean {
   if (application?.role && isVeterinaryRole(application.role)) return true;
   if (accountType && isVeterinaryRole(accountType)) return true;
+  if (asOptionalString(application?.veterinaryType)) return true;
+  if (asOptionalString(application?.rcvdLicenceDocument)) return true;
   return false;
 }
 
