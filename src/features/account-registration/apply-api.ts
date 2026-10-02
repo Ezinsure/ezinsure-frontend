@@ -13,9 +13,9 @@ function asOptionalString(value: unknown): string | undefined {
  * Normalize track/apply/update payloads so document URLs and role are stable
  * for the public register/track UI (esp. RCVD licence on vet applications).
  */
-export function normalizeRegistrationApplication<T extends Record<string, unknown>>(
-  raw: T | null | undefined,
-): T | null {
+export function normalizeRegistrationApplication(
+  raw: unknown,
+): Record<string, unknown> | null {
   if (!raw || typeof raw !== 'object') return null;
   const row = raw as Record<string, unknown>;
 
@@ -57,7 +57,7 @@ export function normalizeRegistrationApplication<T extends Record<string, unknow
     emergencyContacts: Array.isArray(row.emergencyContacts)
       ? row.emergencyContacts
       : [],
-  } as T;
+  };
 }
 
 export function registrationApplicationIsVeterinary(

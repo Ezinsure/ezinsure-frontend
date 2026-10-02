@@ -422,14 +422,8 @@ export default function AgentRegistrationPage() {
   const roleNoun = registrationRoleLabel(accountType || 'AGENT');
 
   function applyTrackedApplication(raw: unknown) {
-    const normalized = normalizeRegistrationApplication(
-      (raw && typeof raw === 'object'
-        ? (raw as Record<string, unknown>)
-        : null) as Record<string, unknown> | null,
-    );
-    setApplication(
-      (normalized as unknown as Application | null) ?? null,
-    );
+    const normalized = normalizeRegistrationApplication(raw);
+    setApplication((normalized as unknown as Application | null) ?? null);
   }
 
   const validationRules: ValidationRules = {
