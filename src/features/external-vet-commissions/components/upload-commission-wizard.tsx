@@ -13,9 +13,9 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/toast';
 import { useExternalVetCommissionsApi } from '../api';
 import {
-  COMMISSION_LINE_COLUMN_KEYS,
   COMMISSION_LINE_COLUMN_LABELS,
   calcCompanyCommission,
+  commissionLineColumnsForAudience,
   formatCommissionLineCell,
   formatRwf,
   resolveCompanyCommissionPercent,
@@ -201,6 +201,31 @@ export function UploadCommissionWizard({
       cancelled = true;
     };
   }, [defaultsApi, open, mode, editBatch?.id]);
+
+  function resetWizardState() {
+    setStep(1);
+    setFile(null);
+    setPeriodLabel('');
+    setCompanyCommissionPercent(orgLivestockRate);
+    setSheetLines([]);
+    setParseErrors([]);
+    setParseWarnings([]);
+    setColumnMatches([]);
+    setDetectedLanguage(undefined);
+    setSelectedExternalVetId(null);
+    setLinkedUserId(undefined);
+    setPayee(emptyPayeeSnapshot());
+    setAssignMode('new');
+    setSearchQuery('');
+    setPlatformHits([]);
+    setIsSubmitting(false);
+  }
+
+  /** Clear form after the parent closes the modal — avoids an empty shell while still open. */
+  useEffect(() => {
+    if (open) return;
+    resetWizardState();
+  }, [open, orgLivestockRate]);
 
   useEffect(() => {
     if (!open) return;
@@ -585,21 +610,6 @@ export function UploadCommissionWizard({
   }
 
   function resetAndClose(created: boolean) {
-    setStep(1);
-    setFile(null);
-    setPeriodLabel('');
-    setCompanyCommissionPercent(orgLivestockRate);
-    setSheetLines([]);
-    setParseErrors([]);
-    setParseWarnings([]);
-    setColumnMatches([]);
-    setDetectedLanguage(undefined);
-    setSelectedExternalVetId(null);
-    setLinkedUserId(undefined);
-    setPayee(emptyPayeeSnapshot());
-    setAssignMode('new');
-    setSearchQuery('');
-    setPlatformHits([]);
     onClose();
     if (created) onCreated();
   }
@@ -627,6 +637,9 @@ export function UploadCommissionWizard({
 
   const previewRows = lines.slice(0, 20);
   const canKeepExistingSheet = isEdit && lines.length > 0 && !file;
+  const previewColumns = commissionLineColumnsForAudience(
+    isSelfService ? 'self_service' : 'admin',
+  );
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
@@ -647,7 +660,7 @@ export function UploadCommissionWizard({
             {isEdit
               ? 'Update payee details and optionally replace the uploaded sheet. Replacing the sheet resets all line reviews.'
               : isSelfService
-                ? 'Your payout profile is linked automatically. Confirm bank and location details, then upload your request form lines. Company commission uses the organisation default set by ezInsure.'
+                ? 'Your payout profile is linked automatically. Confirm bank and location details, then upload your request form lines.'
                 : `Vet payout details are entered in this form. The uploaded request form supplies the contract lines, and company commission is calculated from net premium × the rate you set (org default ${orgLivestockRate}%).`}
           </p>
         </div>
@@ -968,19 +981,30 @@ export function UploadCommissionWizard({
                   Period <strong>{periodLabel || '—'}</strong>
                 </p>
                 <p className="mt-3 font-semibold text-slate-800">
-                  Sheet &amp; company commission
+                  {isSelfService ? 'Sheet & vet commission' : 'Sheet & company commission'}
                 </p>
                 <p className="mt-1">
                   {file?.name ?? editBatch?.sourceFileName ?? 'Existing sheet'} ·{' '}
-                  {lines.length} lines · rate{' '}
-                  <strong>{effectiveCompanyCommissionPercent}%</strong>
+                  {lines.length} lines
+                  {!isSelfService ? (
+                    <>
+                      {' '}
+                      · rate{' '}
+                      <strong>{effectiveCompanyCommissionPercent}%</strong>
+                    </>
+                  ) : null}
                   {periodLabel ? ` · ${periodLabel}` : ''}
                 </p>
                 <p className="mt-1 text-slate-600">
                   Net premium {formatRwf(totalNetPremium)} · Vet commission{' '}
-                  <strong>{formatRwf(totalVetCommission)}</strong> · Company
-                  commission{' '}
-                  <strong>{formatRwf(totalCompanyCommission)}</strong>
+                  <strong>{formatRwf(totalVetCommission)}</strong>
+                  {!isSelfService ? (
+                    <>
+                      {' '}
+                      · Company commission{' '}
+                      <strong>{formatRwf(totalCompanyCommission)}</strong>
+                    </>
+                  ) : null}
                 </p>
                 {!isSelfService ? (
                   <div className="mt-3 max-w-xs">
@@ -1083,7 +1107,7 @@ export function UploadCommissionWizard({
                   <table className="min-w-max w-full border-separate border-spacing-0 text-left text-[12px]">
                     <thead className="sticky top-0 z-10">
                       <tr>
-                        {COMMISSION_LINE_COLUMN_KEYS.map((key) => (
+                        {previewColumns.map((key) => (
                           <th
                             key={key}
                             className="whitespace-nowrap border-b border-slate-200 bg-white px-3 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500"
@@ -1101,7 +1125,7 @@ export function UploadCommissionWizard({
                             idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/70'
                           }
                         >
-                          {COMMISSION_LINE_COLUMN_KEYS.map((key) => (
+                          {previewColumns.map((key) => (
                             <td
                               key={key}
                               className={`whitespace-nowrap border-b border-slate-100 px-3 py-2 text-slate-800 ${

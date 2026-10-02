@@ -4,14 +4,16 @@ import { useState } from 'react';
 import { CheckCircle2, Loader2, Receipt, X, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
-  COMMISSION_LINE_COLUMN_KEYS,
   COMMISSION_LINE_COLUMN_LABELS,
   calcBillableToSonarwa,
   calcTotalCommission,
+  canViewCompanyCommission,
+  commissionLineColumnsForAudience,
   formatCommissionLineCell,
   formatRwf,
   type ExternalVetCommissionLineListItem,
   type ExternalVetReviewStage,
+  type ExternalVetsViewRole,
 } from '../domain';
 import { ExternalVetStatusBadge } from './status-badge';
 import { LineDecisionTimeline } from './line-decision-timeline';
@@ -32,11 +34,19 @@ type Props = {
   onClose: () => void;
   /** When set, shows approve / reject controls for the current stage. */
   review?: LineDetailReviewConfig | null;
+  viewRole?: ExternalVetsViewRole;
 };
 
-export function LineDetailModal({ line, onClose, review }: Props) {
+export function LineDetailModal({
+  line,
+  onClose,
+  review,
+  viewRole = 'admin',
+}: Props) {
   const [pendingDecision, setPendingDecision] =
     useState<LineReviewDecision | null>(null);
+  const showCompanyCommission = canViewCompanyCommission(viewRole);
+  const lineColumns = commissionLineColumnsForAudience(viewRole);
 
   const isRejected = line.lineStatus === 'REJECTED';
   const showTransactionId =
@@ -171,23 +181,27 @@ export function LineDetailModal({ line, onClose, review }: Props) {
               value={formatRwf(line.vetCommission)}
               muted={isRejected}
             />
-            <Metric
-              label="Company commission"
-              value={formatRwf(line.companyCommission)}
-              muted={isRejected}
-            />
-            <Metric
-              label="Total + VAT (18%)"
-              value={formatRwf(
-                calcBillableToSonarwa(
-                  calcTotalCommission(
-                    line.vetCommission,
-                    line.companyCommission,
+            {showCompanyCommission ? (
+              <Metric
+                label="Company commission"
+                value={formatRwf(line.companyCommission)}
+                muted={isRejected}
+              />
+            ) : null}
+            {showCompanyCommission ? (
+              <Metric
+                label="Total + VAT (18%)"
+                value={formatRwf(
+                  calcBillableToSonarwa(
+                    calcTotalCommission(
+                      line.vetCommission,
+                      line.companyCommission,
+                    ),
                   ),
-                ),
-              )}
-              muted={isRejected}
-            />
+                )}
+                muted={isRejected}
+              />
+            ) : null}
           </section>
 
           <section>
@@ -202,7 +216,7 @@ export function LineDetailModal({ line, onClose, review }: Props) {
               Line details
             </h3>
             <dl className="grid gap-x-4 gap-y-3 sm:grid-cols-2">
-              {COMMISSION_LINE_COLUMN_KEYS.map((key) => (
+              {lineColumns.map((key) => (
                 <div key={key}>
                   <dt className="text-xs font-medium uppercase tracking-wide text-slate-500">
                     {COMMISSION_LINE_COLUMN_LABELS[key]}

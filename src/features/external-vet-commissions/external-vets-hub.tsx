@@ -1256,6 +1256,7 @@ export default function ExternalVetsHub({ viewRole }: ExternalVetsHubProps) {
           isLoading={detailLoading}
           onClose={closeDetail}
           footer={detailFooter}
+          viewRole={viewRole}
           reviewStage={canLineReview ? reviewStage : null}
           reviewBusy={actionBusy}
           onReviewLine={
@@ -1272,6 +1273,7 @@ export default function ExternalVetsHub({ viewRole }: ExternalVetsHubProps) {
             setEditBatch(null);
           }}
           onCreated={() => {
+            setUploadOpen(false);
             setEditBatch(null);
             setTab('applications');
             void reload();
