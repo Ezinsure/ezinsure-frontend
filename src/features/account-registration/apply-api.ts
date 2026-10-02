@@ -1,7 +1,73 @@
-import { VETERINARY_ROLE } from '@/shared/utils/role';
+import { VETERINARY_ROLE, isVeterinaryRole, normalizeRole } from '@/shared/utils/role';
 import type { RegistrationAccountType } from './types';
 
 const API_BASE = () => process.env.NEXT_PUBLIC_API_BASE_URL || '';
+
+function asOptionalString(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined;
+  const trimmed = value.trim();
+  return trimmed || undefined;
+}
+
+/**
+ * Normalize track/apply/update payloads so document URLs and role are stable
+ * for the public register/track UI (esp. RCVD licence on vet applications).
+ */
+export function normalizeRegistrationApplication<T extends Record<string, unknown>>(
+  raw: T | null | undefined,
+): T | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const row = raw as Record<string, unknown>;
+
+  const roleRaw = asOptionalString(row.role) ?? asOptionalString(row.accountType);
+  const role = roleRaw ? normalizeRole(roleRaw) : undefined;
+
+  const rcvdLicenceDocument =
+    asOptionalString(row.rcvdLicenceDocument) ??
+    asOptionalString(row.rcvdLicenseDocument) ??
+    asOptionalString(row.rcvdLicence) ??
+    asOptionalString(row.licenceDocument) ??
+    asOptionalString(row.licenseDocument);
+
+  const nationalIdDocument =
+    asOptionalString(row.nationalIdDocument) ??
+    asOptionalString(row.nationalId) ??
+    asOptionalString(row.idDocument);
+
+  const passportPhoto =
+    asOptionalString(row.passportPhoto) ??
+    asOptionalString(row.passportPhotograph) ??
+    asOptionalString(row.photo);
+
+  const criminalRecordCertificate =
+    asOptionalString(row.criminalRecordCertificate) ??
+    asOptionalString(row.criminalRecord) ??
+    asOptionalString(row.criminalRecordDocument);
+
+  const veterinaryType = asOptionalString(row.veterinaryType);
+
+  return {
+    ...row,
+    ...(role ? { role } : {}),
+    rcvdLicenceDocument,
+    nationalIdDocument,
+    passportPhoto,
+    criminalRecordCertificate,
+    ...(veterinaryType ? { veterinaryType } : {}),
+    emergencyContacts: Array.isArray(row.emergencyContacts)
+      ? row.emergencyContacts
+      : [],
+  } as T;
+}
+
+export function registrationApplicationIsVeterinary(
+  application: { role?: string } | null | undefined,
+  accountType?: string | null,
+): boolean {
+  if (application?.role && isVeterinaryRole(application.role)) return true;
+  if (accountType && isVeterinaryRole(accountType)) return true;
+  return false;
+}
 
 /**
  * Public apply endpoints. Vet applications prefer `/veterinary/apply` when
