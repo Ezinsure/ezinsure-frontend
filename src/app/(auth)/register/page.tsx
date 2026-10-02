@@ -17,11 +17,21 @@ import { formatDateText, formatDateTime } from '@/utils/date-formatter';
 import Link from 'next/link';
 import { AccountTypePicker } from '@/features/account-registration/account-type-picker';
 import {
-  normalizeRegistrationApplication,
-  registrationApplicationIsVeterinary,
   submitRegistrationApplication,
   trackRegistrationApplication,
+  updateRegistrationApplication,
+  verifyRegistrationOtp,
 } from '@/features/account-registration/apply-api';
+import {
+  isVeterinaryApplication,
+  normalizeRegistrationApplication,
+  recallRegistrationRole,
+  registrationDocumentFields,
+  registrationDocumentUrl,
+  rememberRegistrationRole,
+  type RegistrationDocumentId,
+  type RegistrationRoleHints,
+} from '@/features/account-registration/registration-application';
 import {
   registrationRoleLabel,
   type RegistrationAccountType,
@@ -415,15 +425,43 @@ export default function AgentRegistrationPage() {
   const [mode, setMode] = useState<'choose' | 'new' | 'track'>('choose');
 
   const isVeterinary = accountType === VETERINARY_ROLE;
-  const trackedIsVeterinary = registrationApplicationIsVeterinary(
-    application,
-    accountType,
-  );
+  const trackedIsVeterinary = isVeterinaryApplication(application);
+  const trackedRole: RegistrationAccountType =
+    application?.role ?? accountType ?? 'AGENT';
   const roleNoun = registrationRoleLabel(accountType || 'AGENT');
 
-  function applyTrackedApplication(raw: unknown) {
-    const normalized = normalizeRegistrationApplication(raw);
-    setApplication((normalized as unknown as Application | null) ?? null);
+  /**
+   * Single entry point for every apply/track/OTP/update response. Resolves the
+   * applicant role once (payload → remembered → endpoint → current selection)
+   * and keeps the UI, the document registry, and the resubmit payload in sync.
+   */
+  function applyTrackedApplication(
+    raw: unknown,
+    hints: Omit<RegistrationRoleHints, 'rememberedRole' | 'selectedRole'> & {
+      email?: string;
+    } = {},
+  ) {
+    const email =
+      hints.email?.trim() || trackingEmail.trim() || formState.email.trim();
+
+    const normalized = normalizeRegistrationApplication(raw, {
+      rememberedRole: recallRegistrationRole(email),
+      endpointRole: hints.endpointRole,
+      selectedRole: accountType,
+    });
+
+    if (!normalized) {
+      setApplication(null);
+      return;
+    }
+
+    // Keep the resolved role for later tracking sessions (API may omit it).
+    rememberRegistrationRole(normalized.email || email, normalized.role);
+    if (accountType !== normalized.role) {
+      setAccountType(normalized.role);
+    }
+
+    setApplication(normalized);
   }
 
   const validationRules: ValidationRules = {
@@ -752,27 +790,31 @@ const handleSubmit = async (e: React.FormEvent) => {
           : 'Registration successful! Your application is under review.',
         'success',
       );
-      // Apply responses may be sparse (id/email/status only). Normalize so the
-      // status view never crashes on missing arrays/fields.
+      // The applicant's own submission is the most reliable role signal we will
+      // ever have — record it before the sparse apply response is normalized.
+      rememberRegistrationRole(formState.email, accountType);
+
+      // Apply responses may be sparse (id/email/status only). Fall back to the
+      // submitted values so the status view never renders empty fields.
       const created = data.data;
       if (created) {
-        applyTrackedApplication({
-          ...created,
-          phoneNumber: created.phoneNumber ?? formState.phoneNumber,
-          dateOfBirth: created.dateOfBirth ?? formState.dateOfBirth,
-          address: created.address ?? formState.address,
-          province: created.province ?? formState.province,
-          district: created.district ?? formState.district,
-          sector: created.sector ?? formState.sector,
-          bankName: created.bankName ?? formState.bankName,
-          bankAccountNumber:
-            created.bankAccountNumber ?? formState.bankAccountNumber,
-          role: created.role ?? accountType,
-          veterinaryType: created.veterinaryType ?? formState.veterinaryType,
-          rcvdLicenceDocument: created.rcvdLicenceDocument,
-          nationalIdDocument: created.nationalIdDocument,
-          passportPhoto: created.passportPhoto,
-        });
+        applyTrackedApplication(
+          {
+            ...created,
+            phoneNumber: created.phoneNumber ?? formState.phoneNumber,
+            dateOfBirth: created.dateOfBirth ?? formState.dateOfBirth,
+            address: created.address ?? formState.address,
+            province: created.province ?? formState.province,
+            district: created.district ?? formState.district,
+            sector: created.sector ?? formState.sector,
+            bankName: created.bankName ?? formState.bankName,
+            bankAccountNumber:
+              created.bankAccountNumber ?? formState.bankAccountNumber,
+            role: created.role ?? accountType,
+            veterinaryType: created.veterinaryType ?? formState.veterinaryType,
+          },
+          { endpointRole: accountType, email: formState.email },
+        );
       } else {
         setApplication(null);
       }
@@ -792,7 +834,8 @@ const handleSubmit = async (e: React.FormEvent) => {
   const trackApplication = async (email: string) => {
     setIsSubmitting(true);
     try {
-      const response = await trackRegistrationApplication(email);
+      const { response, endpointRole } =
+        await trackRegistrationApplication(email);
 
       const data = await response.json();
       
@@ -808,7 +851,7 @@ const handleSubmit = async (e: React.FormEvent) => {
         setShowOtpModal(true);
         showToast(`OTP sent to your email: ${data.email || email}`, 'success');
       } else if (data.data) {
-        applyTrackedApplication(data.data);
+        applyTrackedApplication(data.data, { endpointRole, email });
         showToast('Application loaded successfully!', 'success');
       } else {
         showToast('Unexpected response from server', 'error');
@@ -828,17 +871,7 @@ const handleSubmit = async (e: React.FormEvent) => {
     setIsSubmitting(true);
     
     try {
-      const formData = new URLSearchParams();
-      formData.append('otp', otp);
-
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/verifyAgentOtp`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: formData,
-      });
+      const { response, endpointRole } = await verifyRegistrationOtp(otp);
 
       const data = await response.json();
       // console.log("agent data: ", data)
@@ -854,7 +887,10 @@ const handleSubmit = async (e: React.FormEvent) => {
       }
 
       if (data.data) {
-         applyTrackedApplication(data.data);
+        applyTrackedApplication(data.data, {
+          endpointRole,
+          email: tempEmail || trackingEmail,
+        });
       setShowOtpModal(false);
       setTrackingEmail('');
       showToast('Identity verified successfully!', 'success');
@@ -952,12 +988,18 @@ const getDateLimits = () => {
   };
 };
 
-const handleSaveChanges = async (updatedData: Partial<Application>, files: Record<string, File | null>) => {
+const handleSaveChanges = async (
+  updatedData: Partial<Application>,
+  files: Partial<Record<RegistrationDocumentId, File | null>>,
+) => {
   setIsSubmitting(true);
-  
+
+  const role: RegistrationAccountType =
+    updatedData.role ?? application?.role ?? accountType ?? 'AGENT';
+
   try {
     const formData = new FormData();
-    
+
     // Append basic fields
     Object.entries(updatedData).forEach(([key, value]) => {
       if (value !== undefined && value !== null && key !== 'emergencyContacts') {
@@ -966,6 +1008,7 @@ const handleSaveChanges = async (updatedData: Partial<Application>, files: Recor
         }
       }
     });
+    formData.set('role', role);
     
     // Handle emergency contacts in the format backend expects
     if (updatedData.emergencyContacts) {
@@ -984,29 +1027,28 @@ const handleSaveChanges = async (updatedData: Partial<Application>, files: Recor
       }
     }
     
-    // Append files if they exist (role-specific keys from the edit modal).
+    // Only role-appropriate documents reach this point (see edit modal).
     Object.entries(files).forEach(([key, file]) => {
       if (file) {
         formData.append(key, file);
       }
     });
 
-    const response = await fetch(
-      `${process.env.NEXT_PUBLIC_API_BASE_URL}/updateAgentApplication`,
+    const data = (await updateRegistrationApplication(formData, role)) as {
+      data?: unknown;
+    } | null;
+
+    // A sparse update response must not wipe the record we already have, and the
+    // edits the applicant just saved should show immediately.
+    applyTrackedApplication(
       {
-        method: 'PUT',
-        credentials: 'include',
-        body: formData,
+        ...(application ?? {}),
+        ...updatedData,
+        ...((data?.data as object | undefined) ?? {}),
+        role,
       },
+      { email: application?.email },
     );
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.message || 'Failed to update application');
-    }
-
-    const data = await response.json();
-    applyTrackedApplication(data.data);
     showToast('Application updated successfully!', 'success');
   } catch (error) {
     console.error('Update error:', error);
@@ -1721,74 +1763,33 @@ const resetApplicationState = () => {
             </div>
             </div>
 
-            {/* Documents Section */}
+            {/* Documents — rendered from the role registry used by apply + edit */}
             <div className="bg-gray-50 p-4 rounded-lg mb-6">
             <h3 className="font-medium text-gray-900 mb-3">Documents</h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="flex items-center justify-between bg-white p-3 rounded border">
-              <div>
-                <p className="text-sm font-medium">National ID</p>
-                <p className="text-xs text-gray-500">Identification document</p>
-              </div>
-              <Button 
-                variant="text" 
-                size="sm"
-                onClick={() => handleViewDocument('National ID', application.nationalIdDocument)}
-              >
-                View
-              </Button>
-              </div>
-              {trackedIsVeterinary ? (
-              <div className="flex items-center justify-between bg-white p-3 rounded border">
-              <div>
-                <p className="text-sm font-medium">RCVD Licence</p>
-                <p className="text-xs text-gray-500">
-                  {application.rcvdLicenceDocument
-                    ? 'Veterinary licence'
-                    : 'Not available'}
-                </p>
-              </div>
-              <Button 
-                variant="text" 
-                size="sm"
-                onClick={() =>
-                  handleViewDocument(
-                    'RCVD Licence',
-                    application.rcvdLicenceDocument,
-                  )
-                }
-              >
-                View
-              </Button>
-              </div>
-              ) : (
-              <div className="flex items-center justify-between bg-white p-3 rounded border">
-              <div>
-                <p className="text-sm font-medium">Criminal Record</p>
-                <p className="text-xs text-gray-500">Certificate</p>
-              </div>
-              <Button 
-                variant="text" 
-                size="sm"
-                onClick={() => handleViewDocument('Criminal Record', application.criminalRecordCertificate)}
-              >
-                View
-              </Button>
-              </div>
-              )}
-              <div className="flex items-center justify-between bg-white p-3 rounded border">
-              <div>
-                <p className="text-sm font-medium">Passport Photo</p>
-                <p className="text-xs text-gray-500">Recent photo</p>
-              </div>
-              <Button 
-                variant="text" 
-                size="sm"
-                onClick={() => handleViewDocument('Passport Photo', application.passportPhoto)}
-              >
-                View
-              </Button>
-              </div>
+              {registrationDocumentFields(trackedRole).map((field) => {
+                const url = registrationDocumentUrl(application, field.id);
+                return (
+                  <div
+                    key={field.id}
+                    className="flex items-center justify-between bg-white p-3 rounded border"
+                  >
+                    <div>
+                      <p className="text-sm font-medium">{field.label}</p>
+                      <p className="text-xs text-gray-500">
+                        {url ? field.description : 'Not uploaded yet'}
+                      </p>
+                    </div>
+                    <Button
+                      variant="text"
+                      size="sm"
+                      onClick={() => handleViewDocument(field.label, url)}
+                    >
+                      View
+                    </Button>
+                  </div>
+                );
+              })}
             </div>
             </div>
 
@@ -1868,8 +1869,8 @@ const resetApplicationState = () => {
         isOpen={showEditModal}
         onClose={() => setShowEditModal(false)}
         application={application}
-        // Fix: cast handleSaveChanges to the expected type to resolve type mismatch
-        onSave={handleSaveChanges as (updatedData: Partial<Application>, files: Record<string, File | null>) => Promise<void>}
+        onSave={handleSaveChanges}
+        onViewDocument={(url, name) => handleViewDocument(name, url)}
         isLoading={isSubmitting}
       />
       )}

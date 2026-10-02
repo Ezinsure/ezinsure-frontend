@@ -1,72 +1,30 @@
-import { VETERINARY_ROLE, isVeterinaryRole, normalizeRole } from '@/shared/utils/role';
+import { VETERINARY_ROLE } from '@/shared/utils/role';
 import type { RegistrationAccountType } from './types';
 
 const API_BASE = () => process.env.NEXT_PUBLIC_API_BASE_URL || '';
 
-function asOptionalString(value: unknown): string | undefined {
-  if (typeof value !== 'string') return undefined;
-  const trimmed = value.trim();
-  return trimmed || undefined;
-}
+/** Track/verify responses plus the role implied by the endpoint that answered. */
+export type RegistrationApiResult = {
+  response: Response;
+  /**
+   * Weak role signal: which role-specific endpoint returned the record. Used
+   * only when the payload itself carries no role information.
+   */
+  endpointRole?: RegistrationAccountType;
+};
 
-/**
- * Normalize track/apply/update payloads so document URLs and role are stable
- * for the public register/track UI (esp. RCVD licence on vet applications).
- */
-export function normalizeRegistrationApplication(
-  raw: unknown,
-): Record<string, unknown> | null {
-  if (!raw || typeof raw !== 'object') return null;
-  const row = raw as Record<string, unknown>;
-
-  const roleRaw = asOptionalString(row.role) ?? asOptionalString(row.accountType);
-  const role = roleRaw ? normalizeRole(roleRaw) : undefined;
-
-  const rcvdLicenceDocument =
-    asOptionalString(row.rcvdLicenceDocument) ??
-    asOptionalString(row.rcvdLicenseDocument) ??
-    asOptionalString(row.rcvdLicence) ??
-    asOptionalString(row.licenceDocument) ??
-    asOptionalString(row.licenseDocument);
-
-  const nationalIdDocument =
-    asOptionalString(row.nationalIdDocument) ??
-    asOptionalString(row.nationalId) ??
-    asOptionalString(row.idDocument);
-
-  const passportPhoto =
-    asOptionalString(row.passportPhoto) ??
-    asOptionalString(row.passportPhotograph) ??
-    asOptionalString(row.photo);
-
-  const criminalRecordCertificate =
-    asOptionalString(row.criminalRecordCertificate) ??
-    asOptionalString(row.criminalRecord) ??
-    asOptionalString(row.criminalRecordDocument);
-
-  const veterinaryType = asOptionalString(row.veterinaryType);
-
-  return {
-    ...row,
-    ...(role ? { role } : {}),
-    rcvdLicenceDocument,
-    nationalIdDocument,
-    passportPhoto,
-    criminalRecordCertificate,
-    ...(veterinaryType ? { veterinaryType } : {}),
-    emergencyContacts: Array.isArray(row.emergencyContacts)
-      ? row.emergencyContacts
-      : [],
-  };
-}
-
-export function registrationApplicationIsVeterinary(
-  application: { role?: string } | null | undefined,
-  accountType?: string | null,
-): boolean {
-  if (application?.role && isVeterinaryRole(application.role)) return true;
-  if (accountType && isVeterinaryRole(accountType)) return true;
-  return false;
+async function firstMatchingEndpoint(
+  attempts: { url: string; endpointRole?: RegistrationAccountType }[],
+  init: RequestInit,
+): Promise<RegistrationApiResult> {
+  let last: RegistrationApiResult | null = null;
+  for (const attempt of attempts) {
+    const response = await fetch(attempt.url, init);
+    last = { response, endpointRole: attempt.endpointRole };
+    // Only a missing route justifies trying the next variant.
+    if (response.ok || response.status !== 404) return last;
+  }
+  return last!;
 }
 
 /**
@@ -109,25 +67,84 @@ export async function submitRegistrationApplication(
  */
 export async function trackRegistrationApplication(
   email: string,
-): Promise<Response> {
-  const formData = new URLSearchParams();
-  formData.append('email', email);
+): Promise<RegistrationApiResult> {
+  const body = new URLSearchParams();
+  body.append('email', email);
 
-  const tryUrls = [
-    `${API_BASE()}/trackAgentApplication`,
-    `${API_BASE()}/trackVeterinaryApplication`,
-  ];
-
-  let last: Response | null = null;
-  for (const url of tryUrls) {
-    const response = await fetch(url, {
+  return firstMatchingEndpoint(
+    [
+      { url: `${API_BASE()}/trackAgentApplication`, endpointRole: 'AGENT' },
+      {
+        url: `${API_BASE()}/trackVeterinaryApplication`,
+        endpointRole: VETERINARY_ROLE,
+      },
+    ],
+    {
       method: 'POST',
       credentials: 'include',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body,
+    },
+  );
+}
+
+/** Verify the emailed OTP and load the tracked application. */
+export async function verifyRegistrationOtp(
+  otp: string,
+): Promise<RegistrationApiResult> {
+  const body = new URLSearchParams();
+  body.append('otp', otp);
+
+  return firstMatchingEndpoint(
+    [
+      { url: `${API_BASE()}/verifyAgentOtp` },
+      { url: `${API_BASE()}/verifyVeterinaryOtp`, endpointRole: VETERINARY_ROLE },
+    ],
+    {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body,
+    },
+  );
+}
+
+/**
+ * Resubmit an application that was sent back for action. Vets prefer the
+ * veterinary route when the API exposes one.
+ */
+export async function updateRegistrationApplication(
+  formData: FormData,
+  role: RegistrationAccountType,
+): Promise<unknown> {
+  const attempts =
+    role === VETERINARY_ROLE
+      ? [
+          `${API_BASE()}/updateVeterinaryApplication`,
+          `${API_BASE()}/updateAgentApplication`,
+        ]
+      : [`${API_BASE()}/updateAgentApplication`];
+
+  const fallbackError = 'Failed to update application';
+  for (const [index, url] of attempts.entries()) {
+    const response = await fetch(url, {
+      method: 'PUT',
+      credentials: 'include',
       body: formData,
     });
-    last = response;
-    if (response.ok || response.status !== 404) return response;
+
+    if (response.ok) {
+      return response.json().catch(() => null);
+    }
+
+    const isLast = index === attempts.length - 1;
+    if (response.status === 404 && !isLast) continue;
+
+    const errorData = (await response.json().catch(() => ({}))) as {
+      message?: string;
+    };
+    throw new Error(errorData.message || fallbackError);
   }
-  return last!;
+
+  throw new Error(fallbackError);
 }

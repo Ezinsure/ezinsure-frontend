@@ -6,59 +6,37 @@ import { Button } from '@/components/ui/button';
 import { FileInput } from '@/components/ui/file-input';
 import { rwandaProvinces } from '@/utils/rwanda-administrative';
 import { rwandaBanks } from '@/utils/rwanda-banks';
-import { isVeterinaryRole } from '@/shared/utils/role';
 import { formatVeterinaryType } from '@/shared/utils/veterinary-user';
+import {
+  isVeterinaryApplication,
+  registrationDocumentFileName,
+  registrationDocumentFields,
+  registrationDocumentUrl,
+  type RegistrationApplication,
+  type RegistrationDocumentId,
+} from '@/features/account-registration/registration-application';
 import { Trash2 } from 'lucide-react';
 
-export interface Application {
-  _id: string;
-  fullName: string;
-  email: string;
-  phoneNumber?: string;
-  dateOfBirth?: string;
-  address?: string;
-  province?: string;
-  district?: string;
-  sector?: string;
-  status: string;
-  /** AGENT or VETERINARY when returned by the API. */
-  role?: string;
-  nationalIdDocument?: string;
-  criminalRecordCertificate?: string;
-  passportPhoto?: string;
-  /** Veterinarian RCVD licence when role is VETERINARY. */
-  rcvdLicenceDocument?: string;
-  veterinaryType?: string;
-  /** Optional; apply/create responses may omit this array. */
-  emergencyContacts?: Array<{
-    fullName: string;
-    phoneNumber: string;
-    relationship: string;
-  }>;
-  createdAt: string;
-  submittedAt?: string; // Keep for backward compatibility
-  rejectionReason?: string;
-  bankName?: string;
-  bankAccountNumber?: string;
-}
+/**
+ * Public track/RFA edit uses the canonical registration model so the fields
+ * shown here always match the apply form for the applicant's role.
+ */
+export type Application = RegistrationApplication;
 
 interface EditUserModalProps {
   isOpen: boolean;
   onClose: () => void;
   application: Application;
-  onSave: (updatedData: Partial<Application>, files: Record<string, File | null>) => Promise<void>;
+  onSave: (
+    updatedData: Partial<Application>,
+    files: Partial<Record<RegistrationDocumentId, File | null>>,
+  ) => Promise<void>;
   isLoading: boolean;
+  /** Open an existing document in the parent's viewer. */
+  onViewDocument?: (url: string, name: string) => void;
 }
 
-function documentFileName(path?: string): string | undefined {
-  if (!path?.trim()) return undefined;
-  try {
-    const cleaned = path.split('?')[0] ?? path;
-    return cleaned.split('/').pop() || undefined;
-  } catch {
-    return undefined;
-  }
-}
+const MAX_EMERGENCY_CONTACTS = { AGENT: 2, VETERINARY: 1 } as const;
 
 export const EditUserOnTrackingPage = ({
   isOpen,
@@ -66,31 +44,18 @@ export const EditUserOnTrackingPage = ({
   application,
   onSave,
   isLoading,
+  onViewDocument,
 }: EditUserModalProps) => {
-  const isVeterinary = isVeterinaryRole(application.role || '');
+  const isVeterinary = isVeterinaryApplication(application);
+  const documentFields = registrationDocumentFields(application.role);
+  const maxEmergencyContacts = isVeterinary
+    ? MAX_EMERGENCY_CONTACTS.VETERINARY
+    : MAX_EMERGENCY_CONTACTS.AGENT;
 
-  const [formState, setFormState] = useState<Partial<Application>>({
-    fullName: application.fullName,
-    email: application.email,
-    phoneNumber: application.phoneNumber,
-    dateOfBirth: application.dateOfBirth,
-    address: application.address,
-    province: application.province,
-    district: application.district,
-    sector: application.sector,
-    bankName: application.bankName,
-    bankAccountNumber: application.bankAccountNumber,
-    veterinaryType: application.veterinaryType,
-    emergencyContacts: [...(application.emergencyContacts ?? [])],
-  });
-
-  const [files, setFiles] = useState<Record<string, File | null>>({
-    nationalIdDocument: null,
-    criminalRecordCertificate: null,
-    rcvdLicenceDocument: null,
-    passportPhoto: null,
-  });
-
+  const [formState, setFormState] = useState<Partial<Application>>({});
+  const [files, setFiles] = useState<
+    Partial<Record<RegistrationDocumentId, File | null>>
+  >({});
   const [availableDistricts, setAvailableDistricts] = useState<
     { name: string; sectors?: string[] }[]
   >([]);
@@ -103,8 +68,6 @@ export const EditUserOnTrackingPage = ({
     { value: 'Spouse', label: 'Spouse' },
     { value: 'Friend', label: 'Friend' },
   ];
-
-  const maxEmergencyContacts = isVeterinary ? 1 : 2;
 
   useEffect(() => {
     if (!isOpen) return;
@@ -121,48 +84,42 @@ export const EditUserOnTrackingPage = ({
       bankName: application.bankName,
       bankAccountNumber: application.bankAccountNumber,
       veterinaryType: application.veterinaryType,
-      emergencyContacts: [...(application.emergencyContacts ?? [])].slice(
+      emergencyContacts: [...application.emergencyContacts].slice(
         0,
-        isVeterinaryRole(application.role || '') ? 1 : 2,
+        maxEmergencyContacts,
       ),
     });
-    setFiles({
-      nationalIdDocument: null,
-      criminalRecordCertificate: null,
-      rcvdLicenceDocument: null,
-      passportPhoto: null,
-    });
+    setFiles({});
 
     if (application.province) {
       const selectedProvince = rwandaProvinces.find(
         (p) => p.name === application.province,
       );
-      const districts = selectedProvince?.districts || [];
-      const transformedDistricts = districts.map((district) => ({
-        name: district.name,
-        sectors: district.sectors?.map((sector) => sector.name) || [],
-      }));
+      const transformedDistricts = (selectedProvince?.districts || []).map(
+        (district) => ({
+          name: district.name,
+          sectors: district.sectors?.map((sector) => sector.name) || [],
+        }),
+      );
       setAvailableDistricts(transformedDistricts);
-
-      if (application.district) {
-        const selectedDistrict = transformedDistricts.find(
-          (d) => d.name === application.district,
-        );
-        setAvailableSectors(selectedDistrict?.sectors || []);
-      }
+      setAvailableSectors(
+        transformedDistricts.find((d) => d.name === application.district)
+          ?.sectors || [],
+      );
     }
-  }, [isOpen, application]);
+  }, [isOpen, application, maxEmergencyContacts]);
 
   useEffect(() => {
     if (formState.province) {
       const selectedProvince = rwandaProvinces.find(
         (p) => p.name === formState.province,
       );
-      const districts = selectedProvince?.districts || [];
-      const transformedDistricts = districts.map((district) => ({
-        name: district.name,
-        sectors: district.sectors?.map((sector) => sector.name) || [],
-      }));
+      const transformedDistricts = (selectedProvince?.districts || []).map(
+        (district) => ({
+          name: district.name,
+          sectors: district.sectors?.map((sector) => sector.name) || [],
+        }),
+      );
       setAvailableDistricts(transformedDistricts);
 
       if (!transformedDistricts.some((d) => d.name === formState.district)) {
@@ -176,10 +133,9 @@ export const EditUserOnTrackingPage = ({
 
   useEffect(() => {
     if (formState.district) {
-      const selectedDistrict = availableDistricts.find(
-        (d) => d.name === formState.district,
-      );
-      const sectors = selectedDistrict?.sectors || [];
+      const sectors =
+        availableDistricts.find((d) => d.name === formState.district)?.sectors ||
+        [];
       setAvailableSectors(sectors);
 
       if (!sectors.includes(formState.sector || '')) {
@@ -192,7 +148,7 @@ export const EditUserOnTrackingPage = ({
   }, [formState.district, availableDistricts]);
 
   useEffect(() => {
-    const originalData = {
+    const original: Partial<Application> = {
       fullName: application.fullName,
       email: application.email,
       phoneNumber: application.phoneNumber,
@@ -204,19 +160,22 @@ export const EditUserOnTrackingPage = ({
       bankName: application.bankName,
       bankAccountNumber: application.bankAccountNumber,
       veterinaryType: application.veterinaryType,
-      emergencyContacts: application.emergencyContacts,
+      // Same slice the form was seeded with, so opening the modal is not a change.
+      emergencyContacts: application.emergencyContacts.slice(
+        0,
+        maxEmergencyContacts,
+      ),
     };
 
-    const hasFormChanges = Object.keys(originalData).some(
+    const hasFormChanges = Object.keys(original).some(
       (key) =>
-        JSON.stringify(originalData[key as keyof typeof originalData]) !==
-        JSON.stringify(formState[key as keyof typeof formState]),
+        JSON.stringify(original[key as keyof Application]) !==
+        JSON.stringify(formState[key as keyof Application]),
     );
-
-    const hasFileChanges = Object.values(files).some((file) => file !== null);
+    const hasFileChanges = Object.values(files).some((file) => file != null);
 
     setHasChanges(hasFormChanges || hasFileChanges);
-  }, [formState, files, application]);
+  }, [formState, files, application, maxEmergencyContacts]);
 
   const handleInputChange = (
     e: React.ChangeEvent<
@@ -229,7 +188,7 @@ export const EditUserOnTrackingPage = ({
 
   const handleEmergencyContactChange = (
     index: number,
-    field: string,
+    field: 'fullName' | 'phoneNumber' | 'relationship',
     value: string,
   ) => {
     setFormState((prev) => ({
@@ -263,9 +222,10 @@ export const EditUserOnTrackingPage = ({
     }));
   };
 
-  const handleFileChange = (name: string) => (file: File | null) => {
-    setFiles((prev) => ({ ...prev, [name]: file }));
-  };
+  const handleFileChange =
+    (id: RegistrationDocumentId) => (file: File | null) => {
+      setFiles((prev) => ({ ...prev, [id]: file }));
+    };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -276,25 +236,17 @@ export const EditUserOnTrackingPage = ({
     }
 
     try {
-      const dataToSend: Partial<Application> = {
-        ...formState,
-        emergencyContacts: formState.emergencyContacts?.map((contact) => ({
-          fullName: contact.fullName,
-          phoneNumber: contact.phoneNumber,
-          relationship: contact.relationship,
-        })),
-      };
+      // Only send documents that belong to this role, so an agent-only field can
+      // never be attached to a vet resubmission (or vice versa).
+      const filesToSend = documentFields.reduce<
+        Partial<Record<RegistrationDocumentId, File | null>>
+      >((acc, field) => {
+        const picked = files[field.id];
+        if (picked) acc[field.id] = picked;
+        return acc;
+      }, {});
 
-      // Only send the licence field that applies to this role.
-      const filesToSend: Record<string, File | null> = {
-        nationalIdDocument: files.nationalIdDocument,
-        passportPhoto: files.passportPhoto,
-        ...(isVeterinary
-          ? { rcvdLicenceDocument: files.rcvdLicenceDocument }
-          : { criminalRecordCertificate: files.criminalRecordCertificate }),
-      };
-
-      await onSave(dataToSend, filesToSend);
+      await onSave({ ...formState, role: application.role }, filesToSend);
       onClose();
     } catch (error) {
       console.error('Error saving changes:', error);
@@ -303,20 +255,13 @@ export const EditUserOnTrackingPage = ({
 
   const getDateLimits = () => {
     const today = new Date();
-    const maxDate = new Date(
-      today.getFullYear() - 18,
-      today.getMonth(),
-      today.getDate(),
-    );
-    const minDate = new Date(
-      today.getFullYear() - 100,
-      today.getMonth(),
-      today.getDate(),
-    );
-
     return {
-      min: minDate.toISOString().split('T')[0],
-      max: maxDate.toISOString().split('T')[0],
+      min: new Date(today.getFullYear() - 100, today.getMonth(), today.getDate())
+        .toISOString()
+        .split('T')[0],
+      max: new Date(today.getFullYear() - 18, today.getMonth(), today.getDate())
+        .toISOString()
+        .split('T')[0],
     };
   };
 
@@ -330,11 +275,19 @@ export const EditUserOnTrackingPage = ({
       <div className="bg-white rounded-xl shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
         <div className="p-6">
           <div className="flex justify-between items-center mb-6">
-            <h3 className="text-xl font-bold text-gray-900">Edit Application</h3>
+            <div>
+              <h3 className="text-xl font-bold text-gray-900">
+                Edit Application
+              </h3>
+              <p className="text-sm text-gray-500">
+                {isVeterinary ? 'Veterinarian' : 'Insurance agent'} application
+              </p>
+            </div>
             <button
               onClick={onClose}
               className="text-gray-400 hover:text-gray-600 transition-colors"
               type="button"
+              aria-label="Close"
             >
               <svg
                 className="w-6 h-6"
@@ -463,7 +416,7 @@ export const EditUserOnTrackingPage = ({
               />
             </div>
 
-            {isVeterinary ? (
+            {isVeterinary && (
               <div>
                 <label className="block text-sm font-medium mb-1">
                   Veterinarian type
@@ -485,7 +438,7 @@ export const EditUserOnTrackingPage = ({
                   </p>
                 ) : null}
               </div>
-            ) : null}
+            )}
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
@@ -550,13 +503,13 @@ export const EditUserOnTrackingPage = ({
               <div className="flex justify-between items-center mb-4">
                 <h3 className="font-medium text-gray-900">
                   {isVeterinary ? 'Emergency Contact' : 'Emergency Contacts'}
-                  {isVeterinary ? (
+                  {isVeterinary && (
                     <span className="ml-2 text-sm font-normal text-gray-500">
                       (optional)
                     </span>
-                  ) : null}
+                  )}
                 </h3>
-                {canAddEmergencyContact ? (
+                {canAddEmergencyContact && (
                   <Button
                     type="button"
                     variant="outline"
@@ -565,7 +518,7 @@ export const EditUserOnTrackingPage = ({
                   >
                     Add Contact
                   </Button>
-                ) : null}
+                )}
               </div>
 
               {formState.emergencyContacts?.length ? (
@@ -644,42 +597,26 @@ export const EditUserOnTrackingPage = ({
               )}
             </div>
 
+            {/* Documents come from the role registry — same set as the apply form. */}
             <div className="space-y-4">
-              <FileInput
-                label="National ID Document"
-                name="nationalIdDocument"
-                onChange={handleFileChange('nationalIdDocument')}
-                accept=".pdf,.jpg,.jpeg,.png"
-                currentFile={documentFileName(application.nationalIdDocument)}
-              />
-
-              {isVeterinary ? (
-                <FileInput
-                  label="RCVD Licence"
-                  name="rcvdLicenceDocument"
-                  onChange={handleFileChange('rcvdLicenceDocument')}
-                  accept=".pdf,.jpg,.jpeg,.png"
-                  currentFile={documentFileName(application.rcvdLicenceDocument)}
-                />
-              ) : (
-                <FileInput
-                  label="Criminal Record Certificate"
-                  name="criminalRecordCertificate"
-                  onChange={handleFileChange('criminalRecordCertificate')}
-                  accept=".pdf,.jpg,.jpeg,.png"
-                  currentFile={documentFileName(
-                    application.criminalRecordCertificate,
-                  )}
-                />
-              )}
-
-              <FileInput
-                label="Passport Photo"
-                name="passportPhoto"
-                onChange={handleFileChange('passportPhoto')}
-                accept=".jpg,.jpeg,.png"
-                currentFile={documentFileName(application.passportPhoto)}
-              />
+              {documentFields.map((field) => {
+                const existingUrl = registrationDocumentUrl(
+                  application,
+                  field.id,
+                );
+                return (
+                  <FileInput
+                    key={field.id}
+                    label={field.label}
+                    name={field.id}
+                    accept={field.accept}
+                    onChange={handleFileChange(field.id)}
+                    currentFile={registrationDocumentFileName(existingUrl)}
+                    documentUrl={existingUrl}
+                    onViewDocument={onViewDocument}
+                  />
+                );
+              })}
             </div>
 
             <div className="flex justify-end space-x-3">
