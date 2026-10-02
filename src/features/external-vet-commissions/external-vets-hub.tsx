@@ -1256,6 +1256,7 @@ export default function ExternalVetsHub({ viewRole }: ExternalVetsHubProps) {
           isLoading={detailLoading}
           onClose={closeDetail}
           footer={detailFooter}
+          viewRole={viewRole}
           reviewStage={canLineReview ? reviewStage : null}
           reviewBusy={actionBusy}
           onReviewLine={

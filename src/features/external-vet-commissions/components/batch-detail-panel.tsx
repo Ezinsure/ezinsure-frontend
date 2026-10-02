@@ -13,8 +13,9 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/toast';
 import { useApiClient } from '@/utils/apiClient';
 import {
-  COMMISSION_LINE_COLUMN_KEYS,
   COMMISSION_LINE_COLUMN_LABELS,
+  canViewCompanyCommission,
+  commissionLineColumnsForAudience,
   formatCommissionLineCell,
   formatRwf,
   type ExportLineIncludeFilter,
@@ -22,6 +23,7 @@ import {
   type ExternalVetCommissionLine,
   type ExternalVetCommissionLineListItem,
   type ExternalVetReviewStage,
+  type ExternalVetsViewRole,
 } from '../domain';
 import {
   downloadBatchSourceDocument,
@@ -57,7 +59,11 @@ type Props = {
   onReviewLine?: (
     input: Omit<ReviewLineInput, 'batchId' | 'stage'> & { lineId: string },
   ) => Promise<void>;
+  /** Portal audience — controls company-commission visibility. */
+  viewRole?: ExternalVetsViewRole;
 };
+
+type DetailTab = 'overview' | 'lines';
 
 function formatDisplayDate(value?: string): string {
   if (!value?.trim()) return '—';
@@ -91,6 +97,7 @@ export function BatchDetailPanel({
   reviewStage = null,
   reviewBusy = false,
   onReviewLine,
+  viewRole = 'admin',
 }: Props) {
   const { showToast, ToastContainer } = useToast();
   const { apiFetch } = useApiClient();
@@ -98,6 +105,10 @@ export function BatchDetailPanel({
   const [downloadBusy, setDownloadBusy] = useState(false);
   const [detailLine, setDetailLine] =
     useState<ExternalVetCommissionLineListItem | null>(null);
+  const [activeTab, setActiveTab] = useState<DetailTab>('lines');
+
+  const showCompanyCommission = canViewCompanyCommission(viewRole);
+  const lineColumns = commissionLineColumnsForAudience(viewRole);
 
   const documentUrl = batch?.sourceDocumentUrl?.trim() || '';
   const documentName =
@@ -108,10 +119,17 @@ export function BatchDetailPanel({
   );
   const canDownload = Boolean(batch?.id && (documentUrl || batch?.sourceFileName));
 
+  // Batch detail lines tab has room for a tall table — only window very large
+  // sheets so a typical 50–100 line request is fully visible without clicking.
   const lineWindow = useWindowedList(batch?.lines ?? [], {
-    chunkSize: 40,
-    threshold: 50,
+    chunkSize: 80,
+    threshold: 120,
   });
+
+  useEffect(() => {
+    // Prefer the lines workspace whenever a batch opens — that is the work surface.
+    setActiveTab('lines');
+  }, [batch?.id]);
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
@@ -283,328 +301,416 @@ export function BatchDetailPanel({
         </div>
 
         <div className="flex min-h-0 flex-1 flex-col">
-          <div className="max-h-[32vh] shrink-0 space-y-4 overflow-y-auto overscroll-contain border-b border-slate-100 px-4 py-3 sm:space-y-5 sm:px-5 sm:py-4">
-          {isLoading && !batch ? (
-            <div className="flex flex-col items-center justify-center gap-3 py-24 text-slate-500">
-              <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
-              <p className="text-sm font-medium">Loading batch details…</p>
+          {batch ? (
+            <div
+              role="tablist"
+              aria-label="Batch detail sections"
+              className="flex shrink-0 gap-1 border-b border-slate-200 px-4 sm:px-5"
+            >
+              {(
+                [
+                  { id: 'overview' as const, label: 'Overview' },
+                  {
+                    id: 'lines' as const,
+                    label: `Lines (${batch.lineCount})`,
+                  },
+                ] as const
+              ).map((tab) => {
+                const selected = activeTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={selected}
+                    id={`batch-tab-${tab.id}`}
+                    aria-controls={`batch-panel-${tab.id}`}
+                    className={`-mb-px border-b-2 px-3 py-2.5 text-sm font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-400 ${
+                      selected
+                        ? 'border-slate-900 text-slate-900'
+                        : 'border-transparent text-slate-500 hover:text-slate-800'
+                    }`}
+                    onClick={() => setActiveTab(tab.id)}
+                  >
+                    {tab.label}
+                  </button>
+                );
+              })}
             </div>
           ) : null}
 
-          {batch ? (
-            <>
-              {isRejected ? (
-                <section className="rounded-xl border border-rose-200 bg-gradient-to-br from-rose-50 to-white p-3.5 sm:p-4">
-                  <div className="flex items-start gap-3">
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-rose-100 text-rose-700">
-                      <AlertTriangle className="h-4 w-4" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <h3 className="text-sm font-semibold text-rose-950">
-                        Application rejected
-                      </h3>
-                      <p className="mt-1 text-sm leading-relaxed text-rose-900/90">
-                        {batch.reviewNote?.trim() ||
-                          'No rejection note was recorded for this batch.'}
-                      </p>
-                      <dl className="mt-3 grid gap-2 sm:grid-cols-2">
-                        <div>
-                          <dt className="text-[11px] uppercase tracking-wide text-rose-700/80">
-                            Rejected by
-                          </dt>
-                          <dd className="text-sm font-medium text-rose-950">
-                            {batch.reviewedByName || '—'}
-                          </dd>
-                        </div>
-                        <div>
-                          <dt className="text-[11px] uppercase tracking-wide text-rose-700/80">
-                            Rejected at
-                          </dt>
-                          <dd className="text-sm font-medium text-rose-950">
-                            {formatDisplayDateTime(batch.reviewedAt)}
-                          </dd>
-                        </div>
-                      </dl>
-                    </div>
-                  </div>
-                </section>
-              ) : null}
+          <div className="min-h-0 flex-1 overflow-hidden">
+            {isLoading && !batch ? (
+              <div className="flex flex-col items-center justify-center gap-3 py-24 text-slate-500">
+                <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
+                <p className="text-sm font-medium">Loading batch details…</p>
+              </div>
+            ) : null}
 
-              {isReimbursed ? (
-                <section className="rounded-xl border border-teal-200 bg-gradient-to-br from-teal-50 to-white p-3.5 sm:p-4">
-                  <div className="flex items-start gap-3">
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-teal-100 text-teal-800">
-                      <Receipt className="h-4 w-4" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <h3 className="text-sm font-semibold text-teal-950">
-                        SONARWA reimbursement
-                      </h3>
-                      <dl className="mt-3 grid gap-2.5 sm:grid-cols-2">
-                        <div className="sm:col-span-2">
-                          <dt className="text-[11px] uppercase tracking-wide text-teal-700/80">
-                            Transaction ID
-                          </dt>
-                          <dd className="mt-0.5 break-all font-mono text-sm font-semibold text-teal-950">
-                            {batch.reimbursementReference?.trim() ||
-                              'Not recorded'}
-                          </dd>
-                        </div>
-                        <div>
-                          <dt className="text-[11px] uppercase tracking-wide text-teal-700/80">
-                            Reimbursed at
-                          </dt>
-                          <dd className="text-sm font-medium text-teal-950">
-                            {formatDisplayDateTime(batch.reimbursedBySonarwaAt)}
-                          </dd>
-                        </div>
-                        {batch.exportReference ? (
+            {batch && activeTab === 'overview' ? (
+              <div
+                id="batch-panel-overview"
+                role="tabpanel"
+                aria-labelledby="batch-tab-overview"
+                className="h-full space-y-4 overflow-y-auto overscroll-contain px-4 py-3 sm:space-y-5 sm:px-5 sm:py-4"
+              >
+                {isRejected ? (
+                  <section className="rounded-xl border border-rose-200 bg-gradient-to-br from-rose-50 to-white p-3.5 sm:p-4">
+                    <div className="flex items-start gap-3">
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-rose-100 text-rose-700">
+                        <AlertTriangle className="h-4 w-4" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <h3 className="text-sm font-semibold text-rose-950">
+                          Application rejected
+                        </h3>
+                        <p className="mt-1 text-sm leading-relaxed text-rose-900/90">
+                          {batch.reviewNote?.trim() ||
+                            'No rejection note was recorded for this batch.'}
+                        </p>
+                        <dl className="mt-3 grid gap-2 sm:grid-cols-2">
                           <div>
-                            <dt className="text-[11px] uppercase tracking-wide text-teal-700/80">
-                              Export reference
+                            <dt className="text-[11px] uppercase tracking-wide text-rose-700/80">
+                              Rejected by
                             </dt>
-                            <dd className="text-sm font-medium text-teal-950">
-                              {batch.exportReference}
+                            <dd className="text-sm font-medium text-rose-950">
+                              {batch.reviewedByName || '—'}
                             </dd>
                           </div>
-                        ) : null}
-                      </dl>
+                          <div>
+                            <dt className="text-[11px] uppercase tracking-wide text-rose-700/80">
+                              Rejected at
+                            </dt>
+                            <dd className="text-sm font-medium text-rose-950">
+                              {formatDisplayDateTime(batch.reviewedAt)}
+                            </dd>
+                          </div>
+                        </dl>
+                      </div>
+                    </div>
+                  </section>
+                ) : null}
+
+                {isReimbursed ? (
+                  <section className="rounded-xl border border-teal-200 bg-gradient-to-br from-teal-50 to-white p-3.5 sm:p-4">
+                    <div className="flex items-start gap-3">
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-teal-100 text-teal-800">
+                        <Receipt className="h-4 w-4" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <h3 className="text-sm font-semibold text-teal-950">
+                          SONARWA reimbursement
+                        </h3>
+                        <dl className="mt-3 grid gap-2.5 sm:grid-cols-2">
+                          <div className="sm:col-span-2">
+                            <dt className="text-[11px] uppercase tracking-wide text-teal-700/80">
+                              Transaction ID
+                            </dt>
+                            <dd className="mt-0.5 break-all font-mono text-sm font-semibold text-teal-950">
+                              {batch.reimbursementReference?.trim() ||
+                                'Not recorded'}
+                            </dd>
+                          </div>
+                          <div>
+                            <dt className="text-[11px] uppercase tracking-wide text-teal-700/80">
+                              Reimbursed at
+                            </dt>
+                            <dd className="text-sm font-medium text-teal-950">
+                              {formatDisplayDateTime(batch.reimbursedBySonarwaAt)}
+                            </dd>
+                          </div>
+                          {batch.exportReference ? (
+                            <div>
+                              <dt className="text-[11px] uppercase tracking-wide text-teal-700/80">
+                                Export reference
+                              </dt>
+                              <dd className="text-sm font-medium text-teal-950">
+                                {batch.exportReference}
+                              </dd>
+                            </div>
+                          ) : null}
+                        </dl>
+                      </div>
+                    </div>
+                  </section>
+                ) : null}
+
+                {payable ? (
+                  <LineReviewSummaryBar
+                    summary={payable}
+                    showCompanyCommission={showCompanyCommission}
+                  />
+                ) : null}
+
+                <section className="rounded-xl border border-slate-200 bg-slate-50/80 p-3.5 sm:p-4">
+                  <h3 className="mb-3 text-sm font-semibold text-slate-800">
+                    Veterinary agent
+                  </h3>
+                  <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
+                    <Info label="Name" value={batch.payee?.name ?? '—'} />
+                    <Info
+                      label="Phone / MoMo"
+                      value={batch.payee?.phoneNumber ?? '—'}
+                    />
+                    <Info
+                      label="District"
+                      value={batch.payee?.district || '—'}
+                    />
+                    <Info label="Sector" value={batch.payee?.sector || '—'} />
+                    <Info
+                      label="Request date"
+                      value={formatDisplayDate(
+                        batch.payee?.commissionRequestDate,
+                      )}
+                    />
+                    <Info
+                      label="Bank"
+                      value={batch.payee?.bankName?.trim() || '—'}
+                    />
+                    <Info
+                      label="Account"
+                      value={batch.payee?.bankAccountNumber?.trim() || '—'}
+                    />
+                    <Info label="Period" value={batch.periodLabel || '—'} />
+                  </div>
+                </section>
+
+                <section className="rounded-xl border border-slate-200 bg-white p-3.5 sm:p-4">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="min-w-0">
+                      <h3 className="text-sm font-semibold text-slate-800">
+                        Original request form
+                      </h3>
+                      <p className="mt-1 text-xs leading-relaxed text-slate-500">
+                        Downloaded securely via the API. Use this file to verify
+                        lines against the source document.
+                      </p>
+                    </div>
+                    {canDownload ? (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="w-full shrink-0 sm:w-auto"
+                        disabled={downloadBusy}
+                        onClick={() => void handleDownloadOriginal()}
+                      >
+                        {downloadBusy ? (
+                          <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <Download className="mr-1.5 h-3.5 w-3.5" />
+                        )}
+                        Download
+                      </Button>
+                    ) : null}
+                  </div>
+                  <div className="mt-3 flex items-start gap-3 rounded-lg border border-dashed border-slate-200 bg-slate-50 px-3 py-3">
+                    <FileSpreadsheet className="mt-0.5 h-5 w-5 shrink-0 text-slate-500" />
+                    <div className="min-w-0">
+                      <p
+                        className="truncate text-sm font-medium text-slate-900"
+                        title={documentName}
+                      >
+                        {documentName}
+                      </p>
+                      {canDownload ? (
+                        <p className="mt-1 text-xs text-slate-500">
+                          Saves as{' '}
+                          <span className="font-medium text-slate-700">
+                            {downloadFileName}
+                          </span>
+                        </p>
+                      ) : (
+                        <p className="mt-0.5 text-xs text-amber-700">
+                          Original document is not available on this batch yet.
+                        </p>
+                      )}
                     </div>
                   </div>
                 </section>
-              ) : null}
 
-              {payable ? <LineReviewSummaryBar summary={payable} /> : null}
-
-              <section className="rounded-xl border border-slate-200 bg-slate-50/80 p-3.5 sm:p-4">
-                <h3 className="mb-3 text-sm font-semibold text-slate-800">
-                  Veterinary agent
-                </h3>
-                <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
-                  <Info label="Name" value={batch.payee?.name ?? '—'} />
-                  <Info
-                    label="Phone / MoMo"
-                    value={batch.payee?.phoneNumber ?? '—'}
-                  />
-                  <Info label="District" value={batch.payee?.district || '—'} />
-                  <Info label="Sector" value={batch.payee?.sector || '—'} />
-                  <Info
-                    label="Request date"
-                    value={formatDisplayDate(batch.payee?.commissionRequestDate)}
-                  />
-                  <Info
-                    label="Bank"
-                    value={batch.payee?.bankName?.trim() || '—'}
-                  />
-                  <Info
-                    label="Account"
-                    value={batch.payee?.bankAccountNumber?.trim() || '—'}
-                  />
-                  <Info label="Period" value={batch.periodLabel || '—'} />
-                </div>
-              </section>
-
-              <section className="rounded-xl border border-slate-200 bg-white p-3.5 sm:p-4">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="min-w-0">
-                    <h3 className="text-sm font-semibold text-slate-800">
-                      Original request form
-                    </h3>
-                    <p className="mt-1 text-xs leading-relaxed text-slate-500">
-                      Downloaded securely via the API. Use this file to verify
-                      lines against the source document.
-                    </p>
-                  </div>
-                  {canDownload ? (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="w-full shrink-0 sm:w-auto"
-                      disabled={downloadBusy}
-                      onClick={() => void handleDownloadOriginal()}
-                    >
-                      {downloadBusy ? (
-                        <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-                      ) : (
-                        <Download className="mr-1.5 h-3.5 w-3.5" />
-                      )}
-                      Download
-                    </Button>
-                  ) : null}
-                </div>
-                <div className="mt-3 flex items-start gap-3 rounded-lg border border-dashed border-slate-200 bg-slate-50 px-3 py-3">
-                  <FileSpreadsheet className="mt-0.5 h-5 w-5 shrink-0 text-slate-500" />
-                  <div className="min-w-0">
-                    <p
-                      className="truncate text-sm font-medium text-slate-900"
-                      title={documentName}
-                    >
-                      {documentName}
-                    </p>
-                    {canDownload ? (
-                      <p className="mt-1 text-xs text-slate-500">
-                        Saves as{' '}
-                        <span className="font-medium text-slate-700">
-                          {downloadFileName}
-                        </span>
-                      </p>
-                    ) : (
-                      <p className="mt-0.5 text-xs text-amber-700">
-                        Original document is not available on this batch yet.
-                      </p>
-                    )}
-                  </div>
-                </div>
-              </section>
-
-              <section className="rounded-xl border border-slate-200 bg-slate-50/80 p-3.5 sm:p-4">
-                <h3 className="mb-3 text-sm font-semibold text-slate-800">
-                  Financial summary
-                </h3>
-                <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
-                  <Info label="Created by" value={batch.createdByName} />
-                  <Info
-                    label="Created at"
-                    value={new Date(batch.createdAt).toLocaleString()}
-                  />
-                  <Info
-                    label="Company commission %"
-                    value={`${batch.companyCommissionPercent}%`}
-                  />
-                  <Info label="Lines" value={String(batch.lineCount)} />
-                  <Info
-                    label="Payable vet commission"
-                    value={formatRwf(payable?.totalVetCommission ?? 0)}
-                  />
-                  <Info
-                    label="Payable company commission"
-                    value={formatRwf(payable?.totalCompanyCommission ?? 0)}
-                  />
-                  <Info
-                    label="Payable total"
-                    value={formatRwf(payable?.totalCommission ?? 0)}
-                  />
-                  <Info
-                    label="Billable to SONARWA"
-                    value={formatRwf(payable?.billableToSonarwa ?? 0)}
-                  />
-                  <Info
-                    label="Gross (all lines)"
-                    value={formatRwf(payable?.gross.totalCommission ?? 0)}
-                  />
-                  {batch.reviewedByName && !isRejected ? (
-                    <Info label="Reviewed by" value={batch.reviewedByName} />
-                  ) : null}
-                  {batch.reviewNote && !isRejected ? (
-                    <Info label="Review note" value={batch.reviewNote} />
-                  ) : null}
-                  {batch.paidByName ? (
-                    <Info label="Paid by" value={batch.paidByName} />
-                  ) : null}
-                  {batch.reimbursementReference && !isReimbursed ? (
+                <section className="rounded-xl border border-slate-200 bg-slate-50/80 p-3.5 sm:p-4">
+                  <h3 className="mb-3 text-sm font-semibold text-slate-800">
+                    Financial summary
+                  </h3>
+                  <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
+                    <Info label="Created by" value={batch.createdByName} />
                     <Info
-                      label="SONARWA transaction ID"
-                      value={batch.reimbursementReference}
+                      label="Created at"
+                      value={new Date(batch.createdAt).toLocaleString()}
                     />
-                  ) : null}
-                </div>
-              </section>
-
-            </>
-          ) : null}
-          </div>
-
-          {batch ? (
-            <section className="flex min-h-[65vh] flex-1 flex-col px-4 py-3 sm:px-5 sm:py-4">
-              <div className="mb-2 flex shrink-0 flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-                <h3 className="text-sm font-semibold text-slate-800">
-                  Lines ({batch.lineCount})
-                </h3>
-                <p className="text-[11px] text-slate-500">
-                  {canReviewLines
-                    ? 'Click a row to review that line'
-                    : 'Click a row for full details'}
-                  <span className="sm:hidden"> · swipe for columns</span>
-                </p>
-              </div>
-              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-                {isLoading ? (
-                  <div className="flex items-center gap-2 rounded-lg border border-slate-200 px-4 py-8 text-sm text-slate-500">
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Refreshing lines…
+                    {showCompanyCommission ? (
+                      <Info
+                        label="Company commission %"
+                        value={`${batch.companyCommissionPercent}%`}
+                      />
+                    ) : null}
+                    <Info label="Lines" value={String(batch.lineCount)} />
+                    <Info
+                      label="Payable vet commission"
+                      value={formatRwf(payable?.totalVetCommission ?? 0)}
+                    />
+                    {showCompanyCommission ? (
+                      <Info
+                        label="Payable company commission"
+                        value={formatRwf(payable?.totalCompanyCommission ?? 0)}
+                      />
+                    ) : null}
+                    {showCompanyCommission ? (
+                      <Info
+                        label="Payable total"
+                        value={formatRwf(payable?.totalCommission ?? 0)}
+                      />
+                    ) : null}
+                    {showCompanyCommission ? (
+                      <Info
+                        label="Billable to SONARWA"
+                        value={formatRwf(payable?.billableToSonarwa ?? 0)}
+                      />
+                    ) : null}
+                    <Info
+                      label={
+                        showCompanyCommission
+                          ? 'Gross (all lines)'
+                          : 'Gross vet commission (all lines)'
+                      }
+                      value={formatRwf(
+                        showCompanyCommission
+                          ? (payable?.gross.totalCommission ?? 0)
+                          : (payable?.gross.totalVetCommission ?? 0),
+                      )}
+                    />
+                    {batch.reviewedByName && !isRejected ? (
+                      <Info label="Reviewed by" value={batch.reviewedByName} />
+                    ) : null}
+                    {batch.reviewNote && !isRejected ? (
+                      <Info label="Review note" value={batch.reviewNote} />
+                    ) : null}
+                    {batch.paidByName ? (
+                      <Info label="Paid by" value={batch.paidByName} />
+                    ) : null}
+                    {batch.reimbursementReference && !isReimbursed ? (
+                      <Info
+                        label="SONARWA transaction ID"
+                        value={batch.reimbursementReference}
+                      />
+                    ) : null}
                   </div>
-                ) : (
-                  <div className="-mx-4 overflow-x-auto overscroll-x-contain px-4 sm:mx-0 sm:rounded-lg sm:border sm:border-slate-200 sm:px-0">
-                    <table className="min-w-max w-full text-left text-xs">
-                      <thead className="sticky top-0 z-[1] bg-slate-50 text-slate-600">
-                        <tr>
-                          <th className="sticky left-0 z-[2] whitespace-nowrap bg-slate-50 px-3 py-2.5 font-medium">
-                            Line status
-                          </th>
-                          {COMMISSION_LINE_COLUMN_KEYS.map((key) => (
-                            <th
-                              key={key}
-                              className="whitespace-nowrap px-3 py-2.5 font-medium"
-                            >
-                              {COMMISSION_LINE_COLUMN_LABELS[key]}
+                </section>
+              </div>
+            ) : null}
+
+            {batch && activeTab === 'lines' ? (
+              <div
+                id="batch-panel-lines"
+                role="tabpanel"
+                aria-labelledby="batch-tab-lines"
+                className="flex h-full min-h-0 flex-col px-4 py-3 sm:px-5 sm:py-4"
+              >
+                <div className="mb-2 flex shrink-0 flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <h3 className="text-sm font-semibold text-slate-800">
+                      Commission lines
+                    </h3>
+                    <p className="text-[11px] text-slate-500">
+                      {batch.lineCount} line
+                      {batch.lineCount === 1 ? '' : 's'} in this request
+                      {payable ? (
+                        <>
+                          {' '}
+                          · {payable.counts.pending} pending ·{' '}
+                          {payable.counts.approved} approved ·{' '}
+                          {payable.counts.rejected} rejected
+                        </>
+                      ) : null}
+                    </p>
+                  </div>
+                  <p className="text-[11px] text-slate-500">
+                    {canReviewLines
+                      ? 'Click a row to review that line'
+                      : 'Click a row for full details'}
+                    <span className="sm:hidden"> · swipe for columns</span>
+                  </p>
+                </div>
+                <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain rounded-lg border border-slate-200">
+                  {isLoading ? (
+                    <div className="flex items-center gap-2 px-4 py-8 text-sm text-slate-500">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Refreshing lines…
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto overscroll-x-contain">
+                      <table className="min-w-max w-full text-left text-xs">
+                        <thead className="sticky top-0 z-[1] bg-slate-50 text-slate-600">
+                          <tr>
+                            <th className="sticky left-0 z-[2] whitespace-nowrap bg-slate-50 px-3 py-2.5 font-medium">
+                              Line status
                             </th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody className="bg-white">
-                        {lineWindow.slice.map((line) => (
-                          <tr
-                            key={line.id}
-                            className={`cursor-pointer border-t border-slate-100 hover:bg-slate-50/90 ${
-                              line.lineStatus === 'REJECTED'
-                                ? 'bg-rose-50/40'
-                                : line.lineStatus === 'APPROVED'
-                                  ? 'bg-emerald-50/20'
-                                  : ''
-                            }`}
-                            onClick={() => openLine(line)}
-                          >
-                            <td className="sticky left-0 z-[1] whitespace-nowrap bg-inherit px-3 py-2.5">
-                              <LineStatusBadge status={line.lineStatus} />
-                            </td>
-                            {COMMISSION_LINE_COLUMN_KEYS.map((key) => (
-                              <td
+                            {lineColumns.map((key) => (
+                              <th
                                 key={key}
-                                className={`whitespace-nowrap px-3 py-2.5 ${
-                                  key === 'contract'
-                                    ? 'font-mono text-[11px]'
-                                    : ''
-                                } ${
-                                  key === 'vetCommission' ||
-                                  key === 'companyCommission'
-                                    ? 'font-medium'
-                                    : ''
-                                } ${
-                                  line.lineStatus === 'REJECTED'
-                                    ? 'text-slate-500 line-through decoration-rose-300'
-                                    : ''
-                                }`}
+                                className="whitespace-nowrap px-3 py-2.5 font-medium"
                               >
-                                {formatCommissionLineCell(line, key)}
-                              </td>
+                                {COMMISSION_LINE_COLUMN_LABELS[key]}
+                              </th>
                             ))}
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                    <WindowedListFooter
-                      total={lineWindow.total}
-                      visibleCount={lineWindow.visibleCount}
-                      remaining={lineWindow.remaining}
-                      needsWindow={lineWindow.needsWindow}
-                      onShowMore={lineWindow.showMore}
-                      onShowAll={lineWindow.showAll}
-                    />
-                  </div>
-                )}
+                        </thead>
+                        <tbody className="bg-white">
+                          {lineWindow.slice.map((line) => (
+                            <tr
+                              key={line.id}
+                              className={`cursor-pointer border-t border-slate-100 hover:bg-slate-50/90 ${
+                                line.lineStatus === 'REJECTED'
+                                  ? 'bg-rose-50/40'
+                                  : line.lineStatus === 'APPROVED'
+                                    ? 'bg-emerald-50/20'
+                                    : ''
+                              }`}
+                              onClick={() => openLine(line)}
+                            >
+                              <td className="sticky left-0 z-[1] whitespace-nowrap bg-inherit px-3 py-2.5">
+                                <LineStatusBadge status={line.lineStatus} />
+                              </td>
+                              {lineColumns.map((key) => (
+                                <td
+                                  key={key}
+                                  className={`whitespace-nowrap px-3 py-2.5 ${
+                                    key === 'contract'
+                                      ? 'font-mono text-[11px]'
+                                      : ''
+                                  } ${
+                                    key === 'vetCommission' ||
+                                    key === 'companyCommission'
+                                      ? 'font-medium'
+                                      : ''
+                                  } ${
+                                    line.lineStatus === 'REJECTED'
+                                      ? 'text-slate-500 line-through decoration-rose-300'
+                                      : ''
+                                  }`}
+                                >
+                                  {formatCommissionLineCell(line, key)}
+                                </td>
+                              ))}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                      <WindowedListFooter
+                        total={lineWindow.total}
+                        visibleCount={lineWindow.visibleCount}
+                        remaining={lineWindow.remaining}
+                        needsWindow={lineWindow.needsWindow}
+                        onShowMore={lineWindow.showMore}
+                        onShowAll={lineWindow.showAll}
+                        chunkHint={80}
+                      />
+                    </div>
+                  )}
+                </div>
               </div>
-            </section>
-          ) : null}
+            ) : null}
+          </div>
         </div>
 
         {footer && batch ? (
@@ -629,6 +735,7 @@ export function BatchDetailPanel({
           line={detailLine}
           onClose={() => setDetailLine(null)}
           review={lineReviewConfig}
+          viewRole={viewRole}
         />
       ) : null}
     </div>

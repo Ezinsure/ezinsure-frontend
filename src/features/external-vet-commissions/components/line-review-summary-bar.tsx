@@ -12,13 +12,32 @@ type Props = {
   summary: PayableLineSummary;
   /** When true, emphasise that payout uses approved lines only. */
   showPayableEmphasis?: boolean;
+  /** Hide company commission from vet-facing portals. */
+  showCompanyCommission?: boolean;
 };
 
 export function LineReviewSummaryBar({
   summary,
   showPayableEmphasis = true,
+  showCompanyCommission = true,
 }: Props) {
   const { counts } = summary;
+
+  const payableHint = showCompanyCommission
+    ? `Vet ${formatRwf(summary.totalVetCommission)} · Co. ${formatRwf(summary.totalCompanyCommission)}`
+    : `Vet commission ${formatRwf(summary.totalVetCommission)}`;
+
+  const payableValue = showCompanyCommission
+    ? formatRwf(summary.totalCommission)
+    : formatRwf(summary.totalVetCommission);
+
+  const excludedValue = showCompanyCommission
+    ? formatRwf(summary.excludedRejected.totalCommission)
+    : formatRwf(summary.excludedRejected.totalVetCommission);
+
+  const awaitingValue = showCompanyCommission
+    ? formatRwf(summary.excludedPending.totalCommission)
+    : formatRwf(summary.excludedPending.totalVetCommission);
 
   return (
     <section className="rounded-xl border border-slate-200 bg-white p-3.5 sm:p-4">
@@ -58,13 +77,13 @@ export function LineReviewSummaryBar({
       <div className="mt-3 grid grid-cols-1 gap-2.5 sm:grid-cols-3">
         <MoneyCard
           label="Payable (approved)"
-          value={formatRwf(summary.totalCommission)}
-          hint={`Vet ${formatRwf(summary.totalVetCommission)} · Co. ${formatRwf(summary.totalCompanyCommission)}`}
+          value={payableValue}
+          hint={payableHint}
           emphasis
         />
         <MoneyCard
           label="Excluded (rejected)"
-          value={formatRwf(summary.excludedRejected.totalCommission)}
+          value={excludedValue}
           hint={
             counts.rejected
               ? `${counts.rejected} line${counts.rejected === 1 ? '' : 's'}`
@@ -73,7 +92,7 @@ export function LineReviewSummaryBar({
         />
         <MoneyCard
           label="Awaiting decision"
-          value={formatRwf(summary.excludedPending.totalCommission)}
+          value={awaitingValue}
           hint={
             counts.pending
               ? `${counts.pending} line${counts.pending === 1 ? '' : 's'}`

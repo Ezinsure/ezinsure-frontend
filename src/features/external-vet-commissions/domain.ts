@@ -566,6 +566,27 @@ export const COMMISSION_LINE_COLUMN_KEYS = [
 
 export type CommissionLineColumnKey = (typeof COMMISSION_LINE_COLUMN_KEYS)[number];
 
+/**
+ * Columns visible for a given portal role. Vets must not see company commission
+ * amounts or rates — those are internal to SONARWA / ezInsure finance.
+ */
+export function commissionLineColumnsForAudience(
+  audience: ExternalVetsViewRole | 'self_service',
+): CommissionLineColumnKey[] {
+  if (audience === 'vet' || audience === 'self_service') {
+    return COMMISSION_LINE_COLUMN_KEYS.filter(
+      (key) => key !== 'companyCommission',
+    );
+  }
+  return [...COMMISSION_LINE_COLUMN_KEYS];
+}
+
+export function canViewCompanyCommission(
+  audience: ExternalVetsViewRole | 'self_service',
+): boolean {
+  return audience !== 'vet' && audience !== 'self_service';
+}
+
 /** English labels shown for every claim-form column, whatever the upload language. */
 export const COMMISSION_LINE_COLUMN_LABELS: Record<
   CommissionLineColumnKey,
