@@ -267,7 +267,7 @@ export default function PlateLookupPage({
                 value={plateInput}
                 onChange={(e) => setPlateInput(e.target.value)}
                 placeholder="e.g. RAD123A"
-                className="font-semibold tracking-wide uppercase"
+                className="!mb-0 font-semibold tracking-wide uppercase"
               />
             </label>
             <label className="block">
@@ -282,6 +282,7 @@ export default function PlateLookupPage({
                 hideLabel
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
+                className="!mb-0"
               />
             </label>
             <label className="block">
@@ -296,31 +297,40 @@ export default function PlateLookupPage({
                 hideLabel
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
+                className="!mb-0"
               />
             </label>
-            <div className="flex flex-wrap items-end gap-2 md:col-span-2 xl:col-span-2">
-              <Button
-                type="submit"
-                disabled={isLoading}
-                className="inline-flex items-center gap-2"
+            <div className="flex flex-col md:col-span-2 xl:col-span-2">
+              <span
+                className="mb-1 block text-xs font-medium uppercase tracking-wide text-transparent select-none"
+                aria-hidden
               >
-                {isLoading ? (
-                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-                ) : (
-                  <Search className="h-4 w-4" aria-hidden />
-                )}
-                Search
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleReset}
-                disabled={isLoading}
-                className="inline-flex items-center gap-2"
-              >
-                <RefreshCw className="h-4 w-4" aria-hidden />
-                Reset
-              </Button>
+                Actions
+              </span>
+              <div className="flex flex-wrap items-stretch gap-2">
+                <Button
+                  type="submit"
+                  disabled={isLoading}
+                  className="inline-flex h-[50px] items-center gap-2"
+                >
+                  {isLoading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                  ) : (
+                    <Search className="h-4 w-4" aria-hidden />
+                  )}
+                  Search
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleReset}
+                  disabled={isLoading}
+                  className="inline-flex h-[50px] items-center gap-2"
+                >
+                  <RefreshCw className="h-4 w-4" aria-hidden />
+                  Reset
+                </Button>
+              </div>
             </div>
           </form>
         </section>
