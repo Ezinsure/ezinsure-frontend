@@ -11,6 +11,7 @@ import {
   RefreshCw,
   UserPlus,
   Settings2,
+  Search,
 } from 'lucide-react';
 import type { NavGroup } from '@/shared/navigation/types';
 
@@ -42,6 +43,7 @@ export const motorSuperAdminNavigation: NavGroup[] = [
     items: [
       { href: `${base}/users`, label: 'Manage Users', icon: Users },
       { href: `${base}/expiring-insurance`, label: 'Expiring Insurance', icon: Clock },
+      { href: `${base}/plate-lookup`, label: 'Plate Lookup', icon: Search },
       { href: `${base}/sms-tracking`, label: 'SMS Tracking', icon: MessageSquare },
       { href: `${base}/agents/analytics`, label: 'Agent Analytics', icon: BarChart3 },
     ],
