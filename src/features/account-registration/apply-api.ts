@@ -110,41 +110,28 @@ export async function verifyRegistrationOtp(
 }
 
 /**
- * Resubmit an application that was sent back for action. Vets prefer the
- * veterinary route when the API exposes one.
+ * Resubmit an application that was sent back for action.
+ * Agent and veterinary RFA updates share `PUT /updateAgentApplication`
+ * (`role` in the FormData distinguishes the account type).
  */
 export async function updateRegistrationApplication(
   formData: FormData,
   role: RegistrationAccountType,
 ): Promise<unknown> {
-  const attempts =
-    role === VETERINARY_ROLE
-      ? [
-          `${API_BASE()}/updateVeterinaryApplication`,
-          `${API_BASE()}/updateAgentApplication`,
-        ]
-      : [`${API_BASE()}/updateAgentApplication`];
+  formData.set('role', role);
 
-  const fallbackError = 'Failed to update application';
-  for (const [index, url] of attempts.entries()) {
-    const response = await fetch(url, {
-      method: 'PUT',
-      credentials: 'include',
-      body: formData,
-    });
+  const response = await fetch(`${API_BASE()}/updateAgentApplication`, {
+    method: 'PUT',
+    credentials: 'include',
+    body: formData,
+  });
 
-    if (response.ok) {
-      return response.json().catch(() => null);
-    }
-
-    const isLast = index === attempts.length - 1;
-    if (response.status === 404 && !isLast) continue;
-
-    const errorData = (await response.json().catch(() => ({}))) as {
-      message?: string;
-    };
-    throw new Error(errorData.message || fallbackError);
+  if (response.ok) {
+    return response.json().catch(() => null);
   }
 
-  throw new Error(fallbackError);
+  const errorData = (await response.json().catch(() => ({}))) as {
+    message?: string;
+  };
+  throw new Error(errorData.message || 'Failed to update application');
 }
