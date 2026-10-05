@@ -31,6 +31,7 @@ export const motorPaths = {
     newApplication: '/admin/motor/new-application',
     commissionReview: '/admin/motor/commission-review',
     companyPerformance: '/admin/motor/company-performance',
+    plateLookup: '/admin/motor/plate-lookup',
     users: '/admin/motor/users',
     expiringInsurance: '/admin/motor/expiring-insurance',
     renewals: '/admin/motor/renewals',
@@ -59,6 +60,7 @@ export const motorPaths = {
     smsTracking: '/super_admin/motor/sms-tracking',
     agentAnalytics: '/super_admin/motor/agents/analytics',
     companyPerformance: '/super_admin/motor/company-performance',
+    plateLookup: '/super_admin/motor/plate-lookup',
     faq: '/super_admin/motor/FAQ',
     profile: '/super_admin/motor/profile',
   },
@@ -72,6 +74,7 @@ export const motorPaths = {
     agentAnalytics: '/finance/motor/agents/analytics',
     commissionReview: '/finance/motor/commission-review',
     companyPerformance: '/finance/motor/company-performance',
+    plateLookup: '/finance/motor/plate-lookup',
     profile: '/finance/motor/profile',
   },
 } as const;

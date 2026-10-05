@@ -11,6 +11,7 @@ import {
   RefreshCw,
   UserPlus,
   CalendarRange,
+  Search,
 } from 'lucide-react';
 import type { NavGroup } from '@/shared/navigation/types';
 
@@ -21,6 +22,7 @@ export const motorFinanceNavigation: NavGroup[] = [
     items: [
       { href: `${base}/dashboard`, label: 'Dashboard', icon: LayoutDashboard },
       { href: `${base}/applications`, label: 'Applications', icon: FileText },
+      { href: `${base}/plate-lookup`, label: 'Plate Lookup', icon: Search },
       { href: `${base}/renewals`, label: 'Renewals', icon: RefreshCw },
       { href: `${base}/prospects`, label: 'Prospects', icon: UserPlus },
       { href: `${base}/agents/analytics`, label: 'Agent Analytics', icon: BarChart3 },
