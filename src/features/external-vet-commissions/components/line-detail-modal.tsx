@@ -15,10 +15,12 @@ import {
   type ExternalVetReviewStage,
   type ExternalVetsViewRole,
 } from '../domain';
+import { latestStageDecision } from '../line-review';
 import { ExternalVetStatusBadge } from './status-badge';
 import { LineDecisionTimeline } from './line-decision-timeline';
 import { LineReviewDialog, type LineReviewDecision } from './line-review-dialog';
 import { LineStatusBadge } from './line-status-badge';
+import { StageReviewBadge } from './stage-review-badge';
 
 export type LineDetailReviewConfig = {
   stage: ExternalVetReviewStage;
@@ -53,6 +55,19 @@ export function LineDetailModal({
     line.batchStatus === 'REIMBURSED_BY_SONARWA' ||
     Boolean(line.reimbursementReference?.trim());
   const canReview = Boolean(review);
+  const myStageDecision = review
+    ? latestStageDecision(line.reviewEvents, review.stage)
+    : null;
+  const awaitingMyReview = canReview && myStageDecision == null;
+  const priorStage =
+    review?.stage === 'ADMIN'
+      ? 'SONARWA'
+      : review?.stage === 'FINANCE'
+        ? 'ADMIN'
+        : null;
+  const priorDecision = priorStage
+    ? latestStageDecision(line.reviewEvents, priorStage)
+    : null;
 
   return (
     <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/45 p-0 sm:items-center sm:p-4">
@@ -74,6 +89,13 @@ export function LineDetailModal({
               {line.contract || line.clientName || `Line ${line.sn}`}
             </h2>
             <div className="mt-2 flex flex-wrap items-center gap-2">
+              {awaitingMyReview ? (
+                <StageReviewBadge state="needs_my_review" size="md" />
+              ) : myStageDecision === 'APPROVED' ? (
+                <StageReviewBadge state="confirmed_by_me" size="md" />
+              ) : myStageDecision === 'REJECTED' ? (
+                <StageReviewBadge state="rejected_by_me" size="md" />
+              ) : null}
               <LineStatusBadge status={line.lineStatus} size="md" />
               <ExternalVetStatusBadge status={line.batchStatus} />
               <span className="text-sm text-slate-600">{line.batchNumber}</span>
@@ -90,6 +112,27 @@ export function LineDetailModal({
         </div>
 
         <div className="min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain px-4 py-4 sm:px-5">
+          {awaitingMyReview ? (
+            <section className="rounded-xl border border-amber-200 bg-gradient-to-br from-amber-50 to-white p-3.5">
+              <h3 className="text-sm font-semibold text-amber-950">
+                Awaiting your{' '}
+                {review?.stage === 'ADMIN'
+                  ? 'admin'
+                  : review?.stage === 'FINANCE'
+                    ? 'finance'
+                    : 'SONARWA'}{' '}
+                decision
+              </h3>
+              <p className="mt-1 text-sm leading-relaxed text-amber-900/90">
+                {priorDecision
+                  ? `Prior ${priorStage === 'SONARWA' ? 'SONARWA' : 'admin'} outcome: ${
+                      priorDecision === 'APPROVED' ? 'approved' : 'rejected'
+                    }. Confirm or change it below.`
+                  : 'Record your approve or reject decision for this line.'}
+              </p>
+            </section>
+          ) : null}
+
           {isRejected ? (
             <section className="rounded-xl border border-rose-200 bg-gradient-to-br from-rose-50 to-white p-3.5">
               <h3 className="text-sm font-semibold text-rose-950">

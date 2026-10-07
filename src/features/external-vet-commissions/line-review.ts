@@ -199,6 +199,114 @@ export function latestStageDecision(
   return matching[matching.length - 1]!.decision;
 }
 
+/**
+ * Viewer-stage review state for a single line.
+ * Derived from reviewEvents — independent of denormalized lineStatus so admin
+ * can still see “needs my confirmation” after Sonarwa has already decided.
+ */
+export type LineStageReviewState =
+  | 'needs_my_review'
+  | 'confirmed_by_me'
+  | 'rejected_by_me'
+  | 'not_in_my_queue';
+
+export type StageReviewSummary = {
+  needsMyReview: number;
+  confirmedByMe: number;
+  rejectedByMe: number;
+  total: number;
+};
+
+export type StageReviewFilter = 'needs_my_review' | 'reviewed_by_me' | 'all';
+
+export function getLineStageReviewState(
+  line: Pick<ExternalVetCommissionLine, 'reviewEvents'>,
+  stage: ExternalVetReviewStage,
+  batchStatus: ExternalVetCommissionStatus,
+): LineStageReviewState {
+  if (!canReviewLinesAtBatchStatus(stage, batchStatus)) {
+    return 'not_in_my_queue';
+  }
+  const decision = latestStageDecision(line.reviewEvents, stage);
+  if (decision === 'APPROVED') return 'confirmed_by_me';
+  if (decision === 'REJECTED') return 'rejected_by_me';
+  return 'needs_my_review';
+}
+
+export function summarizeStageReview(
+  lines: Pick<ExternalVetCommissionLine, 'reviewEvents'>[],
+  stage: ExternalVetReviewStage,
+  batchStatus: ExternalVetCommissionStatus,
+): StageReviewSummary {
+  let needsMyReview = 0;
+  let confirmedByMe = 0;
+  let rejectedByMe = 0;
+  for (const line of lines) {
+    const state = getLineStageReviewState(line, stage, batchStatus);
+    if (state === 'needs_my_review') needsMyReview += 1;
+    else if (state === 'confirmed_by_me') confirmedByMe += 1;
+    else if (state === 'rejected_by_me') rejectedByMe += 1;
+  }
+  return {
+    needsMyReview,
+    confirmedByMe,
+    rejectedByMe,
+    total: lines.length,
+  };
+}
+
+const STAGE_REVIEW_SORT_RANK: Record<LineStageReviewState, number> = {
+  needs_my_review: 0,
+  confirmed_by_me: 1,
+  rejected_by_me: 2,
+  not_in_my_queue: 3,
+};
+
+/** Filter + sort lines for the current reviewer’s stage (needs-my-review first). */
+export function filterAndSortLinesForStageReview<
+  T extends Pick<ExternalVetCommissionLine, 'reviewEvents'>,
+>(
+  lines: T[],
+  stage: ExternalVetReviewStage,
+  batchStatus: ExternalVetCommissionStatus,
+  filter: StageReviewFilter,
+): T[] {
+  const withState = lines.map((line) => ({
+    line,
+    state: getLineStageReviewState(line, stage, batchStatus),
+  }));
+
+  const filtered =
+    filter === 'all'
+      ? withState
+      : filter === 'needs_my_review'
+        ? withState.filter((row) => row.state === 'needs_my_review')
+        : withState.filter(
+            (row) =>
+              row.state === 'confirmed_by_me' || row.state === 'rejected_by_me',
+          );
+
+  filtered.sort(
+    (a, b) =>
+      STAGE_REVIEW_SORT_RANK[a.state] - STAGE_REVIEW_SORT_RANK[b.state],
+  );
+
+  return filtered.map((row) => row.line);
+}
+
+export function lineStageReviewLabel(state: LineStageReviewState): string {
+  switch (state) {
+    case 'needs_my_review':
+      return 'Awaiting your review';
+    case 'confirmed_by_me':
+      return 'You approved';
+    case 'rejected_by_me':
+      return 'You rejected';
+    default:
+      return 'Not in your queue';
+  }
+}
+
 export function areAllLinesRejected(
   lines: Pick<ExternalVetCommissionLine, 'lineStatus'>[],
 ): boolean {

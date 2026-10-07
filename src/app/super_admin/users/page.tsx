@@ -12,6 +12,7 @@ import { UserEditModal } from '@/components/ui/super_admin/user-edit-modal';
 import { UserTableActions } from '@/components/ui/admin/user-table-actions';
 import { useAuth } from '@/context/AuthContext';
 import { ArrowUpDown, ArrowUp, ArrowDown, Calendar, Download, FileText } from 'lucide-react';
+import { filterMotorWorkspaceUsers } from '@/features/admin-motor-users/config';
 
 interface User {
   _id: string;
@@ -201,8 +202,14 @@ export default function SuperAdminUsersPage() {
       }
 
       const data = await response.json();
-      const sortedUsers = data.data.sort((a: User, b: User) => {
-        return new Date(b.createdAt || '').getTime() - new Date(a.createdAt || '').getTime();
+      const sortedUsers = filterMotorWorkspaceUsers(
+        (data.data ?? []) as User[],
+        'SUPER_ADMIN',
+      ).sort((a, b) => {
+        return (
+          new Date(b.createdAt || '').getTime() -
+          new Date(a.createdAt || '').getTime()
+        );
       });
       setUsers(sortedUsers);
     } catch (error) {
@@ -550,8 +557,14 @@ export default function SuperAdminUsersPage() {
         }
 
         const data = await fetchResponse.json();
-        const sortedUsers = data.data.sort((a: User, b: User) => {
-          return new Date(b.createdAt || '').getTime() - new Date(a.createdAt || '').getTime();
+        const sortedUsers = filterMotorWorkspaceUsers(
+          (data.data ?? []) as User[],
+          'SUPER_ADMIN',
+        ).sort((a, b) => {
+          return (
+            new Date(b.createdAt || '').getTime() -
+            new Date(a.createdAt || '').getTime()
+          );
         });
         setUsers(sortedUsers);
 
