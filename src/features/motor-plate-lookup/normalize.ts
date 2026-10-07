@@ -18,8 +18,9 @@ const PAID_STATUSES = new Set<string>([
   ApplicationStatus.INSURANCE_ISSUED,
 ]);
 
+/** Trim leading/trailing whitespace only — preserve spaces inside the plate. */
 export function normalizePlateNumber(value: string): string {
-  return value.trim().toUpperCase().replace(/\s+/g, '');
+  return value.trim().toUpperCase();
 }
 
 export function parseAmount(value: unknown): number {

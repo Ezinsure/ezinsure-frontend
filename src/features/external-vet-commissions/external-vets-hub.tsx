@@ -41,10 +41,10 @@ import {
   canApproveBatchForPayment,
   canSendBatchToAdminReview,
   canSubmitDraftBatch,
-  countLinesMissingStageReview,
   isBatchFullyReviewed,
   mergeBatchAfterLineReviews,
   reviewStageForViewRole,
+  summarizeStageReview,
 } from './line-review';
 import { linesFromBatch } from './mappers';
 import { useAuth } from '@/context/AuthContext';
@@ -595,13 +595,17 @@ export default function ExternalVetsHub({ viewRole }: ExternalVetsHubProps) {
       );
       return;
     }
-    const missingAdmin = countLinesMissingStageReview(detail.lines, 'ADMIN');
+    const adminMissing = summarizeStageReview(
+      detail.lines,
+      'ADMIN',
+      detail.status,
+    ).needsMyReview;
     if (
       detail.lines.some((l) => (l.reviewEvents?.length ?? 0) > 0) &&
-      missingAdmin > 0
+      adminMissing > 0
     ) {
       showToast(
-        `Confirm your admin decision on every line (${missingAdmin} still need an admin review)`,
+        `${adminMissing} line${adminMissing === 1 ? '' : 's'} still need your confirmation`,
         'error',
       );
       return;
@@ -712,6 +716,88 @@ export default function ExternalVetsHub({ viewRole }: ExternalVetsHubProps) {
     }
   }
 
+  async function handleBulkReviewLines(input: {
+    lineIds: string[];
+    decision: 'APPROVED' | 'REJECTED';
+    reason?: string;
+  }) {
+    if (!detail || !reviewStage) return;
+    if (!input.lineIds.length) {
+      showToast('Select at least one line', 'error');
+      return;
+    }
+    if (input.decision === 'REJECTED' && !input.reason?.trim()) {
+      showToast('A rejection reason is required', 'error');
+      return;
+    }
+
+    setActionBusy(true);
+    try {
+      const event = buildReviewEvent({
+        decision: input.decision,
+        reason: input.reason,
+        stage: reviewStage,
+        actorId: user?._id,
+        actorName: user?.fullName || 'Reviewer',
+        actorRole: user?.role,
+      });
+      const fromServer = await api.bulkReviewLines({
+        batchId: detail.id,
+        lineIds: input.lineIds,
+        decision: input.decision,
+        reason: input.reason,
+        stage: reviewStage,
+        actorId: user?._id,
+        actorName: user?.fullName || 'Reviewer',
+        actorRole: user?.role,
+        currentBatch: detail,
+      });
+      const merged = mergeBatchAfterLineReviews(
+        detail,
+        fromServer,
+        input.lineIds,
+        event,
+      );
+      setDetail(merged);
+
+      const patches = new Map(
+        linesFromBatch(merged)
+          .filter((line) => input.lineIds.includes(line.id))
+          .map((line) => [line.id, line] as const),
+      );
+      if (patches.size) {
+        setLinesWorkspaceSync({
+          tick: Date.now(),
+          patches,
+        });
+      }
+
+      showToast(
+        input.decision === 'REJECTED'
+          ? `Rejected ${input.lineIds.length} line${input.lineIds.length === 1 ? '' : 's'}`
+          : `Approved ${input.lineIds.length} line${input.lineIds.length === 1 ? '' : 's'}`,
+        'success',
+      );
+      if (
+        areAllLinesRejected(merged.lines) &&
+        merged.status === 'PENDING_ADMIN_REVIEW'
+      ) {
+        showToast(
+          'All lines are rejected — reject the request when ready',
+          'error',
+        );
+      }
+    } catch (err) {
+      showToast(
+        err instanceof Error ? err.message : 'Bulk line review failed',
+        'error',
+      );
+      throw err;
+    } finally {
+      setActionBusy(false);
+    }
+  }
+
   async function handleInitiate(ids: string[]) {
     if (!ids.length) return;
     setActionBusy(true);
@@ -782,6 +868,11 @@ export default function ExternalVetsHub({ viewRole }: ExternalVetsHubProps) {
             }
       : null;
 
+  const adminStageSummary =
+    detail && canReview && detail.status === 'PENDING_ADMIN_REVIEW'
+      ? summarizeStageReview(detail.lines, 'ADMIN', detail.status)
+      : null;
+
   const adminReviewHint =
     detail && canReview && detail.status === 'PENDING_ADMIN_REVIEW'
       ? !isBatchFullyReviewed(detail.lines)
@@ -789,10 +880,12 @@ export default function ExternalVetsHub({ viewRole }: ExternalVetsHubProps) {
             tone: 'amber' as const,
             text: `Decide every line before marking ready to pay (${detail.lines.filter((l) => l.lineStatus === 'PENDING_REVIEW').length} pending).`,
           }
-        : countLinesMissingStageReview(detail.lines, 'ADMIN') > 0
+        : adminStageSummary && adminStageSummary.needsMyReview > 0
           ? {
               tone: 'amber' as const,
-              text: `Record an admin decision on every line (${countLinesMissingStageReview(detail.lines, 'ADMIN')} remaining).`,
+              text: `${adminStageSummary.needsMyReview} line${
+                adminStageSummary.needsMyReview === 1 ? '' : 's'
+              } still need your confirmation before marking ready to pay.`,
             }
           : areAllLinesRejected(detail.lines)
             ? {
@@ -801,7 +894,7 @@ export default function ExternalVetsHub({ viewRole }: ExternalVetsHubProps) {
               }
             : {
                 tone: 'emerald' as const,
-                text: 'All lines have an admin decision — approve to mark ready to pay.',
+                text: 'All lines have your admin confirmation — approve to mark ready to pay.',
               }
       : null;
 
@@ -1261,6 +1354,11 @@ export default function ExternalVetsHub({ viewRole }: ExternalVetsHubProps) {
           reviewBusy={actionBusy}
           onReviewLine={
             canLineReview ? (input) => handleReviewLine(input) : undefined
+          }
+          onBulkReviewLines={
+            canLineReview
+              ? (input) => handleBulkReviewLines(input)
+              : undefined
           }
         />
       ) : null}

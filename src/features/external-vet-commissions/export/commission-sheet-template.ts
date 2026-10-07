@@ -21,14 +21,16 @@ export const CLAIM_FORM_TEMPLATES: Record<ClaimFormLanguage, ClaimFormTemplate> 
   rw: {
     language: 'rw',
     label: 'Kinyarwanda',
-    path: "/templates/Ifishi_yo_Gusaba_Komisiyo_y'ubwishingizibw'amatungo_Final.xlsx",
-    downloadName: "Ifishi_yo_gusaba_Komisiyo_y'ubwishingizi_bw'amatungo.xlsx",
+    // Source of truth: docs/Ifishi yo gusaba Komisiyo y'ubwishingizi bw'amatungo v4.xlsx
+    path: '/templates/Ifishi_yo_gusaba_Komisiyo_y_ubwishingizi_bw_amatungo_v4.xlsx',
+    downloadName: "Ifishi yo gusaba Komisiyo y'ubwishingizi bw'amatungo v4.xlsx",
   },
   en: {
     language: 'en',
     label: 'English',
-    path: '/templates/Commission_Claim_Form_Vet_English_Vestion_Excel_Final_last.xlsx',
-    downloadName: 'Commission_Claim_Form_Vet_English.xlsx',
+    // Source of truth: docs/Commission Claim Form Vet English v4.xlsx
+    path: '/templates/Commission_Claim_Form_Vet_English_v4.xlsx',
+    downloadName: 'Commission Claim Form Vet English v4.xlsx',
   },
 };
 

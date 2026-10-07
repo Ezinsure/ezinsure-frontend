@@ -12,6 +12,7 @@ import { UserTableActions } from '@/components/ui/admin/user-table-actions';
 import { useAuth } from '@/context/AuthContext';
 import { DocumentViewer } from '@/components/ui/document-viewer';
 import { ArrowUpDown, ArrowUp, ArrowDown, Calendar, Download, FileText } from 'lucide-react';
+import { filterMotorWorkspaceUsers } from '@/features/admin-motor-users/config';
 
 interface User {
   _id: string;
@@ -193,9 +194,14 @@ const [formData, setFormData] = useState({
       }
 
       const data = await response.json();
-      // Sort by createdAt in descending order (newest first)
-      const sortedUsers = data.data.sort((a: User, b: User) => {
-        return new Date(b.createdAt || '').getTime() - new Date(a.createdAt || '').getTime();
+      const sortedUsers = filterMotorWorkspaceUsers(
+        (data.data ?? []) as User[],
+        'ADMIN',
+      ).sort((a, b) => {
+        return (
+          new Date(b.createdAt || '').getTime() -
+          new Date(a.createdAt || '').getTime()
+        );
       });
       setUsers(sortedUsers);
     } catch (error) {
@@ -561,9 +567,14 @@ const handleEditUser = async (updatedUser: User) => {
       }
 
       const data = await fetchResponse.json();
-      // Sort by createdAt in descending order (newest first)
-      const sortedUsers = data.data.sort((a: User, b: User) => {
-        return new Date(b.createdAt || '').getTime() - new Date(a.createdAt || '').getTime();
+      const sortedUsers = filterMotorWorkspaceUsers(
+        (data.data ?? []) as User[],
+        'ADMIN',
+      ).sort((a, b) => {
+        return (
+          new Date(b.createdAt || '').getTime() -
+          new Date(a.createdAt || '').getTime()
+        );
       });
       setUsers(sortedUsers);
 

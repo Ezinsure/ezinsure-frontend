@@ -3,10 +3,11 @@
 import {
   CheckCircle2,
   CircleDashed,
+  UserCheck,
   XCircle,
 } from 'lucide-react';
 import { formatRwf } from '../domain';
-import type { PayableLineSummary } from '../line-review';
+import type { PayableLineSummary, StageReviewSummary } from '../line-review';
 
 type Props = {
   summary: PayableLineSummary;
@@ -14,14 +15,21 @@ type Props = {
   showPayableEmphasis?: boolean;
   /** Hide company commission from vet-facing portals. */
   showCompanyCommission?: boolean;
+  /**
+   * When set (admin / finance / sonarwa actively reviewing), show stage chips
+   * so “needs my review” is not confused with denormalized PENDING_REVIEW.
+   */
+  stageSummary?: StageReviewSummary | null;
 };
 
 export function LineReviewSummaryBar({
   summary,
   showPayableEmphasis = true,
   showCompanyCommission = true,
+  stageSummary = null,
 }: Props) {
   const { counts } = summary;
+  const showStageChips = Boolean(stageSummary);
 
   const payableHint = showCompanyCommission
     ? `Vet ${formatRwf(summary.totalVetCommission)} · Co. ${formatRwf(summary.totalCompanyCommission)}`
@@ -39,6 +47,8 @@ export function LineReviewSummaryBar({
     ? formatRwf(summary.excludedPending.totalCommission)
     : formatRwf(summary.excludedPending.totalVetCommission);
 
+  const needsCount = stageSummary?.needsMyReview ?? 0;
+
   return (
     <section className="rounded-xl border border-slate-200 bg-white p-3.5 sm:p-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -47,30 +57,57 @@ export function LineReviewSummaryBar({
             Line decisions
           </h3>
           <p className="mt-0.5 text-xs leading-relaxed text-slate-500">
-            {showPayableEmphasis
-              ? 'Payable and reclaim amounts use approved lines only.'
-              : 'Review status across insured animals in this application.'}
+            {showStageChips
+              ? 'Your review progress for this stage. Payable amounts still use the latest approved outcome.'
+              : showPayableEmphasis
+                ? 'Payable and reclaim amounts use approved lines only.'
+                : 'Review status across insured animals in this application.'}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <CountChip
-            icon={<CircleDashed className="h-3.5 w-3.5" />}
-            label="Pending"
-            count={counts.pending}
-            tone="bg-amber-50 text-amber-900 ring-amber-200/80"
-          />
-          <CountChip
-            icon={<CheckCircle2 className="h-3.5 w-3.5" />}
-            label="Approved"
-            count={counts.approved}
-            tone="bg-emerald-50 text-emerald-900 ring-emerald-200/80"
-          />
-          <CountChip
-            icon={<XCircle className="h-3.5 w-3.5" />}
-            label="Rejected"
-            count={counts.rejected}
-            tone="bg-rose-50 text-rose-900 ring-rose-200/80"
-          />
+          {showStageChips && stageSummary ? (
+            <>
+              <CountChip
+                icon={<UserCheck className="h-3.5 w-3.5" />}
+                label="Needs your review"
+                count={stageSummary.needsMyReview}
+                tone="bg-amber-50 text-amber-900 ring-amber-200/80"
+              />
+              <CountChip
+                icon={<CheckCircle2 className="h-3.5 w-3.5" />}
+                label="You approved"
+                count={stageSummary.confirmedByMe}
+                tone="bg-emerald-50 text-emerald-900 ring-emerald-200/80"
+              />
+              <CountChip
+                icon={<XCircle className="h-3.5 w-3.5" />}
+                label="You rejected"
+                count={stageSummary.rejectedByMe}
+                tone="bg-rose-50 text-rose-900 ring-rose-200/80"
+              />
+            </>
+          ) : (
+            <>
+              <CountChip
+                icon={<CircleDashed className="h-3.5 w-3.5" />}
+                label="Pending"
+                count={counts.pending}
+                tone="bg-amber-50 text-amber-900 ring-amber-200/80"
+              />
+              <CountChip
+                icon={<CheckCircle2 className="h-3.5 w-3.5" />}
+                label="Approved"
+                count={counts.approved}
+                tone="bg-emerald-50 text-emerald-900 ring-emerald-200/80"
+              />
+              <CountChip
+                icon={<XCircle className="h-3.5 w-3.5" />}
+                label="Rejected"
+                count={counts.rejected}
+                tone="bg-rose-50 text-rose-900 ring-rose-200/80"
+              />
+            </>
+          )}
         </div>
       </div>
 
@@ -91,12 +128,20 @@ export function LineReviewSummaryBar({
           }
         />
         <MoneyCard
-          label="Awaiting decision"
-          value={awaitingValue}
+          label={showStageChips ? 'Awaiting your review' : 'Awaiting decision'}
+          value={
+            showStageChips
+              ? String(needsCount)
+              : awaitingValue
+          }
           hint={
-            counts.pending
-              ? `${counts.pending} line${counts.pending === 1 ? '' : 's'}`
-              : 'Fully reviewed'
+            showStageChips
+              ? needsCount
+                ? `${needsCount} line${needsCount === 1 ? '' : 's'} still need your confirmation`
+                : 'All lines confirmed for your stage'
+              : counts.pending
+                ? `${counts.pending} line${counts.pending === 1 ? '' : 's'}`
+                : 'Fully reviewed'
           }
         />
       </div>
