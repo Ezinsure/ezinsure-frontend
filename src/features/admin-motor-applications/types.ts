@@ -88,6 +88,8 @@ export interface Application {
   sector?: string;
   createdAt?: string;
   insuranceEndAt?: string;
+  /** When the policy was actually issued / cover started. */
+  insuranceIssuedAt?: string;
   otp?: string;
   otpExpires?: string;
   isCOMESA?: boolean;

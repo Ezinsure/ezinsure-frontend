@@ -66,6 +66,7 @@ import {
   rwandaDistrictsForProvince,
   rwandaSectorsForDistrict,
 } from '@/features/motor-renewal/map-application-to-admin-form';
+import { todayDateInputValue } from '@/utils/date-formatter';
 
 export interface MotorRenewalConfig {
   applicationId: string;
@@ -516,6 +517,8 @@ export function AdminMotorApplicationPage({ renewal }: AdminMotorApplicationPage
     status: ApplicationStatus.PENDING,
 
     insuranceEndAt: '',
+
+    insuranceIssuedAt: todayDateInputValue(),
 
     // Agent Assignment
     wantsToAssignAgent: '',
@@ -1350,6 +1353,7 @@ export function AdminMotorApplicationPage({ renewal }: AdminMotorApplicationPage
             ebm: null,
             status: ApplicationStatus.PENDING,
             insuranceEndAt: '',
+            insuranceIssuedAt: todayDateInputValue(),
             wantsToAssignAgent: '',
             assignToAgent: '',
             deductAgentAssignmentCommission: 'yes',
@@ -2575,6 +2579,22 @@ export function AdminMotorApplicationPage({ renewal }: AdminMotorApplicationPage
                         />
                       </div>
                     </>
+                  )}
+
+                  {!isRenewal && (
+                    <div className="md:col-span-2">
+                      <Input
+                        label="Insurance issued at"
+                        name="insuranceIssuedAt"
+                        type="date"
+                        value={formData.insuranceIssuedAt}
+                        onChange={handleInputChange}
+                        required
+                      />
+                      <p className="mt-1 text-xs text-gray-500">
+                        Defaults to today. Change this if cover started on a different date.
+                      </p>
+                    </div>
                   )}
 
                 </div>

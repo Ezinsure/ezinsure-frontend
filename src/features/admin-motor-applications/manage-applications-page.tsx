@@ -10,7 +10,11 @@ import { useToast } from '@/components/ui/toast';
 import { DocumentViewer } from '@/components/ui/document-viewer';
 import { PencilLine, Eye } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
-import { formatDateUTC } from '@/utils/date-formatter';
+import {
+  formatDateUTC,
+  toDateInputValue,
+  todayDateInputValue,
+} from '@/utils/date-formatter';
 import {
   calculateAdministrationFeesRwf,
   calculateCommissionFromPercentage,
@@ -241,6 +245,7 @@ export default function ManageApplicationsPage() {
     submittedAtField: hasExistingValue(formData.submittedAt),
     statusField: hasExistingValue(formData.status),
     insuranceEndDateField: hasExistingValue(app.insuranceEndAt),
+    insuranceIssuedAtField: true,
     invoiceUpload: hasExistingValue(app.invoice),
     insuranceCertificateUpload: hasExistingValue(app.insuranceCertificate),
     contractUpload: hasExistingValue(app.contract),
@@ -1034,6 +1039,8 @@ const getActionButtons = (app: Application) => {
             insuranceEndAt: app.insuranceEndAt
               ? new Date(app.insuranceEndAt).toISOString().split('T')[0]
               : '',
+            insuranceIssuedAt:
+              toDateInputValue(app.insuranceIssuedAt) || todayDateInputValue(),
             wantsToAssignAgent: app.agent?._id ? 'yes' : 'no',
             assignToAgent: app.agent?._id || '',
             deductAgentAssignmentCommission:
@@ -1283,6 +1290,9 @@ const getActionButtons = (app: Application) => {
   const statusValue = editFormData ? getFormValue(editFormData.status) : '';
   const submittedAtValue = editFormData ? getFormValue(editFormData.submittedAt) : '';
   const insuranceEndDateValue = editFormData ? getFormValue(editFormData.insuranceEndAt) : '';
+  const insuranceIssuedAtValue = editFormData
+    ? getFormValue(editFormData.insuranceIssuedAt)
+    : '';
 
   const isVehicleInsurance =
     editFormData?.insuranceCategory === 'Car Insurance' ||
@@ -1382,7 +1392,13 @@ const getActionButtons = (app: Application) => {
   const showSubmittedAtField = isPersistentlyVisible('submittedAtField') || hasExistingValue(submittedAtValue);
   const showInsuranceEndDateField =
     isPersistentlyVisible('insuranceEndDateField') || hasExistingValue(insuranceEndDateValue);
-  const showStatusSection = showStatusField || showSubmittedAtField || showInsuranceEndDateField;
+  const showInsuranceIssuedAtField =
+    isPersistentlyVisible('insuranceIssuedAtField') || hasExistingValue(insuranceIssuedAtValue);
+  const showStatusSection =
+    showStatusField ||
+    showSubmittedAtField ||
+    showInsuranceEndDateField ||
+    showInsuranceIssuedAtField;
 
   // Always show all insurance document upload fields while editing,
   // so admin can upload missing documents later (even if none exist yet)
@@ -3714,6 +3730,18 @@ const getActionButtons = (app: Application) => {
                           type="date"
                           name="insuranceEndAt"
                           value={insuranceEndDateValue}
+                          onChange={handleEditInputChange}
+                          className="w-full py-1.5 px-2 text-xs rounded-lg focus:outline-none border border-gray-300 focus:border-[var(--main-blue)]"
+                        />
+                      </div>
+                    )}
+                    {showInsuranceIssuedAtField && (
+                      <div>
+                        <label className="block text-xs font-medium mb-1">Insurance issued at</label>
+                        <input
+                          type="date"
+                          name="insuranceIssuedAt"
+                          value={insuranceIssuedAtValue}
                           onChange={handleEditInputChange}
                           className="w-full py-1.5 px-2 text-xs rounded-lg focus:outline-none border border-gray-300 focus:border-[var(--main-blue)]"
                         />

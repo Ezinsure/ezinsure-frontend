@@ -307,26 +307,45 @@ export function MotorApplicationEditModal({
             </fieldset>
           )}
 
-          {showStatusField && (
+          {(showStatusField || isPersistentlyVisible('insuranceIssuedAtField')) && (
             <fieldset className="mb-4 rounded-lg border-2 border-gray-300 bg-gray-50 p-3">
               <legend className="rounded-md border border-gray-300 bg-white px-2 text-xs font-semibold text-gray-600">
                 Status
               </legend>
-              <select
-                name="status"
-                value={getMotorEditFormValue(values.status)}
-                onChange={handleInputChange}
-                className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-xs focus:border-[var(--main-blue)] focus:outline-none"
-              >
-                <option value={ApplicationStatus.PENDING}>Pending</option>
-                <option value={ApplicationStatus.APPLICATION_APPROVED}>Application Approved</option>
-                <option value={ApplicationStatus.WAITING_FOR_USER_ACTION}>Waiting for User Action</option>
-                <option value={ApplicationStatus.INVOICE_SENT}>Invoice Sent</option>
-                <option value={ApplicationStatus.REVIEW_PAYMENT}>Review Payment</option>
-                <option value={ApplicationStatus.PAYMENT_VERIFIED}>Payment Verified</option>
-                <option value={ApplicationStatus.INSURANCE_ISSUED}>Insurance Issued</option>
-                <option value={ApplicationStatus.CANCELLED}>Cancelled</option>
-              </select>
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                {showStatusField && (
+                  <div className={isPersistentlyVisible('insuranceIssuedAtField') ? '' : 'md:col-span-2'}>
+                    <label className="mb-1 block text-xs font-medium">Status</label>
+                    <select
+                      name="status"
+                      value={getMotorEditFormValue(values.status)}
+                      onChange={handleInputChange}
+                      className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-xs focus:border-[var(--main-blue)] focus:outline-none"
+                    >
+                      <option value={ApplicationStatus.PENDING}>Pending</option>
+                      <option value={ApplicationStatus.APPLICATION_APPROVED}>Application Approved</option>
+                      <option value={ApplicationStatus.WAITING_FOR_USER_ACTION}>Waiting for User Action</option>
+                      <option value={ApplicationStatus.INVOICE_SENT}>Invoice Sent</option>
+                      <option value={ApplicationStatus.REVIEW_PAYMENT}>Review Payment</option>
+                      <option value={ApplicationStatus.PAYMENT_VERIFIED}>Payment Verified</option>
+                      <option value={ApplicationStatus.INSURANCE_ISSUED}>Insurance Issued</option>
+                      <option value={ApplicationStatus.CANCELLED}>Cancelled</option>
+                    </select>
+                  </div>
+                )}
+                {isPersistentlyVisible('insuranceIssuedAtField') && (
+                  <div className={showStatusField ? '' : 'md:col-span-2'}>
+                    <label className="mb-1 block text-xs font-medium">Insurance issued at</label>
+                    <input
+                      type="date"
+                      name="insuranceIssuedAt"
+                      value={getMotorEditFormValue(values.insuranceIssuedAt)}
+                      onChange={handleInputChange}
+                      className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-xs focus:border-[var(--main-blue)] focus:outline-none"
+                    />
+                  </div>
+                )}
+              </div>
             </fieldset>
           )}
 

@@ -96,6 +96,8 @@ export interface ApplicationFormData {
   ebm: File | null;
   status: ApplicationStatus;
   insuranceEndAt: string;
+  /** Actual insurance start / issue date (`YYYY-MM-DD`). */
+  insuranceIssuedAt: string;
   wantsToAssignAgent: 'yes' | 'no' | '';
   assignToAgent: string;
   deductAgentAssignmentCommission: 'yes' | 'no';

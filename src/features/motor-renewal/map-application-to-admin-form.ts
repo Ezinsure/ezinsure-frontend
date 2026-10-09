@@ -114,6 +114,7 @@ export function mapMotorApplicationToAdminForm(app: Application): ApplicationFor
     ebm: null,
     status: ApplicationStatus.PENDING,
     insuranceEndAt: policyEndDate,
+    insuranceIssuedAt: '',
     wantsToAssignAgent: '',
     assignToAgent: '',
     deductAgentAssignmentCommission: 'yes',
