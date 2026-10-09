@@ -135,3 +135,33 @@ export const formatDateTime = (dateString: string | undefined | null): string =>
   return `${date} ${time}`;
 };
 
+/**
+ * Formats a Date (or ISO string) for `<input type="date">` in local time.
+ * Returns `YYYY-MM-DD`.
+ */
+export const toDateInputValue = (
+  value?: string | Date | null,
+  fallbackToToday = false,
+): string => {
+  if (!value) {
+    return fallbackToToday ? toDateInputValue(new Date()) : '';
+  }
+
+  // Already a date-only string
+  if (typeof value === 'string') {
+    const dateOnly = value.trim().slice(0, 10);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateOnly)) return dateOnly;
+  }
+
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return fallbackToToday ? toDateInputValue(new Date()) : '';
+  }
+
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+};
+
+/** Today's local date for `<input type="date">`. */
+export const todayDateInputValue = (): string => toDateInputValue(new Date());
+

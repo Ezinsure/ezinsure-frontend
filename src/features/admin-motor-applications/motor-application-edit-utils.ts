@@ -1,5 +1,6 @@
 import type { Application } from '@/features/admin-motor-applications/types';
 import { resolveChasisNumber } from '@/utils/chasis-number';
+import { toDateInputValue, todayDateInputValue } from '@/utils/date-formatter';
 import { normalizeInsuranceDurationPayload } from '@/utils/insurance-duration';
 import { isMotorVehicleInsuranceCategory } from '@/utils/administration-fees';
 import { getVehicleManufactureYearValidationError } from '@/utils/vehicle-year';
@@ -30,6 +31,8 @@ export function buildMotorEditFormData(app: Application): MotorEditFormData {
     agentCommission: app.agentCommission?.toString() || '',
     status: (app.status || '').toLowerCase(),
     insuranceEndAt: app.insuranceEndAt || '',
+    insuranceIssuedAt:
+      toDateInputValue(app.insuranceIssuedAt) || todayDateInputValue(),
     invoice: null,
     insuranceCertificate: null,
     contract: null,
@@ -85,6 +88,7 @@ export function buildMotorEditInitialVisibility(
     paymentInstructionsField: hasExistingMotorEditValue(formData.paymentInstructions),
     statusField: hasExistingMotorEditValue(formData.status),
     insuranceEndDateField: hasExistingMotorEditValue(app.insuranceEndAt),
+    insuranceIssuedAtField: true,
     invoiceUpload: hasExistingMotorEditValue(app.invoice),
     insuranceCertificateUpload: hasExistingMotorEditValue(app.insuranceCertificate),
     contractUpload: hasExistingMotorEditValue(app.contract),
