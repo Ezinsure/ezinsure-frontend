@@ -210,52 +210,53 @@ export default function ManageApplicationsPage() {
     return true;
   };
 
+  /** Admin edit always exposes every updatable field (empty values stay editable). */
   const buildInitialVisibility = (
-    app: Application,
-    formData: Record<string, string | number | boolean | File | null>
+    _app: Application,
+    _formData: Record<string, string | number | boolean | File | null>,
   ) => ({
-    clientFullName: hasExistingValue(app.client?.fullName || app.fullName || ''),
-    clientEmail: hasExistingValue(app.client?.email || app.email || ''),
-    clientPhone: hasExistingValue(app.client?.phoneNumber || app.phoneNumber || ''),
-    clientDob: hasExistingValue(app.client?.dateOfBirth || ''),
-    clientAddress: hasExistingValue(app.client?.address || app.address || ''),
-    clientProvince: hasExistingValue(app.client?.province || app.province || ''),
-    clientDistrict: hasExistingValue(app.client?.district || app.district || ''),
-    clientSector: hasExistingValue(app.client?.sector || app.sector || ''),
-    clientIdentification: hasExistingValue(app.client?.identificationNumber || app.client?.nationalID || app.nationalID || ''),
-    insuranceCategory: hasExistingValue(formData.insuranceCategory),
-    plateNumber: hasExistingValue(formData.plateNumber),
-    chasisNumber: hasExistingValue(formData.chasisNumber),
-    vehicleType: hasExistingValue(formData.vehicleType),
-    vehicleAge: hasExistingValue(formData.vehicleAge),
-    vehicleUse: hasExistingValue(formData.vehicleUse),
-    otherVehicleUse: hasExistingValue(formData.otherVehicleUse),
-    comesa: hasExistingValue(formData.isCOMESA),
-    insuranceProvider: hasExistingValue(formData.insuranceProvider),
-    insuranceType: hasExistingValue(formData.insuranceType),
-    insuranceDuration: hasExistingValue(formData.insuranceDuration),
-    amountField: hasExistingValue(formData.amount),
-    netPremiumField: hasExistingValue(formData.netPremium),
-    agentCommissionField: hasExistingValue(formData.agentCommission),
-    companyCommissionField: hasExistingValue(formData.companyCommission),
-    administrationFeesField: hasExistingValue(formData.administrationFees),
-    transactionIdField: hasExistingValue(formData.transactionId),
-    policeNumberField: hasExistingValue(formData.policeNumber),
-    paymentInstructionsField: hasExistingValue(formData.paymentInstructions),
-    submittedAtField: hasExistingValue(formData.submittedAt),
-    statusField: hasExistingValue(formData.status),
-    insuranceEndDateField: hasExistingValue(app.insuranceEndAt),
+    clientFullName: true,
+    clientEmail: true,
+    clientPhone: true,
+    clientDob: true,
+    clientAddress: true,
+    clientProvince: true,
+    clientDistrict: true,
+    clientSector: true,
+    clientIdentification: true,
+    insuranceCategory: true,
+    plateNumber: true,
+    chasisNumber: true,
+    vehicleType: true,
+    vehicleAge: true,
+    vehicleUse: true,
+    otherVehicleUse: true,
+    comesa: true,
+    insuranceProvider: true,
+    insuranceType: true,
+    insuranceDuration: true,
+    amountField: true,
+    netPremiumField: true,
+    agentCommissionField: true,
+    companyCommissionField: true,
+    administrationFeesField: true,
+    transactionIdField: true,
+    policeNumberField: true,
+    paymentInstructionsField: true,
+    submittedAtField: true,
+    statusField: true,
+    insuranceEndDateField: true,
     insuranceIssuedAtField: true,
-    invoiceUpload: hasExistingValue(app.invoice),
-    insuranceCertificateUpload: hasExistingValue(app.insuranceCertificate),
-    contractUpload: hasExistingValue(app.contract),
-    receiptUpload: hasExistingValue(app.receipt),
-    ebmUpload: hasExistingValue(app.ebm),
-    proofOfPaymentInfo: hasExistingValue(app.proofOfPayment),
-    transactionIdInfo: hasExistingValue(app.transactionId),
-    policeNumberInfo: hasExistingValue(app.policeNumber),
-    yellowCardInfo: hasExistingValue(app.yellowCard),
-    pastInsuranceCertificateInfo: hasExistingValue(app.pastInsuranceCertificate),
+    invoiceUpload: true,
+    insuranceCertificateUpload: true,
+    contractUpload: true,
+    receiptUpload: true,
+    ebmUpload: true,
+    proofOfPaymentInfo: true,
+    transactionIdInfo: true,
+    policeNumberInfo: true,
+    yellowCardInfo: true,
+    pastInsuranceCertificateInfo: true,
   });
 
   const handleEditInputChange = (
@@ -407,9 +408,13 @@ export default function ManageApplicationsPage() {
         }
       });
 
-      const agentCommissionChanged = Object.prototype.hasOwnProperty.call(changedFields, 'agentCommission');
+      const toFiniteCommission = (raw: unknown): string => {
+        const n = Number(String(raw ?? '').trim());
+        return Number.isFinite(n) ? n.toString() : '0';
+      };
 
-      // Append assignment keys in the exact same shape as `/admin/motor/new-application`.
+      // Append assignment keys. Commissions are always treated as final fixed amounts —
+      // backend must not recalculate them on (re)assignment.
       if (assignmentFieldsChanged) {
         if (wantsToAssignAgent === 'yes') {
           formDataToSend.set('assignToAgent', assignToAgent);
@@ -421,54 +426,42 @@ export default function ManageApplicationsPage() {
             deduct ? 'true' : 'false',
           );
 
-          // Professional fix for backend cast error:
-          // `/editApplicationAdmin` currently expects `agentCommission` to be a valid number.
-          // When the admin hasn't edited the field, our diff logic might omit it entirely.
-          // Sending `0` keeps the backend happy while it calculates the commission.
-          const existingAgentCommission = formDataToSend.get('agentCommission');
-          if (existingAgentCommission == null) {
-            const rawAgentCommission = editFormData.agentCommission;
-            const raw = String(rawAgentCommission ?? '').trim();
-            const n = Number(raw);
-            const safe = Number.isFinite(n) ? n.toString() : '0';
-            formDataToSend.set('agentCommission', safe);
-          }
-
-          // Critical: some backend implementations recompute commission during assignment using request body fields.
-          // Our edit modal normally sends a diff-only payload, so these may be missing and cause NaN math server-side.
-          // Ensure they are present (sanitized) during agent assignment.
-          const ensureFiniteNumberField = (key: 'amount' | 'companyCommission' | 'administrationFees') => {
-            if (formDataToSend.get(key) != null) return;
-            const raw = String(editFormData[key] ?? '').trim();
-            const n = Number(raw);
-            // Keep empty -> "0" rather than omitting, to avoid NaN math on the server.
-            formDataToSend.set(key, Number.isFinite(n) ? n.toString() : '0');
-          };
-          ensureFiniteNumberField('amount');
-          ensureFiniteNumberField('companyCommission');
-          ensureFiniteNumberField('administrationFees');
+          formDataToSend.set(
+            'companyCommission',
+            toFiniteCommission(editFormData.companyCommission),
+          );
+          formDataToSend.set(
+            'agentCommission',
+            toFiniteCommission(editFormData.agentCommission),
+          );
+          formDataToSend.set('skipCommissionRecalculation', 'true');
         } else {
           // If admin switched to "No" and cleared the agent, send the cleared `assignToAgent`.
           // Don't send `deductAgentAssignmentCommission` (same as create flow).
           if (Object.prototype.hasOwnProperty.call(changedFields, 'assignToAgent')) {
             formDataToSend.set('assignToAgent', assignToAgent);
           }
+          // Keep existing commission numbers as-is when clearing assignment.
+          if (formDataToSend.get('companyCommission') == null) {
+            formDataToSend.set(
+              'companyCommission',
+              toFiniteCommission(editFormData.companyCommission),
+            );
+          }
+          if (formDataToSend.get('agentCommission') == null) {
+            formDataToSend.set(
+              'agentCommission',
+              toFiniteCommission(editFormData.agentCommission),
+            );
+          }
+          formDataToSend.set('skipCommissionRecalculation', 'true');
         }
       }
 
-      // If admin manually overrides agent commission, include the base numeric fields too.
-      // This prevents backend recalculation paths (if any) from producing NaN or overwriting values.
-      if (agentCommissionChanged) {
-        const ensureFiniteNumberField = (key: 'amount' | 'companyCommission' | 'administrationFees') => {
-          if (formDataToSend.get(key) != null) return;
-          const raw = String(editFormData[key] ?? '').trim();
-          const n = Number(raw);
-          formDataToSend.set(key, Number.isFinite(n) ? n.toString() : '0');
-        };
-        ensureFiniteNumberField('amount');
-        ensureFiniteNumberField('companyCommission');
-        ensureFiniteNumberField('administrationFees');
-      }
+      // Every admin edit persists values as-is — never recalculate commissions,
+      // admin fees, splits, or derived amounts on the server.
+      formDataToSend.set('skipCommissionRecalculation', 'true');
+      formDataToSend.set('persistAdminValues', 'true');
 
       // Optional: verify what we are sending.
       // Enable via `NEXT_PUBLIC_DEBUG_PAYLOAD=true`.
@@ -1013,6 +1006,22 @@ const getActionButtons = (app: Application) => {
         onClick={() => {
           const formData = {
             fullName: app.client?.fullName || app.fullName || '',
+            email: app.client?.email || app.email || '',
+            phoneNumber: app.client?.phoneNumber || app.phoneNumber || '',
+            dateOfBirth: app.client?.dateOfBirth
+              ? new Date(app.client.dateOfBirth).toISOString().split('T')[0]
+              : app.dateOfBirth
+                ? new Date(app.dateOfBirth).toISOString().split('T')[0]
+                : '',
+            address: app.client?.address || app.address || '',
+            province: app.client?.province || app.province || '',
+            district: app.client?.district || app.district || '',
+            sector: app.client?.sector || app.sector || '',
+            identificationNumber:
+              app.client?.identificationNumber ||
+              app.client?.nationalID ||
+              app.nationalID ||
+              '',
             insuranceCategory: app.insuranceCategory || '',
             insuranceType: app.insuranceType || '',
             insuranceDuration: app.insuranceDuration || '',
@@ -1253,20 +1262,16 @@ const getActionButtons = (app: Application) => {
   };
 
   const clientFullNameValue = editFormData ? getFormValue(editFormData.fullName) : '';
-  const clientEmailValue = editingApp?.client?.email || editingApp?.email || '';
-  const clientPhoneValue = editingApp?.client?.phoneNumber || editingApp?.phoneNumber || '';
-  const clientDobValue = editingApp?.client?.dateOfBirth
-    ? new Date(editingApp.client.dateOfBirth).toISOString().split('T')[0]
+  const clientEmailValue = editFormData ? getFormValue(editFormData.email) : '';
+  const clientPhoneValue = editFormData ? getFormValue(editFormData.phoneNumber) : '';
+  const clientDobValue = editFormData ? getFormValue(editFormData.dateOfBirth) : '';
+  const clientAddressValue = editFormData ? getFormValue(editFormData.address) : '';
+  const clientProvinceValue = editFormData ? getFormValue(editFormData.province) : '';
+  const clientDistrictValue = editFormData ? getFormValue(editFormData.district) : '';
+  const clientSectorValue = editFormData ? getFormValue(editFormData.sector) : '';
+  const clientIdentificationValue = editFormData
+    ? getFormValue(editFormData.identificationNumber)
     : '';
-  const clientAddressValue = editingApp?.client?.address || editingApp?.address || '';
-  const clientProvinceValue = editingApp?.client?.province || editingApp?.province || '';
-  const clientDistrictValue = editingApp?.client?.district || editingApp?.district || '';
-  const clientSectorValue = editingApp?.client?.sector || editingApp?.sector || '';
-  const clientIdentificationValue =
-    editingApp?.client?.identificationNumber ||
-    editingApp?.client?.nationalID ||
-    editingApp?.nationalID ||
-    '';
 
   const insuranceCategoryValue = editFormData ? getFormValue(editFormData.insuranceCategory) : '';
   const plateNumberValue = editFormData ? getFormValue(editFormData.plateNumber) : '';
@@ -1294,81 +1299,40 @@ const getActionButtons = (app: Application) => {
     ? getFormValue(editFormData.insuranceIssuedAt)
     : '';
 
-  const isVehicleInsurance =
-    editFormData?.insuranceCategory === 'Car Insurance' ||
-    editFormData?.insuranceCategory === 'MotorBike Insurance';
-
   const isPersistentlyVisible = (field: string) => visibleEditFields[field] ?? false;
 
-  const showClientFullName = isPersistentlyVisible('clientFullName') || hasExistingValue(clientFullNameValue);
-  const showClientEmail = isPersistentlyVisible('clientEmail') || hasExistingValue(clientEmailValue);
-  const showClientPhone = isPersistentlyVisible('clientPhone') || hasExistingValue(clientPhoneValue);
-  const showClientDob = isPersistentlyVisible('clientDob') || hasExistingValue(clientDobValue);
-  const showClientAddress = isPersistentlyVisible('clientAddress') || hasExistingValue(clientAddressValue);
-  const showClientProvince = isPersistentlyVisible('clientProvince') || hasExistingValue(clientProvinceValue);
-  const showClientDistrict = isPersistentlyVisible('clientDistrict') || hasExistingValue(clientDistrictValue);
-  const showClientSector = isPersistentlyVisible('clientSector') || hasExistingValue(clientSectorValue);
-  const showClientIdentification =
-    isPersistentlyVisible('clientIdentification') || hasExistingValue(clientIdentificationValue);
+  const showClientFullName = true;
+  const showClientEmail = true;
+  const showClientPhone = true;
+  const showClientDob = true;
+  const showClientAddress = true;
+  const showClientProvince = true;
+  const showClientDistrict = true;
+  const showClientSector = true;
+  const showClientIdentification = true;
+  const showClientInfoSection = true;
 
-  const showClientInfoSection =
-    showClientFullName ||
-    showClientEmail ||
-    showClientPhone ||
-    showClientDob ||
-    showClientAddress ||
-    showClientProvince ||
-    showClientDistrict ||
-    showClientSector ||
-    showClientIdentification;
+  const showInsuranceCategory = true;
+  const showPlateNumber = true;
+  const showChasisNumber = true;
+  const showVehicleType = true;
+  const showVehicleAge = true;
+  const showVehicleUse = true;
+  const showOtherVehicleUse = true;
+  const showComesaField = true;
+  const showInsuranceProvider = true;
+  const showInsuranceType = true;
+  const showInsuranceDuration = true;
+  const showInsuranceDetailsSection = true;
 
-  const showInsuranceCategory = isPersistentlyVisible('insuranceCategory') || hasExistingValue(insuranceCategoryValue);
-  const showPlateNumber =
-    isPersistentlyVisible('plateNumber') || (isVehicleInsurance && hasExistingValue(plateNumberValue));
-  const showChasisNumber = isPersistentlyVisible('chasisNumber') || isVehicleInsurance;
-  const showVehicleType =
-    isPersistentlyVisible('vehicleType') || (isVehicleInsurance && hasExistingValue(vehicleTypeValue));
-  const showVehicleAge =
-    isPersistentlyVisible('vehicleAge') || (isVehicleInsurance && hasExistingValue(vehicleAgeValue));
-  const showVehicleUse =
-    isPersistentlyVisible('vehicleUse') || (isVehicleInsurance && hasExistingValue(vehicleUseValue));
-  const showOtherVehicleUse =
-    isPersistentlyVisible('otherVehicleUse') || (isVehicleInsurance && hasExistingValue(otherVehicleUseValue));
-  const showComesaField = isPersistentlyVisible('comesa') || isVehicleInsurance;
-  const showInsuranceProvider =
-    isPersistentlyVisible('insuranceProvider') || hasExistingValue(insuranceProviderValue);
-  const showInsuranceType = isPersistentlyVisible('insuranceType') || hasExistingValue(insuranceTypeValue);
-  const showInsuranceDuration =
-    isPersistentlyVisible('insuranceDuration') || hasExistingValue(insuranceDurationValue);
-
-  const showInsuranceDetailsSection =
-    showInsuranceCategory ||
-    showPlateNumber ||
-    showChasisNumber ||
-    showVehicleType ||
-    showVehicleAge ||
-    showVehicleUse ||
-    showOtherVehicleUse ||
-    showComesaField ||
-    showInsuranceProvider ||
-    showInsuranceType ||
-    showInsuranceDuration;
-
-  const showAmountField = isPersistentlyVisible('amountField') || hasExistingValue(amountValue);
-  const showNetPremiumField =
-    isPersistentlyVisible('netPremiumField') || hasExistingValue(netPremiumValue);
-  const showAgentCommissionField =
-    isPersistentlyVisible('agentCommissionField') || hasExistingValue(agentCommissionValue);
-  const showCompanyCommissionField =
-    isPersistentlyVisible('companyCommissionField') || hasExistingValue(companyCommissionValue);
-  const showAdministrationFeesField =
-    isPersistentlyVisible('administrationFeesField') || hasExistingValue(administrationFeesValue);
-  const showTransactionIdField =
-    isPersistentlyVisible('transactionIdField') || hasExistingValue(transactionIdValue);
-  const showPoliceNumberField =
-    isPersistentlyVisible('policeNumberField') || hasExistingValue(policeNumberValue);
-  const showPaymentInstructionsField =
-    isPersistentlyVisible('paymentInstructionsField') || hasExistingValue(paymentInstructionsValue);
+  const showAmountField = true;
+  const showNetPremiumField = true;
+  const showAgentCommissionField = true;
+  const showCompanyCommissionField = true;
+  const showAdministrationFeesField = true;
+  const showTransactionIdField = true;
+  const showPoliceNumberField = true;
+  const showPaymentInstructionsField = true;
   
   const assignToAgentValue = editFormData ? getFormValue(editFormData.assignToAgent) : '';
   const wantsToAssignAgentValue = editFormData ? getFormValue(editFormData.wantsToAssignAgent) : '';
@@ -1388,12 +1352,10 @@ const getActionButtons = (app: Application) => {
     showPoliceNumberField ||
     showPaymentInstructionsField;
 
-  const showStatusField = isPersistentlyVisible('statusField') || hasExistingValue(statusValue);
-  const showSubmittedAtField = isPersistentlyVisible('submittedAtField') || hasExistingValue(submittedAtValue);
-  const showInsuranceEndDateField =
-    isPersistentlyVisible('insuranceEndDateField') || hasExistingValue(insuranceEndDateValue);
-  const showInsuranceIssuedAtField =
-    isPersistentlyVisible('insuranceIssuedAtField') || hasExistingValue(insuranceIssuedAtValue);
+  const showStatusField = true;
+  const showSubmittedAtField = true;
+  const showInsuranceEndDateField = true;
+  const showInsuranceIssuedAtField = true;
   const showStatusSection =
     showStatusField ||
     showSubmittedAtField ||
@@ -3170,9 +3132,9 @@ const getActionButtons = (app: Application) => {
 
             <form onSubmit={handleEditSubmit} className="p-4">
               {showClientInfoSection && (
-                <fieldset className="mb-4 border-2 border-gray-300 rounded-lg p-3 bg-gray-50">
-                  <legend className="text-xs font-semibold text-gray-600 px-2 bg-white border border-gray-300 rounded-md">
-                    Client Information (Read Only)
+                <fieldset className="mb-4 border-2 border-[var(--main-blue)] rounded-lg p-3 bg-gray-50">
+                  <legend className="text-xs font-semibold text-[var(--main-blue)] px-2 bg-white border border-[var(--main-blue)] rounded-md">
+                    Client Information
                   </legend>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     {showClientFullName && (
@@ -3192,9 +3154,10 @@ const getActionButtons = (app: Application) => {
                         <label className="block text-xs font-medium mb-1">Email</label>
                         <input
                           type="email"
+                          name="email"
                           value={clientEmailValue}
-                          disabled
-                          className="w-full py-1.5 px-2 text-xs rounded-lg bg-gray-100 border border-gray-300 text-gray-600"
+                          onChange={handleEditInputChange}
+                          className="w-full py-1.5 px-2 text-xs rounded-lg focus:outline-none border border-gray-300 focus:border-[var(--main-blue)]"
                         />
                       </div>
                     )}
@@ -3203,9 +3166,10 @@ const getActionButtons = (app: Application) => {
                         <label className="block text-xs font-medium mb-1">Phone Number</label>
                         <input
                           type="text"
+                          name="phoneNumber"
                           value={clientPhoneValue}
-                          disabled
-                          className="w-full py-1.5 px-2 text-xs rounded-lg bg-gray-100 border border-gray-300 text-gray-600"
+                          onChange={handleEditInputChange}
+                          className="w-full py-1.5 px-2 text-xs rounded-lg focus:outline-none border border-gray-300 focus:border-[var(--main-blue)]"
                         />
                       </div>
                     )}
@@ -3213,10 +3177,11 @@ const getActionButtons = (app: Application) => {
                       <div>
                         <label className="block text-xs font-medium mb-1">Date of Birth</label>
                         <input
-                          type="text"
+                          type="date"
+                          name="dateOfBirth"
                           value={clientDobValue}
-                          disabled
-                          className="w-full py-1.5 px-2 text-xs rounded-lg bg-gray-100 border border-gray-300 text-gray-600"
+                          onChange={handleEditInputChange}
+                          className="w-full py-1.5 px-2 text-xs rounded-lg focus:outline-none border border-gray-300 focus:border-[var(--main-blue)]"
                         />
                       </div>
                     )}
@@ -3225,9 +3190,10 @@ const getActionButtons = (app: Application) => {
                         <label className="block text-xs font-medium mb-1">Address</label>
                         <input
                           type="text"
+                          name="address"
                           value={clientAddressValue}
-                          disabled
-                          className="w-full py-1.5 px-2 text-xs rounded-lg bg-gray-100 border border-gray-300 text-gray-600"
+                          onChange={handleEditInputChange}
+                          className="w-full py-1.5 px-2 text-xs rounded-lg focus:outline-none border border-gray-300 focus:border-[var(--main-blue)]"
                         />
                       </div>
                     )}
@@ -3236,9 +3202,10 @@ const getActionButtons = (app: Application) => {
                         <label className="block text-xs font-medium mb-1">Province</label>
                         <input
                           type="text"
+                          name="province"
                           value={clientProvinceValue}
-                          disabled
-                          className="w-full py-1.5 px-2 text-xs rounded-lg bg-gray-100 border border-gray-300 text-gray-600"
+                          onChange={handleEditInputChange}
+                          className="w-full py-1.5 px-2 text-xs rounded-lg focus:outline-none border border-gray-300 focus:border-[var(--main-blue)]"
                         />
                       </div>
                     )}
@@ -3247,9 +3214,10 @@ const getActionButtons = (app: Application) => {
                         <label className="block text-xs font-medium mb-1">District</label>
                         <input
                           type="text"
+                          name="district"
                           value={clientDistrictValue}
-                          disabled
-                          className="w-full py-1.5 px-2 text-xs rounded-lg bg-gray-100 border border-gray-300 text-gray-600"
+                          onChange={handleEditInputChange}
+                          className="w-full py-1.5 px-2 text-xs rounded-lg focus:outline-none border border-gray-300 focus:border-[var(--main-blue)]"
                         />
                       </div>
                     )}
@@ -3258,9 +3226,10 @@ const getActionButtons = (app: Application) => {
                         <label className="block text-xs font-medium mb-1">Sector</label>
                         <input
                           type="text"
+                          name="sector"
                           value={clientSectorValue}
-                          disabled
-                          className="w-full py-1.5 px-2 text-xs rounded-lg bg-gray-100 border border-gray-300 text-gray-600"
+                          onChange={handleEditInputChange}
+                          className="w-full py-1.5 px-2 text-xs rounded-lg focus:outline-none border border-gray-300 focus:border-[var(--main-blue)]"
                         />
                       </div>
                     )}
@@ -3269,9 +3238,10 @@ const getActionButtons = (app: Application) => {
                         <label className="block text-xs font-medium mb-1">Identification Number</label>
                         <input
                           type="text"
+                          name="identificationNumber"
                           value={clientIdentificationValue}
-                          disabled
-                          className="w-full py-1.5 px-2 text-xs rounded-lg bg-gray-100 border border-gray-300 text-gray-600"
+                          onChange={handleEditInputChange}
+                          className="w-full py-1.5 px-2 text-xs rounded-lg focus:outline-none border border-gray-300 focus:border-[var(--main-blue)]"
                         />
                       </div>
                     )}
@@ -3280,20 +3250,36 @@ const getActionButtons = (app: Application) => {
               )}
 
               {showInsuranceDetailsSection && (
-                <fieldset className="mb-4 border-2 border-gray-300 rounded-lg p-3 bg-gray-50">
-                  <legend className="text-xs font-semibold text-gray-600 px-2 bg-white border border-gray-300 rounded-md">
-                    Insurance Details (Read Only)
+                <fieldset className="mb-4 border-2 border-[var(--main-blue)] rounded-lg p-3 bg-gray-50">
+                  <legend className="text-xs font-semibold text-[var(--main-blue)] px-2 bg-white border border-[var(--main-blue)] rounded-md">
+                    Insurance & Vehicle Details
                   </legend>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     {showInsuranceCategory && (
                       <div>
                         <label className="block text-xs font-medium mb-1">Insurance Category</label>
-                        <input
-                          type="text"
+                        <select
+                          name="insuranceCategory"
                           value={insuranceCategoryValue}
-                          disabled
-                          className="w-full py-1.5 px-2 text-xs rounded-lg bg-gray-100 border border-gray-300 text-gray-600"
-                        />
+                          onChange={handleEditInputChange}
+                          className="w-full py-1.5 px-2 text-xs rounded-lg focus:outline-none border border-gray-300 focus:border-[var(--main-blue)]"
+                        >
+                          <option value="Car Insurance">Car Insurance</option>
+                          <option value="MotorBike Insurance">MotorBike Insurance</option>
+                          <option value="Fire Insurance">Fire Insurance</option>
+                          <option value="Travel Insurance">Travel Insurance</option>
+                          <option value="Tourist Insurance">Tourist Insurance</option>
+                          {insuranceCategoryValue &&
+                          ![
+                            'Car Insurance',
+                            'MotorBike Insurance',
+                            'Fire Insurance',
+                            'Travel Insurance',
+                            'Tourist Insurance',
+                          ].includes(insuranceCategoryValue) ? (
+                            <option value={insuranceCategoryValue}>{insuranceCategoryValue}</option>
+                          ) : null}
+                        </select>
                       </div>
                     )}
                     {showPlateNumber && (
@@ -3301,9 +3287,10 @@ const getActionButtons = (app: Application) => {
                         <label className="block text-xs font-medium mb-1">Plate Number</label>
                         <input
                           type="text"
+                          name="plateNumber"
                           value={plateNumberValue}
-                          disabled
-                          className="w-full py-1.5 px-2 text-xs rounded-lg bg-gray-100 border border-gray-300 text-gray-600"
+                          onChange={handleEditInputChange}
+                          className="w-full py-1.5 px-2 text-xs rounded-lg focus:outline-none border border-gray-300 focus:border-[var(--main-blue)]"
                         />
                       </div>
                     )}
@@ -3325,9 +3312,10 @@ const getActionButtons = (app: Application) => {
                         <label className="block text-xs font-medium mb-1">Vehicle Type</label>
                         <input
                           type="text"
+                          name="vehicleType"
                           value={vehicleTypeValue}
-                          disabled
-                          className="w-full py-1.5 px-2 text-xs rounded-lg bg-gray-100 border border-gray-300 text-gray-600"
+                          onChange={handleEditInputChange}
+                          className="w-full py-1.5 px-2 text-xs rounded-lg focus:outline-none border border-gray-300 focus:border-[var(--main-blue)]"
                         />
                       </div>
                     )}
@@ -3336,9 +3324,10 @@ const getActionButtons = (app: Application) => {
                         <label className="block text-xs font-medium mb-1">Vehicle Age (Year)</label>
                         <input
                           type="text"
+                          name="vehicleAge"
                           value={vehicleAgeValue}
-                          disabled
-                          className="w-full py-1.5 px-2 text-xs rounded-lg bg-gray-100 border border-gray-300 text-gray-600"
+                          onChange={handleEditInputChange}
+                          className="w-full py-1.5 px-2 text-xs rounded-lg focus:outline-none border border-gray-300 focus:border-[var(--main-blue)]"
                         />
                       </div>
                     )}
@@ -3347,9 +3336,10 @@ const getActionButtons = (app: Application) => {
                         <label className="block text-xs font-medium mb-1">Vehicle Use</label>
                         <input
                           type="text"
+                          name="vehicleUse"
                           value={vehicleUseValue}
-                          disabled
-                          className="w-full py-1.5 px-2 text-xs rounded-lg bg-gray-100 border border-gray-300 text-gray-600"
+                          onChange={handleEditInputChange}
+                          className="w-full py-1.5 px-2 text-xs rounded-lg focus:outline-none border border-gray-300 focus:border-[var(--main-blue)]"
                         />
                       </div>
                     )}
@@ -3358,9 +3348,10 @@ const getActionButtons = (app: Application) => {
                         <label className="block text-xs font-medium mb-1">Specify Vehicle Use</label>
                         <input
                           type="text"
+                          name="otherVehicleUse"
                           value={otherVehicleUseValue}
-                          disabled
-                          className="w-full py-1.5 px-2 text-xs rounded-lg bg-gray-100 border border-gray-300 text-gray-600"
+                          onChange={handleEditInputChange}
+                          className="w-full py-1.5 px-2 text-xs rounded-lg focus:outline-none border border-gray-300 focus:border-[var(--main-blue)]"
                         />
                       </div>
                     )}
@@ -3376,6 +3367,10 @@ const getActionButtons = (app: Application) => {
                           />
                           <span className="text-xs font-medium text-gray-700">Ext. Territorial (COMESA)</span>
                         </label>
+                        <p className="mt-1 text-[11px] text-gray-500">
+                          Changing COMESA does not auto-recalculate administration fees — edit the fee
+                          field below if needed.
+                        </p>
                       </div>
                     )}
                     {showInsuranceProvider && (
@@ -3383,21 +3378,36 @@ const getActionButtons = (app: Application) => {
                         <label className="block text-xs font-medium mb-1">Insurance Provider</label>
                         <input
                           type="text"
+                          name="insuranceProvider"
                           value={insuranceProviderValue}
-                          disabled
-                          className="w-full py-1.5 px-2 text-xs rounded-lg bg-gray-100 border border-gray-300 text-gray-600"
+                          onChange={handleEditInputChange}
+                          className="w-full py-1.5 px-2 text-xs rounded-lg focus:outline-none border border-gray-300 focus:border-[var(--main-blue)]"
                         />
                       </div>
                     )}
                     {showInsuranceType && (
                       <div>
                         <label className="block text-xs font-medium mb-1">Insurance Type</label>
-                        <input
-                          type="text"
+                        <select
+                          name="insuranceType"
                           value={insuranceTypeValue}
-                          disabled
-                          className="w-full py-1.5 px-2 text-xs rounded-lg bg-gray-100 border border-gray-300 text-gray-600"
-                        />
+                          onChange={handleEditInputChange}
+                          className="w-full py-1.5 px-2 text-xs rounded-lg focus:outline-none border border-gray-300 focus:border-[var(--main-blue)]"
+                        >
+                          <option value="Third Party Insurance (covers partial)">
+                            Third Party Insurance (covers partial)
+                          </option>
+                          <option value="Comprehensive Insurance (covers everything)">
+                            Comprehensive Insurance (covers everything)
+                          </option>
+                          {insuranceTypeValue &&
+                          ![
+                            'Third Party Insurance (covers partial)',
+                            'Comprehensive Insurance (covers everything)',
+                          ].includes(insuranceTypeValue) ? (
+                            <option value={insuranceTypeValue}>{insuranceTypeValue}</option>
+                          ) : null}
+                        </select>
                       </div>
                     )}
                     {showInsuranceDuration && (
@@ -3597,22 +3607,6 @@ const getActionButtons = (app: Application) => {
                         maxDigits={12}
                       />
                     )}
-                    {showAgentCommissionField && (
-                      <NumericInputField
-                        label="Agent Commission (RWF)"
-                        name="agentCommission"
-                        size="compact"
-                        accent="adminEdit"
-                        className="mb-0"
-                        labelClassName="!font-medium !text-gray-700"
-                        value={agentCommissionValue}
-                        onChange={(v) =>
-                          setEditFormData((prev) => (prev ? { ...prev, agentCommission: v } : prev))
-                        }
-                        min={0}
-                        maxDigits={12}
-                      />
-                    )}
                     {showCompanyCommissionField && (
                       <NumericInputField
                         label="Company Commission (RWF)"
@@ -3629,6 +3623,26 @@ const getActionButtons = (app: Application) => {
                         maxDigits={12}
                       />
                     )}
+                    {showAgentCommissionField && (
+                      <NumericInputField
+                        label="Agent Commission (RWF)"
+                        name="agentCommission"
+                        size="compact"
+                        accent="adminEdit"
+                        className="mb-0"
+                        labelClassName="!font-medium !text-gray-700"
+                        value={agentCommissionValue}
+                        onChange={(v) =>
+                          setEditFormData((prev) => (prev ? { ...prev, agentCommission: v } : prev))
+                        }
+                        min={0}
+                        maxDigits={12}
+                      />
+                    )}
+                    <p className="md:col-span-2 text-[11px] text-gray-500">
+                      Commission amounts are final fixed numbers. Reassigning an agent will not
+                      recalculate them — update the values here if they should change.
+                    </p>
                     {showAdministrationFeesField && (
                       <NumericInputField
                         label="Administration Fees (RWF)"

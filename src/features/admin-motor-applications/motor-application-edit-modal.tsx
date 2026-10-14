@@ -247,7 +247,7 @@ export function MotorApplicationEditModal({
                   }
                 />
                 <NumericInputField
-                  label="Company Commission"
+                  label="Company Commission (RWF)"
                   name="companyCommission"
                   size="compact"
                   value={getMotorEditFormValue(values.companyCommission)}
@@ -256,21 +256,24 @@ export function MotorApplicationEditModal({
                   }
                 />
                 <NumericInputField
+                  label="Agent Commission (RWF)"
+                  name="agentCommission"
+                  size="compact"
+                  value={getMotorEditFormValue(values.agentCommission)}
+                  onChange={(v) =>
+                    setEditFormData((prev) => (prev ? { ...prev, agentCommission: v } : prev))
+                  }
+                />
+                <p className="md:col-span-2 text-[11px] text-gray-500">
+                  Commission amounts are final fixed numbers and will not be recalculated on save.
+                </p>
+                <NumericInputField
                   label="Administration Fees"
                   name="administrationFees"
                   size="compact"
                   value={getMotorEditFormValue(values.administrationFees)}
                   onChange={(v) =>
                     setEditFormData((prev) => (prev ? { ...prev, administrationFees: v } : prev))
-                  }
-                />
-                <NumericInputField
-                  label="Agent Commission"
-                  name="agentCommission"
-                  size="compact"
-                  value={getMotorEditFormValue(values.agentCommission)}
-                  onChange={(v) =>
-                    setEditFormData((prev) => (prev ? { ...prev, agentCommission: v } : prev))
                   }
                 />
                 <div>
