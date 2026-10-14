@@ -779,29 +779,34 @@ const getActionButtons = (app: Application) => {
 
     setIsBulkMarkingReady(true);
     try {
-      const idsToUpdate = filteredApplications.map((app) => app._id);
+      const ids = filteredApplications.map((app) => app._id);
+      const response = await apiFetch('/markManyAsReadyToBePaid', {
+        method: 'PUT',
+        body: JSON.stringify({ ids }),
+      });
 
-      const results = await Promise.allSettled(
-        idsToUpdate.map((id) =>
-          apiFetch(`/markAsReadyToBePaid/${id}`, {
-            method: 'PUT',
-          }),
-        ),
-      );
-
-      const successful = results.filter((r) => r.status === 'fulfilled').length;
-      const failed = results.length - successful;
-
-      if (successful > 0) {
-        showToastRef.current(
-          `${successful} application${successful > 1 ? 's' : ''} marked as ready to be paid${
-            failed > 0 ? `, ${failed} failed` : ''
-          }.`,
-          'success',
-        );
-      } else if (failed > 0) {
-        showToastRef.current('Failed to mark applications as ready to be paid. Please try again.', 'error');
+      if (!response.ok) {
+        let message = 'Failed to mark applications as ready to be paid. Please try again.';
+        try {
+          const errorData = (await response.json()) as { message?: string; error?: string };
+          message = errorData.message || errorData.error || message;
+        } catch {
+          /* ignore */
+        }
+        throw new Error(message);
       }
+
+      const responseData = (await response.json().catch(() => ({}))) as {
+        message?: string;
+        successful?: number;
+        failed?: number;
+      };
+      const count = ids.length;
+      showToastRef.current(
+        responseData.message ||
+          `${count} application${count > 1 ? 's' : ''} marked as ready to be paid.`,
+        'success',
+      );
 
       await loadCommissionQueues({ withSpinner: false });
     } catch (error) {
