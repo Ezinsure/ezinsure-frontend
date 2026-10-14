@@ -21,6 +21,7 @@ import { ComboboxField } from '@/components/ui/combobox-field';
 import {
   calculateAdministrationFeesRwf,
   calculateCommissionFromPercentage,
+  isComprehensiveInsuranceType,
   isMotorVehicleInsuranceCategory,
   MOTOR_COMPANY_COMMISSION_RATE,
 } from '@/utils/administration-fees';
@@ -492,6 +493,8 @@ export function AdminMotorApplicationPage({ renewal }: AdminMotorApplicationPage
 
     companyCommission: '',
 
+    agentCommission: '',
+
     administrationFees: '',
 
     // Payment Verification
@@ -655,6 +658,13 @@ export function AdminMotorApplicationPage({ renewal }: AdminMotorApplicationPage
       required: !isRenewal && !isMotorVehicleInsuranceCategory(formData.insuranceCategory),
     },
     companyCommission: { required: !isRenewal },
+    agentCommission: {
+      required:
+        !isRenewal &&
+        isComprehensiveInsuranceType(formData.insuranceType) &&
+        formData.wantsToAssignAgent === 'yes' &&
+        Boolean(formData.assignToAgent),
+    },
     administrationFees: { required: !isRenewal },
     paymentInstructions: { required: !isRenewal },
     transactionId: { required: !isRenewal },
@@ -681,6 +691,11 @@ export function AdminMotorApplicationPage({ renewal }: AdminMotorApplicationPage
 
   useEffect(() => {
     setFormData((prev) => {
+      // Comprehensive: admin enters fixed company / agent amounts — do not auto-calc.
+      if (isComprehensiveInsuranceType(prev.insuranceType)) {
+        return prev;
+      }
+
       const netPremium = Number(prev.netPremium || 0);
       if (!Number.isFinite(netPremium)) {
         if (prev.companyCommission === '') return prev;
@@ -703,7 +718,12 @@ export function AdminMotorApplicationPage({ renewal }: AdminMotorApplicationPage
       }
       return { ...prev, companyCommission: computedCommission };
     });
-  }, [formData.netPremium, formData.commissionPercentage, formData.insuranceCategory]);
+  }, [
+    formData.netPremium,
+    formData.commissionPercentage,
+    formData.insuranceCategory,
+    formData.insuranceType,
+  ]);
 
   // Update districts when province changes
 
@@ -1219,6 +1239,11 @@ export function AdminMotorApplicationPage({ renewal }: AdminMotorApplicationPage
             return;
           }
 
+          // Agent commission is only sent for comprehensive + assigned agent (set explicitly below).
+          if (key === 'agentCommission') {
+            return;
+          }
+
           if (value instanceof File) {
 
             if (value) formDataToSend.append(key, value);
@@ -1289,6 +1314,18 @@ export function AdminMotorApplicationPage({ renewal }: AdminMotorApplicationPage
           );
         }
 
+        // Comprehensive: send fixed commissions — backend must not recalculate from rates.
+        if (isComprehensiveInsuranceType(formData.insuranceType)) {
+          formDataToSend.set('skipCommissionRecalculation', 'true');
+          if (
+            formData.wantsToAssignAgent === 'yes' &&
+            formData.assignToAgent &&
+            formData.agentCommission.trim()
+          ) {
+            formDataToSend.set('agentCommission', formData.agentCommission.trim());
+          }
+        }
+
         if (process.env.NEXT_PUBLIC_DEBUG_PAYLOAD === 'true') {
           const assignmentEntries = Array.from(formDataToSend.entries()).filter(
             ([k]) => k === 'assignToAgent' || k === 'deductAgentAssignmentCommission',
@@ -1343,6 +1380,7 @@ export function AdminMotorApplicationPage({ renewal }: AdminMotorApplicationPage
     paymentInstructions: 'Please make your payment to one of the following:\nBank of Kigali: 100000129075 (SONARWA)\nOr via Momo Account: 051499 (SONARWA) \nOr Agency at Kimihurura (KBC) under SOLEKTRA',
             invoice: null,
             companyCommission: '',
+            agentCommission: '',
             administrationFees: calculateAdministrationFeesRwf('Car Insurance', false).toString(),
             proofOfPayment: null,
             transactionId: '',
@@ -1972,6 +2010,8 @@ export function AdminMotorApplicationPage({ renewal }: AdminMotorApplicationPage
                               ...prev,
                               wantsToAssignAgent: e.target.value as 'yes' | 'no',
                               assignToAgent: e.target.value === 'no' ? '' : prev.assignToAgent,
+                              agentCommission:
+                                e.target.value === 'no' ? '' : prev.agentCommission,
                               deductAgentAssignmentCommission:
                                 e.target.value === 'no' ? 'yes' : prev.deductAgentAssignmentCommission,
                             }));
@@ -1991,6 +2031,7 @@ export function AdminMotorApplicationPage({ renewal }: AdminMotorApplicationPage
                               ...prev,
                               wantsToAssignAgent: e.target.value as 'yes' | 'no',
                               assignToAgent: '',
+                              agentCommission: '',
                               deductAgentAssignmentCommission: 'yes',
                             }));
                           }}
@@ -2014,6 +2055,7 @@ export function AdminMotorApplicationPage({ renewal }: AdminMotorApplicationPage
                             setFormData(prev => ({
                               ...prev,
                               assignToAgent: value || '',
+                              agentCommission: value ? prev.agentCommission : '',
                             }));
                             if (value && errors.assignToAgent) {
                               setErrors(prev => {
@@ -2486,7 +2528,26 @@ export function AdminMotorApplicationPage({ renewal }: AdminMotorApplicationPage
 
                       value={formData.insuranceType}
 
-                      onChange={handleInputChange}
+                      onChange={(e) => {
+                        const nextType = e.target.value;
+                        const switchingToComprehensive = isComprehensiveInsuranceType(nextType);
+                        setFormData((prev) => ({
+                          ...prev,
+                          insuranceType: nextType,
+                          // Comprehensive uses admin-entered fixed amounts; clear auto-calc residue.
+                          companyCommission: switchingToComprehensive ? '' : prev.companyCommission,
+                          agentCommission: switchingToComprehensive ? prev.agentCommission : '',
+                        }));
+                        if (errors.insuranceType || errors.companyCommission || errors.agentCommission) {
+                          setErrors((prev) => {
+                            const next = { ...prev };
+                            delete next.insuranceType;
+                            delete next.companyCommission;
+                            delete next.agentCommission;
+                            return next;
+                          });
+                        }
+                      }}
 
                       className="w-full py-2 px-3 rounded-lg focus:outline-none border border-gray-300 focus:border-[var(--main-blue)]"
 
@@ -2836,37 +2897,91 @@ export function AdminMotorApplicationPage({ renewal }: AdminMotorApplicationPage
                       </div>
                     )}
 
-                    <div>
-
-                      <NumericInputField
-
-                        label="Total Commission (RWF)"
-
-                        name="companyCommission"
-
-                        value={formData.companyCommission}
-
-                        onChange={() => {}}
-
-                        placeholder={
-                          isMotorVehicleInsuranceCategory(formData.insuranceCategory)
-                            ? 'Auto-calculated (10% of net premium)'
-                            : 'Auto-calculated from commission %'
-                        }
-
-                        error={errors.companyCommission}
-
-                        min={0}
-
-                        maxDigits={12}
-
-                        disabled
-
-                        required
-
-                      />
-
-                    </div>
+                    {isComprehensiveInsuranceType(formData.insuranceType) ? (
+                      <>
+                        <div>
+                          <NumericInputField
+                            label="Company Commission (RWF)"
+                            name="companyCommission"
+                            value={formData.companyCommission}
+                            onChange={(v) => {
+                              setFormData((prev) => ({ ...prev, companyCommission: v }));
+                              setErrors((prev) => {
+                                const next = { ...prev };
+                                delete next.companyCommission;
+                                return next;
+                              });
+                            }}
+                            placeholder="Enter company commission"
+                            error={errors.companyCommission}
+                            min={0}
+                            maxDigits={12}
+                            required
+                          />
+                        </div>
+                        {formData.wantsToAssignAgent === 'yes' && formData.assignToAgent ? (
+                          <div>
+                            <NumericInputField
+                              label="Agent Commission (RWF)"
+                              name="agentCommission"
+                              value={formData.agentCommission}
+                              onChange={(v) => {
+                                setFormData((prev) => ({ ...prev, agentCommission: v }));
+                                setErrors((prev) => {
+                                  const next = { ...prev };
+                                  delete next.agentCommission;
+                                  return next;
+                                });
+                              }}
+                              placeholder="Enter agent commission"
+                              error={errors.agentCommission}
+                              min={0}
+                              maxDigits={12}
+                              required
+                            />
+                          </div>
+                        ) : null}
+                        <div>
+                          <NumericInputField
+                            label="Total Commission (RWF)"
+                            name="totalCommission"
+                            value={String(
+                              (Number(formData.companyCommission) || 0) +
+                                (formData.wantsToAssignAgent === 'yes' && formData.assignToAgent
+                                  ? Number(formData.agentCommission) || 0
+                                  : 0),
+                            )}
+                            onChange={() => {}}
+                            placeholder="Sum of company + agent commission"
+                            min={0}
+                            maxDigits={12}
+                            disabled
+                          />
+                          <p className="mt-1 text-xs text-gray-500">
+                            Read-only total of the commission amounts entered above.
+                          </p>
+                        </div>
+                      </>
+                    ) : (
+                      <div>
+                        <NumericInputField
+                          label="Total Commission (RWF)"
+                          name="companyCommission"
+                          value={formData.companyCommission}
+                          onChange={() => {}}
+                          placeholder={
+                            isMotorVehicleInsuranceCategory(formData.insuranceCategory)
+                              ? 'Auto-calculated (10% of net premium)'
+                              : 'Auto-calculated from commission %'
+                          }
+                          error={errors.companyCommission}
+                          min={0}
+                          maxDigits={12}
+                          disabled
+                          required
+                        />
+                      </div>
+                    )}
 
                     <div>
 
