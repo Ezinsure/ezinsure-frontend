@@ -28,6 +28,11 @@ export function isMotorVehicleInsuranceCategory(category: string): boolean {
   );
 }
 
+/** Comprehensive cover — admin enters fixed company / agent commission amounts. */
+export function isComprehensiveInsuranceType(insuranceType: string): boolean {
+  return /comprehensive/i.test(insuranceType || '');
+}
+
 /**
  * Returns administration fees in RWF (integer).
  */
