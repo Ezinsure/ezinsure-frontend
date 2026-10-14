@@ -86,6 +86,8 @@ export interface ApplicationFormData {
   paymentInstructions: string;
   invoice: File | null;
   companyCommission: string;
+  /** Fixed agent commission (RWF) — used for comprehensive cover when assigning an agent. */
+  agentCommission: string;
   administrationFees: string;
   proofOfPayment: File | null;
   transactionId: string;
