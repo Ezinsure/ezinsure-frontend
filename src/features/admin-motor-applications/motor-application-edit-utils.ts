@@ -10,6 +10,17 @@ export type MotorEditFormData = Record<string, string | number | boolean | File 
 export function buildMotorEditFormData(app: Application): MotorEditFormData {
   return {
     fullName: app.client?.fullName || app.fullName || '',
+    email: app.client?.email || app.email || '',
+    phoneNumber: app.client?.phoneNumber || app.phoneNumber || '',
+    dateOfBirth: app.client?.dateOfBirth
+      ? toDateInputValue(app.client.dateOfBirth)
+      : toDateInputValue(app.dateOfBirth),
+    address: app.client?.address || app.address || '',
+    province: app.client?.province || app.province || '',
+    district: app.client?.district || app.district || '',
+    sector: app.client?.sector || app.sector || '',
+    identificationNumber:
+      app.client?.identificationNumber || app.client?.nationalID || app.nationalID || '',
     insuranceCategory: app.insuranceCategory || '',
     insuranceType: app.insuranceType || '',
     insuranceDuration: app.insuranceDuration || '',
@@ -30,7 +41,7 @@ export function buildMotorEditFormData(app: Application): MotorEditFormData {
     administrationFees: app.administrationFees?.toString() || '',
     agentCommission: app.agentCommission?.toString() || '',
     status: (app.status || '').toLowerCase(),
-    insuranceEndAt: app.insuranceEndAt || '',
+    insuranceEndAt: toDateInputValue(app.insuranceEndAt),
     insuranceIssuedAt:
       toDateInputValue(app.insuranceIssuedAt) || todayDateInputValue(),
     invoice: null,
@@ -51,54 +62,53 @@ export function hasExistingMotorEditValue(value: unknown): boolean {
   return true;
 }
 
+/** Admin edit always exposes every updatable field. */
 export function buildMotorEditInitialVisibility(
-  app: Application,
-  formData: MotorEditFormData,
+  _app: Application,
+  _formData: MotorEditFormData,
 ): Record<string, boolean> {
   return {
-    clientFullName: hasExistingMotorEditValue(app.client?.fullName || app.fullName || ''),
-    clientEmail: hasExistingMotorEditValue(app.client?.email || app.email || ''),
-    clientPhone: hasExistingMotorEditValue(app.client?.phoneNumber || app.phoneNumber || ''),
-    clientDob: hasExistingMotorEditValue(app.client?.dateOfBirth || ''),
-    clientAddress: hasExistingMotorEditValue(app.client?.address || app.address || ''),
-    clientProvince: hasExistingMotorEditValue(app.client?.province || ''),
-    clientDistrict: hasExistingMotorEditValue(app.client?.district || ''),
-    clientSector: hasExistingMotorEditValue(app.client?.sector || ''),
-    clientIdentification: hasExistingMotorEditValue(
-      app.client?.identificationNumber || app.client?.nationalID || '',
-    ),
-    insuranceCategory: hasExistingMotorEditValue(formData.insuranceCategory),
-    plateNumber: hasExistingMotorEditValue(formData.plateNumber),
-    chasisNumber: hasExistingMotorEditValue(formData.chasisNumber),
-    vehicleType: hasExistingMotorEditValue(formData.vehicleType),
-    vehicleAge: hasExistingMotorEditValue(formData.vehicleAge),
-    vehicleUse: hasExistingMotorEditValue(formData.vehicleUse),
-    otherVehicleUse: hasExistingMotorEditValue(formData.otherVehicleUse),
-    comesa: hasExistingMotorEditValue(formData.isCOMESA),
-    insuranceProvider: hasExistingMotorEditValue(formData.insuranceProvider),
-    insuranceType: hasExistingMotorEditValue(formData.insuranceType),
-    insuranceDuration: hasExistingMotorEditValue(formData.insuranceDuration),
-    amountField: hasExistingMotorEditValue(formData.amount),
-    netPremiumField: hasExistingMotorEditValue(formData.netPremium),
-    agentCommissionField: hasExistingMotorEditValue(formData.agentCommission),
-    companyCommissionField: hasExistingMotorEditValue(formData.companyCommission),
-    administrationFeesField: hasExistingMotorEditValue(formData.administrationFees),
-    transactionIdField: hasExistingMotorEditValue(formData.transactionId),
-    policeNumberField: hasExistingMotorEditValue(formData.policeNumber),
-    paymentInstructionsField: hasExistingMotorEditValue(formData.paymentInstructions),
-    statusField: hasExistingMotorEditValue(formData.status),
-    insuranceEndDateField: hasExistingMotorEditValue(app.insuranceEndAt),
+    clientFullName: true,
+    clientEmail: true,
+    clientPhone: true,
+    clientDob: true,
+    clientAddress: true,
+    clientProvince: true,
+    clientDistrict: true,
+    clientSector: true,
+    clientIdentification: true,
+    insuranceCategory: true,
+    plateNumber: true,
+    chasisNumber: true,
+    vehicleType: true,
+    vehicleAge: true,
+    vehicleUse: true,
+    otherVehicleUse: true,
+    comesa: true,
+    insuranceProvider: true,
+    insuranceType: true,
+    insuranceDuration: true,
+    amountField: true,
+    netPremiumField: true,
+    agentCommissionField: true,
+    companyCommissionField: true,
+    administrationFeesField: true,
+    transactionIdField: true,
+    policeNumberField: true,
+    paymentInstructionsField: true,
+    statusField: true,
+    insuranceEndDateField: true,
     insuranceIssuedAtField: true,
-    invoiceUpload: hasExistingMotorEditValue(app.invoice),
-    insuranceCertificateUpload: hasExistingMotorEditValue(app.insuranceCertificate),
-    contractUpload: hasExistingMotorEditValue(app.contract),
-    receiptUpload: hasExistingMotorEditValue(app.receipt),
-    ebmUpload: hasExistingMotorEditValue(app.ebm),
-    proofOfPaymentInfo: hasExistingMotorEditValue(app.proofOfPayment),
-    transactionIdInfo: hasExistingMotorEditValue(app.transactionId),
-    policeNumberInfo: hasExistingMotorEditValue(app.policeNumber),
-    yellowCardInfo: hasExistingMotorEditValue(app.yellowCard),
-    pastInsuranceCertificateInfo: hasExistingMotorEditValue(app.pastInsuranceCertificate),
+    invoiceUpload: true,
+    insuranceCertificateUpload: true,
+    contractUpload: true,
+    receiptUpload: true,
+    ebmUpload: true,
+    proofOfPaymentInfo: true,
+    transactionIdInfo: true,
+    policeNumberInfo: true,
+    yellowCardInfo: true,
+    pastInsuranceCertificateInfo: true,
   };
 }
 
@@ -194,6 +204,10 @@ export async function submitMotorApplicationEdit(params: {
       }
     }
   });
+
+  // Admin edits persist as-is — backend must not recalculate commissions or derived fees.
+  formDataToSend.set('skipCommissionRecalculation', 'true');
+  formDataToSend.set('persistAdminValues', 'true');
 
   const response = await fetch(
     `${process.env.NEXT_PUBLIC_API_BASE_URL}/editApplicationAdmin/${applicationId}`,

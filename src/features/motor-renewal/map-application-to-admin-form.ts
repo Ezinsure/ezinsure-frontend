@@ -102,6 +102,8 @@ export function mapMotorApplicationToAdminForm(app: Application): ApplicationFor
     invoice: null,
     companyCommission:
       app.companyCommission != null ? String(app.companyCommission) : '',
+    agentCommission:
+      app.agentCommission != null ? String(app.agentCommission) : '',
     administrationFees:
       app.administrationFees ??
       String(calculateAdministrationFeesRwf(category, isComesa)),
