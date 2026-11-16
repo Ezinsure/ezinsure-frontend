@@ -6,5 +6,7 @@ export * from './summary';
 export * from './payouts';
 export * from './statements';
 export * from './receipts';
+export * from './remittance-mode';
+export * from './apply-receipt-total';
 export * from './mismatches';
 export * from './rules';

@@ -15,7 +15,14 @@ export interface ReceiptAllocation {
   amount: MoneyAmount;
 }
 
-/** A payment received from SONARWA, allocated to one or more statements. */
+/**
+ * A payment received from SONARWA, allocated to one or more statements.
+ *
+ * Livestock remittances are **total-only**: the user enters the bank total and
+ * allocates it across statements. Lines on those statements are reimbursed
+ * oldest-first (see `applyReceiptTotalToLines`). `remittanceImportId` is unused
+ * in the livestock UI.
+ */
 export interface Receipt {
   id: string;
   /** Human-readable, e.g. `RCP-2026-0012`. */
@@ -98,9 +105,12 @@ export interface CreateReceiptInput {
   reference: string;
   /** Must add up exactly to `amount`. */
   allocations: Array<{ statementId: string; amount: MoneyAmount }>;
-  /** Created by `importRemittance`; its matches are applied to the lines. */
+  /**
+   * Optional per-line remittance import. Not used for livestock (total-only).
+   * Kept for a possible later format change.
+   */
   remittanceImportId?: string;
-  /** Manual per-line amounts that replace the imported or default value. */
+  /** Manual per-line amounts that replace the default oldest-first application. */
   lineOverrides?: Array<{ lineId: string; sonarwaAmount: MoneyAmount }>;
   note?: string;
 }

@@ -1,5 +1,6 @@
 import type { MismatchesApi, ReceiptsApi } from '../api/types';
 import {
+  applyReceiptTotalToLines,
   hasErrors,
   validateCreateReceipt,
   validateResolveMismatch,
@@ -22,18 +23,25 @@ const RESOLUTION_STATUS = {
   WRITE_OFF: 'WRITTEN_OFF',
 } as const satisfies Record<string, MismatchStatus>;
 
-/** Without a remittance file, money is applied to billed lines oldest first. */
+/** Total-only path: apply each allocation to billed lines oldest first. */
 function applyInOrder(state: MockState, input: CreateReceiptInput): RemittanceMatchRow[] {
   const rows: RemittanceMatchRow[] = [];
   for (const allocation of input.allocations) {
-    let remaining = allocation.amount;
     const lines = state.lines
       .filter((l) => l.stage === 'BILLED' && l.statementId === allocation.statementId)
-      .sort((a, b) => (a.paidAt ?? '').localeCompare(b.paidAt ?? ''));
-    for (const line of lines) {
-      if (remaining < line.expectedAmount) break;
-      remaining -= line.expectedAmount;
-      rows.push(toMatchRow(line, line.expectedAmount, `auto-${rows.length + 1}`));
+      .map((l) => ({
+        lineId: l.id,
+        expectedAmount: l.expectedAmount,
+        paidAt: l.paidAt ?? l.submittedAt,
+        contractNumber: l.contractNumber,
+        vetName: l.vet.name,
+        statementId: l.statementId,
+      }));
+    const result = applyReceiptTotalToLines(lines, allocation.amount);
+    for (const applied of result.applied) {
+      const line = state.lines.find((l) => l.id === applied.lineId);
+      if (!line) continue;
+      rows.push(toMatchRow(line, applied.appliedAmount, `auto-${rows.length + 1}`));
     }
   }
   return rows;
