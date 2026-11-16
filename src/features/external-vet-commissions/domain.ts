@@ -3,6 +3,8 @@
  * Document column labels (UI) map to camelCase API fields below.
  */
 
+import { formatMoney } from '@/utils/money';
+
 export const EXTERNAL_VET_COMMISSION_STATUSES = [
   'DRAFT',
   'PENDING_SONARWA_REVIEW',
@@ -682,5 +684,5 @@ export function summarizeCommissionLines(
 }
 
 export function formatRwf(value: number): string {
-  return `${Math.round(value).toLocaleString()} RWF`;
+  return formatMoney(Math.round(value));
 }

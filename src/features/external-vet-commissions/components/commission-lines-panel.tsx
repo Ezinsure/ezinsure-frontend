@@ -49,6 +49,7 @@ import {
   exportExternalVetLinesToExcel,
   exportExternalVetLinesToPdf,
 } from '../export/lines-export';
+import { expandToWholeBatches } from '../lines-batch-scope';
 import { ExportIncludeDialog } from './export-include-dialog';
 import { useWindowedList, WindowedListFooter } from './windowed-rows';
 import { ExternalVetStatusBadge } from './status-badge';
@@ -552,6 +553,15 @@ export function CommissionLinesPanel({
     [selectedLines],
   );
 
+  const reclaimScope = useMemo(
+    () => expandToWholeBatches(selectedLines, lines),
+    [lines, selectedLines],
+  );
+  const reclaimSummary = useMemo(
+    () => summarizeCommissionLines(reclaimScope.lines),
+    [reclaimScope.lines],
+  );
+
   const selectedStatuses = useMemo(() => {
     const statuses = new Set(selectedLines.map((l) => l.batchStatus));
     return statuses;
@@ -728,7 +738,7 @@ export function CommissionLinesPanel({
   }
 
   async function confirmPrepareReclaim() {
-    const batchIds = [...new Set(selectedLines.map((l) => l.batchId))];
+    const { batchIds } = reclaimScope;
     if (!batchIds.length) return;
 
     setActionBusy(true);
@@ -738,7 +748,7 @@ export function CommissionLinesPanel({
         exportReference: exportReference || undefined,
       });
       await exportExternalVetLinesToExcel({
-        rows: selectedLines,
+        rows: reclaimScope.lines,
         startDate: startDate || undefined,
         endDate: endDate || undefined,
         status: 'PAID',
@@ -763,7 +773,7 @@ export function CommissionLinesPanel({
   }
 
   async function confirmMarkReimbursed() {
-    const batchIds = [...new Set(selectedLines.map((l) => l.batchId))];
+    const { batchIds } = reclaimScope;
     if (!batchIds.length) return;
     if (!reimbursementReference.trim()) {
       showToast('SONARWA transaction ID is required', 'error');
@@ -1208,6 +1218,17 @@ export function CommissionLinesPanel({
             ? `Export will start from ${selectedSummary.lineCount} selected line${selectedSummary.lineCount === 1 ? '' : 's'}; you can still filter by approved / rejected / pending.`
             : 'Choose which line statuses to include before exporting Excel or PDF. Tick vet groups or rows to narrow the set first.'}
         </p>
+        {canMutate &&
+        (canPrepareReclaim || canMarkReimbursed) &&
+        reclaimScope.addedCount > 0 ? (
+          <p className="mt-1 text-xs font-medium text-amber-800">
+            SONARWA reclaim and reimbursement apply to whole batches:{' '}
+            {reclaimScope.addedCount} more line
+            {reclaimScope.addedCount === 1 ? '' : 's'} from the same{' '}
+            {reclaimScope.batchIds.length === 1 ? 'batch' : 'batches'} will be
+            included.
+          </p>
+        ) : null}
       </div>
 
       {isLoading ? (
@@ -1399,11 +1420,12 @@ export function CommissionLinesPanel({
           <ReimbursementConfirmDialog
             open={confirmMode != null}
             mode={confirmMode ?? 'prepare_reclaim'}
-            lineCount={selectedSummary.lineCount}
-            batchCount={selectedSummary.batchCount}
-            vetCount={selectedSummary.vetCount}
-            totalVetCommission={selectedSummary.totalVetCommission}
-            totalCompanyCommission={selectedSummary.totalCompanyCommission}
+            lineCount={reclaimSummary.lineCount}
+            batchCount={reclaimSummary.batchCount}
+            vetCount={reclaimSummary.vetCount}
+            totalVetCommission={reclaimSummary.totalVetCommission}
+            totalCompanyCommission={reclaimSummary.totalCompanyCommission}
+            addedLineCount={reclaimScope.addedCount}
             exportReference={exportReference}
             onExportReferenceChange={setExportReference}
             reimbursedAt={reimbursedAt}

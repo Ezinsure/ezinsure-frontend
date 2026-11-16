@@ -12,9 +12,7 @@ import type {
   LivestockFinanceVet,
 } from '../domain';
 
-function formatCurrency(value: number) {
-  return `${value.toLocaleString()} RWF`;
-}
+import { formatMoney as formatCurrency } from '@/utils/money';
 
 interface VetApplicationsModalProps {
   isOpen: boolean;
@@ -33,6 +31,7 @@ export default function VetApplicationsModal({
 }: VetApplicationsModalProps) {
   const { getApplicationsByVetFinance } = useLivestockFinanceApi();
   const [isLoading, setIsLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [applications, setApplications] = useState<LivestockFinanceApplication[]>([]);
   const [totalCommission, setTotalCommission] = useState(0);
   const [searchTerm, setSearchTerm] = useState('');
@@ -48,16 +47,18 @@ export default function VetApplicationsModal({
     let cancelled = false;
     const run = async () => {
       setIsLoading(true);
+      setLoadError(null);
       try {
         const result = await getApplicationsByVetFinance(vet.vetId, range, applicationStatus);
         if (!cancelled) {
           setApplications(result.data);
           setTotalCommission(result.totalCommission);
         }
-      } catch {
+      } catch (err) {
         if (!cancelled) {
           setApplications([]);
           setTotalCommission(0);
+          setLoadError(err instanceof Error ? err.message : 'Failed to load applications.');
         }
       } finally {
         if (!cancelled) setIsLoading(false);
@@ -187,6 +188,10 @@ export default function VetApplicationsModal({
               <Loader2 className="w-10 h-10 text-indigo-600 animate-spin mb-3" />
               <p className="text-gray-600">Loading applications…</p>
             </div>
+          ) : loadError ? (
+            <p role="alert" className="text-sm text-red-700 py-6 text-center">
+              {loadError}
+            </p>
           ) : sortedApps.length === 0 ? (
             <p className="text-sm text-gray-600 py-6 text-center">No applications for this selection.</p>
           ) : (

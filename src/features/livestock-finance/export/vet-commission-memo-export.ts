@@ -1,3 +1,4 @@
+import { todayDateInputValue } from '@/utils/date-formatter';
 import type { LivestockFinanceVetTotals, VetCommissionMemoMeta } from '../domain';
 
 function formatRwf(value: number): number {
@@ -125,6 +126,6 @@ export async function downloadVetCommissionMemoExcel(
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, 'Internal Memo');
 
-  const filenameDate = meta.date ?? new Date().toISOString().slice(0, 10);
+  const filenameDate = meta.date ?? todayDateInputValue();
   XLSX.writeFile(workbook, `livestock_vet_commissions_${filenameDate}.xlsx`);
 }

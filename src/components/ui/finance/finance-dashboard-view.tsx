@@ -23,9 +23,8 @@ import { useFinanceApi } from './finance-api';
 import type { FinanceAgent, FinanceAgentTotals, FinanceDateRange } from './finance-domain';
 import FinanceApplicationsByAgentModalUI from './finance-applications-by-agent-modal-ui';
 
-function formatCurrency(value: number) {
-  return `${value.toLocaleString()} RWF`;
-}
+import { getMonthToDateRange } from '@/utils/date-range';
+import { formatMoney as formatCurrency } from '@/utils/money';
 
 function toCsv(rows: string[][]) {
   // Minimal CSV writer compatible with Excel
@@ -49,17 +48,7 @@ export default function FinanceDashboardView() {
   const { getFinanceAgentStats, getAgentsCommissionBreakdown, initiatePaymentForRange } = api;
   const { showToast } = useToast();
 
-  const today = useMemo(() => new Date(), []);
-  const defaultStart = useMemo(() => {
-    const d = new Date(today.getFullYear(), today.getMonth(), 1);
-    return d.toISOString().slice(0, 10);
-  }, [today]);
-  const defaultEnd = useMemo(() => today.toISOString().slice(0, 10), [today]);
-
-  const [range, setRange] = useState<FinanceDateRange>({
-    startDate: defaultStart,
-    endDate: defaultEnd,
-  });
+  const [range, setRange] = useState<FinanceDateRange>(() => getMonthToDateRange());
 
   const [agents, setAgents] = useState<FinanceAgentTotals[]>([]);
   const [isLoading, setIsLoading] = useState(true);

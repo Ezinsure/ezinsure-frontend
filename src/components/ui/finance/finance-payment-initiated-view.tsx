@@ -19,6 +19,7 @@ import { useToast } from '@/components/ui/toast';
 import type { FinanceAgent, FinanceAgentTotals, FinanceDateRange } from './finance-domain';
 import { useFinanceApi } from './finance-api';
 import FinanceApplicationsByAgentModalUI from './finance-applications-by-agent-modal-ui';
+import { getFullMonthRange } from '@/utils/date-range';
 
 function formatCurrency(value: number) {
   return `${value.toLocaleString()} RWF`;
@@ -64,14 +65,10 @@ export default function FinancePaymentInitiatedView() {
     [],
   );
   const selectedMonthLabel = useMemo(() => monthNames[selectedMonth - 1], [monthNames, selectedMonth]);
-  const selectedRange = useMemo<FinanceDateRange>(() => {
-    const start = new Date(Date.UTC(selectedYear, selectedMonth - 1, 1));
-    const end = new Date(Date.UTC(selectedYear, selectedMonth, 0));
-    return {
-      startDate: start.toISOString().slice(0, 10),
-      endDate: end.toISOString().slice(0, 10),
-    };
-  }, [selectedMonth, selectedYear]);
+  const selectedRange = useMemo<FinanceDateRange>(
+    () => getFullMonthRange(selectedYear, selectedMonth),
+    [selectedMonth, selectedYear],
+  );
 
   useEffect(() => {
     let cancelled = false;
