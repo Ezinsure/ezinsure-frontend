@@ -5,6 +5,7 @@ export { nextSort, sortDirectionFor } from './data-table-types';
 export type { Column, SortDirection } from './data-table-types';
 export { MoneyCell } from './money-cell';
 export { Modal } from './modal';
+export { PageHeader } from './page-header';
 export { Pagination } from './pagination';
 export { PeriodPicker } from './period-picker';
 export { SearchBox } from './search-box';

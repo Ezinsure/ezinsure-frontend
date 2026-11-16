@@ -5,7 +5,14 @@ export interface DateSpan {
   to: DateOnly;
 }
 
-export const PERIOD_PRESET_IDS = ['thisMonth', 'lastMonth', 'fortnight', 'quarter'] as const;
+export const PERIOD_PRESET_IDS = [
+  'thisMonth',
+  'lastMonth',
+  'fortnight',
+  'quarter',
+  'sixMonths',
+  'thisYear',
+] as const;
 export type PeriodPresetId = (typeof PERIOD_PRESET_IDS)[number];
 
 export const PERIOD_PRESET_LABELS: Record<PeriodPresetId, string> = {
@@ -13,7 +20,17 @@ export const PERIOD_PRESET_LABELS: Record<PeriodPresetId, string> = {
   lastMonth: 'Last month',
   fortnight: 'Last 14 days',
   quarter: 'This quarter',
+  sixMonths: 'Last 6 months',
+  thisYear: 'This year',
 };
+
+/** What the picker offers when a page does not choose its own list. */
+export const DEFAULT_PERIOD_PRESETS: readonly PeriodPresetId[] = [
+  'thisMonth',
+  'lastMonth',
+  'fortnight',
+  'quarter',
+];
 
 /**
  * Resolves a preset to concrete local dates. Built from local date parts and
@@ -35,12 +52,21 @@ export function resolvePeriodPreset(id: PeriodPresetId, now: Date = new Date()):
       const quarterStartMonth = Math.floor(now.getMonth() / 3) * 3;
       return { from: toDateOnly(new Date(now.getFullYear(), quarterStartMonth, 1)), to: today };
     }
+    case 'sixMonths':
+      // The current month plus the five before it.
+      return { from: toDateOnly(new Date(now.getFullYear(), now.getMonth() - 5, 1)), to: today };
+    case 'thisYear':
+      return { from: toDateOnly(new Date(now.getFullYear(), 0, 1)), to: today };
   }
 }
 
 /** The preset whose dates equal `span`, or `undefined` for a custom range. */
-export function detectPeriodPreset(span: DateSpan, now: Date = new Date()): PeriodPresetId | undefined {
-  return PERIOD_PRESET_IDS.find((id) => {
+export function detectPeriodPreset(
+  span: DateSpan,
+  now: Date = new Date(),
+  candidates: readonly PeriodPresetId[] = PERIOD_PRESET_IDS,
+): PeriodPresetId | undefined {
+  return candidates.find((id) => {
     const candidate = resolvePeriodPreset(id, now);
     return candidate.from === span.from && candidate.to === span.to;
   });

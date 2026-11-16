@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import {
-  PERIOD_PRESET_IDS,
+  DEFAULT_PERIOD_PRESETS,
   PERIOD_PRESET_LABELS,
   detectPeriodPreset,
   isValidSpan,
@@ -32,11 +32,11 @@ const chip = (active: boolean) =>
 export function PeriodPicker({
   value,
   onChange,
-  presets = PERIOD_PRESET_IDS,
+  presets = DEFAULT_PERIOD_PRESETS,
   label = 'Period',
   className,
 }: PeriodPickerProps) {
-  const activePreset = detectPeriodPreset(value);
+  const activePreset = detectPeriodPreset(value, new Date(), presets);
   const [customOpen, setCustomOpen] = useState(false);
   const [draft, setDraft] = useState<Partial<DateSpan>>(value);
 
