@@ -4,23 +4,41 @@ import {
   HelpCircle,
   UserCircle,
   Stethoscope,
-  Clock,
-  History,
   Banknote,
   ClipboardList,
   RefreshCw,
   UserRoundSearch,
   CalendarRange,
+  BookOpen,
+  ScrollText,
+  Receipt,
+  Scale,
 } from 'lucide-react';
 import type { NavGroup } from '@/shared/navigation/types';
 
 const base = '/finance/livestock';
 
+/**
+ * Livestock finance sidebar.
+ *
+ * Finance = money flow (vets → SONARWA → bank).
+ * Operations = underwriting / commissions tooling that feeds the ledger.
+ */
 export const livestockFinanceNavigation: NavGroup[] = [
+  {
+    label: 'Finance',
+    items: [
+      { href: `${base}/overview`, label: 'Overview', icon: LayoutDashboard },
+      { href: `${base}/ledger`, label: 'Ledger', icon: BookOpen },
+      { href: `${base}/payouts`, label: 'Payouts', icon: Banknote },
+      { href: `${base}/statements`, label: 'Statements', icon: ScrollText },
+      { href: `${base}/receipts`, label: 'Receipts', icon: Receipt },
+      { href: `${base}/mismatches`, label: 'Differences', icon: Scale },
+    ],
+  },
   {
     label: 'Operations',
     items: [
-      { href: `${base}/dashboard`, label: 'Dashboard', icon: LayoutDashboard },
       { href: `${base}/applications`, label: 'Applications', icon: FileText },
       { href: `${base}/renewals`, label: 'Renewals', icon: RefreshCw },
       { href: `${base}/commission-review`, label: 'Admin Review', icon: ClipboardList },
@@ -31,9 +49,6 @@ export const livestockFinanceNavigation: NavGroup[] = [
         icon: UserRoundSearch,
       },
       { href: `${base}/payment-cycles`, label: 'Payment Cycles', icon: CalendarRange },
-      { href: `${base}/payments`, label: 'Payments', icon: Banknote },
-      { href: `${base}/payment-initiated`, label: 'Initiated Payments', icon: Clock },
-      { href: `${base}/history`, label: 'Payment History', icon: History },
     ],
   },
   {

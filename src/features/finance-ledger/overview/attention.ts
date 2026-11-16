@@ -14,7 +14,11 @@ export interface AttentionItem {
   detail?: string;
   /** Money involved, formatted by the view. */
   amount?: MoneyAmount;
+  /** Deep-link into the screen that resolves this item. */
+  href?: string;
 }
+
+const FINANCE_BASE = '/finance/livestock';
 
 export interface AttentionInput {
   summary: FinanceSummary;
@@ -44,16 +48,18 @@ export function buildAttentionItems({
         severity: 'warning',
         title: `${row.statementNumber} is ready to issue`,
         detail: `The month has ended and ${plural(row.paidLineCount, 'line')} paid to vets ${row.paidLineCount === 1 ? 'has' : 'have'} not been billed to SONARWA.`,
+        href: `${FINANCE_BASE}/statements?statement=${encodeURIComponent(row.statementId)}`,
       });
     }
     const level = overdueLevel(row.ageDays);
-    if (row.outstandingAmount > 0 && level !== 'ok') {
+    if (row.outstandingAmount > 0 && level !== 'ok' && row.statementId) {
       items.push({
         id: `overdue-${row.periodKey}`,
         severity: level === 'critical' ? 'critical' : 'warning',
         title: `${row.statementNumber} unpaid for ${row.ageDays} days`,
         detail: 'SONARWA has not paid this statement in full.',
         amount: row.outstandingAmount,
+        href: `${FINANCE_BASE}/statements?statement=${encodeURIComponent(row.statementId)}`,
       });
     }
   }
@@ -65,6 +71,7 @@ export function buildAttentionItems({
       title: `${plural(summary.totals.openMismatchCount, 'difference')} need a reason`,
       detail: 'SONARWA paid amounts that differ from ours.',
       amount: summary.totals.openMismatchAmount,
+      href: `${FINANCE_BASE}/mismatches`,
     });
   }
   if (preparedPayoutCount > 0) {
@@ -73,6 +80,7 @@ export function buildAttentionItems({
       severity: 'warning',
       title: `${plural(preparedPayoutCount, 'payout')} prepared but not marked paid`,
       detail: 'Mark them paid once the money has been sent to the vets.',
+      href: `${FINANCE_BASE}/payouts?tab=history&status=PREPARED`,
     });
   }
   if (readyLineCount > 0) {
@@ -81,6 +89,7 @@ export function buildAttentionItems({
       severity: 'info',
       title: `${plural(readyLineCount, 'line')} approved and ready to pay`,
       detail: 'Prepare a payout to pay the vets.',
+      href: `${FINANCE_BASE}/payouts`,
     });
   }
 

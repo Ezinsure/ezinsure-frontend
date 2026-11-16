@@ -1,7 +1,6 @@
-'use client';
+import { redirect } from 'next/navigation';
 
-import LivestockPaymentHistoryView from '@/features/livestock-finance/livestock-payment-history-view';
-
-export default function LivestockFinanceHistoryPage() {
-  return <LivestockPaymentHistoryView />;
+/** Replaced by Payouts history. */
+export default function LivestockFinancePaymentHistoryPage() {
+  redirect('/finance/livestock/payouts?tab=history');
 }

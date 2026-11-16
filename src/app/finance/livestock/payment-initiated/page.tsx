@@ -1,7 +1,6 @@
-'use client';
+import { redirect } from 'next/navigation';
 
-import LivestockPaymentInitiatedView from '@/features/livestock-finance/livestock-payment-initiated-view';
-
+/** Replaced by Payouts (prepared / mark-paid flow). */
 export default function LivestockFinancePaymentInitiatedPage() {
-  return <LivestockPaymentInitiatedView />;
+  redirect('/finance/livestock/payouts?tab=history&status=PREPARED');
 }

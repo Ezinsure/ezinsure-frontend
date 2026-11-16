@@ -1,7 +1,6 @@
-'use client';
+import { redirect } from 'next/navigation';
 
-import LivestockPaymentsView from '@/features/livestock-finance/livestock-payments-view';
-
+/** Replaced by Ledger + Payouts in the finance redesign. */
 export default function LivestockFinancePaymentsPage() {
-  return <LivestockPaymentsView />;
+  redirect('/finance/livestock/payouts');
 }

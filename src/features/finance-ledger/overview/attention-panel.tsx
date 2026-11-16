@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { AlertOctagon, AlertTriangle, CheckCircle2, Info, type LucideIcon } from 'lucide-react';
 import { formatMoney } from '@/utils/money';
 import { cx } from '../ui/cx';
@@ -13,6 +14,18 @@ const SEVERITY: Record<AttentionSeverity, { icon: LucideIcon; iconClass: string;
 interface AttentionPanelProps {
   items: AttentionItem[] | undefined;
   loading: boolean;
+}
+
+function AttentionBody({ item }: { item: AttentionItem }) {
+  return (
+    <>
+      <p className="font-medium text-slate-900">{item.title}</p>
+      {item.detail ? <p className="text-slate-500">{item.detail}</p> : null}
+      {item.amount !== undefined ? (
+        <p className="mt-0.5 font-medium tabular-nums text-slate-700">{formatMoney(item.amount)}</p>
+      ) : null}
+    </>
+  );
 }
 
 /** A short to-do list. Empty means everything is up to date. */
@@ -41,12 +54,17 @@ export function AttentionPanel({ items, loading }: AttentionPanelProps) {
             return (
               <li key={item.id} className="flex items-start gap-2.5 py-2.5 first:pt-0 last:pb-0">
                 <Icon aria-label={label} className={cx('mt-0.5 h-4 w-4 shrink-0', iconClass)} />
-                <div className="min-w-0 text-sm">
-                  <p className="font-medium text-slate-900">{item.title}</p>
-                  {item.detail ? <p className="text-slate-500">{item.detail}</p> : null}
-                  {item.amount !== undefined ? (
-                    <p className="mt-0.5 font-medium tabular-nums text-slate-700">{formatMoney(item.amount)}</p>
-                  ) : null}
+                <div className="min-w-0 flex-1 text-sm">
+                  {item.href ? (
+                    <Link
+                      href={item.href}
+                      className="block rounded-md outline-offset-2 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--portal-primary)]"
+                    >
+                      <AttentionBody item={item} />
+                    </Link>
+                  ) : (
+                    <AttentionBody item={item} />
+                  )}
                 </div>
               </li>
             );
