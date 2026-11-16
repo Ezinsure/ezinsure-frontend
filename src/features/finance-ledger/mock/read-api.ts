@@ -27,7 +27,8 @@ type ReadApi = FinanceSummaryApi &
 
 export type MockReadApi = ReadApi;
 
-const lineDate = (line: LedgerLine, basis: PeriodBasis): string | undefined => line[basis];
+const lineDate = (line: LedgerLine, basis: PeriodBasis): string | undefined =>
+  basis === 'preparedAt' ? undefined : line[basis];
 
 const periodMatcher = (period: PeriodFilter | undefined, fallback: PeriodBasis) => (line: LedgerLine) =>
   inPeriod(lineDate(line, period?.by ?? fallback), period);

@@ -6,6 +6,7 @@ export type { Column, SortDirection } from './data-table-types';
 export { Drawer } from './drawer';
 export { FilterChip } from './filter-chip';
 export { formatLocalDate, formatLocalDateTime } from './format-local-date';
+export { newIdempotencyKey } from './idempotency';
 export { MoneyCell } from './money-cell';
 export { Modal } from './modal';
 export { PageHeader } from './page-header';

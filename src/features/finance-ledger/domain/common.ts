@@ -73,6 +73,7 @@ export interface DataEnvelope<T> {
 export const PERIOD_BASES = [
   'submittedAt',
   'approvedAt',
+  'preparedAt',
   'paidAt',
   'billedAt',
   'reimbursedAt',

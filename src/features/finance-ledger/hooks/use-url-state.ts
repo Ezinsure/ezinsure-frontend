@@ -80,8 +80,10 @@ export function useUrlState<T extends UrlState>(defaults: T): UrlStateApi<T> {
   const setValues = useCallback(
     (patch: Partial<T>) => {
       const next: UrlState = { ...latest.current, ...(patch as UrlState) };
-      // Opening a detail drawer (`line`) must not kick the user back to page 1.
-      const changesFilter = Object.keys(patch).some((key) => key !== 'page' && key !== 'line');
+      // Opening a detail drawer must not kick the user back to page 1.
+      const changesFilter = Object.keys(patch).some(
+        (key) => key !== 'page' && key !== 'line' && key !== 'payout',
+      );
       if (changesFilter && !('page' in patch) && 'page' in next) next.page = 1;
       write(next);
     },
