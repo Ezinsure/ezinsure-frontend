@@ -87,7 +87,8 @@ export function useUrlState<T extends UrlState>(defaults: T): UrlStateApi<T> {
           key !== 'line' &&
           key !== 'payout' &&
           key !== 'statement' &&
-          key !== 'receipt',
+          key !== 'receipt' &&
+          key !== 'mismatch',
       );
       if (changesFilter && !('page' in patch) && 'page' in next) next.page = 1;
       write(next);

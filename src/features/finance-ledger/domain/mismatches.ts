@@ -53,6 +53,13 @@ export const MISMATCH_STATUSES = [
 ] as const;
 export type MismatchStatus = (typeof MISMATCH_STATUSES)[number];
 
+export const MISMATCH_STATUS_LABELS: Record<MismatchStatus, string> = {
+  OPEN: 'Open',
+  EXPLAINED: 'Explained',
+  REBILL: 'Rebill',
+  WRITTEN_OFF: 'Written off',
+};
+
 export const MISMATCH_RESOLUTION_ACTIONS = [
   'EXPLAIN',
   'REBILL',
