@@ -210,11 +210,12 @@ Both appear in the **same** ledger.
 Confirmed: **`TOTAL_ONLY`**.
 
 - User records the **bank total** and allocates it across issued statements.
-- Server applies each allocation to that statement’s `BILLED` lines, **oldest `paidAt` first**.
-- Whole lines first; leftover that cannot cover the next line becomes a **partial** payment → `AMOUNT_DIFFERS` mismatch; uncovered billed lines → `MISSING_FROM_SONARWA`.
+- Server applies each allocation to that statement’s **still-open receivable lines** (see §4.5.1), **oldest `paidAt` first**.
+- Whole lines first; leftover that cannot cover the next line becomes a **partial** payment → `AMOUNT_DIFFERS` mismatch; uncovered receivable lines → `MISSING_FROM_SONARWA`.
+- **Multiple receipts against the same statement are normal.** A second (or later) receipt that pays the remaining balance **must** update lines and close/update open mismatches — not only bump `receivedAmount` on the statement. See **§4.5.1 Follow-up receipts**.
 - `POST /receipts/importRemittance` is **optional** (future / motor). Livestock UI does not call it.
 
-Algorithm reference: `applyReceiptTotalToLines` in `domain/apply-receipt-total.ts`.
+Algorithm reference: `applyReceiptTotalToLines` in `domain/apply-receipt-total.ts` (apply against each line’s **remaining** amount, not always full `expectedAmount`).
 
 ### 2.8 Overdue thresholds
 
@@ -808,19 +809,135 @@ Optional (not used by livestock UI today):
 | `receivedAt` | Valid date, not future |
 | `allocations` | ≥1; unique `statementId`; each amount > 0; **sum === amount** |
 
-**Behaviour (livestock total-only)**
+**Behaviour (livestock total-only)** — applies to the **first** receipt and every **follow-up** receipt.
 
 1. Each allocated statement must be `ISSUED` or `PARTIALLY_RECONCILED` → else `409 STATEMENT_NOT_ISSUED`
-2. For each allocation, take that statement’s current `BILLED` lines, sort by `paidAt` ascending, apply `applyReceiptTotalToLines(allocation.amount)`
-3. Fully covered lines → `REIMBURSED`, set `receivedAmount = expectedAmount`, `reimbursedAt`
-4. Partially covered line → `REIMBURSED` with partial `receivedAmount` **or** keep billed policy consistently — frontend mock sets stage `REIMBURSED` with partial amount and opens `AMOUNT_DIFFERS`
-5. Uncovered billed lines after the total runs out → open mismatch `MISSING_FROM_SONARWA` (expected = line expected, sonarwa = 0); line → `DISPUTED`, `hasOpenMismatch=true`
-6. `|difference| ≤ 1` → may auto-close as `EXPLAINED` / `ROUNDING`
-7. Larger differences → open `AMOUNT_DIFFERS`
-8. Recompute each affected statement status (`ISSUED` / `PARTIALLY_RECONCILED` / `RECONCILED`)
-9. Set `mismatchCount` on the receipt
+2. For each allocation, build the **receivable line set** for that statement (§4.5.1), sort by `paidAt` ascending, and apply the allocation to each line’s **remaining** amount (`expectedAmount - receivedAmountSoFar`)
+3. Fully covered lines → `REIMBURSED`, set cumulative `receivedAmount = expectedAmount`, `reimbursedAt`, clear open-mismatch flags
+4. Partially covered line → keep as receivable / `REIMBURSED` with partial cumulative `receivedAmount`, and ensure an open `AMOUNT_DIFFERS` mismatch reflects the shortfall
+5. Receivable lines that still receive **nothing** from this receipt (total ran out) → open or keep `MISSING_FROM_SONARWA`; line → `DISPUTED`, `hasOpenMismatch=true`
+6. `|remaining after this apply| ≤ 1` → may auto-close as `EXPLAINED` / `ROUNDING`
+7. **Always** reconcile open mismatches for lines touched by this receipt (§4.5.1) — do not leave stale open differences when the shortfall is now covered
+8. Add allocation amounts into statement `receivedAmount` (sum of all receipts)
+9. Recompute each affected statement status (`ISSUED` / `PARTIALLY_RECONCILED` / `RECONCILED`)
+10. Set `mismatchCount` on **this** receipt to mismatches **created or updated** by this apply (not the statement’s lifetime total)
 
 **Response:** `{ "data": /* Receipt */ }`
+
+#### 4.5.1 Follow-up receipts / remaining balance (**required fix**)
+
+##### Bug this fixes
+
+After a **partial** SONARWA payment, finance records a **second** receipt for the remaining bank total.
+
+**Broken behaviour (do not ship):**
+
+- Statement `receivedAmount` increases and may equal `amountDue` (`outstandingAmount = 0`)
+- Lines stay `DISPUTED` / partially reimbursed
+- Open mismatches stay `OPEN` (Overview still shows “Differences to review”)
+
+**Correct behaviour:** the second receipt must walk remaining receivable lines, update `receivedAmount` / stage on each line, and **close or update** open mismatches so overview, statement, ledger, and differences stay consistent.
+
+##### Receivable lines for an allocation
+
+For statement `S`, include every line on `S` that still has money owed by SONARWA:
+
+| Line state | Include? | Remaining amount to apply |
+|---|---|---|
+| `BILLED` (no receipt applied yet) | yes | `expectedAmount` |
+| `DISPUTED` with open `MISSING_FROM_SONARWA` | yes | `expectedAmount - (receivedAmount ?? 0)` (usually full expected) |
+| `REIMBURSED` (or still flagged) with open `AMOUNT_DIFFERS` and `receivedAmount < expectedAmount` | yes | `expectedAmount - receivedAmount` |
+| Fully reimbursed (`receivedAmount >= expectedAmount`) with **no** open underpay mismatch | **no** | — |
+| `WRITTEN_OFF` / absorbed mismatch only | **no** | — |
+
+Do **not** limit eligibility to `stage === BILLED` only. After the first partial receipt, unpaid lines are often `DISPUTED`, and underpaid lines may already be `REIMBURSED` with an open difference.
+
+##### Apply algorithm (per allocation)
+
+```
+remainingCash = allocation.amount
+candidates = receivableLines(statementId)
+  .sort by paidAt ascending (then lineId for stability)
+
+for each line in candidates:
+  if remainingCash <= 0: break
+  owed = expectedAmount - (receivedAmount ?? 0)
+  if owed <= 0: continue
+
+  applied = min(remainingCash, owed)
+  line.receivedAmount = (receivedAmount ?? 0) + applied
+  remainingCash -= applied
+
+  if line.receivedAmount >= line.expectedAmount - ROUNDING_TOLERANCE:
+      // fully covered (within 1 RWF)
+      line.stage = REIMBURSED
+      line.reimbursedAt = now (if not set)
+      closeOrAutoResolveOpenMismatch(line)   // see below
+      clear hasOpenMismatch / openMismatchId / mismatchAmount
+  else:
+      // still short
+      line.stage = REIMBURSED if receivedAmount > 0 else DISPUTED
+      upsertOpenMismatch AMOUNT_DIFFERS (or keep MISSING if applied==0 on a previously missing line)
+      set hasOpenMismatch = true
+```
+
+Same oldest-first whole-then-partial rule as `applyReceiptTotalToLines`, but the per-line “expected” input is the **remaining owed**, not always the original `expectedAmount`.
+
+##### Mismatch updates (mandatory)
+
+For each line touched by this receipt:
+
+| Before | After this receipt covers the shortfall in full | Action |
+|---|---|---|
+| Open `MISSING_FROM_SONARWA` | Fully paid | Set mismatch `status` to a closed state: prefer auto-`EXPLAINED` with `reasonCode=PAY_LATER` **or** delete/supersede and treat as matched — **must not remain `OPEN`**. Recommended: set `EXPLAINED` + `PAY_LATER`, `resolvedAt=now`, update `sonarwaAmount` / `differenceAmount` to final figures, clear line mismatch flags |
+| Open `AMOUNT_DIFFERS` | Fully paid | Same — close it; update `sonarwaAmount` to cumulative received; `differenceAmount = sonarwaAmount - expectedAmount` (≈ 0) |
+| Open mismatch | Still underpaid | **Update** the open mismatch in place: `sonarwaAmount` = cumulative received, `differenceAmount` recalculated, `receiptId` = latest receipt (or keep first + timeline note). Do **not** create a second open mismatch for the same line |
+| No mismatch | Newly underpaid | Create open `AMOUNT_DIFFERS` |
+| No mismatch | Newly unpaid (applied 0 while cash ran out) | Create open `MISSING_FROM_SONARWA`, line `DISPUTED` |
+
+**Hard rule:** a statement must not show `outstandingAmount = 0` while `openMismatchCount > 0` for underpayment mismatches that this receipt’s cash already covered. If cash fully clears the statement, open underpay/missing mismatches on that statement must be closed as part of the same transaction.
+
+##### Statement recompute (after every receipt)
+
+1. `receivedAmount` = sum of all receipt allocations to the statement  
+2. `writtenOffAmount` = absorbed mismatches (write-off + explained rounding) as already defined  
+3. `outstandingAmount` = `amountDue - receivedAmount - writtenOffAmount`  
+4. `openMismatchCount` / `openMismatchAmount` = **current** open mismatches only  
+5. Status:
+   - `RECONCILED` when `outstandingAmount <= 0` **and** `openMismatchCount === 0`
+   - else `PARTIALLY_RECONCILED` when any money received or absorbed
+   - else `ISSUED`
+
+##### Example
+
+Statement `amountDue = 435951`, 25 billed lines.
+
+**Receipt 1** — `amount = 285951`  
+→ oldest lines fully reimbursed; some lines `MISSING_FROM_SONARWA` / one partial `AMOUNT_DIFFERS`  
+→ e.g. `openMismatchCount = 6`, `receivedAmount = 285951`, status `PARTIALLY_RECONCILED`
+
+**Receipt 2** — `amount = 150000` (remaining balance), same `statementId`  
+→ apply `150000` to receivable lines (the 6 still owed), oldest first  
+→ those lines become fully `REIMBURSED`  
+→ those 6 open mismatches **close**  
+→ `receivedAmount = 435951`, `outstandingAmount = 0`, `openMismatchCount = 0`, status **`RECONCILED`**  
+→ Overview: Differences = 0, status “Matched” (not “Differences to review”)
+
+##### Anti-patterns
+
+- Incrementing statement `receivedAmount` without applying cash to lines
+- Selecting only `stage === BILLED` for follow-up receipts
+- Creating a new open mismatch per receipt for the same line instead of updating/closing the existing one
+- Leaving `openMismatchCount > 0` when the statement is fully paid
+
+##### QA for this fix
+
+- [ ] Partial receipt → statement partly reconciled, open differences appear, lines disputed/partial
+- [ ] Second receipt for exact remainder → lines reimbursed, open differences cleared, statement `RECONCILED`
+- [ ] Overview cards: Received = Billed, Still owed = 0, **Differences = 0**
+- [ ] Ledger line detail timeline includes both reimbursements / mismatch resolved events
+- [ ] Third small over/under payment still creates or updates mismatches correctly
+- [ ] Idempotent retry of receipt 2 does not double-apply
 
 #### `POST /financeLedger/receipts/importRemittance` (optional / future)
 
@@ -996,15 +1113,18 @@ Use this against the frontend with **`NEXT_PUBLIC_FINANCE_MOCK` unset** (real AP
 ### Receipts (total-only)
 
 - [ ] Allocations must sum to amount
-- [ ] Oldest billed lines reimbursed first within each statement allocation
-- [ ] Partial last line creates `AMOUNT_DIFFERS`; leftover billed lines create `MISSING_FROM_SONARWA`
+- [ ] Oldest receivable lines reimbursed first within each statement allocation
+- [ ] Partial last line creates `AMOUNT_DIFFERS`; leftover receivable lines create `MISSING_FROM_SONARWA`
 - [ ] Statement moves to partly reconciled / reconciled correctly
+- [ ] **Follow-up receipt for remaining balance updates lines and closes open mismatches** (§4.5.1)
+- [ ] Fully paid statement never keeps open underpay/missing differences
 
 ### Differences
 
 - [ ] Open mismatches list + filters
 - [ ] Resolve explain / rebill / write-off with note rules
 - [ ] Absorbed rounding / write-off updates statement outstanding
+- [ ] Auto-close / update on follow-up receipt when shortfall is covered
 
 ### Cross-cutting
 
@@ -1034,11 +1154,21 @@ Do **not** silently fall back to demo data on the frontend — if an endpoint is
 2. `POST /financeLedger/payouts` with vet selection → `PREPARED`
 3. `PUT /financeLedger/payouts/:id/markPaid` with bank refs → lines `PAID`, open `STM-YYYY-MM`
 4. `GET /financeLedger/statements/:id/issueChecks` → `PUT .../issue` with `acknowledgeWarnings` if needed
-5. `POST /financeLedger/receipts` with bank total allocated to that statement
-6. `GET /financeLedger/mismatches?module=livestock&status=OPEN`
-7. `PUT /financeLedger/mismatches/:id/resolve` as needed
-8. Confirm `GET /financeLedger/summary` and statement `outstandingAmount` / status
+5. `POST /financeLedger/receipts` with a **partial** bank total allocated to that statement  
+   → expect `PARTIALLY_RECONCILED` + open mismatches
+6. `POST /financeLedger/receipts` again with the **remaining** balance on the same statement  
+   → expect lines reimbursed, mismatches closed, statement `RECONCILED` (§4.5.1)
+7. `GET /financeLedger/mismatches?module=livestock&status=OPEN` → should be empty for that statement if fully paid
+8. Confirm `GET /financeLedger/summary`: Received = Billed, Still owed = 0, Differences = 0
 
 ---
 
-*Document version: aligned with frontend finance-ledger phases 0–9 (Nov 2026). Update this file when the contract changes.*
+## 11. Backend fix brief (share with API team)
+
+**Endpoint:** `POST /financeLedger/receipts`  
+**Symptom:** Second receipt updates statement totals but not lines / differences.  
+**Fix:** On every receipt (not only the first), apply allocation cash to **receivable** lines (including `DISPUTED` and underpaid `REIMBURSED`), update cumulative `receivedAmount`, and **close or update** open mismatches in the same transaction. Full rules: **§4.5.1**.
+
+---
+
+*Document version: aligned with frontend finance-ledger phases 0–9 + follow-up receipt fix (Nov 2026). Update this file when the contract changes.*
