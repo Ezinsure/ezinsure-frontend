@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/toast';
+import { todayDateInputValue } from '@/utils/date-formatter';
 import { useExternalVetCommissionsApi } from '../api';
 import {
   COMMISSION_LINE_COLUMN_LABELS,
@@ -282,7 +283,7 @@ export function UploadCommissionWizard({
               '',
             district: mine.district || selfServiceProfile.district || '',
             sector: mine.sector || selfServiceProfile.sector || '',
-            commissionRequestDate: new Date().toISOString().slice(0, 10),
+            commissionRequestDate: todayDateInputValue(),
             bankName: mine.bankName || selfServiceProfile.bankName || '',
             bankAccountNumber:
               mine.bankAccountNumber ||
@@ -436,7 +437,7 @@ export function UploadCommissionWizard({
       district: vet.district ?? '',
       sector: vet.sector ?? '',
       commissionRequestDate:
-        payee.commissionRequestDate || new Date().toISOString().slice(0, 10),
+        payee.commissionRequestDate || todayDateInputValue(),
       bankName: vet.bankName ?? '',
       bankAccountNumber: vet.bankAccountNumber ?? '',
     });
@@ -452,7 +453,7 @@ export function UploadCommissionWizard({
       district: '',
       sector: '',
       commissionRequestDate:
-        payee.commissionRequestDate || new Date().toISOString().slice(0, 10),
+        payee.commissionRequestDate || todayDateInputValue(),
       bankName: hit.bankName ?? '',
       bankAccountNumber: hit.bankAccountNumber ?? '',
     });

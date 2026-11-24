@@ -39,8 +39,9 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# local docs (not published to GitHub)
-/docs/
+# local docs (not published to GitHub), except shared backend contracts
+/docs/*
+!/docs/backend-finance-ledger-api.md
 **/PHASE_*BACKEND*.md
 **/BACKEND_*CONTRACT*.md
 src/features/**/PHASE_*.md

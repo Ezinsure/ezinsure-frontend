@@ -1,13 +1,6 @@
-'use client';
+import { redirect } from 'next/navigation';
 
-import { LivestockWorkspaceDashboard } from '@/features/livestock-application/livestock-workspace-dashboard';
-
+/** Old workspace dashboard entry — Finance Home is now Overview. */
 export default function FinanceLivestockDashboardPage() {
-  return (
-    <LivestockWorkspaceDashboard
-      title="Finance livestock dashboard"
-      subtitle="Monitor insured animals, agent commissions, and company commission totals by period."
-      scope="all"
-    />
-  );
+  redirect('/finance/livestock/overview');
 }

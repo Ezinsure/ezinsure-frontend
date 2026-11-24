@@ -20,10 +20,9 @@ import { useLivestockFinanceApi } from './api';
 import type { LivestockFinanceDateRange, LivestockFinanceVet, LivestockFinanceVetTotals } from './domain';
 import { downloadVetCommissionMemoExcel } from './export/vet-commission-memo-export';
 import VetApplicationsModal from './components/vet-applications-modal';
-
-function formatCurrency(value: number) {
-  return `${value.toLocaleString()} RWF`;
-}
+import { todayDateInputValue } from '@/utils/date-formatter';
+import { getFullMonthRange } from '@/utils/date-range';
+import { formatMoney as formatCurrency } from '@/utils/money';
 
 export default function LivestockPaymentInitiatedView() {
   const router = useRouter();
@@ -53,14 +52,10 @@ export default function LivestockPaymentInitiatedView() {
     [],
   );
   const selectedMonthLabel = useMemo(() => monthNames[selectedMonth - 1], [monthNames, selectedMonth]);
-  const selectedRange = useMemo<LivestockFinanceDateRange>(() => {
-    const start = new Date(Date.UTC(selectedYear, selectedMonth - 1, 1));
-    const end = new Date(Date.UTC(selectedYear, selectedMonth, 0));
-    return {
-      startDate: start.toISOString().slice(0, 10),
-      endDate: end.toISOString().slice(0, 10),
-    };
-  }, [selectedMonth, selectedYear]);
+  const selectedRange = useMemo<LivestockFinanceDateRange>(
+    () => getFullMonthRange(selectedYear, selectedMonth),
+    [selectedMonth, selectedYear],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -69,8 +64,14 @@ export default function LivestockPaymentInitiatedView() {
       try {
         const rows = await getVetsCommissionBreakdown(selectedRange, 'PAYMENT_INITIATED');
         if (!cancelled) setVets(rows);
-      } catch {
-        if (!cancelled) setVets([]);
+      } catch (err) {
+        if (!cancelled) {
+          setVets([]);
+          showToast(
+            err instanceof Error ? err.message : 'Failed to load initiated payments.',
+            'error',
+          );
+        }
       } finally {
         if (!cancelled) setIsLoading(false);
       }
@@ -79,7 +80,7 @@ export default function LivestockPaymentInitiatedView() {
     return () => {
       cancelled = true;
     };
-  }, [getVetsCommissionBreakdown, selectedRange.endDate, selectedRange.startDate]);
+  }, [getVetsCommissionBreakdown, selectedRange.endDate, selectedRange.startDate, showToast]);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -176,7 +177,7 @@ export default function LivestockPaymentInitiatedView() {
     try {
       await downloadVetCommissionMemoExcel(sortedVets, {
         fromName: 'Finance',
-        date: new Date().toISOString().slice(0, 10),
+        date: todayDateInputValue(),
         dateRange: selectedRange,
       });
       showToast('Internal memo exported successfully.', 'success');

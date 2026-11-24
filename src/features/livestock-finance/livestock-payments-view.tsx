@@ -28,10 +28,9 @@ import type {
 } from './domain';
 import { downloadVetCommissionMemoExcel } from './export/vet-commission-memo-export';
 import VetApplicationsModal from './components/vet-applications-modal';
-
-function formatCurrency(value: number) {
-  return `${value.toLocaleString()} RWF`;
-}
+import { todayDateInputValue } from '@/utils/date-formatter';
+import { getMonthToDateRange } from '@/utils/date-range';
+import { formatMoney as formatCurrency } from '@/utils/money';
 
 type SortField =
   | 'name'
@@ -49,17 +48,7 @@ export default function LivestockPaymentsView() {
   } = useLivestockFinanceApi();
   const { showToast } = useToast();
 
-  const today = useMemo(() => new Date(), []);
-  const defaultStart = useMemo(() => {
-    const d = new Date(today.getFullYear(), today.getMonth(), 1);
-    return d.toISOString().slice(0, 10);
-  }, [today]);
-  const defaultEnd = useMemo(() => today.toISOString().slice(0, 10), [today]);
-
-  const [range, setRange] = useState<LivestockFinanceDateRange>({
-    startDate: defaultStart,
-    endDate: defaultEnd,
-  });
+  const [range, setRange] = useState<LivestockFinanceDateRange>(() => getMonthToDateRange());
   const [vets, setVets] = useState<LivestockFinanceVetTotals[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isInitiatingPayment, setIsInitiatingPayment] = useState(false);
@@ -104,10 +93,14 @@ export default function LivestockPaymentsView() {
           });
           setVets(breakdown);
         }
-      } catch {
+      } catch (err) {
         if (!cancelled) {
           setVets([]);
           setFinanceStats({ totalCommission: 0, totalApplications: 0, totalVets: 0, totalNetPremium: 0 });
+          showToast(
+            err instanceof Error ? err.message : 'Failed to load vet commissions.',
+            'error',
+          );
         }
       } finally {
         if (!cancelled) setIsLoading(false);
@@ -123,6 +116,7 @@ export default function LivestockPaymentsView() {
     getVetsCommissionBreakdown,
     range.endDate,
     range.startDate,
+    showToast,
   ]);
 
   useEffect(() => {
@@ -201,7 +195,7 @@ export default function LivestockPaymentsView() {
     try {
       await downloadVetCommissionMemoExcel(sortedVets, {
         fromName: 'Finance',
-        date: new Date().toISOString().slice(0, 10),
+        date: todayDateInputValue(),
         dateRange: range,
       });
       showToast('Internal memo exported successfully.', 'success');

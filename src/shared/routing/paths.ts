@@ -32,6 +32,11 @@ export function getDashboardPath(role: string, productLine: ProductLine = 'motor
     return `/${prefix}/motor/dashboard`;
   }
 
+  // Livestock finance lands on the money-flow home, not the workspace dashboard.
+  if (normalized === 'FINANCE' && productLine === 'livestock') {
+    return `/${prefix}/livestock/overview`;
+  }
+
   if (
     normalized === 'ADMIN' ||
     normalized === 'SUPER_ADMIN' ||

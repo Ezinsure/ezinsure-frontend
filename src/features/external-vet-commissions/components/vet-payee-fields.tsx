@@ -5,6 +5,7 @@ import {
   getAllDistrictOptions,
   getSectorNamesForDistrict,
 } from '@/features/livestock-application/utils/location';
+import { todayDateInputValue } from '@/utils/date-formatter';
 import { rwandaBanks } from '@/utils/rwanda-banks';
 import type { ExternalVetPayeeSnapshot } from '../domain';
 
@@ -178,7 +179,7 @@ export function emptyPayeeSnapshot(): ExternalVetPayeeSnapshot {
     phoneNumber: '',
     district: '',
     sector: '',
-    commissionRequestDate: new Date().toISOString().slice(0, 10),
+    commissionRequestDate: todayDateInputValue(),
     bankName: '',
     bankAccountNumber: '',
   };

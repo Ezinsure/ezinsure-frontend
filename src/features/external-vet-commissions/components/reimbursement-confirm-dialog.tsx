@@ -14,6 +14,8 @@ type Props = {
   vetCount: number;
   totalVetCommission: number;
   totalCompanyCommission: number;
+  /** Lines added to the selection because actions apply to whole batches. */
+  addedLineCount?: number;
   exportReference: string;
   onExportReferenceChange: (value: string) => void;
   reimbursedAt: string;
@@ -33,6 +35,7 @@ export function ReimbursementConfirmDialog({
   vetCount,
   totalVetCommission,
   totalCompanyCommission,
+  addedLineCount = 0,
   exportReference,
   onExportReferenceChange,
   reimbursedAt,
@@ -88,6 +91,18 @@ export function ReimbursementConfirmDialog({
               ? 'Selected batches will move to Awaiting SONARWA reimbursement, and an Excel reclaim file will download.'
               : 'Record the SONARWA remittance details after settlement. The transaction ID will appear on reimbursed applications and line details.'}
           </p>
+
+          {addedLineCount > 0 ? (
+            <p
+              role="note"
+              className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-900"
+            >
+              This action applies to whole batches, so {addedLineCount} more
+              line{addedLineCount === 1 ? '' : 's'} from the same{' '}
+              {batchCount === 1 ? 'batch' : 'batches'} {addedLineCount === 1 ? 'is' : 'are'}{' '}
+              included. The totals below cover every line affected.
+            </p>
+          ) : null}
 
           <dl className="grid grid-cols-2 gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm">
             <div>

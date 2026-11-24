@@ -7,10 +7,7 @@ import { MainLayout } from '@/components/ui/main-layout';
 import { useToast } from '@/components/ui/toast';
 import { useLivestockFinanceApi } from './api';
 import type { LivestockPaidHistoryMonthBlock, LivestockPaidHistoryVetRow } from './domain';
-
-function formatCurrency(value: number) {
-  return `${value.toLocaleString()} RWF`;
-}
+import { formatMoney as formatCurrency } from '@/utils/money';
 
 const MIN_HISTORY_YEAR = 2000;
 
