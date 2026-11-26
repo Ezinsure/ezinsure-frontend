@@ -257,10 +257,16 @@ export function LivestockApplicationForm({
             Discount is 1% of the farmer contribution (net premium). It is deducted from{' '}
             {renewalPricing.discountBearer === 'agent'
               ? 'the veterinary commission (vet-originated application)'
-              : 'company commission'}
+              : showCompanyCommission
+                ? 'company commission'
+                : 'the insurer share (not from your veterinary commission)'}
             . The backend recalculates these values when you submit.
           </p>
-          <dl className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <dl
+            className={`mt-3 grid grid-cols-2 gap-2 ${
+              showCompanyCommission ? 'sm:grid-cols-4' : 'sm:grid-cols-3'
+            }`}
+          >
             <div>
               <dt className="text-xs text-blue-800/80">Expected payment</dt>
               <dd className="font-semibold">{formatRwfDisplay(renewalPricing.expectedPaymentAmount)}</dd>
@@ -275,12 +281,14 @@ export function LivestockApplicationForm({
                 {formatRwfDisplay(renewalPricing.agentCommissionAfterDiscount)}
               </dd>
             </div>
-            <div>
-              <dt className="text-xs text-blue-800/80">Company commission after</dt>
-              <dd className="font-semibold">
-                {formatRwfDisplay(renewalPricing.companyCommissionAfterDiscount)}
-              </dd>
-            </div>
+            {showCompanyCommission ? (
+              <div>
+                <dt className="text-xs text-blue-800/80">Company commission after</dt>
+                <dd className="font-semibold">
+                  {formatRwfDisplay(renewalPricing.companyCommissionAfterDiscount)}
+                </dd>
+              </div>
+            ) : null}
           </dl>
         </div>
       )}

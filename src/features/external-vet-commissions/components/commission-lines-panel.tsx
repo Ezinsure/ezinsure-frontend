@@ -30,6 +30,7 @@ import {
   EXTERNAL_VET_LINES_WORKSPACE_STATUSES,
   EXTERNAL_VET_STATUS_LABELS,
   canFinanceRejectBatchStatus,
+  canViewCompanyCommission,
   formatRwf,
   summarizeCommissionLines,
   type ExportLineIncludeFilter,
@@ -372,6 +373,7 @@ export function CommissionLinesPanel({
     () => reviewStageForViewRole(viewRole),
     [viewRole],
   );
+  const showCompanyCommission = canViewCompanyCommission(viewRole);
 
   const [statusFilter, setStatusFilter] = useState<
     ExternalVetLinesWorkspaceStatus | 'ALL'
@@ -1305,9 +1307,11 @@ export function CommissionLinesPanel({
                     <span className="font-medium text-slate-800">
                       Vet {formatRwf(group.totalVetCommission)}
                     </span>
-                    <span className="font-medium text-slate-800">
-                      Co. {formatRwf(group.totalCompanyCommission)}
-                    </span>
+                    {showCompanyCommission ? (
+                      <span className="font-medium text-slate-800">
+                        Co. {formatRwf(group.totalCompanyCommission)}
+                      </span>
+                    ) : null}
                   </div>
                 </div>
 

@@ -12,6 +12,8 @@ type Props = {
   batches: ExternalVetCommissionBatchSummary[];
   isLoading?: boolean;
   emptyMessage?: string;
+  /** When false, hide company commission (vet portal). Default true. */
+  showCompanyCommission?: boolean;
   selectedIds?: Set<string>;
   onToggleSelect?: (id: string) => void;
   onToggleSelectAll?: () => void;
@@ -23,6 +25,7 @@ export function BatchListTable({
   batches,
   isLoading,
   emptyMessage = 'No commission batches found.',
+  showCompanyCommission = true,
   selectedIds,
   onToggleSelect,
   onToggleSelectAll,
@@ -72,7 +75,9 @@ export function BatchListTable({
             <th scope="col" className="px-3 py-3 font-medium">Period</th>
             <th scope="col" className="px-3 py-3 font-medium">Lines</th>
             <th scope="col" className="px-3 py-3 font-medium">Vet commission</th>
-            <th scope="col" className="px-3 py-3 font-medium">Company commission</th>
+            {showCompanyCommission ? (
+              <th scope="col" className="px-3 py-3 font-medium">Company commission</th>
+            ) : null}
             <th scope="col" className="px-3 py-3 font-medium">Status</th>
             <th scope="col" className="min-w-[12rem] px-3 py-3 font-medium">Notes / ref</th>
             <th scope="col" className="px-3 py-3 font-medium">Created</th>
@@ -121,9 +126,11 @@ export function BatchListTable({
                 <td className="px-3 py-3 font-medium">
                   {formatRwf(batch.totalVetCommission)}
                 </td>
-                <td className="px-3 py-3 font-medium">
-                  {formatRwf(batch.totalCompanyCommission)}
-                </td>
+                {showCompanyCommission ? (
+                  <td className="px-3 py-3 font-medium">
+                    {formatRwf(batch.totalCompanyCommission)}
+                  </td>
+                ) : null}
                 <td className="px-3 py-3 align-middle">
                   <ExternalVetStatusBadge status={batch.status} />
                 </td>

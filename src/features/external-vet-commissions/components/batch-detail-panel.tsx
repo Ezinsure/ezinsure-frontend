@@ -321,21 +321,25 @@ export function BatchDetailPanel({
         lines,
         lineCount: lines.length,
       };
+      const exportOptions = {
+        includeCompanyCommission: showCompanyCommission,
+        viewRole,
+      };
       if (kind === 'excel') {
-        await exportExternalVetBatchDetailToExcel(payload);
+        await exportExternalVetBatchDetailToExcel(payload, exportOptions);
         showToast(
           `Exported ${lines.length} ${include === 'ALL' ? '' : `${include.toLowerCase().replace('_', ' ')} `}line${lines.length === 1 ? '' : 's'} to Excel`,
           'success',
         );
       } else {
-        await exportExternalVetBatchDetailToPdf(payload);
+        await exportExternalVetBatchDetailToPdf(payload, exportOptions);
         showToast(
           `Exported ${lines.length} line${lines.length === 1 ? '' : 's'} to PDF`,
           'success',
         );
       }
     },
-    [batch, showToast],
+    [batch, showCompanyCommission, showToast, viewRole],
   );
 
   const openLine = useCallback(

@@ -26,6 +26,8 @@ type Props = {
   open: boolean;
   target: WithdrawBatchTarget | null;
   busy?: boolean;
+  /** When false, hide company commission totals (vet portal). Default true. */
+  showCompanyCommission?: boolean;
   onCancel: () => void;
   onConfirm: (reason: string) => void;
 };
@@ -34,6 +36,7 @@ export function WithdrawBatchDialog({
   open,
   target,
   busy = false,
+  showCompanyCommission = true,
   onCancel,
   onConfirm,
 }: Props) {
@@ -150,8 +153,13 @@ export function WithdrawBatchDialog({
                 Totals
               </dt>
               <dd className="mt-0.5 text-sm text-slate-800">
-                Vet {formatRwf(target.totalVetCommission)} · Co.{' '}
-                {formatRwf(target.totalCompanyCommission)}
+                Vet {formatRwf(target.totalVetCommission)}
+                {showCompanyCommission ? (
+                  <>
+                    {' '}
+                    · Co. {formatRwf(target.totalCompanyCommission)}
+                  </>
+                ) : null}
               </dd>
             </div>
           </dl>

@@ -26,6 +26,7 @@ import {
   PerformanceCompareCards,
   usePerformanceCompare,
 } from '@/features/performance-compare';
+import { isVeterinaryRole } from '@/shared/utils/role';
 import { useApiClient } from '@/utils/apiClient';
 
 const getFirstDayOfMonth = (): string => {
@@ -57,6 +58,8 @@ export function LivestockWorkspaceDashboard({
 }: LivestockWorkspaceDashboardProps) {
   const { apiFetch } = useApiClient();
   const { user } = useAuth();
+  const hideCompany =
+    hideCompanyCommission || isVeterinaryRole(String(user?.role ?? ''));
   const [startDate, setStartDate] = useState(getFirstDayOfMonth);
   const [endDate, setEndDate] = useState(getTodayDate);
   const [stats, setStats] = useState<LivestockDashboardStats | null>(null);
@@ -73,7 +76,7 @@ export function LivestockWorkspaceDashboard({
         endDate,
         scope,
         vetId: vetScoped ? user?._id : undefined,
-        hideCompanyCommission,
+        hideCompanyCommission: hideCompany,
       });
       setStats(result);
     } catch (err) {
@@ -82,7 +85,7 @@ export function LivestockWorkspaceDashboard({
     } finally {
       setIsLoading(false);
     }
-  }, [apiFetch, endDate, hideCompanyCommission, scope, startDate, user?._id, vetScoped]);
+  }, [apiFetch, endDate, hideCompany, scope, startDate, user?._id, vetScoped]);
 
   useEffect(() => {
     void load();
@@ -92,7 +95,7 @@ export function LivestockWorkspaceDashboard({
     audience: vetScoped ? 'vet' : 'admin',
     actorId: vetScoped ? user?._id : undefined,
     livestockScope: scope,
-    hideCompanyCommission,
+    hideCompanyCommission: hideCompany,
     enabled: !vetScoped || Boolean(user?._id),
   });
 
@@ -189,7 +192,7 @@ export function LivestockWorkspaceDashboard({
               caption="Veterinary / agent share"
               icon={DollarSign}
             />
-            {!hideCompanyCommission && (
+            {!hideCompany && (
               <StatCard
                 title="Company commissions"
                 value={formatRwfDisplay(stats?.totalCompanyCommissions ?? 0)}

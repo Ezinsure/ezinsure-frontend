@@ -8,8 +8,10 @@ import {
   COMMISSION_LINE_COLUMN_KEYS,
   COMMISSION_LINE_COLUMN_LABELS,
   EXTERNAL_VET_STATUS_LABELS,
+  commissionLineColumnsForAudience,
   type ExternalVetCommissionBatch,
   type ExternalVetCommissionLine,
+  type ExternalVetsViewRole,
 } from '../domain';
 
 const MONEY_KEYS = new Set([
@@ -19,8 +21,13 @@ const MONEY_KEYS = new Set([
   'companyCommission',
 ]);
 
-const LINE_EXPORT_COLUMNS: ExportColumn<ExternalVetCommissionLine>[] =
-  COMMISSION_LINE_COLUMN_KEYS.map((key) => ({
+function lineExportColumns(
+  includeCompanyCommission: boolean,
+): ExportColumn<ExternalVetCommissionLine>[] {
+  const keys = includeCompanyCommission
+    ? [...COMMISSION_LINE_COLUMN_KEYS]
+    : commissionLineColumnsForAudience('vet');
+  return keys.map((key) => ({
     header: COMMISSION_LINE_COLUMN_LABELS[key],
     getValue: (row) => {
       const value = row[key];
@@ -41,8 +48,28 @@ const LINE_EXPORT_COLUMNS: ExportColumn<ExternalVetCommissionLine>[] =
               ? 10
               : 16,
   }));
+}
 
-function buildBatchSummaryLines(batch: ExternalVetCommissionBatch): string[] {
+export interface ExternalVetBatchDetailExportOptions {
+  /** When false, omit company commission % / totals / line column (vet exports). Default true. */
+  includeCompanyCommission?: boolean;
+  viewRole?: ExternalVetsViewRole;
+}
+
+function resolveIncludeCompanyCommission(
+  options?: ExternalVetBatchDetailExportOptions,
+): boolean {
+  if (options?.includeCompanyCommission != null) {
+    return options.includeCompanyCommission;
+  }
+  if (options?.viewRole === 'vet') return false;
+  return true;
+}
+
+function buildBatchSummaryLines(
+  batch: ExternalVetCommissionBatch,
+  includeCompanyCommission: boolean,
+): string[] {
   return [
     `Batch: ${batch.batchNumber}`,
     `Status: ${EXTERNAL_VET_STATUS_LABELS[batch.status] ?? batch.status}`,
@@ -51,10 +78,16 @@ function buildBatchSummaryLines(batch: ExternalVetCommissionBatch): string[] {
     `Bank: ${batch.payee?.bankName?.trim() || '—'}`,
     `Account: ${batch.payee?.bankAccountNumber?.trim() || '—'}`,
     `Period: ${batch.periodLabel || '—'}`,
-    `Company commission %: ${batch.companyCommissionPercent}%`,
+    ...(includeCompanyCommission
+      ? [`Company commission %: ${batch.companyCommissionPercent}%`]
+      : []),
     `Lines: ${batch.lineCount}`,
     `Vet commission total: ${Number(batch.totalVetCommission || 0).toLocaleString('en-US')} RWF`,
-    `Company commission total: ${Number(batch.totalCompanyCommission || 0).toLocaleString('en-US')} RWF`,
+    ...(includeCompanyCommission
+      ? [
+          `Company commission total: ${Number(batch.totalCompanyCommission || 0).toLocaleString('en-US')} RWF`,
+        ]
+      : []),
     `Created by: ${batch.createdByName || '—'}`,
     `Created at: ${formatExportDate(batch.createdAt)}`,
     ...(batch.reviewedByName ? [`Reviewed by: ${batch.reviewedByName}`] : []),
@@ -64,7 +97,11 @@ function buildBatchSummaryLines(batch: ExternalVetCommissionBatch): string[] {
   ];
 }
 
-function buildBatchReportMeta(batch: ExternalVetCommissionBatch) {
+function buildBatchReportMeta(
+  batch: ExternalVetCommissionBatch,
+  options?: ExternalVetBatchDetailExportOptions,
+) {
+  const includeCompanyCommission = resolveIncludeCompanyCommission(options);
   const lines = batch.lines ?? [];
   return {
     title: `External Vet Commission Batch — ${batch.batchNumber}`,
@@ -74,10 +111,10 @@ function buildBatchReportMeta(batch: ExternalVetCommissionBatch) {
       `Status: ${EXTERNAL_VET_STATUS_LABELS[batch.status] ?? batch.status}`,
       ...(batch.periodLabel ? [`Period: ${batch.periodLabel}`] : []),
     ],
-    summaryLines: buildBatchSummaryLines(batch),
+    summaryLines: buildBatchSummaryLines(batch, includeCompanyCommission),
     filenameBase: `external_vet_batch_${batch.batchNumber}`,
     sheetName: 'Lines',
-    columns: LINE_EXPORT_COLUMNS,
+    columns: lineExportColumns(includeCompanyCommission),
     rows: lines,
     pdfOrientation: 'landscape' as const,
   };
@@ -85,18 +122,20 @@ function buildBatchReportMeta(batch: ExternalVetCommissionBatch) {
 
 export async function exportExternalVetBatchDetailToExcel(
   batch: ExternalVetCommissionBatch,
+  options?: ExternalVetBatchDetailExportOptions,
 ): Promise<void> {
   if (!batch.lines?.length) {
     throw new Error('No commission lines to export');
   }
-  await exportTableToExcel(buildBatchReportMeta(batch));
+  await exportTableToExcel(buildBatchReportMeta(batch, options));
 }
 
 export async function exportExternalVetBatchDetailToPdf(
   batch: ExternalVetCommissionBatch,
+  options?: ExternalVetBatchDetailExportOptions,
 ): Promise<void> {
   if (!batch.lines?.length) {
     throw new Error('No commission lines to export');
   }
-  await exportTableToPdf(buildBatchReportMeta(batch));
+  await exportTableToPdf(buildBatchReportMeta(batch, options));
 }

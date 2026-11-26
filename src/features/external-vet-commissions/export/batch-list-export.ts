@@ -122,9 +122,19 @@ export interface ExternalVetBatchExportOptions {
   startDate?: string;
   endDate?: string;
   search?: string;
+  /** When false, omit company commission columns/summary (vet exports). Default true. */
+  includeCompanyCommission?: boolean;
+}
+
+function batchExportColumns(includeCompanyCommission: boolean) {
+  if (includeCompanyCommission) return BATCH_EXPORT_COLUMNS;
+  return BATCH_EXPORT_COLUMNS.filter(
+    (col) => col.header !== 'Company commission (RWF)',
+  );
 }
 
 function buildReportMeta(options: ExternalVetBatchExportOptions) {
+  const includeCompanyCommission = options.includeCompanyCommission !== false;
   const tabLabel = exportTabLabel(options.tab);
   const totalVet = options.rows.reduce((sum, row) => sum + (row.totalVetCommission || 0), 0);
   const totalCompany = options.rows.reduce(
@@ -142,18 +152,24 @@ function buildReportMeta(options: ExternalVetBatchExportOptions) {
     contextLines.push(`Search: ${options.search.trim()}`);
   }
 
+  const summaryLines = [
+    `Batches: ${options.rows.length}`,
+    `Vet commission total: ${totalVet.toLocaleString('en-US')} RWF`,
+  ];
+  if (includeCompanyCommission) {
+    summaryLines.push(
+      `Company commission total: ${totalCompany.toLocaleString('en-US')} RWF`,
+    );
+  }
+
   return {
     title: `External Vet Commissions — ${tabLabel}`,
     subtitle: 'SONARWA commission batches (outside normal livestock applications)',
     contextLines: contextLines.length ? contextLines : undefined,
-    summaryLines: [
-      `Batches: ${options.rows.length}`,
-      `Vet commission total: ${totalVet.toLocaleString('en-US')} RWF`,
-      `Company commission total: ${totalCompany.toLocaleString('en-US')} RWF`,
-    ],
+    summaryLines,
     filenameBase: exportFilenameBase(options.tab),
     sheetName: tabLabel.slice(0, 31),
-    columns: BATCH_EXPORT_COLUMNS,
+    columns: batchExportColumns(includeCompanyCommission),
     rows: options.rows,
   };
 }

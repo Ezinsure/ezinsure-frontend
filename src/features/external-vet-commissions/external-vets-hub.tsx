@@ -388,8 +388,9 @@ export default function ExternalVetsHub({ viewRole }: ExternalVetsHubProps) {
       startDate: startDate || undefined,
       endDate: endDate || undefined,
       search: search || undefined,
+      includeCompanyCommission: !isVet,
     }),
-    [endDate, filteredBatches, search, startDate, tab],
+    [endDate, filteredBatches, isVet, search, startDate, tab],
   );
 
   const handleExportExcel = useCallback(async () => {
@@ -1225,6 +1226,7 @@ export default function ExternalVetsHub({ viewRole }: ExternalVetsHubProps) {
           <BatchListTable
             batches={filteredBatches}
             isLoading={isLoading}
+            showCompanyCommission={!isVet}
             emptyMessage={
               tab === 'sonarwa-review'
                 ? 'No requests pending SONARWA review.'
@@ -1397,6 +1399,7 @@ export default function ExternalVetsHub({ viewRole }: ExternalVetsHubProps) {
         open={Boolean(withdrawTarget)}
         target={withdrawTarget}
         busy={actionBusy}
+        showCompanyCommission={!isVet}
         onCancel={() => {
           if (!actionBusy) setWithdrawTarget(null);
         }}
